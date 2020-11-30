@@ -189,6 +189,7 @@ class FuncTableIntervalInt (iv : FuncTableIntervalDouble, val floating: Boolean,
         println(f"INFO (${this.getClass.getName}) : Range error: x=$x%f, dx=$dx%h, z=${term}%h(${term.toDouble}%e), c=${c._1}%h, cmin=$zmin%h, zmax=$zmax%h")
         //println(f"${c._1} ${z._1} ${term} $zw $d $dxBp $dx%h $dxl")
       }
+      //println(f"${c._1}%x ${z._1}%x ${term}%x $zw $d $dxBp $dx%x $dxl")
     }
     (term, d)
   }

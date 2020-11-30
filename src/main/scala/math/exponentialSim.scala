@@ -54,7 +54,7 @@ object ExponentialSim {
     // binary point at manW+extraBits
     val calcW = manW+extraBits
     val xi = if (sgn==0) xu else -xu
-
+    //println(f"xisim=$xi%x")
     // Result exponent
     val tmp = (xi>>calcW)
     val zEx = exBias + (xi>>calcW)
@@ -64,6 +64,7 @@ object ExponentialSim {
 
     val dxbp = calcW-adrW-1
     val d    = slice(xi, 0, dxbp+1) - (1L<<dxbp)
+    //println(f"d=$d%x")
     val adr  = slice(xi, dxbp+1, adrW).toInt
     val zman = t.interval(adr).eval(d, dxbp)
     // Simple rounding

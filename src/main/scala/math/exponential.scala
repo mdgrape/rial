@@ -66,6 +66,7 @@ class Pow2Generic(
   val xu = 0.U(1.W) ## Mux(shiftToZero, 0.U(man1W.W), xshift)
   val xi = Mux(sgn, -xu, xu) // calcW+expW
   val xiInt = xi(calcW+expW-1,calcW) // Integral part - for exponent
+  //printf("xi=%x\n", xi)
 
   // Result exponent
   // zero when xi = 0x80??????/0x81??????/
@@ -92,10 +93,13 @@ class Pow2Generic(
     val zw   = z.getWidth
     val dxBp = dx.getWidth-1
     val dxw  = min(zw, dxBp)
-    val dxl  = dx(dxBp, dxBp-dxw)
+    val dxl  = dx(dxBp, dxBp-dxw).asSInt
     val prod = dxl * z
     val prod_sft = dropSLSB(dxw, prod)
-    c +& prod_sft // Extend for safe
+    val sum = c +& prod_sft // Extend for safe
+    //printf("sum=%x c=%x z=%x dx=%x dxl=%x prod=%x prod_sft=%x\n",sum, c, z, dx, dxl, prod, prod_sft)
+    val dxlw=dxl.getWidth
+    sum
   }
 
   def polynomialEvaluationC( c : Seq[SInt], dx : SInt, enableRounding: Boolean = false ) = {
@@ -104,7 +108,7 @@ class Pow2Generic(
   }
 
   val s0 = polynomialEvaluationC( coeffS, d, enablePolynomialRounding ).asUInt
-  val zman  = dropULSB(1, s0) + s0(0) 
+  val zman  = dropULSB(extraBits, s0) + s0(extraBits-1) 
   val polynomialOvf = zman.head(2) === 1.U // >=1
   val polynomialUdf = zman.head(1) === 1.U // Negative 
   val zeroFlush = exOvfUdf || zExNegMax || polynomialUdf
