@@ -13,17 +13,22 @@ import rial.table._
 import rial.util._
 import rial.util.RialChiselUtil._
 import rial.util.ScalaUtil._
+import rial.util.PipelineStageConfig._
 
 class Pow2Generic(
   expW : Int, manW : Int, // Input / Output floating spec
   nOrder: Int, adrW : Int, extraBits : Int, // Polynomial spec
-  nStage: Int = 0,
+  stage : PipelineStageConfig,
   enableRangeCheck : Boolean = true,
   enablePolynomialRounding : Boolean = false,
 ) extends Module {
-  
+
+  val nStage = stage.total
+
   def getParam() = { (expW, manW, nOrder, adrW, extraBits, nStage,
     enableRangeCheck, enablePolynomialRounding) }
+
+  def getStage() = nStage
 
   val W    = expW+manW+1
 
@@ -56,17 +61,17 @@ class Pow2Generic(
   // right shift amount :
   //   0  if ex==exBias+expW-2
   //   shift = exBias+expW-2-ex 
-  //   0 if shift > calcW+expW-1
-  //     => ex < exBias-calcW-1
+  //   0 if shift >= calcW+expW-1
+  //     => ex <= exBias-calcW-1
   val shift_base = (exBias+expW-2) & mask(exValidW)
-  val shiftToZero = ex < (exBias-calcW-1).U(expW.W)
+  val shiftToZero = ex < (exBias-calcW).U(expW.W)
   val shift = shift_base.U - ex(exValidW-1,0)
   val xshift =manWith1 >> shift
   // binary point at bit calcW; extraBits bit for rounding / extension
   val xu = 0.U(1.W) ## Mux(shiftToZero, 0.U(man1W.W), xshift)
   val xi = Mux(sgn, -xu, xu) // calcW+expW
   val xiInt = xi(calcW+expW-1,calcW) // Integral part - for exponent
-  //printf("xi=%x\n", xi)
+  //printf("ex=%d shiftToZero=%b shift=%d xi=%x\n", ex, shiftToZero, shift, xi)
 
   // Result exponent
   // zero when xi = 0x80??????/0x81??????/
@@ -111,17 +116,17 @@ class Pow2Generic(
   val zman  = dropULSB(extraBits, s0) + s0(extraBits-1) 
   val polynomialOvf = zman.head(2) === 1.U // >=1
   val polynomialUdf = zman.head(1) === 1.U // Negative 
-  val zeroFlush = exOvfUdf || zExNegMax || polynomialUdf
+  val zeroFlush = exOvfUdf || zExNegMax || polynomialUdf || nan
   val zman_checkovf = Mux(polynomialOvf, Fill(manW,1.U(1.W)), zman(manW-1,0))
 
-  val z0 = zEx ## Mux(zeroFlush, 0.U(manW.W), zman_checkovf) 
+  val z0 = zEx ## Mux(zeroFlush, nan ## 0.U((manW-1).W), zman_checkovf) 
 
   io.z   := 0.U(1.W) ## ShiftRegister(z0, nStage)
-
+  //printf("x=%x z=%x\n", io.x, io.z)
 }
 
 class Pow2F32(
-  nStage: Int = 0,
+  nStage: PipelineStageConfig = new PipelineStageConfig,
   enableRangeCheck : Boolean = true,
   enablePolynomialRounding : Boolean = false,
 ) extends Pow2Generic(8,23,2,8,2,nStage,enableRangeCheck, enablePolynomialRounding) {
@@ -229,5 +234,5 @@ class Pow2F32_obsolete( nStage: Int = 0 ) extends Module {
 
 object Pow2F32_driver extends App {
   (new chisel3.stage.ChiselStage).execute(args,
-    Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new Pow2F32(0)) ) )
+    Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new Pow2F32(2)) ) )
 }

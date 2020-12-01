@@ -8,7 +8,7 @@ import java.nio._
 
 object crial {
 
-  val lib=NativeLibrary.getInstance("./crial/libcrial.so")
+  val lib=NativeLibrary.getInstance("./lib/libcrial.so")
 
   val mdg_inv_sqrt=lib.getFunction("mdg_inv_sqrt")
   def invSqrt(x:Int) : Int = {
