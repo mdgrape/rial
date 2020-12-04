@@ -63,7 +63,7 @@ class Pow2Generic(
   //   shift = exBias+expW-2-ex 
   //   0 if shift >= calcW+expW-1
   //     => ex <= exBias-calcW-1
-  val shift_base = (exBias+expW-2) & mask(exValidW)
+  val shift_base = (exBias+expW-2) & maskI(exValidW)
   val shiftToZero = ex < (exBias-calcW).U(expW.W)
   val shift = shift_base.U - ex(exValidW-1,0)
   val xshift =manWith1 >> shift

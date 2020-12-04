@@ -4,6 +4,9 @@ import chisel3._
 import chisel3.util._
 import scala.math._
 
+import spire.math.SafeLong
+import spire.implicits._
+
 object ScalaUtil {
 
   def separateOptions(args: Array[String]) : (Array[String], Array[String]) = {
@@ -36,29 +39,41 @@ object ScalaUtil {
 
   def log2DownD( x: Double ) = {
     if (x % 1.0 == 0.0) {
-      log2Up(x.toInt)
+      log2Down(x.toInt)
     } else {
       floor(log(x)/log(2.0)).toInt
     }
   }
 
-  def mask( n : Int ) = {
+  def maskL( n : Int ) = {
     if (n<=0) { 0 }
     else if (n<63) { (1L << n)-1 }
     else if (n==63) 0x7FFFFFFFFFFFFFFFL
     else 0xFFFFFFFFFFFFFFFFL
   }
 
-  def bit( x : Long, n : Int ) = {
-    (x>>n) & 1
+  def maskI( n : Int ) : Int = {
+    if (n<=0) { 0 }
+    else if (n<31) { (1 << n)-1 }
+    else if (n==31) 0x7FFFFFFF
+    else 0xFFFFFFFF
   }
 
-  def slice( x : Long, n : Int, w : Int ) = {
-    (x>>n) & mask(w)
+  def maskSL( n : Int ) : SafeLong = {
+    if (n<=0) { SafeLong(0) }
+    else (SafeLong(1) << n) - 1
   }
+
+  def bit( n : Int, x : Long ) : Long = { ((x>>n) & 1) }
+  def slice( n : Int, w : Int, x : Long ) : Long = { (x>>n) & maskL(w) }
+  def bit( n : Int, x : Int ) : Int = { (x>>n) & 1 }
+  def slice( n : Int, w : Int, x : Int ) : Int = { (x>>n) & maskI(w) }
+
+  def bit( n : Int, x : SafeLong ) : Int = { ((x>>n) & 1).toInt }
+  def slice( n : Int, w : Int, x : SafeLong ) : SafeLong = { (x>>n) & maskSL(w) }
 
   def normalizeFloat( x : Float ) : Float = {
     val x0 = if (x.isNaN) 0x7FC00000 else java.lang.Float.floatToRawIntBits(x)
-    if (slice(x0,23,8)==0) 0.0f else java.lang.Float.intBitsToFloat(x0)
+    if (slice(23,8,x0)==0) 0.0f else java.lang.Float.intBitsToFloat(x0)
   }
 }

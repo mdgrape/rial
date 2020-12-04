@@ -73,6 +73,9 @@ libraryDependencies += "org.scalatest" % "scalatest_2.12" % "3.0.8" % "test"
 // https://mvnrepository.com/artifact/org.apache.commons/commons-math3
 libraryDependencies += "org.apache.commons" % "commons-math3" % "3.2"
 
+// Spire
+libraryDependencies += "org.typelevel" %% "spire" % "0.14.1"
+
 scalacOptions ++= scalacOptionsVersion(scalaVersion.value)
 scalacOptions ++= Seq("-feature","-deprecation")
 

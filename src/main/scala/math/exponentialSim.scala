@@ -32,15 +32,15 @@ import rial.util.ScalaUtil._
 object ExponentialSim {
 
   def pow2simGeneric( t : FuncTableInt, expW : Int, manW : Int, adrW: Int, extraBits: Int, x: Long ) : Long = {
-    val man = slice(x, 0, manW)
-    val exRaw  = slice(x, manW, expW)
-    val sgn = bit(x, manW+expW)
-    val exBias = mask(expW-1)
+    val man = slice(0, manW, x)
+    val exRaw  = slice(manW, expW, x)
+    val sgn = bit(manW+expW, x)
+    val exBias = maskI(expW-1)
     val ex = exRaw-exBias
-    val overflow_value = mask(expW)<<manW
+    val overflow_value = maskI(expW)<<manW
     // Check NaN
-    if ( (exRaw == mask(expW)) && (man != 0L) )  {
-      return mask(expW+1) << (manW-1)
+    if ( (exRaw == maskI(expW)) && (man != 0L) )  {
+      return maskI(expW+1) << (manW-1)
     }
     if ( ex >= expW-1 ) { // Overflow or Underflow
       return ( if (sgn==0) overflow_value else 0L )
@@ -59,22 +59,22 @@ object ExponentialSim {
     val tmp = (xi>>calcW)
     val zEx = exBias + (xi>>calcW)
     //println(f"ex=$ex%d, xu=$xu%08x, zEx=$zEx%d, $tmp%d")
-    if   (zEx>=mask(expW)) { return overflow_value }
+    if   (zEx>=maskI(expW)) { return overflow_value }
     else if (zEx<=0) { return 0L }
 
     val dxbp = calcW-adrW-1
-    val d    = slice(xi, 0, dxbp+1) - (1L<<dxbp)
+    val d    = slice(0, dxbp+1, xi) - (1L<<dxbp)
     //println(f"d=$d%x")
-    val adr  = slice(xi, dxbp+1, adrW).toInt
+    val adr  = slice(dxbp+1, adrW, xi).toInt
     val zman = t.interval(adr).eval(d, dxbp)
     // Simple rounding
-    val zmanRound = (zman>>extraBits) + bit(zman, extraBits-1)
+    val zmanRound = (zman>>extraBits) + bit(extraBits-1, zman)
     val z = if (zman<0) {
       println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=$x%h")
       0L
     } else if (zmanRound >= (1L<<manW)) {
       println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=$x%h")
-      mask(manW)
+      maskL(manW)
     } else {
       zmanRound
     }

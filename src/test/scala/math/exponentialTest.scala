@@ -41,18 +41,18 @@ class Pow2F32Test extends FlatSpec
   def generateF32Within128 : Long = {
     val x  = ((r.nextDouble()-0.5)*128.0).toFloat
     val xi = java.lang.Float.floatToRawIntBits(x)
-    xi.toLong&mask(32)
+    xi.toLong&maskL(32)
   }
 
   def generateF32Within( p : Double, r : Random ) : Long = {
     val x  = ((r.nextDouble()-0.5)*p).toFloat
     val xi = java.lang.Float.floatToRawIntBits(x)
-    xi.toLong&mask(32)
+    xi.toLong&maskL(32)
   }
 
   def generateF32Full ( r : Random ) : Long = {
     val xi = r.nextInt
-    xi.toLong&mask(32)
+    xi.toLong&maskL(32)
   }
 
   private def runtest ( n : Int, stage : PipelineStageConfig ) = {
