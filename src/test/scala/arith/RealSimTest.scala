@@ -26,8 +26,8 @@ class RealSimTest extends FunSuite with Matchers with BeforeAndAfterAllConfigMap
 
   test("Double set->get test") {
     for(i <- 1 to n) {
-      val x0 = (r.nextDouble()-0.5)*128.0
-      //val x0 = 1.0
+      //val x0 = (r.nextDouble()-0.5)*128.0
+      val x0 = 1.0
       val xr = RealGeneric.fromDouble(RealSpec.Float64Spec, x0)
       val xd = xr.toDouble
       xd should be (x0)

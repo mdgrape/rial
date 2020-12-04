@@ -20,28 +20,43 @@ class RealSpec (
   val disableSign : Boolean = false,
   val disableNaN  : Boolean = false,
   val disableSubnormal : Boolean = true ) {
+
 }
 
 object RealSpec {
   val Float64Spec = new RealSpec(11, 0x3FF, 52, false, false, true)
   val Float32Spec = new RealSpec(8, 0x7F, 23, false, false, true)
+  val Float16Spec = new RealSpec(5, 0xF, 10, false, false, true)
+  val BFloat16Spec = new RealSpec(8, 0x7F, 7, false, false, true)
 }
 
 //
 // Again we do not use type generics for shift operators here...
 //
 // class RealGeneric
-//   this uses SafeLong for mantissa representation
-//   mantissa includes leading 1
+//   this uses SafeLong for representation
 //
-class RealGeneric ( val spec : RealSpec, val sgn: Int, val ex : Int, val man: SafeLong  ) {
+class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
 
-  def fracIsZero : Boolean = { (man & maskSL(spec.manW)) == 0 }
+  def this( spec : RealSpec, s : Int, e : Int, m : SafeLong ) = {
+    this(spec, (((SafeLong(s&1)<<spec.exW)+SafeLong(e&maskI(spec.exW)))<<spec.manW)+(m&maskSL(spec.manW)))
+  }
+
+  def this( spec : RealSpec, d : Double ) = {
+    this(spec, doubleToRealGeneric(spec,d) )
+  }
+
+  private def man   = (value & maskSL(spec.manW))
+  private def manW1 = ( (value & maskSL(spec.manW)) + (SafeLong(1)<<spec.manW) ) // with leading 1
+  private def ex  = slice(spec.manW,spec.exW,value).toInt
+  private def sgn = bit(spec.manW+spec.exW,value).toInt
+
+  def fracIsZero : Boolean = { man == 0 }
 
   def isNaN : Boolean = { (ex == maskI(spec.exW)) && !fracIsZero && !spec.disableNaN }
   def isInfinite : Boolean = { (ex == maskI(spec.exW)) && ( fracIsZero || spec.disableNaN ) }
   def isZero : Boolean = { (ex == 0) && (spec.disableSubnormal || fracIsZero) }
-  def isSubnormal : Boolean = { (ex == 0) && (man != 0) }
+  def isSubnormal : Boolean = { (ex == 0) && !fracIsZero }
 
   // Multiplication
   //
@@ -60,7 +75,7 @@ class RealGeneric ( val spec : RealSpec, val sgn: Int, val ex : Int, val man: Sa
 
     // Normal values
     val ex0=(ex-spec.exBias)+(that.ex-that.spec.exBias)
-    val prod= man * that.man
+    val prod= manW1 * that.manW1
     val bp = spec.manW+that.spec.manW
     val moreThan2 = bit(bp+1,prod)
     val roundbits = bp-resSpec.manW+moreThan2
@@ -98,8 +113,8 @@ class RealGeneric ( val spec : RealSpec, val sgn: Int, val ex : Int, val man: Sa
     val thatEx=that.ex-that.spec.exBias
     val (x,y,exMax) = if (thisEx<thatEx) (that, this, thatEx) else (this, that, thisEx)
     val diffEx = abs(thisEx-thatEx)
-    val xshift = x.man << diffEx
-    val sum =  if (this.sgn!=that.sgn) xshift-y.man else xshift+y.man
+    val xshift = x.manW1 << diffEx
+    val sum =  if (this.sgn!=that.sgn) xshift-y.manW1 else xshift+y.manW1
     // In case of diffEx==0, this can be negative
     val (sumPos, resSgn) = if (sum<0) (-sum, x.sgn^1) else (sum,x.sgn)
     if (sumPos==0) return zero(resSpec)
@@ -139,8 +154,8 @@ class RealGeneric ( val spec : RealSpec, val sgn: Int, val ex : Int, val man: Sa
     }
     if (isZero) return 0.0
     val manRound =
-      if (spec.manW>52) roundToEven(spec.manW-52,man)
-      else ( man << (52-spec.manW) )
+      if (spec.manW>52) roundToEven(spec.manW-52,manW1)
+      else ( manW1 << (52-spec.manW) )
     val manD = manRound.toDouble
     val z = scalb(manD, ex-spec.exBias-52)
     if (sgn!=0) -z else z
@@ -149,39 +164,41 @@ class RealGeneric ( val spec : RealSpec, val sgn: Int, val ex : Int, val man: Sa
 }
 
 object RealGeneric {
-  def zero(spec : RealSpec) : RealGeneric = { new RealGeneric(spec, 0, 0, SafeLong(0)) }
+  def zero(spec : RealSpec) : RealGeneric = { new RealGeneric(spec, SafeLong(0)) }
   def nan(spec : RealSpec) : RealGeneric = { new RealGeneric(spec, 0, maskI(spec.exW), SafeLong(1)<<(spec.manW-1)) }
   def inf(spec : RealSpec, sgn: Int) : RealGeneric = { new RealGeneric(spec, sgn, maskI(spec.exW), SafeLong(0)) }
 
-  def fromDouble(spec : RealSpec, x : Double ) : RealGeneric = {
-    if (x == 0.0) zero(spec)
-    else if (x.isNaN) nan(spec)
-    else if (x.isPosInfinity) inf(spec, 0)
-    else if (x.isNegInfinity) inf(spec, 1)
+  private def doubleToRealGeneric(spec : RealSpec, x : Double ) : SafeLong = {
+    if (x == 0.0) SafeLong(0)
+    else if (x.isNaN) (maskI(spec.exW+1)<<(spec.manW-1))
+    else if (x.isPosInfinity) ( maskI(spec.exW)<<spec.manW )
+    else if (x.isNegInfinity) ( maskI(spec.exW+1)<<spec.manW )
     else {
-      val bb = java.nio.ByteBuffer.allocate(8).putDouble(x).array()
-      //bb.foreach(n=>println(f"$n%02x"))
-      val lv = bb.foldLeft(0L){ (acc, x) => (acc<<8)+(x&0xFF) }
-      //println(f"$lv%08x")
-      val sgn = bit(63,lv).toInt
-      val man = SafeLong(slice(0,52,lv) + (1L<<52))
+      val (sgn,exD,manD) = unpackDouble(x)
+      val man = SafeLong(manD)
       val manRound =
         if (spec.manW>=52) { man << (spec.manW-52) } // left shift
         else { roundToEven( 52 - spec.manW, man ) }
-      val moreThan2AfterRound = bit(spec.manW+1, manRound)
-      val manRoundNorm = if (moreThan2AfterRound!=0) { manRound >> 1 } else manRound
-      val exD = slice(52,11,lv).toInt
+      val moreThan2AfterRound = bit(spec.manW, manRound)
+      val manRoundNorm = if (moreThan2AfterRound!=0) SafeLong(0) else manRound
       val ex  = exD - 0x3FF + moreThan2AfterRound + spec.exBias
-      //println(f"$sgn%d $ex%x")
+      //val manW = spec.manW; println(f"$x%f $sgn%d $ex%x $manD%x $manW%d")
       if (ex<=0) {
         // subnormal should be considered later
-        zero(spec)
+        SafeLong(0)
       } else if (ex>=maskI(spec.exW)) {
-        inf(spec,sgn)
+        ( maskI(spec.exW+sgn)<<spec.manW )
       } else {
-        new RealGeneric(spec, sgn, ex, manRoundNorm)
+        (((sgn.toLong<<spec.exW)+ex.toLong)<<spec.manW)+(manRoundNorm&maskSL(spec.manW))
       }
     }
+  }
+
+  def fromDouble(spec : RealSpec, x : Double ) : RealGeneric = {
+    val value = doubleToRealGeneric(spec,x)
+    //val lv = value.toLong; println(f"$x%f $lv%x")
+    new RealGeneric(spec, value)
+
   }
 
   def fromFloat(spec : RealSpec, x : Float ) : RealGeneric = fromDouble(spec, x.toDouble)

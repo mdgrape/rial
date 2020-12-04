@@ -6,6 +6,7 @@ import scala.math._
 
 import spire.math.SafeLong
 import spire.implicits._
+import java.nio.ByteBuffer
 
 object ScalaUtil {
 
@@ -76,4 +77,42 @@ object ScalaUtil {
     val x0 = if (x.isNaN) 0x7FC00000 else java.lang.Float.floatToRawIntBits(x)
     if (slice(23,8,x0)==0) 0.0f else java.lang.Float.intBitsToFloat(x0)
   }
+
+  def castFromDouble( x : Double ) : Long = {
+    java.nio.ByteBuffer.allocate(8).putDouble(x).getLong(0)
+  }
+
+  def castToDouble( x : Long ) : Double = {
+    java.nio.ByteBuffer.allocate(8).putLong(x).getDouble(0)
+  }
+
+  def unpackDouble( x : Double ) : (Int, Int, Long) = {
+    val lv = castFromDouble(x)
+    ( bit(63,lv).toInt, slice(52,11,lv).toInt, slice(0,52,lv) )
+  }
+
+  def packDouble( sgn : Int, ex : Int, man : Long ) : Double = {
+    val lv : Long = ((sgn&1).toLong<<63)+((ex&0x7FF).toLong<<52)+
+    (man & 0xFFFFFFFFFFFFFL)
+    castToDouble(lv)
+  }
+
+  def castFromFloat( x : Float ) : Int = {
+    java.nio.ByteBuffer.allocate(4).putFloat(x).getInt(0)
+  }
+
+  def castToFloat( x : Long ) : Float = {
+    java.nio.ByteBuffer.allocate(4).putLong(x).getFloat(0)
+  }
+
+  def unpackFloat( x : Float ) : (Int, Int, Int) = {
+    val iv = castFromFloat(x)
+    ( bit(31,iv), slice(23,8,iv), slice(0,23,iv) )
+  }
+
+  def packFloat( sgn : Int, ex : Int, man : Int ) : Float = {
+    val iv : Long = ((sgn&1)<<31)+((ex&0xFF)<<23)+(man & 0x7FFFFFL)
+    castToFloat(iv)
+  }
+
 }
