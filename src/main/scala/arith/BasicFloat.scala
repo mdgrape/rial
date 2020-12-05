@@ -16,7 +16,7 @@ import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig._
 //import rial.arith._
 
-class FPMult(
+class MultFPGeneric(
   xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, // Input / Output floating spec
   roundSpec : RoundSpec, // Rounding spec
   stage : PipelineStageConfig
@@ -38,11 +38,13 @@ class FPMult(
   val (ysgn, yex, yman) = FloatChiselUtil.decomposeWithLeading1(ySpec, io.y)
   val (xzero, xinf, xnan) = FloatChiselUtil.checkValue(xSpec, io.x)
   val (yzero, yinf, ynan) = FloatChiselUtil.checkValue(ySpec, io.y)
-  val zsgn = xsgn ^ ysgn
+  val zsgn0 = xsgn ^ ysgn
 
   val zzero = (xzero | yzero).asBool
   val zinf  = (xinf | yinf).asBool
-  val znan  = (xnan | ynan).asBool
+  val znan  = (xnan | ynan).asBool & !zzero
+  //printf("%x %x\n",  io.x, io.y)
+  //printf("%b %b %b\n",  zzero, zinf, znan)
 
   //----------------------------------------------------------------------
   // Mantissa
@@ -62,12 +64,16 @@ class FPMult(
 
   //----------------------------------------------------------------------
   // Exponent
-  val maxEx = maskI(xSpec.exW)-1-xSpec.exBias
-              + maskI(ySpec.exW)-1-ySpec.exBias + 1 + zSpec.exBias
+  val maxEx = ( maskI(xSpec.exW)-1-xSpec.exBias +
+    maskI(ySpec.exW)-1-ySpec.exBias + 1 + zSpec.exBias )
+  //println(f"${xSpec.exBias}%x ${ySpec.exBias}%x ${zSpec.exBias}%x")
+  //println(f"${xSpec.exW}%d ${ySpec.exW}%d")
+  //println(f"${maskI(xSpec.exW)}%x ${maskI(ySpec.exW)}%x")
   val minEx = 1-xSpec.exBias+1-ySpec.exBias+zSpec.exBias
   val exW0 = max( log2Up(maxEx+1), log2Up(abs(minEx)+1))
   val exW  = if (minEx<0) exW0+1 else exW0 // width for calculation
-  val exAdd = (-xSpec.exBias-ySpec.exBias+zSpec.exBias).U(exW.W)
+  //println(f"maxEX=$maxEx%x minEx=-${-minEx}%x exW=$exW%d")
+  val exAdd = (-xSpec.exBias-ySpec.exBias+zSpec.exBias).S(exW.W).asUInt
   val ex0 = xex.pad(exW) + yex.pad(exW) + exAdd 
 
   val exInc = ex0 + (moreThan2 | moreThan2AfterRound)
@@ -75,7 +81,7 @@ class FPMult(
   val exZero = !exInc.orR.asBool
   val exNeg  = (minEx<0).B && (exInc(exW-1)=/=0.U)
   val exZN   = exZero || exNeg || zzero
-  val exInf  = zinf || exInc(zSpec.exW).andR | exInc(exW-1, zSpec.exW).orR
+  val exInf  = zinf || exInc(zSpec.exW-1,0).andR | exInc(exW-1, zSpec.exW).orR
 
   val zex =
     Mux(exZN, 0.U(zSpec.exW),
@@ -83,12 +89,20 @@ class FPMult(
 
   // Final mantissa
   val zman =
-    Mux(exZN | exInf, 0.U(zSpec.manW),
-      Mux(znan , 1.U(1.W) ## 0.U(zSpec.manW-1), resMan) )
+    Mux(exZN || exInf || znan, znan ## 0.U((zSpec.manW-1).W), resMan) 
+  val zsgn = ( !(exZN || znan) ) && zsgn0.asBool
+  //printf("%x\n", zman)
 
   val z0 = if (zSpec.disableSign) (zex ## zman) else (zsgn ## zex ## zman)
 
   io.z   := ShiftRegister(z0, nStage)
-  //printf("x=%x z=%x\n", io.x, io.z)
+  //printf("x=%x y=%x z=%x\n", io.x, io.y, io.z)
 }
+
+class MultFP64( stage : PipelineStageConfig )
+    extends MultFPGeneric( RealSpec.Float64Spec,
+      RealSpec.Float64Spec,  RealSpec.Float64Spec,
+      RoundSpec.roundToEven, stage) {
+}
+
 
