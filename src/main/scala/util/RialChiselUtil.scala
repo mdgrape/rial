@@ -28,5 +28,5 @@ object RialChiselUtil {
     if (s == -1) Cat(1.U(1.W), x).asSInt
     else         Cat(0.U(1.W), x).asSInt
   }
-  
+
 }

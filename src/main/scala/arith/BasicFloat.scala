@@ -1,0 +1,94 @@
+//% @file BasicArithmetics.scala
+//
+// Basic Arithmetic Units
+// Copyright (C) Makoto Taiji RIKEN BDR 2020
+//
+package rial.arith
+
+import scala.language.reflectiveCalls
+import scala.math._
+import chisel3._
+import chisel3.util._
+import rial.table._
+import rial.util._
+import rial.util.RialChiselUtil._
+import rial.util.ScalaUtil._
+import rial.util.PipelineStageConfig._
+//import rial.arith._
+
+class FPMult(
+  xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, // Input / Output floating spec
+  roundSpec : RoundSpec, // Rounding spec
+  stage : PipelineStageConfig
+) extends Module {
+
+  val nStage = stage.total
+
+  def getParam() = { (xSpec, ySpec, zSpec, roundSpec, nStage) }
+
+  def getStage() = nStage
+
+  val io = IO(iodef = new Bundle {
+    val x   = Input(UInt(xSpec.W.W))
+    val y   = Input(UInt(ySpec.W.W))
+    val z   = Output(UInt(zSpec.W.W))
+  })
+
+  val (xsgn, xex, xman) = FloatChiselUtil.decomposeWithLeading1(xSpec, io.x)
+  val (ysgn, yex, yman) = FloatChiselUtil.decomposeWithLeading1(ySpec, io.y)
+  val (xzero, xinf, xnan) = FloatChiselUtil.checkValue(xSpec, io.x)
+  val (yzero, yinf, ynan) = FloatChiselUtil.checkValue(ySpec, io.y)
+  val zsgn = xsgn ^ ysgn
+
+  val zzero = (xzero | yzero).asBool
+  val zinf  = (xinf | yinf).asBool
+  val znan  = (xnan | ynan).asBool
+
+  //----------------------------------------------------------------------
+  // Mantissa
+  val prod = xman * yman
+  val bp = xSpec.manW+ySpec.manW
+  val roundBits = bp-zSpec.manW
+  val moreThan2 = prod(bp+1)
+  val stickey = prod(roundBits-2,0).orR | (moreThan2 & prod(roundBits-1))
+  val round = Mux(moreThan2, prod(roundBits), prod(roundBits-1))
+  val prodShift = Mux(moreThan2, prod(bp, roundBits+1), prod(bp-1, roundBits))
+  val lsb   = prodShift(0)
+  // RoundSpec : truncate/ceil always towards 0/infinite
+  val inc = FloatChiselUtil.roundIncBySpec(roundSpec, lsb, round, stickey)
+  val prodRound = prodShift +& inc
+  val moreThan2AfterRound = prodRound(zSpec.manW)
+  val resMan = prodRound(zSpec.manW-1,0)
+
+  //----------------------------------------------------------------------
+  // Exponent
+  val maxEx = maskI(xSpec.exW)-1-xSpec.exBias
+              + maskI(ySpec.exW)-1-ySpec.exBias + 1 + zSpec.exBias
+  val minEx = 1-xSpec.exBias+1-ySpec.exBias+zSpec.exBias
+  val exW0 = max( log2Up(maxEx+1), log2Up(abs(minEx)+1))
+  val exW  = if (minEx<0) exW0+1 else exW0 // width for calculation
+  val exAdd = (-xSpec.exBias-ySpec.exBias+zSpec.exBias).U(exW.W)
+  val ex0 = xex.pad(exW) + yex.pad(exW) + exAdd 
+
+  val exInc = ex0 + (moreThan2 | moreThan2AfterRound)
+
+  val exZero = !exInc.orR.asBool
+  val exNeg  = (minEx<0).B && (exInc(exW-1)=/=0.U)
+  val exZN   = exZero || exNeg || zzero
+  val exInf  = zinf || exInc(zSpec.exW).andR | exInc(exW-1, zSpec.exW).orR
+
+  val zex =
+    Mux(exZN, 0.U(zSpec.exW),
+      Mux(exInf | znan, Fill(zSpec.exW,1.U(1.W)), exInc(zSpec.exW-1,0)) )
+
+  // Final mantissa
+  val zman =
+    Mux(exZN | exInf, 0.U(zSpec.manW),
+      Mux(znan , 1.U(1.W) ## 0.U(zSpec.manW-1), resMan) )
+
+  val z0 = if (zSpec.disableSign) (zex ## zman) else (zsgn ## zex ## zman)
+
+  io.z   := ShiftRegister(z0, nStage)
+  //printf("x=%x z=%x\n", io.x, io.z)
+}
+

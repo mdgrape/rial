@@ -21,6 +21,8 @@ class RealSpec (
   val disableNaN  : Boolean = false,
   val disableSubnormal : Boolean = true ) {
 
+  def W : Int = { exW+manW+(if (disableSign) 0 else 1) }
+
 }
 
 object RealSpec {
@@ -141,10 +143,6 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
     }
   }
 
-  def packToSafeLong : SafeLong = {
-    (man & maskSL(spec.manW))+ ( SafeLong( ex + (sgn<<spec.exW) ) << spec.manW )
-  }
-
   def toDouble : Double = {
     //println(sgn, ex, man)
     if (isNaN) return Double.NaN
@@ -161,12 +159,34 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
     if (sgn!=0) -z else z
   }
 
+  def convert( newSpec : RealSpec, roundSpec : RoundSpec ) : RealGeneric = {
+    val manRound =
+      if (newSpec.manW>=spec.manW) { man << (spec.manW-52) } // left shift
+      else { roundBySpec( roundSpec, spec.manW - newSpec.manW, man ) }
+    val moreThan2AfterRound = bit(newSpec.manW, manRound)
+    val manRoundNorm = if (moreThan2AfterRound!=0) SafeLong(0) else manRound
+    val exNew = ex - spec.exBias + moreThan2AfterRound + spec.exBias
+    new RealGeneric(newSpec, packToSafeLong(newSpec, sgn, exNew, manRoundNorm))
+  }
+
 }
 
 object RealGeneric {
   def zero(spec : RealSpec) : RealGeneric = { new RealGeneric(spec, SafeLong(0)) }
   def nan(spec : RealSpec) : RealGeneric = { new RealGeneric(spec, 0, maskI(spec.exW), SafeLong(1)<<(spec.manW-1)) }
   def inf(spec : RealSpec, sgn: Int) : RealGeneric = { new RealGeneric(spec, sgn, maskI(spec.exW), SafeLong(0)) }
+
+  // With exponent check
+  private def packToSafeLong( spec: RealSpec, sgn : Int, ex: Int, man : SafeLong) : SafeLong = {
+    if (ex<=0) {
+      // subnormal should be considered later
+      SafeLong(0)
+    } else if (ex>=maskI(spec.exW)) {// Inf
+      ( maskI(spec.exW+(sgn&1))<<spec.manW )
+    } else {
+      (man & maskSL(spec.manW))+ ( SafeLong( ex + ((sgn&1)<<spec.exW) ) << spec.manW )
+    }
+  }
 
   private def doubleToRealGeneric(spec : RealSpec, x : Double ) : SafeLong = {
     if (x == 0.0) SafeLong(0)
@@ -183,14 +203,7 @@ object RealGeneric {
       val manRoundNorm = if (moreThan2AfterRound!=0) SafeLong(0) else manRound
       val ex  = exD - 0x3FF + moreThan2AfterRound + spec.exBias
       //val manW = spec.manW; println(f"$x%f $sgn%d $ex%x $manD%x $manW%d")
-      if (ex<=0) {
-        // subnormal should be considered later
-        SafeLong(0)
-      } else if (ex>=maskI(spec.exW)) {
-        ( maskI(spec.exW+sgn)<<spec.manW )
-      } else {
-        (((sgn.toLong<<spec.exW)+ex.toLong)<<spec.manW)+(manRoundNorm&maskSL(spec.manW))
-      }
+      packToSafeLong(spec, sgn, ex, manRoundNorm)
     }
   }
 
