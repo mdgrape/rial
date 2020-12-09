@@ -5,7 +5,7 @@ import chisel3.util._
 import scala.math._
 
 import spire.math.SafeLong
-import spire.implicits._
+//import spire.implicits._
 import java.nio.ByteBuffer
 
 object ScalaUtil {
@@ -124,4 +124,33 @@ object ScalaUtil {
     castToFloat(iv)
   }
 
+  // Returns
+  // (number of bits, sign)
+  // sign ==  0 if sign bit necessary
+  // sign ==  1 if always positive (incl. 0)
+  // sign == -1 if always negative (incl. 0)
+  def getWidthToRepresentInterval( xmin : Int, xmax: Int ) = {
+    if ((xmin<0)&&(xmax>0)) { // signed
+      val maxW : Int = log2Up(xmax+1)
+      // Negative number
+      // -2^n needs n+1 bits, *including sign*
+      val minW : Int = log2Up(-xmin)
+      ( (maxW.max(minW))+1, 0 )
+    } else if (xmin>=0) { // unsigned
+      ( log2Up(xmax+1), 1 )
+    } else { // always negative, no sign bit
+      ( log2Up(-xmin+1), -1 )
+    }
+  }
+
+  // Returns
+  // (number of bits, sign)
+  // sign ==  0 if sign bit necessary
+  // sign ==  1 if always positive (incl. 0)
+  // sign == -1 if always negative (incl. 0)
+  def getWidthToRepresentNumbersAlwaysSigned( x : Seq[Int] ) : Int = {
+    val xW =  x.map( z => if (z < 0) {log2Up(-z)+1} else {log2Up(z+1)+1} )
+    xW.max
+  }
+  
 }

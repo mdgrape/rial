@@ -23,6 +23,9 @@ class RealSpec (
 
   def W : Int = { exW+manW+(if (disableSign) 0 else 1) }
 
+  def exMax : Int = { maskI(exW)-1-exBias }
+  def exMin : Int = { 1-exBias }
+
 }
 
 object RealSpec {

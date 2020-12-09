@@ -83,6 +83,43 @@ class FPMul64Test extends FlatSpec
       }
   }
 
+  def addTest(xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, roundSpec : RoundSpec,
+    n : Int, stage : PipelineStageConfig ) = {
+      test(new AddFPGeneric( xSpec, ySpec, zSpec, roundSpec, stage )) { c =>
+        {
+          var q  = new Queue[(BigInt,BigInt,BigInt)]
+          val nstage = c.getStage
+          for (gen <- List( ("Test Within (-128,128)",generateRealWithin(128.0,_,_)),
+                            ("Test All range",generateRealFull(_,_)) ) ) {
+            println(gen._1)
+            for(i <- 1 to n+nstage) {
+              val xr = gen._2(xSpec, r)
+              val yr = gen._2(ySpec, r)
+              val xi = xr.value.toBigInt
+              val yi = yr.value.toBigInt
+              val zr = xr.add(zSpec, roundSpec, yr)
+              val z0i= zr.value.toBigInt
+              q += ((xi,yi,z0i))
+              c.io.x.poke(xi.U(64.W))
+              c.io.y.poke(yi.U(64.W))
+              val zi = c.io.z.peek.litValue.toBigInt
+              c.clock.step(1)
+              if (i > nstage) {
+                val (xid,yid,z0d) = q.dequeue
+                assert(zi == z0d, f"x=$xid%16x y=$yid%16x $zi%16x!=$z0d%16x")
+              }
+            }
+            q.clear
+          }
+        }
+      }
+  }
+  
+  it should f"Add Double with pipereg 0" in {
+    addTest( RealSpec.Float64Spec, RealSpec.Float64Spec, RealSpec.Float64Spec,
+      RoundSpec.roundToEven, n, PipelineStageConfig.none())
+  }
+
   it should f"Multiplier Double with pipereg 0" in {
     multTest( RealSpec.Float64Spec, RealSpec.Float64Spec, RealSpec.Float64Spec,
       RoundSpec.roundToEven, n, PipelineStageConfig.none())

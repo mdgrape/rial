@@ -2,6 +2,7 @@ package rial.util
 
 import chisel3._
 import chisel3.util._
+import ScalaUtil._
 
 object RialChiselUtil {
 
@@ -11,8 +12,8 @@ object RialChiselUtil {
 
   def takeU ( n: Int , x : UInt ) = x(x.getWidth-1, x.getWidth-n)
 
-  def dropULSB ( n: Int , x : UInt ) : UInt = x(x.getWidth-1,n)
-  def dropSLSB ( n: Int , x : SInt ) : SInt = x(x.getWidth-1,n).asSInt
+  def dropLSB ( n: Int , x : UInt ) : UInt = x(x.getWidth-1,n)
+  def dropLSB ( n: Int , x : SInt ) : SInt = x(x.getWidth-1,n).asSInt
 
   // Separate x into slices with width w[i]
   // Return : Seq[UInt]
@@ -29,4 +30,24 @@ object RialChiselUtil {
     else         Cat(0.U(1.W), x).asSInt
   }
 
+  def getMSB ( n: Int , x : UInt ) : UInt = { if (n<x.getWidth) x(x.getWidth-1,x.getWidth-n) else x }
+  def getMSB ( n: Int , x : SInt ) : SInt = { if (n<x.getWidth) x(x.getWidth-1,x.getWidth-n).asSInt else x }
+
+  def getLSB ( n: Int , x : UInt ) : UInt = x(n-1,0)
+  def getLSB ( n: Int , x : SInt ) : SInt = x(n-1,0).asSInt
+
+  def padLSB ( n: Int , x : UInt ) : UInt = { if (x.getWidth<n) Cat(x,0.U((n-x.getWidth).W)) else x }
+  def padLSB ( n: Int , x : SInt ) : SInt = { if (x.getWidth<n) Cat(x,0.S((n-x.getWidth).W)).asSInt else x }
+
+  def orRLSB ( n: Int , x : UInt ) : Bool = {
+    if (n<=0) false.B
+    else x(n.min(x.getWidth)-1,0).orR.asBool
+  }
+
+  // take a bit counting from MSB
+  // 0 to take MSB
+  def getMSB1 ( n: Int, x : UInt ) : Bool = { if (n<x.getWidth) x(x.getWidth-1-n).asBool else false.B }
+  def getMSB1 ( n: Int, x : SInt ) : Bool = { if (n<x.getWidth) x(x.getWidth-1-n).asBool else false.B }
+
+  def maskU (n: Int) : UInt = Fill(n, 1.U(1.W))
 }

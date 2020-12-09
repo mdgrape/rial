@@ -100,7 +100,7 @@ class Pow2Generic(
     val dxw  = min(zw, dxBp)
     val dxl  = dx(dxBp, dxBp-dxw).asSInt
     val prod = dxl * z
-    val prod_sft = dropSLSB(dxw, prod)
+    val prod_sft = dropLSB(dxw, prod)
     val sum = c +& prod_sft // Extend for safe
     //printf("sum=%x c=%x z=%x dx=%x dxl=%x prod=%x prod_sft=%x\n",sum, c, z, dx, dxl, prod, prod_sft)
     val dxlw=dxl.getWidth
@@ -113,7 +113,7 @@ class Pow2Generic(
   }
 
   val s0 = polynomialEvaluationC( coeffS, d, enablePolynomialRounding ).asUInt
-  val zman  = dropULSB(extraBits, s0) + s0(extraBits-1) 
+  val zman  = dropLSB(extraBits, s0) + s0(extraBits-1) 
   val polynomialOvf = zman.head(2) === 1.U // >=1
   val polynomialUdf = zman.head(1) === 1.U // Negative 
   val zeroFlush = exOvfUdf || zExNegMax || polynomialUdf || nan
@@ -213,14 +213,14 @@ class Pow2F32_obsolete( nStage: Int = 0 ) extends Module {
   val coeffS   = coeff.map( x => x.zext )
 
   val prod1 = d * coeffS(2)
-  val prod1_sft = dropSLSB(dW-1, prod1)
+  val prod1_sft = dropLSB(dW-1, prod1)
   val s1    = coeffS(1) +& prod1_sft // Extend for safe
   //println(prod1, prod1_sft, s1)
 
   val prod0 = d * s1
-  val prod0_sft = dropSLSB(dW-1, prod0)
+  val prod0_sft = dropLSB(dW-1, prod0)
   val s0    = (coeffS(0) + prod0_sft).asUInt
-  val zman  = dropULSB(1, s0) + s0(0) 
+  val zman  = dropLSB(1, s0) + s0(0) 
   val polynomialOvf = zman.head(1).asBool
   val zeroFlush = exOvfUdf || zExNegMax
   val zman_checkovf = Mux(polynomialOvf, Fill(manW,1.U(1.W)), zman(manW-1,0))

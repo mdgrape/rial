@@ -105,4 +105,3 @@ class MultFP64( stage : PipelineStageConfig )
       RoundSpec.roundToEven, stage) {
 }
 
-
