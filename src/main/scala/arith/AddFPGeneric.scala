@@ -43,8 +43,8 @@ class AddFPGeneric(
   val xyInfSgn = ! ((xinf && !xsgn) || (yinf && !ysgn))
   val xyNaN  = xnan || ynan
   val xyBothZero = xzero && yzero
-  //printf("%x %x\n",  io.x, io.y)
-  //printf("%b %b %b\n",  zzero, zinf, znan)
+  printf("%x %x\n",  io.x, io.y)
+  printf("%b %b %b\n",  xyInf, xyNaN, xyBothZero)
 
   //----------------------------------------------------------------------
   // Exponent comparison
@@ -64,7 +64,7 @@ class AddFPGeneric(
   val zexBaseMax = max( xSpec.exMax + zSpec.exBias, ySpec.exMax + zSpec.exBias)
   val zexBaseMin = max( xSpec.exMin + zSpec.exBias, ySpec.exMin + zSpec.exBias)
   val zexBaseW = getWidthToRepresentNumbersAlwaysSigned( Seq(zexBaseMin,  zexBaseMax) )
-  println(f"diffExW=$diffExW%d zexBaseW = $zexBaseW%d")
+  //println(f"diffExW=$diffExW%d zexBaseW = $zexBaseW%d")
   val zexNorm = Wire(SInt(zexBaseW.W))
   if ((zSpec.exBias == xSpec.exBias) && (zSpec.exBias == ySpec.exBias)) {
     zexNorm := (Mux (exXlargerThanY, xex, yex)).zext
@@ -107,8 +107,8 @@ class AddFPGeneric(
   val (shiftW, shiftOut) =
     if   (shiftW0<(diffExW-1)) (shiftW0, diffFar(diffExW-1, shiftW0+1).andR)
     else (diffExW-1, false.B) // Usually this never happens
-  println(f"shiftW = $shiftW%d")
   val yFarShift = yFarR >> diffFar(shiftW-1, 0)
+  //println(f"shiftW = $shiftW%d")
 
   // Y shifted = (main value)-round0-round1-stickey
   //    these round0/round1 can be combined to stickey
@@ -235,7 +235,6 @@ class AddFPGeneric(
 
   io.z   := ShiftRegister(z0, nStage)
   //printf("x=%x y=%x z=%x\n", io.x, io.y, io.z)
-  println("aho")
 }
 
 class AddFP64( stage : PipelineStageConfig )

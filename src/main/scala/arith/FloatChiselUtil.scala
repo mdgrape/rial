@@ -40,7 +40,7 @@ object FloatChiselUtil {
     val ex  = x(spec.manW+spec.exW-1,spec.manW)
     val man = x(spec.manW-1,0)
     val inf  = ex.andR.asBool
-    val zero = !ex.orR.asBool
+    val zero = !(ex.orR.asBool)
     val nan  = (!spec.disableNaN).B && inf && man.orR.asBool
     (zero, inf, nan)
   }

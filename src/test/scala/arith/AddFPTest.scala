@@ -24,13 +24,13 @@ import spire.math.SafeLong
 import spire.implicits._
 
 //
-// Testing Pow2F32 using ChiselTest
+// Testing FP Adder
 //
 
-class FPMul64Test extends FlatSpec
+class AddFPTest extends FlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
-  behavior of "Test x*y FP64"
+  behavior of "Test x+y"
 
   var n = 1000
 
@@ -44,43 +44,11 @@ class FPMul64Test extends FlatSpec
   def generateRealWithin( p : Double, spec: RealSpec, r : Random ) = {
     val rD : Double = (r.nextDouble()-0.5)*p
     val x = new RealGeneric(spec, rD)
-    new RealGeneric (spec, slice(spec.manW, spec.exW+1, x.value) + SafeLong(BigInt(spec.manW, r)))
+    new RealGeneric (spec, (x.value & (maskSL(spec.exW+1)<<spec.manW)) + SafeLong(BigInt(spec.manW, r)))
   }
 
   def generateRealFull ( spec: RealSpec, r : Random ) = {
     new RealGeneric (spec, SafeLong(BigInt(spec.W, r)))
-  }
-
-  def multTest(xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, roundSpec : RoundSpec,
-    n : Int, stage : PipelineStageConfig ) = {
-      test(new MultFPGeneric( xSpec, ySpec, zSpec, roundSpec, stage )) { c =>
-        {
-          var q  = new Queue[(BigInt,BigInt,BigInt)]
-          val nstage = c.getStage
-          for (gen <- List( ("Test Within (-128,128)",generateRealWithin(128.0,_,_)),
-                            ("Test All range",generateRealFull(_,_)) ) ) {
-            println(gen._1)
-            for(i <- 1 to n+nstage) {
-              val xr = gen._2(xSpec, r)
-              val yr = gen._2(ySpec, r)
-              val xi = xr.value.toBigInt
-              val yi = yr.value.toBigInt
-              val zr = xr.multiply(zSpec, roundSpec, yr)
-              val z0i= zr.value.toBigInt
-              q += ((xi,yi,z0i))
-              c.io.x.poke(xi.U(64.W))
-              c.io.y.poke(yi.U(64.W))
-              val zi = c.io.z.peek.litValue.toBigInt
-              c.clock.step(1)
-              if (i > nstage) {
-                val (xid,yid,z0d) = q.dequeue
-                assert(zi == z0d, f"x=$xid%16x y=$yid%16x $zi%16x!=$z0d%16x")
-              }
-            }
-            q.clear
-          }
-        }
-      }
   }
 
   def addTest(xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, roundSpec : RoundSpec,
@@ -120,18 +88,5 @@ class FPMul64Test extends FlatSpec
       RoundSpec.roundToEven, n, PipelineStageConfig.none())
   }
 
-  it should f"Multiplier Double with pipereg 0" in {
-    multTest( RealSpec.Float64Spec, RealSpec.Float64Spec, RealSpec.Float64Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none())
-  }
-  it should f"Multiplier Float with pipereg 0" in {
-    multTest( RealSpec.Float32Spec, RealSpec.Float32Spec, RealSpec.Float32Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none())
-  }
-  it should f"Multiplier Double*Float->Double with pipereg 0" in {
-    multTest( RealSpec.Float64Spec, RealSpec.Float32Spec, RealSpec.Float64Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none())
-  }
-  //runtest(n, PipelineStageConfig.default(2))
 }
 
