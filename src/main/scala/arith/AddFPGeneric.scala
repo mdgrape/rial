@@ -9,17 +9,20 @@ import scala.language.reflectiveCalls
 import scala.math._
 import chisel3._
 import chisel3.util._
+import chisel3.util.experimental.BoringUtils
 import rial.table._
 import rial.util._
 import rial.util.RialChiselUtil._
 import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig._
+import rial.util.DebugControlSlave
 
 class AddFPGeneric(
   xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, // Input / Output floating spec
   roundSpec : RoundSpec, // Rounding spec
-  stage : PipelineStageConfig
-) extends Module {
+  stage : PipelineStageConfig,
+  val enableDebug : Boolean = false
+) extends MultiIOModule with DebugControlSlave {
 
   val nStage = stage.total
 
@@ -43,8 +46,8 @@ class AddFPGeneric(
   val xyInfSgn = ! ((xinf && !xsgn) || (yinf && !ysgn))
   val xyNaN  = xnan || ynan
   val xyBothZero = xzero && yzero
-  printf("%x %x\n",  io.x, io.y)
-  printf("%b %b %b\n",  xyInf, xyNaN, xyBothZero)
+  dbgPrintf("%x %x\n",  io.x, io.y)
+  dbgPrintf("%b %b %b\n",  xyInf, xyNaN, xyBothZero)
 
   //----------------------------------------------------------------------
   // Exponent comparison
@@ -76,7 +79,7 @@ class AddFPGeneric(
       (zSpec.exBias-ySpec.exBias).S(zexBaseW.W) )
     zexNorm := Mux (exXlargerThanY, xexPad, yexPad) + zexDiff
   }
-  printf("near=%b zexNorm=%x diffExXY/XY=%x / %x\n", near, zexNorm, diffExXY, diffExYX)
+  dbgPrintf("near=%b zexNorm=%x diffExXY/XY=%x / %x\n", near, zexNorm, diffExXY, diffExYX)
 
   //------------------------------------------------------------------------
   // Mantissa padding
@@ -101,21 +104,26 @@ class AddFPGeneric(
   val yzeroFar = Mux(exXlargerThanY, xzero, yzero)
   val xFarSign = Mux(exXlargerThanY, xsgn, ysgn)
   val yFarR = yFar ## 0.U(2.W)
-  val diffFar = Mux(exXlargerThanY, diffExXY, diffExYX)
+  // Drop sign bit 
+  val diffFar = Mux(exXlargerThanY, diffExXY(diffExW-2,0), diffExYX(diffExW-2,0))
 
   // Shift y
   //   Actually, shift amount here is always larger than or equal to 2.
   val shiftW0 = log2Up(maxManWxyz+1+2+1) // +2 for round bits, +1 for Leading 1
   // Note diffExW includes the width for sign bit
   val (shiftW, shiftOut) =
-    if   (shiftW0<(diffExW-1)) (shiftW0, diffFar(diffExW-1, shiftW0+1).andR)
+    if   (shiftW0<(diffExW-2)) (shiftW0, dropLSB(shiftW0,diffFar).orR)
     else (diffExW-1, false.B) // Usually this never happens
-  val yFarShift = yFarR >> diffFar(shiftW-1, 0)
-  //println(f"shiftW = $shiftW%d")
-  printf("xman=%x yman=%x\n",  xman, yman)
-  printf("xmanPadXyz=%x ymanPadXyz=%x\n", xmanPadXyz, ymanPadXyz)
-  printf("xFar=%x yFarShift=%x\n", xFar, yFarShift)
-  printf("%b\n%b\n", yFar, yFarShift)
+  val yFarShift = Mux(shiftOut, 0.U, yFarR >> diffFar(shiftW-1, 0))
+  println(f"shiftW = $shiftW%d diffExW = $diffExW%d ${diffFar.getWidth}%d")
+  when (!near) {
+    dbgPrintf("xman=%x yman=%x\n",  xman, yman)
+    dbgPrintf("xmanPadXyz=%x ymanPadXyz=%x\n", xmanPadXyz, ymanPadXyz)
+    dbgPrintf("xFar=%x yFarShift=%x\n", xFar, yFarShift)
+    //dbgPrintf("%b\n%b\n", yFar, yFarShift)
+  }
+  val diffFarMinus2    = diffFar(shiftW-1,0) - 2.U
+  val diffFarLessThan2 = !diffFar(diffFar.getWidth-1,shiftW-1).orR && diffFarMinus2(shiftW-1)
 
   // Y shifted = (main value)-round0-round1-stickey
   //    these round0/round1 can be combined to stickey
@@ -129,17 +137,21 @@ class AddFPGeneric(
   //     2^(w-1) will return the same result as 0.
   val onePosFromLSB = PriorityEncoder(yFar)
   val yFarW = yFar.getWidth
-  // Since always a leading 1 bit exists, stickey == 1 when shiftOut
-  val stickeyFar = (!yzeroFar && shiftOut) || ( onePosFromLSB < (diffFar(shiftW-1, 0)-2.U) )
+  // Since always a leading 1 bit exists, stickey == 1 when shiftOut, but round should be 0
+  val stickeyFar = ( onePosFromLSB < diffFarMinus2) && !diffFarLessThan2
   // Increment for negative value occurs only rounded bits are all 0
   val guardFarNeg = (~(yFarShift(1,0) ## stickeyFar)) +& 1.U
   val guardFar    = Mux(diffSgn, guardFarNeg(2,1), yFarShift(1,0))
-  val negIncFar   = guardFarNeg(3)
+  val negIncFar   = diffSgn && guardFarNeg(3)
   val yAddFar = diffSgn ## Mux(diffSgn,~yFarShift(maxManWxyz+2,2),yFarShift(maxManWxyz+2,2))
   // Width = maxManWxyz+2
   val sumFar = xFar + yAddFar + negIncFar
   val sumFarWithGuard = sumFar ## guardFar
-  printf("diffSgn=%d sumFar=%x yAddFar=%x\n", diffSgn, sumFar, yAddFar)
+  when (!near) {
+    dbgPrintf("yFar=%x onePosFromLSB=%d diffFar=%d(%x) shiftOut=%d\n", yFar, onePosFromLSB, diffFar, diffFar,shiftOut)
+    dbgPrintf("guardFar=%x stickeyFar=%d\n", guardFar, stickeyFar)
+    dbgPrintf("diffSgn=%d sumFar=%x yAddFar=%x negIncFar=%b\n", diffSgn, sumFar, yAddFar, negIncFar)
+  }
 
   // Rounding
   val zmanFar     = Wire(UInt(zSpec.manW.W)) // This omit leading zero
@@ -163,7 +175,7 @@ class AddFPGeneric(
     additionalStickeyFar := orRLSB(diffWz, sumFarWithGuard)
     exSubFar     := 1.S
   }
-  printf("zmanFar=%x\n", zmanFar)
+  when (!near) { dbgPrintf("zmanFar=%x\n", zmanFar) }
 
   val incFar = FloatChiselUtil.roundIncBySpec(roundSpec, zmanFar(0), roundFarSel,
     stickeyFar || additionalStickeyFar)
@@ -182,7 +194,7 @@ class AddFPGeneric(
   val yNear = getMSB(2+maxManWxy, yFar)
   
   val yNearShift = Mux( nearShift, 0.U(2.W) ## yNear, 0.U(1.W) ## yNear ## 0.U(1.W) )
-  val sumNear = xNear - yNear
+  val sumNear = xNear - yNearShift
   // The below includes 1.xxxx+round bit
   //  width = maxManWxy+2
   val sumNearSign = getMSB1(0,sumNear)
@@ -191,7 +203,7 @@ class AddFPGeneric(
   val shiftNear   = PriorityEncoder(Reverse(sumNearAbs))
   // 0 .. >=1
   // 1 .. >=1/2 ...
-  val sumNearNorm = sumNearAbs << shiftNear
+  val sumNearNorm = (sumNearAbs << shiftNear)(maxManWxy,0) // include (possible) round bit
   val sumNearZero = shiftNear.andR && ( (!isPow2(sumNearAbs.getWidth)).B || (!sumNearAbs(0)) )
 
   // Rounding
@@ -204,13 +216,17 @@ class AddFPGeneric(
       stickeyNear)
     zmanNear := sumNearNorm(maxManWxy, maxManWxy-zSpec.manW+1)
   } else if (zSpec.manW == maxManWxy) { // Output precision is the same as input
-    val roundNear = yNearShift(0) && sumNearAbs(0)
-    // Rounding occurs only when yNearShift(0)=1 and sumNearAbs="01"
-    incNear  := FloatChiselUtil.roundIncBySpec(roundSpec, sumNearAbs(1), roundNear, false.B)
+    incNear  := FloatChiselUtil.roundIncBySpec(roundSpec, sumNearNorm(1), sumNearNorm(0), false.B)
     zmanNear := sumNearNorm(maxManWxy, 1)
   } else { // Output precision is higher, no rounding
     incNear  := 0.U(1.W)
     zmanNear := padLSB( zSpec.manW, sumNearNorm(maxManWxy, 0) )
+  }
+  when (near) {
+    dbgPrintf("xNear=%x yNear=%x nearShift=%d yNearShift=%x\n", xNear, yNear, nearShift, yNearShift) 
+    dbgPrintf("sumNear=%x sumNearAbs=%x\n", sumNear, sumNearAbs)
+    dbgPrintf("sumNearAbs=%b\n", sumNearAbs)
+    dbgPrintf("shiftNear=%d sumNearNorm=%x incNear=%b\n", shiftNear, sumNearNorm, incNear)
   }
 
   //----------------------------------------------------------------------
@@ -246,7 +262,7 @@ class AddFPGeneric(
   //val z0 = 0.U(zSpec.W.W)
 
   io.z   := ShiftRegister(z0, nStage)
-  //printf("x=%x y=%x z=%x\n", io.x, io.y, io.z)
+  dbgPrintf("x=%x y=%x z=%x\n", io.x, io.y, io.z)
 }
 
 class AddFP64( stage : PipelineStageConfig )

@@ -44,6 +44,11 @@ object RialChiselUtil {
     else x(n.min(x.getWidth)-1,0).orR.asBool
   }
 
+  def orRMSB ( n: Int , x : UInt ) : Bool = {
+    if (n<=0) false.B
+    else x(x.getWidth-1, (x.getWidth-n).max(0)).orR.asBool
+  }
+
   // take a bit counting from MSB
   // 0 to take MSB
   def getMSB1 ( n: Int, x : UInt ) : Bool = { if (n<x.getWidth) x(x.getWidth-1-n).asBool else false.B }
