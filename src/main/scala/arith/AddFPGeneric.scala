@@ -33,8 +33,8 @@ class AddFPGeneric(
     val z   = Output(UInt(zSpec.W.W))
   })
 
-  val (xsgn, xex, xman) = FloatChiselUtil.decomposeWithLeading1(xSpec, io.x)
-  val (ysgn, yex, yman) = FloatChiselUtil.decomposeWithLeading1(ySpec, io.y)
+  val (xsgn, xex, xman) = FloatChiselUtil.decompose(xSpec, io.x)
+  val (ysgn, yex, yman) = FloatChiselUtil.decompose(ySpec, io.y)
   val (xzero, xinf, xnan) = FloatChiselUtil.checkValue(xSpec, io.x)
   val (yzero, yinf, ynan) = FloatChiselUtil.checkValue(ySpec, io.y)
   val diffSgn = (xsgn ^ ysgn).asBool
@@ -76,6 +76,7 @@ class AddFPGeneric(
       (zSpec.exBias-ySpec.exBias).S(zexBaseW.W) )
     zexNorm := Mux (exXlargerThanY, xexPad, yexPad) + zexDiff
   }
+  printf("near=%b zexNorm=%x diffExXY/XY=%x / %x\n", near, zexNorm, diffExXY, diffExYX)
 
   //------------------------------------------------------------------------
   // Mantissa padding
@@ -84,8 +85,9 @@ class AddFPGeneric(
   val maxManWxyz = maxManWxy.max(zSpec.manW)
   //val manXlargerThanY = xman(xSpec.manW-1, xSpec.manW-minManW) > yman(ySpec.manW-1, ySpec.manW-minManW)
 
-  val xmanPadXyz = (!xzero) ## padLSB(maxManWxyz, xman)
+  val xmanPadXyz = Mux(xzero, 0.U((maxManWxyz+1).W), 1.U(1.W) ## padLSB(maxManWxyz, xman))
   val ymanPadXyz = Mux(yzero, 0.U((maxManWxyz+1).W), 1.U(1.W) ## padLSB(maxManWxyz, yman))
+  
 
   //----------------------------------------------------------------------
   // Far path
@@ -96,6 +98,7 @@ class AddFPGeneric(
   //   currently, separate barrel shifters/adders are used for far/near paths.
   val xFar = 0.U(1.W) ## Mux(exXlargerThanY, xmanPadXyz, ymanPadXyz)
   val yFar = Mux(exXlargerThanY, ymanPadXyz, xmanPadXyz)
+  val yzeroFar = Mux(exXlargerThanY, xzero, yzero)
   val xFarSign = Mux(exXlargerThanY, xsgn, ysgn)
   val yFarR = yFar ## 0.U(2.W)
   val diffFar = Mux(exXlargerThanY, diffExXY, diffExYX)
@@ -109,6 +112,10 @@ class AddFPGeneric(
     else (diffExW-1, false.B) // Usually this never happens
   val yFarShift = yFarR >> diffFar(shiftW-1, 0)
   //println(f"shiftW = $shiftW%d")
+  printf("xman=%x yman=%x\n",  xman, yman)
+  printf("xmanPadXyz=%x ymanPadXyz=%x\n", xmanPadXyz, ymanPadXyz)
+  printf("xFar=%x yFarShift=%x\n", xFar, yFarShift)
+  printf("%b\n%b\n", yFar, yFarShift)
 
   // Y shifted = (main value)-round0-round1-stickey
   //    these round0/round1 can be combined to stickey
@@ -123,12 +130,16 @@ class AddFPGeneric(
   val onePosFromLSB = PriorityEncoder(yFar)
   val yFarW = yFar.getWidth
   // Since always a leading 1 bit exists, stickey == 1 when shiftOut
-  val stickeyFar = shiftOut || ( onePosFromLSB < (diffFar(shiftW-1, 0)-2.U) )
+  val stickeyFar = (!yzeroFar && shiftOut) || ( onePosFromLSB < (diffFar(shiftW-1, 0)-2.U) )
   // Increment for negative value occurs only rounded bits are all 0
-  val negIncFar = (yFarShift(1,0)===0.U(2.W)) && !stickeyFar
-  val yAddFar = Fill(2,diffSgn) ## Mux(diffSgn,~yFarShift(maxManWxyz,1),yFarShift(maxManWxyz,1))
+  val guardFarNeg = (~(yFarShift(1,0) ## stickeyFar)) +& 1.U
+  val guardFar    = Mux(diffSgn, guardFarNeg(2,1), yFarShift(1,0))
+  val negIncFar   = guardFarNeg(3)
+  val yAddFar = diffSgn ## Mux(diffSgn,~yFarShift(maxManWxyz+2,2),yFarShift(maxManWxyz+2,2))
+  // Width = maxManWxyz+2
   val sumFar = xFar + yAddFar + negIncFar
-  val sumFarWithGuard = sumFar ## yFarShift(1,0)
+  val sumFarWithGuard = sumFar ## guardFar
+  printf("diffSgn=%d sumFar=%x yAddFar=%x\n", diffSgn, sumFar, yAddFar)
 
   // Rounding
   val zmanFar     = Wire(UInt(zSpec.manW.W)) // This omit leading zero
@@ -147,11 +158,12 @@ class AddFPGeneric(
     additionalStickeyFar := orRLSB(diffWz+1, sumFarWithGuard)
     exSubFar     := 0.S
   }.otherwise { // >=1/2
-    zmanFar      := sumFar(maxManWxyz-2, diffWz)
+    zmanFar      := sumFarWithGuard(maxManWxyz, diffWz+1)
     roundFarSel  := sumFarWithGuard(diffWz)
     additionalStickeyFar := orRLSB(diffWz, sumFarWithGuard)
     exSubFar     := 1.S
   }
+  printf("zmanFar=%x\n", zmanFar)
 
   val incFar = FloatChiselUtil.roundIncBySpec(roundSpec, zmanFar(0), roundFarSel,
     stickeyFar || additionalStickeyFar)

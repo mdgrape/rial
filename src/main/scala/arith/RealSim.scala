@@ -120,6 +120,7 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
     val diffEx = abs(thisEx-thatEx)
     val xshift = x.manW1 << diffEx
     val sum =  if (this.sgn!=that.sgn) xshift-y.manW1 else xshift+y.manW1
+    //println(s"Sim: ${sum.toLong.toBinaryString}")
     // In case of diffEx==0, this can be negative
     val (sumPos, resSgn) = if (sum<0) (-sum, x.sgn^1) else (sum,x.sgn)
     if (sumPos==0) return zero(resSpec)
