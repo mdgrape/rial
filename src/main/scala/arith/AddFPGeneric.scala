@@ -102,7 +102,7 @@ class AddFPGeneric(
   val xFar = 0.U(1.W) ## Mux(exXlargerThanY, xmanPadXyz, ymanPadXyz)
   val yFar = Mux(exXlargerThanY, ymanPadXyz, xmanPadXyz)
   val yzeroFar = Mux(exXlargerThanY, xzero, yzero)
-  val xFarSign = Mux(exXlargerThanY, xsgn, ysgn)
+  val xFarSign = Mux(exXlargerThanY, xsgn, ysgn).asBool
   val yFarR = yFar ## 0.U(2.W)
   // Drop sign bit 
   val diffFar = Mux(exXlargerThanY, diffExXY(diffExW-2,0), diffExYX(diffExW-2,0))
@@ -200,11 +200,12 @@ class AddFPGeneric(
   val sumNearSign = getMSB1(0,sumNear)
   val sumNearAbs = Mux(sumNearSign, -sumNear(maxManWxy+1,0), sumNear(maxManWxy+1,0))
 
-  val shiftNear   = PriorityEncoder(Reverse(sumNearAbs))
+  val shiftSum    = PriorityEncoder(Reverse(sumNearAbs))
   // 0 .. >=1
   // 1 .. >=1/2 ...
-  val sumNearNorm = (sumNearAbs << shiftNear)(maxManWxy,0) // include (possible) round bit
-  val sumNearZero = shiftNear.andR && ( (!isPow2(sumNearAbs.getWidth)).B || (!sumNearAbs(0)) )
+  val sumNearNorm = (sumNearAbs << shiftSum)(maxManWxy,0) // include (possible) round bit
+  val sumNearZero = !sumNear.orR
+  val nearSign    = (!sumNearZero) && (sumNearSign ^ xFarSign)
 
   // Rounding
   val zmanNear = Wire(UInt((zSpec.manW).W))
@@ -226,7 +227,7 @@ class AddFPGeneric(
     dbgPrintf("xNear=%x yNear=%x nearShift=%d yNearShift=%x\n", xNear, yNear, nearShift, yNearShift) 
     dbgPrintf("sumNear=%x sumNearAbs=%x\n", sumNear, sumNearAbs)
     dbgPrintf("sumNearAbs=%b\n", sumNearAbs)
-    dbgPrintf("shiftNear=%d sumNearNorm=%x incNear=%b\n", shiftNear, sumNearNorm, incNear)
+    dbgPrintf("shiftSum=%d(%x) sumNearNorm=%x incNear=%b\n", shiftSum, shiftSum, sumNearNorm, incNear)
   }
 
   //----------------------------------------------------------------------
@@ -234,7 +235,7 @@ class AddFPGeneric(
   val zmanSel = Mux(near, zmanNear, zmanFar)
   val incSel  = Mux(near, incNear, incFar)
   val zeroSel = near && sumNearZero
-  val exSub   = Mux(near, shiftNear.zext, exSubFar) // SInt
+  val exSub   = Mux(near, shiftSum.zext, exSubFar) // SInt
 
   val zman0   = zmanSel +& incSel
 
@@ -247,7 +248,7 @@ class AddFPGeneric(
   val zeroAfterAdd = (zex0 < 0.S) || zeroSel
   val infAfterAdd = zex0 >= maskI(zSpec.exW).S
 
-  val zsgn0 = (xFarSign ^ (near && sumNearSign)).asBool
+  val zsgn0 = Mux(near, nearSign, xFarSign)
   //----------------------------------------------------------------------
   // Final
   val infOrNaN = xyInf || xyNaN || infAfterAdd

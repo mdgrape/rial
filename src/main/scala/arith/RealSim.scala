@@ -173,6 +173,23 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
     new RealGeneric(newSpec, packToSafeLong(newSpec, sgn, exNew, manRoundNorm))
   }
 
+  def scalbn( n : Int ) : RealGeneric = {
+    if (this.isZero || this.isNaN || this.isInfinite) return this
+    val exNew = this.ex + n
+    if (exNew>=maskI(this.spec.exW)) return inf(this.spec, this.sgn)
+    if (exNew<0) return zero(this.spec)
+    new RealGeneric( this.spec, this.sgn, exNew, this.man )
+  }
+
+  def setSign( n : Int ) : RealGeneric = {
+    val sgn = if (n!=0) 1 else 0
+    new RealGeneric( this.spec, sgn, this.ex, this.man )
+  }
+
+  def negate( ) : RealGeneric = {
+    this.setSign( 1-this.ex )
+  }
+
 }
 
 object RealGeneric {

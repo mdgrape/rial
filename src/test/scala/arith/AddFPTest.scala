@@ -52,6 +52,43 @@ class AddFPTest extends FlatSpec
     new RealGeneric (spec, SafeLong(BigInt(spec.W, r)))
   }
 
+  def generateRealWithinPair( p : Double, xSpec: RealSpec, ySpec: RealSpec, r : Random ) = {
+    val x = generateRealWithin( p, xSpec, r)
+    val y = generateRealWithin( p, ySpec, r)
+    (x,y)
+  }
+
+  def generateRealFullPair ( xSpec: RealSpec, ySpec: RealSpec, r : Random ) = {
+    val x = generateRealFull(xSpec, r)
+    val y = generateRealFull(ySpec, r)
+    (x,y)
+  }
+
+  // p : x range
+  // q : result scale min
+  def generateRealSmallDifferencePair ( p : Double, q: Double, xSpec: RealSpec, ySpec: RealSpec, r : Random ) = {
+    val x = generateRealWithin( p, xSpec, r )
+    val y = generateRealWithin( p, ySpec, r )
+    val scale = r.nextDouble * (q+1.0)
+    if (r.nextInt(2)==0) {
+      val z =
+        if (scale>=q) {
+          new RealGeneric(xSpec, 0.0)
+        } else {
+          x.scalbn( -scale.toInt )
+        }
+      (y.negate.add(ySpec, RoundSpec.roundToEven,z), y)
+    } else {
+      val z =
+        if (scale>=q) {
+          new RealGeneric(ySpec, 0.0)
+        } else {
+          y.scalbn( -scale.toInt )
+        }
+      (x,x.negate.add(ySpec, RoundSpec.roundToEven,z))
+    }
+  }
+
   def addTest(xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, roundSpec : RoundSpec,
     n : Int, stage : PipelineStageConfig ) = {
     test(new AddFPGeneric( xSpec, ySpec, zSpec, roundSpec, stage, true ) with DebugControlMaster) { c =>
@@ -60,12 +97,14 @@ class AddFPTest extends FlatSpec
 
         var q  = new Queue[(BigInt,BigInt,BigInt)]
         val nstage = c.getStage
-        for (gen <- List( ("Test Within (-128,128)",generateRealWithin(128.0,_,_)),
-                          ("Test All range",generateRealFull(_,_)) ) ) {
+        for (gen <- List(
+          ("Test Within (-128,128)",generateRealWithinPair(128.0,_,_,_)),
+          ("Test All range",generateRealFullPair(_,_,_)),
+          ("Test small result",generateRealSmallDifferencePair(128.0,60.0,_,_,_))
+        ) ) {
           println(gen._1)
           for(i <- 1 to n+nstage) {
-            val xr = gen._2(xSpec, r)
-            val yr = gen._2(ySpec, r)
+            val (xr,yr) = gen._2(xSpec, ySpec, r)
             val xi = xr.value.toBigInt
             val yi = yr.value.toBigInt
             val zr = xr.add(zSpec, roundSpec, yr)
