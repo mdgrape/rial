@@ -7,9 +7,17 @@ package rial.math
 
 import scala.language.reflectiveCalls
 import scala.math._
+
+import spire.math.SafeLong
+import spire.math.Numeric
+import spire.implicits._
+
 import rial.table._
 import rial.util._
 import rial.util.ScalaUtil._
+
+import rial.arith.RealSpec
+import rial.arith.RealGeneric
 
 //
 // First we write fixed precision version, then generalize it
@@ -31,44 +39,61 @@ import rial.util.ScalaUtil._
 
 object ExponentialSim {
 
-  def pow2simGeneric( t : FuncTableInt, expW : Int, manW : Int, adrW: Int, extraBits: Int, x: Long ) : Long = {
-    val man = slice(0, manW, x)
-    val exRaw  = slice(manW, expW, x)
-    val sgn = bit(manW+expW, x)
-    val exBias = maskI(expW-1)
-    val ex = exRaw-exBias
-    val overflow_value = maskI(expW)<<manW
+  def pow2simGeneric( t : FuncTableInt, extraBits: Int, x: RealGeneric ) : RealGeneric = {
+
+    val adrW = t.adrW
+    val expW = x.spec.exW
+    val manW = x.spec.manW
+    val exBias = x.spec.exBias
+
+    val man    = x.man
+    val exRaw  = x.ex
+    val sgn    = x.sgn
+    val ex     = exRaw-exBias
+    val overflow_value = RealGeneric.inf(x.spec,0)
     // Check NaN
-    if ( (exRaw == maskI(expW)) && (man != 0L) )  {
-      return maskI(expW+1) << (manW-1)
-    }
+    if (x.isNaN) return RealGeneric.nan(x.spec)
+
     if ( ex >= expW-1 ) { // Overflow or Underflow
-      return ( if (sgn==0) overflow_value else 0L )
+      return ( if (sgn==0) overflow_value else RealGeneric.zero(x.spec) )
     } 
-    val manWith1 = (man+(1L<<manW))<<(expW-2+extraBits)
+    val calcW0 = manW+extraBits
+    val extraManW = if (calcW0<adrW) {
+      if (t.nOrder != 0) {
+        sys.error(f"ERROR: Address width $adrW > calculation width $calcW0 for polynomial order ${t.nOrder}")
+        0
+      } else {
+        adrW-manW
+      }
+    } else {
+      extraBits
+    }
+    val calcW = manW + extraManW
+
+    val manWith1 = x.manW1<<(expW-2+extraManW)
     // right shift amount :
     //   0  if ex==expW-2
     val shift = expW-2-ex
-    val xu = if (shift>=64) 0L else (manWith1 >> (expW-2-ex))
+    val xu = manWith1 >> shift
     //println(f"$xu%08x, $manWith1%08x, ", expW-2-ex)
     // binary point at manW+extraBits
-    val calcW = manW+extraBits
     val xi = if (sgn==0) xu else -xu
     //println(f"xisim=$xi%x")
     // Result exponent
-    val tmp = (xi>>calcW)
-    val zEx = exBias + (xi>>calcW)
+    val zEx = exBias + (xi>>calcW).toInt
     //println(f"ex=$ex%d, xu=$xu%08x, zEx=$zEx%d, $tmp%d")
     if   (zEx>=maskI(expW)) { return overflow_value }
-    else if (zEx<=0) { return 0L }
+    else if (zEx<=0) { return RealGeneric.zero(x.spec) }
 
     val dxbp = calcW-adrW-1
-    val d    = slice(0, dxbp+1, xi) - (1L<<dxbp)
+    val d    = slice(0, dxbp+1, xi) - (SafeLong(1)<<dxbp)
     //println(f"d=$d%x")
     val adr  = slice(dxbp+1, adrW, xi).toInt
-    val zman = t.interval(adr).eval(d, dxbp)
+    // From here Long is used instead of SafeLong; should be fixed
+    val zman = t.interval(adr).eval(d.toLong, dxbp)
     // Simple rounding
-    val zmanRound = (zman>>extraBits) + bit(extraBits-1, zman)
+    val zmanRound = if (extraBits>0) { (zman>>extraBits) + bit(extraBits-1, zman)} else zman
+    //println(f"zman=${zman}%h")
     val z = if (zman<0) {
       println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=$x%h")
       0L
@@ -78,7 +103,7 @@ object ExponentialSim {
     } else {
       zmanRound
     }
-    (zEx << manW) + z
+    new RealGeneric(x.spec, 0, zEx, SafeLong(z))
   }
 
   val pow2F32Order = 2
@@ -89,5 +114,15 @@ object ExponentialSim {
   pow2F32TableD.addRange(0.0, 1.0, 1<<pow2F32AdrW)
   val pow2F32TableI = new FuncTableInt( pow2F32TableD, 23+pow2F32ExtraBits )
 
-  val pow2F32Sim = pow2simGeneric(pow2F32TableI, 8, 23, pow2F32AdrW, pow2F32ExtraBits, _)
+  val pow2F32Sim = pow2simGeneric(pow2F32TableI, pow2F32ExtraBits, _)
+
+  val pow2BF16Order = 0
+  val pow2BF16AdrW  = 7
+  val pow2BF16ExtraBits = 1
+
+  val pow2BF16TableD = new FuncTableDouble( x => pow(2.0,x)-1.0, pow2BF16Order )
+  pow2BF16TableD.addRange(0.0, 1.0, 1<<pow2BF16AdrW)
+  val pow2BF16TableI = new FuncTableInt( pow2BF16TableD, 7+pow2BF16ExtraBits )
+
+  val pow2BF16Sim = pow2simGeneric(pow2BF16TableI, pow2BF16ExtraBits, _)
 }

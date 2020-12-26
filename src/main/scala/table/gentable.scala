@@ -17,7 +17,11 @@ class FuncTableIntervalDouble (
   val xMin  : Double,
   val w     : Double
 ) {
-  val c  = Chebyshev.conv(Chebyshev.fit(f, xMin, xMin+w, nOrder))
+  val c  = if (nOrder==0) {
+    Array(f(xMin))
+  } else {
+    Chebyshev.conv(Chebyshev.fit(f, xMin, xMin+w, nOrder))
+  }
   val c1 = Chebyshev.conv(Chebyshev.fit(f, xMin, xMin+w, nOrder+1))
 
   def xMax = xMin+w
@@ -50,7 +54,9 @@ class FuncTableIntervalDouble (
     def func( x : Double ) = { 
       evalNorm( x, nOrder-order)
     }
-    if (order==0) {
+    if (nOrder==0) {
+      ( abs(c(0)), abs(c(0)) )
+    } else if (order==0) {
       ( abs(c.last), abs(c.last) )
     } else {
       estimateMinMax.getMinMaxDouble( func, deriv, -1.0, 1.0 )
@@ -64,7 +70,9 @@ class FuncTableIntervalDouble (
     def func( x : Double ) = { 
       evalNorm( x, nOrder-order)
     }
-    if (order==0) {
+    if (nOrder==0) {
+      abs(c(0))
+    } else if (order==0) {
       abs(c.last)
     } else {
       val minmax = estimateMinMax.getMinMaxDouble( func, deriv, -1.0, 1.0 )
@@ -85,6 +93,10 @@ class FuncTableIntervalDouble (
 
 class FuncTableDouble (f : Double => Double, val nOrder : Int) {
   var interval = new Array[FuncTableIntervalDouble](0)
+
+  def nInterval = interval.length
+
+  def adrW = log2Up(interval.length)
 
   def add(xMin : Double, w : Double) = {
     interval = interval :+ new FuncTableIntervalDouble(f, nOrder, xMin, w)
@@ -284,6 +296,9 @@ trait FuncTable {
 
   val interval : Array[FuncTableIntervalInt]
 
+  def nInterval = interval.length
+  def adrW = log2Up(interval.length)
+
   def getVectorUnified( signMode : Int = 0 ) = {
     val nAdr = log2Up(interval.size);
     val w = cbit.zip(sign).map( x => if ((x._2 != 3) && (signMode!=0)) x._1-1 else x._1 )
@@ -443,6 +458,7 @@ class FuncTableInt (t: FuncTableDouble, val bp: Int) extends FuncTable {
   // getExponent returns -1 for [0.5,1) corresponds bp+1 including sign.
   // Here, we always include sign bit, so plus 1.
   val cbit   = absMax.map(x => bp + java.lang.Math.getExponent(x)+1+1)
+  //println(s"bp        : $bp")
   println("Cbits     : "+cbit.mkString("", ", ",""))
 
   // Calculate max

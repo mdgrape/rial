@@ -11,8 +11,16 @@ import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
 
 import scala.util.Random
 import scala.math._
+
+import spire.math.SafeLong
+import spire.math.Numeric
+import spire.implicits._
+
 import rial.math._
 import rial.util.ScalaUtil._
+import rial.arith._
+import rial.table._
+
 
 class ExponentialSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
 //class ExponentialSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
@@ -25,8 +33,105 @@ class ExponentialSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
 
   val r = new Random(19660809)
 
-  var err1lsbPos = 0
-  var err1lsbNeg = 0
+  def generateRealWithin( p : Double, spec: RealSpec, r : Random ) = {
+    val rD : Double = (r.nextDouble()-0.5)*p
+    val x = new RealGeneric(spec, rD)
+    new RealGeneric (spec, (x.value & (maskSL(spec.exW+1)<<spec.manW)) + SafeLong(BigInt(spec.manW, r)))
+  }
+
+  def generateRealFull ( spec: RealSpec, r : Random ) = {
+    new RealGeneric (spec, SafeLong(BigInt(spec.W, r)))
+  }
+
+  def errorLSB( x : RealGeneric, y : Double ) : Double = {
+    val err = x.toDouble - y
+    java.lang.Math.scalb(err, -x.exNorm+x.spec.manW)
+  }
+
+  def pow2Test(t: FuncTableInt, extraBits: Int, spec : RealSpec, n : Int, r : Random,
+    generatorStr : String, generator : ( (RealSpec, Random) => RealGeneric) ) = {
+    test(s"Power of 2 , format ${spec.toStringShort}, ${generatorStr}") {
+      var err1lsbPos = 0
+      var err1lsbNeg = 0
+      for(i <- 1 to n) {
+        val x  = generator(spec,r)
+        val x0 = x.toDouble
+        val z0 = pow(2.0, x0)
+        val z0r = new RealGeneric(spec, z0)
+        val zi = ExponentialSim.pow2simGeneric( t, extraBits, x )
+        val zd = zi.toDouble
+        val errf = zd-z0
+        val erri = errorLSB(zi, z0)
+        //println(f"${x.value.toLong}%x $z0 ${zi.toDouble}")
+        if (z0r.value != zi.value) {
+          println(f"${x.value.toLong}%x ${z0r.value.toLong}%x ${zi.value.toLong}%x")
+        }
+        if (z0.isInfinity) {
+          assert(zd.isInfinity)
+        } else if (zd.isInfinite) {
+          assert(z0r.isInfinite)
+        } else if (x0.isNaN) {
+          assert(zi.isNaN)
+        } else {
+          if (erri.abs>=2.0) {
+            println(f"Error more than 2 LSB : ${x.toDouble}%14.7e : $z0%14.7e ${zi.toDouble}%14.7e $errf%14.7e $erri%f")
+          } else if (erri>=1.0) err1lsbPos+=1
+          else if (erri<= -1.0) err1lsbNeg+=1
+          assert(erri.abs<=1)
+        }
+        //println(f"$x%14.7e : $z0%14.7e $z%14.7e $errf%14.7e $erri%d")
+      }
+      println(f"N=$n%d : 1LSB errors positive $err1lsbPos%d / negative $err1lsbNeg%d")
+    }
+  }
+
+  // fracW include extra bits added during calc.
+  def pow2TableGeneration( order : Int, adrW : Int, fracW : Int ) = {
+    val tableD = new FuncTableDouble( x => pow(2.0,x)-1.0, order )
+    tableD.addRange(0.0, 1.0, 1<<adrW)
+    new FuncTableInt( tableD, fracW )
+  }
+
+  val pow2F32ExtraBits = 2
+  val pow2F32TableI = pow2TableGeneration( 2, 8, 23+pow2F32ExtraBits )
+
+  pow2Test(pow2F32TableI, pow2F32ExtraBits, RealSpec.Float32Spec, n, r,
+    "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+  pow2Test(pow2F32TableI, pow2F32ExtraBits, RealSpec.Float32Spec, n, r,
+    "Test All range",generateRealFull(_,_) )
+
+  val pow2BF16ExtraBits = 1
+  val pow2BF16TableI = pow2TableGeneration( 0, 8, 7 )
+
+  pow2Test(pow2BF16TableI, 0, RealSpec.BFloat16Spec, n, r,
+    "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+  pow2Test(pow2BF16TableI, 0, RealSpec.BFloat16Spec, n, r,
+    "Test All range",generateRealFull(_,_) )
+
+  /*
+  err1lsbPos = 0
+  err1lsbNeg = 0
+  test("Compare my Pow2BF16Sim with pow(2,x) for all range") {
+    for(i <- 1 to n) {
+      val xi = r.nextInt()&0xFFFF
+      val x  = java.lang.Float.intBitsToFloat(xi<<16)
+      val z0 = normalizeFloat(pow(2.0, x).toFloat)
+      val z0i = java.lang.Float.floatToRawIntBits(z0)
+      val zi = ExponentialSim.pow2BF16Sim(xi).toInt<<16
+      val z  = java.lang.Float.intBitsToFloat(zi)
+      val errf = z-z0
+      val erri = zi-z0i
+      if (erri.abs>1) {
+        println(f"Error more than 1 LSB : $x%14.7e($xi%08x) : $z0%14.7e($z0i%08x) $z%14.7e($zi%08x) $errf%14.7e $erri%d")
+      } else if (erri==1) err1lsbPos+=1
+      else if (erri== -1) err1lsbNeg+=1
+      assert(erri.abs<=1)
+    }
+    println(f"N=$n%d : 1LSB errors positive $err1lsbPos%d / negative $err1lsbNeg%d")
+  }
+
+  err1lsbPos = 0
+  err1lsbNeg = 0
   test("Compare my Pow2F32Sim with pow(2,x) for proper range") {
     for(i <- 1 to n) {
       val x  = ((r.nextDouble()-0.5)*128.0).toFloat
@@ -68,4 +173,5 @@ class ExponentialSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
     println(f"N=$n%d : 1LSB errors positive $err1lsbPos%d / negative $err1lsbNeg%d")
   }
   
+   */
 }

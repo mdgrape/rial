@@ -69,7 +69,8 @@ class Pow2F32Test extends FlatSpec
             for(i <- 1 to n+nstage) {
               val xi = gen._2(r)
               //println(xi)
-              val z0i= ExponentialSim.pow2F32Sim(xi)
+              //val z0i= ExponentialSim.pow2F32Sim(xi)
+              val z0i= 0
               q += ((xi,z0i))
               c.io.x.poke(xi.U(32.W))
               val zi = c.io.z.peek.litValue.toLong

@@ -26,6 +26,10 @@ class RealSpec (
   def exMax : Int = { maskI(exW)-1-exBias }
   def exMin : Int = { 1-exBias }
 
+  //def toString : String = s"(${exW},${manW}) exBias=${exBias}" +
+  //s"disableSign=$disableSign disableNaN=$disableNaN disableSubNormal=$disableSubnormal"
+  def toStringShort : String = s"(${exW},${manW})"
+
 }
 
 object RealSpec {
@@ -51,10 +55,11 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
     this(spec, doubleToRealGeneric(spec,d) )
   }
 
-  private def man   = (value & maskSL(spec.manW))
-  private def manW1 = ( (value & maskSL(spec.manW)) + (SafeLong(1)<<spec.manW) ) // with leading 1
-  private def ex  = slice(spec.manW,spec.exW,value).toInt
-  private def sgn = bit(spec.manW+spec.exW,value).toInt
+  def man   = (value & maskSL(spec.manW))
+  def manW1 = ( (value & maskSL(spec.manW)) + (SafeLong(1)<<spec.manW) ) // with leading 1
+  def ex  = slice(spec.manW,spec.exW,value).toInt
+  def sgn = bit(spec.manW+spec.exW,value).toInt
+  def exNorm = ex - spec.exBias
 
   def fracIsZero : Boolean = { man == 0 }
 
