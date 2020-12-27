@@ -22,11 +22,11 @@ import rial.arith.RealSpec
 // 2^x = 2^xi * 2^xf
 
 class Pow2Generic(
-  spec : RealSpec, // Input / Output floating spec
-  nOrder: Int, adrW : Int, extraBits : Int, // Polynomial spec
-  stage : PipelineStageConfig,
-  enableRangeCheck : Boolean = true,
-  enablePolynomialRounding : Boolean = false,
+  val spec : RealSpec, // Input / Output floating spec
+  val nOrder: Int, val adrW : Int, val extraBits : Int, // Polynomial spec
+  val stage : PipelineStageConfig,
+  val enableRangeCheck : Boolean = true,
+  val enablePolynomialRounding : Boolean = false,
 ) extends Module {
 
   val nStage = stage.total
@@ -45,8 +45,20 @@ class Pow2Generic(
     val z   = Output(UInt(W.W))
   })
 
-  val calcW = manW+extraBits // for rounding
-  val exValidW = log2Up(calcW+expW-1) // valid exponent bits
+  val padding = if (adrW>=manW) {
+    if (nOrder != 0) {
+      println("ERROR: table address width >= mantissa width, but polynomial order is not zero.")
+      sys.exit(1)
+      0
+    } else {
+      adrW-manW
+    }
+  } else {
+    extraBits
+  }
+
+  val bp    = manW+padding // for rounding
+  val exValidW = log2Up(bp+expW-1) // valid exponent bits
 
   val sgn = io.x(W-1)
   val ex  = io.x(W-2,manW)
@@ -58,27 +70,27 @@ class Pow2Generic(
   val exUdf = exOvfUdf && sgn
   val nan   = if (spec.disableNaN) false.B else (ex === Fill(expW,1.U(1.W))) && ( man =/= 0.U )
 
-  // Float to Integer, keep fractional width calcW
+  // Float to Integer, keep fractional width bp
   // max exponent is expW-2
-  val lsbPadding = expW-2+extraBits
+  val lsbPadding = expW-2+padding
   val manWith1 = 1.U(1.W) ## man ## 0.U(lsbPadding.W)
-  val man1W = calcW+expW-1
+  val man1W = manW+padding+expW-1
   // manWith1 width: manW+extraBits+expW-1
   //   binary point: manW+extraBits
 
   // right shift amount :
   //   0  if ex==exBias+expW-2
   //   shift = exBias+expW-2-ex 
-  //   0 if shift >= calcW+expW-1
-  //     => ex <= exBias-calcW-1
+  //   0 if shift >= bp+expW-1
+  //     => ex <= exBias-bp-1
   val shift_base = (exBias+expW-2) & maskI(exValidW)
-  val shiftToZero = ex < (exBias-calcW).U(expW.W)
+  val shiftToZero = ex < (exBias-bp).U(expW.W)
   val shift = shift_base.U - ex(exValidW-1,0)
   val xshift =manWith1 >> shift
-  // binary point at bit calcW; extraBits bit for rounding / extension
+  // bp includes extraBits bit for rounding / extension
   val xu = 0.U(1.W) ## Mux(shiftToZero, 0.U(man1W.W), xshift)
-  val xi = Mux(sgn, -xu, xu) // calcW+expW
-  val xiInt = xi(calcW+expW-1,calcW) // Integral part - for exponent
+  val xi = Mux(sgn, -xu, xu) // bp+expW
+  val xiInt = xi(bp+expW-1,bp) // Integral part - for exponent
   //printf("ex=%d shiftToZero=%b shift=%d xi=%x\n", ex, shiftToZero, shift, xi)
 
   // Result exponent
@@ -91,34 +103,34 @@ class Pow2Generic(
   val z0 = Wire(UInt((manW+expW).W))
 
   if (nOrder<=0) { // Fixed Table
-    val adr = xi(calcW-1,0)
+    val adr = xi(adrW-1,0)
     var ovfFlag : Boolean = false
-    val tbl = VecInit( (0L to (1L<<calcW)-1L).map(
-      n => n.toDouble/(1L<<calcW)).map(
-        x => {
-          val y=round((pow(2.0,x)-1.0)*(1L<<manW))
-          if (y>=(1L<<manW)) {
-            ovfFlag = true
-            println("WARNING: mantissa reaches to 2")
-            maskL(manW).U(manW.W)
-          } else {
-            y.U(manW.W)
-          }
+    val tbl = VecInit( (0L to (1L<<adrW)-1L).map(
+      n => {
+        val x = n.toDouble/(1L<<adrW)
+        val y=round((pow(2.0,x)-1.0)*(1L<<manW))
+        //println(f"$n $x $y")
+        if (y>=(1L<<manW)) {
+          ovfFlag = true
+          println("WARNING: mantissa reaches to 2")
+          maskL(manW).U(manW.W)
+        } else {
+          y.U(manW.W)
         }
-      )
-    )
+      }
+    ) )
     val zman = tbl(adr)
     val zeroFlush = exOvfUdf || zExNegMax || nan
     z0 := zEx ## Mux(zeroFlush, nan ## 0.U((manW-1).W), zman)
   } else {
     // Fractional part by Polynomial
-    val adr = xi(calcW-1,calcW-1-adrW+1)
-    val d   = Cat(~xi(calcW-adrW-1),xi(calcW-1-adrW-1,0)).asSInt
-    val dW  = calcW - adrW
+    val adr = xi(bp-1,bp-1-adrW+1)
+    val d   = Cat(~xi(bp-adrW-1),xi(bp-1-adrW-1,0)).asSInt
+    val dW  = bp - adrW
 
     val tableD = new FuncTableDouble( x => pow(2.0,x)-1.0, nOrder )
     tableD.addRange(0.0, 1.0, 1<<adrW)
-    val tableI = new FuncTableInt( tableD, calcW )
+    val tableI = new FuncTableInt( tableD, bp )
     val (coeffTable, coeffWidth) = tableI.getVectorUnified(1)
     val coeffAll = coeffTable(adr)
     val coeff    = getSlices(coeffAll, coeffWidth)
