@@ -92,8 +92,9 @@ class ReciprocalGeneric(
 
   val zEx = Mux(inf, maskU(expW),
     Mux(zero, 0.U(expW.W), zex0(expW-1,0)))
+  val zZero = zero || (zex0===0.U)
 
-  val zSgn = sgn && !(inf||zero)
+  val zSgn = sgn && !(inf||zZero)
 
   val z0 = Wire(UInt(W.W))
 
@@ -104,7 +105,9 @@ class ReciprocalGeneric(
         val x = 1.0+n.toDouble/(1L<<adrW)
         val y = round((2.0/x-1.0)*(1L<<manW))
         //println(f"$n $x $y")
-        if ((n!=0)&&(y>=(1L<<manW))) {
+        if (n==0) {
+          0.U(manW.W)
+        } else if (y>=(1L<<manW)) {
           println("WARNING: mantissa reaches to 2")
           maskL(manW).U(manW.W)
         } else {
@@ -113,7 +116,7 @@ class ReciprocalGeneric(
       }
     ) )
     val zman = tbl(adr)
-    val zeroFlush = inf || zero || nan
+    val zeroFlush = inf || zZero || nan
     z0 := zSgn ## zEx ## Mux(zeroFlush, nan ## 0.U((manW-1).W), zman)
   } else {
     // Fractional part by Polynomial
@@ -121,8 +124,8 @@ class ReciprocalGeneric(
     val d   = Cat(man(manW-adrW-1),~man(manW-adrW-2,0)).asSInt
 
     // Create table for 1/(2-x)
-    val eps = pow(2.0, -manW)
-    val tableD = new FuncTableDouble( x => 2.0/(2.0-(x+eps))-1.0, order )
+    //val eps = pow(2.0, -manW)
+    val tableD = new FuncTableDouble( x => 2.0/(2.0-x)-1.0, order )
     tableD.addRange(0.0, 1.0, 1<<adrW)
     val tableI = new FuncTableInt( tableD, bp )
     val (coeffTable, coeffWidth) = tableI.getVectorUnified(1)
@@ -152,7 +155,7 @@ class ReciprocalGeneric(
     val zman  = dropLSB(extraBits, s0) + s0(extraBits-1)
     val polynomialOvf = zman.head(2) === 1.U // >=1
     val polynomialUdf = zman.head(1) === 1.U // Negative
-    val zeroFlush = inf || zero || polynomialUdf || nan
+    val zeroFlush = inf || zZero || polynomialUdf || nan
     val zman_checkovf = Mux(polynomialOvf, Fill(manW,1.U(1.W)), zman(manW-1,0))
     z0 := zSgn ## zEx ## Mux(zeroFlush, nan ## 0.U((manW-1).W), zman_checkovf)
   }

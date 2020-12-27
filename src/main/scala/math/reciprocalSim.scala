@@ -57,14 +57,14 @@ object ReciprocalSim {
       if (adrW<manW) 
         println("WARNING: table address width < mantissa width, for polynomial order is zero. address width set to mantissa width.")
       val adr = man.toInt
-      t.interval(adr).eval(0L, 0)
+      if (man==0) 0 else t.interval(adr).eval(0L, 0)
     } else {
       val dxbp = manW-adrW-1
-      val d   = (SafeLong(1)<<dxbp) - slice(0, manW-adrW, man)
-      val adr = slice(manW-adrW, adrW, man).toInt
+      val d   = (SafeLong(1)<<dxbp) - slice(0, manW-adrW, man)-1
+      val adr = maskI(adrW)-slice(manW-adrW, adrW, man).toInt
       //println(f"d=$d%x")
       // From here Long is used instead of SafeLong; should be fixed
-      t.interval(adr).eval(d.toLong, dxbp)
+      if (man==0) 0 else t.interval(adr).eval(d.toLong, dxbp)
     }
 
     // Simple rounding
@@ -83,16 +83,20 @@ object ReciprocalSim {
     new RealGeneric(x.spec, sgn, zEx, SafeLong(z))
   }
 
-  val reciprocalF32ExtraBits = 2
-  val eps = pow(2.0, -23)
-  val reciprocalF32TableD = new FuncTableDouble( x => 2.0/(2.0-(x+eps))-1.0, 2 )
-  reciprocalF32TableD.addRange(0.0, 1.0, 1<<8)
-  val reciprocalF32TableI = new FuncTableInt( reciprocalF32TableD, 23+reciprocalF32ExtraBits )
+  // fracW include extra bits added during calc.
+  def reciprocalTableGeneration( order : Int, adrW : Int, fracW : Int ) = {
+    val tableD = if (order==0) {
+      new FuncTableDouble( x => 2.0/(1.0+x)-1.0, order )
+    } else {
+      new FuncTableDouble( x => 2.0/(2.0-x)-1.0, order )
+    }
+    tableD.addRange(0.0, 1.0, 1<<adrW)
+    new FuncTableInt( tableD, fracW )
+  }
 
+  val reciprocalF32TableI = ReciprocalSim.reciprocalTableGeneration( 2, 8, 23+2 )
   val reciprocalF32Sim = reciprocalSimGeneric(reciprocalF32TableI, _ )
 
-  val reciprocalBF16TableD = new FuncTableDouble( x => 2.0/(1.0+x)-1.0, 0 )
-  reciprocalBF16TableD.addRange(0.0, 1.0, 1<<7)
-  val reciprocalBF16TableI = new FuncTableInt( reciprocalBF16TableD, 7 )
+  val reciprocalBF16TableI = ReciprocalSim.reciprocalTableGeneration( 0, 7, 7 )
   val reciprocalBF16Sim = reciprocalSimGeneric( reciprocalBF16TableI, _ )
 }
