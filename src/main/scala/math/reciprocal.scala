@@ -124,8 +124,8 @@ class ReciprocalGeneric(
     val d   = Cat(man(manW-adrW-1),~man(manW-adrW-2,0)).asSInt
 
     // Create table for 1/(2-x)
-    //val eps = pow(2.0, -manW)
-    val tableD = new FuncTableDouble( x => 2.0/(2.0-x)-1.0, order )
+    val eps = pow(2.0, -manW)
+    val tableD = new FuncTableDouble( x => 2.0/(2.0-(x+eps))-1.0, order )
     tableD.addRange(0.0, 1.0, 1<<adrW)
     val tableI = new FuncTableInt( tableD, bp )
     val (coeffTable, coeffWidth) = tableI.getVectorUnified(1)

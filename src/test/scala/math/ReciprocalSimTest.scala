@@ -85,14 +85,14 @@ class ReciprocalSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
     }
   }
 
-  val reciprocalF32TableI = ReciprocalSim.reciprocalTableGeneration( 2, 8, 23+2 )
+  val reciprocalF32TableI = ReciprocalSim.reciprocalTableGeneration( 2, 8, 23, 23+2 )
 
   reciprocalTest(reciprocalF32TableI, RealSpec.Float32Spec, n, r,
     "Test Within (-128,128)",generateRealWithin(128.0,_,_))
   reciprocalTest(reciprocalF32TableI, RealSpec.Float32Spec, n, r,
     "Test All range",generateRealFull(_,_) )
 
-  val reciprocalBF16TableI = ReciprocalSim.reciprocalTableGeneration( 0, 7, 7 )
+  val reciprocalBF16TableI = ReciprocalSim.reciprocalTableGeneration( 0, 7, 7, 7 )
 
   reciprocalTest(reciprocalBF16TableI, RealSpec.BFloat16Spec, n, r,
     "Test Within (-128,128)",generateRealWithin(128.0,_,_))

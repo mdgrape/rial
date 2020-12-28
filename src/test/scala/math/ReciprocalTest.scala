@@ -87,8 +87,8 @@ class ReciprocalTest extends FlatSpec
     }
   }
 
-  val reciprocalBF16TableI = ReciprocalSim.reciprocalTableGeneration( 0, 7, 7 )
-  val reciprocalF32TableI = ReciprocalSim.reciprocalTableGeneration( 2, 8, 23+2 )
+  val reciprocalBF16TableI = ReciprocalSim.reciprocalTableGeneration( 0, 7, 7, 7 )
+  val reciprocalF32TableI = ReciprocalSim.reciprocalTableGeneration( 2, 8, 23, 23+2 )
 
   runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
     n, r, reciprocalBF16TableI,
