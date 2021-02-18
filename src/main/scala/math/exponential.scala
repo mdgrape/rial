@@ -180,3 +180,57 @@ object Pow2F32_driver extends App {
   (new chisel3.stage.ChiselStage).execute(args,
     Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new Pow2F32(2)) ) )
 }
+
+class ExponentialGeneric(
+  val spec : RealSpec, // Input / Output floating spec
+  val nOrder: Int, val adrW : Int, val extraBits : Int, // Polynomial spec
+  val stage : PipelineStageConfig,
+  val enableRangeCheck : Boolean = true,
+  val enablePolynomialRounding : Boolean = false,
+) extends Module {
+
+  val nStage = stage.total
+
+  def getParam() = { (spec.exW, spec.manW, nOrder, adrW, extraBits, nStage,
+    enableRangeCheck, enablePolynomialRounding) }
+
+  def getStage() = nStage
+
+  val expW = spec.exW
+  val manW = spec.manW
+  val W    = expW+manW+1
+
+  val io = IO(iodef = new Bundle {
+    val x   = Input(UInt(W.W))
+    val z   = Output(UInt(W.W))
+  })
+
+  val xm = 1.U(1.W) ## io.x(manW-1,0)
+  val xe = io.x(W-2,manW)
+  val xs = io.x(W-1)
+  val zeroOrInfOrNaN = xe.andR || !xe.orR
+  val xePlus1 = Mux(zeroOrInfOrNaN, xe, xe+1.U)
+
+  // Multiply log_2 e
+  val log2e = 1.0d/java.lang.Math.log(2.0d)
+  val log2eMan = BigInt(round(java.lang.Math.scalb(log2e, manW))).U((manW+1).W)
+
+  val prod = xm * log2eMan
+  val le2  = prod(manW*2+1)
+  val ym = Mux(le2, prod(manW*2,manW+1), prod(manW*2-1, manW))
+  val r  = Mux(le2, prod(manW), prod(manW-1))
+  val stickey = prod(manW-2,0).orR || (le2 && prod(manW-1))
+  val inc = r && (stickey || ym(0))
+  val ymRound = ym +& inc
+  val ye = Mux(ymRound(manW) | le2, xePlus1, xe)
+
+  val yman = Mux(zeroOrInfOrNaN, io.x(manW-1,0), ymRound(manW-1,0))
+  val y = xs ## ye ## yman
+
+  val pow2 = Module(new Pow2Generic( spec, nOrder, adrW, extraBits, stage,
+    enableRangeCheck, enablePolynomialRounding ) )
+
+  pow2.io.x := y
+  io.z := pow2.io.z
+
+}

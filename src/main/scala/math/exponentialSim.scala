@@ -125,4 +125,40 @@ object ExponentialSim {
   val pow2BF16TableI = new FuncTableInt( pow2BF16TableD, 7+pow2BF16ExtraBits )
 
   val pow2BF16Sim = pow2simGeneric(pow2BF16TableI, pow2BF16ExtraBits, _)
+
+  def expSimGeneric( t : FuncTableInt, extraBits: Int, x: RealGeneric ) : RealGeneric = {
+    val expW = x.spec.exW
+    val manW = x.spec.manW
+    val exBias = x.spec.exBias
+
+    val man    = x.manW1
+    val exRaw  = x.ex
+    val sgn    = x.sgn
+
+    if (x.isNan || x.isInfinite || x.zero) {
+      pow2simGeneric(t, extraBits, x )
+    } else {
+      val log2e = 1.0d/java.lang.Math.log(2.0d)
+      val log2eMan = BigInt(round(java.lang.Math.scalb(log2e, manW)))
+      val prod = man * log2eMan
+      val moreThan2 = bit(manW*2+1, prod)
+      val le2  = prod(manW*2+1)
+      val prodRound = roundBySpec(roundSpec, roundbits, prod)
+  val ym = Mux(le2, prod(manW*2,manW+1), prod(manW*2-1, manW))
+  val r  = Mux(le2, prod(manW), prod(manW-1))
+  val stickey = prod(manW-2,0).orR || (le2 && prod(manW-1))
+  val inc = r && (stickey || ym(0))
+  val ymRound = ym +& inc
+  val ye = Mux(ymRound(manW) | le2, xePlus1, xe)
+
+  val xs = io.x(W-1)
+  val xePlus1 =
+    Mux(xe.andR, xe,
+      Mux(!xe.orR, xe, xe+1.U))
+
+  // Multiply log_2 e
+
+  val prod = xm * log2eMan
+
+  val y = xs ## ye ## ymRound(manW-1,0)
 }
