@@ -85,6 +85,48 @@ class ExponentialSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
     }
   }
 
+  def expTest(t: FuncTableInt, extraBits: Int, spec : RealSpec, n : Int, r : Random,
+    generatorStr : String, generator : ( (RealSpec, Random) => RealGeneric) ) = {
+    test(s"Exponential, format ${spec.toStringShort}, ${generatorStr}") {
+      var err1lsbPos = 0
+      var err1lsbNeg = 0
+      var lsbErr=4
+      for(i <- 1 to n) {
+        val x  = generator(spec,r)
+        val x0 = x.toDouble
+        val z0 = java.lang.Math.exp(x0)
+        val z0r = new RealGeneric(spec, z0)
+        val xlog2e = x0 /java.lang.Math.log(2.0d)
+        val zPow2  = pow(2.0, xlog2e)
+        println(f"${x0} ${z0} ${zPow2} ${z0-zPow2}")
+        val zi = ExponentialSim.pow2simGeneric( t, extraBits, new RealGeneric(spec, xlog2e) )
+        //val zi = ExponentialSim.expSimGeneric( t, extraBits, x )
+        val zd = zi.toDouble
+        val errf = zd-z0
+        val erri = errorLSB(zi, z0)
+        //println(f"${x.value.toLong}%x $z0 ${zi.toDouble}")
+        if (z0r.value != zi.value) {
+          println(f"${x.value.toLong}%x ${z0r.value.toLong}%x ${zi.value.toLong}%x")
+        }
+        if (z0.isInfinity) {
+          assert(zd.isInfinity)
+        } else if (zd.isInfinite) {
+          assert(z0r.isInfinite)
+        } else if (x0.isNaN) {
+          assert(zi.isNaN)
+        } else {
+          if (erri.abs>=lsbErr) {
+            println(f"Error more than ${lsbErr} LSB : ${x.toDouble}%14.7e : $z0%14.7e ${zi.toDouble}%14.7e $errf%14.7e $erri%f")
+          } else if (erri>=1.0) err1lsbPos+=1
+          else if (erri<= -1.0) err1lsbNeg+=1
+          assert(erri.abs<lsbErr)
+        }
+        //println(f"$x%14.7e : $z0%14.7e $z%14.7e $errf%14.7e $erri%d")
+      }
+      println(f"N=$n%d : 1LSB errors positive $err1lsbPos%d / negative $err1lsbNeg%d")
+    }
+  }
+
   // fracW include extra bits added during calc.
   def pow2TableGeneration( order : Int, adrW : Int, fracW : Int ) = {
     val tableD = new FuncTableDouble( x => pow(2.0,x)-1.0, order )
@@ -96,9 +138,14 @@ class ExponentialSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
   val pow2F32TableI = pow2TableGeneration( 2, 8, 23+pow2F32ExtraBits )
 
   pow2Test(pow2F32TableI, pow2F32ExtraBits, RealSpec.Float32Spec, n, r,
-    "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+    "2^x Test Within (-128,128)",generateRealWithin(128.0,_,_))
   pow2Test(pow2F32TableI, pow2F32ExtraBits, RealSpec.Float32Spec, n, r,
-    "Test All range",generateRealFull(_,_) )
+    "2^x Test All range",generateRealFull(_,_) )
+
+  expTest(pow2F32TableI, pow2F32ExtraBits, RealSpec.Float32Spec, n, r,
+    "exp Test Within (-128,128)",generateRealWithin(128.0,_,_))
+  expTest(pow2F32TableI, pow2F32ExtraBits, RealSpec.Float32Spec, n, r,
+    "exp Test All range",generateRealFull(_,_) )
 
   val pow2BF16ExtraBits = 1
   val pow2BF16TableI = pow2TableGeneration( 0, 8, 7 )

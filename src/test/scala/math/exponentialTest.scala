@@ -173,3 +173,78 @@ class Pow2BF16Test extends FlatSpec
 
 }
 
+class ExpF32Test extends FlatSpec
+    with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
+
+  behavior of "Test exp F32"
+
+  var n = 1000
+
+  override def beforeAll(configMap: ConfigMap) = {
+    n = configMap.getOptional[String]("n").getOrElse("1000").toInt
+    println(s"ncycle=$n")
+  }
+
+  val r = new Random(19660809)
+
+  def generateRealWithin( p : Double, spec: RealSpec, r : Random ) = {
+    val rD : Double = (r.nextDouble()-0.5)*p
+    val x = new RealGeneric(spec, rD)
+    new RealGeneric (spec, (x.value & (maskSL(spec.exW+1)<<spec.manW)) + SafeLong(BigInt(spec.manW, r)))
+  }
+
+  def generateRealFull ( spec: RealSpec, r : Random ) = {
+    new RealGeneric (spec, SafeLong(BigInt(spec.W, r)))
+  }
+
+  def errorLSB( x : RealGeneric, y : Double ) : Double = {
+    val err = x.toDouble - y
+    java.lang.Math.scalb(err, -x.exNorm+x.spec.manW)
+  }
+
+  private def runtest ( spec : RealSpec, stage : PipelineStageConfig,
+    n : Int, r : Random,
+    reference : (RealGeneric => RealGeneric),
+    generatorStr : String, generator : ( (RealSpec, Random) => RealGeneric) ) = {
+    val total = stage.total
+    val pipeconfig = stage.getString
+    it should f"pow(2,x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
+      test( new ExponentialGeneric(spec,2,8,2,stage, false, false)) { c =>
+        {
+          val nstage = c.getStage
+          val q  = new Queue[(BigInt,BigInt)]
+          for(i <- 1 to n+nstage) {
+            val xi = generator(spec,r)
+            val z0r= reference(xi)
+            q += ((xi.value.toBigInt,z0r.value.toBigInt))
+            c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
+            val zi = c.io.z.peek.litValue.toBigInt
+            if (i > nstage) {
+              val (xid,z0d) = q.dequeue
+              assert(zi == z0d, f"x=$xid%x $zi%x!=$z0d%x")
+            }
+            c.clock.step(1)
+          }
+        }
+      }
+    }
+  }
+
+  def pow2TableGeneration( order : Int, adrW : Int, fracW : Int ) = {
+    val tableD = new FuncTableDouble( x => pow(2.0,x)-1.0, order )
+    tableD.addRange(0.0, 1.0, 1<<adrW)
+    new FuncTableInt( tableD, fracW )
+  }
+
+  val pow2F32ExtraBits = 0
+  val pow2F32TableI = pow2TableGeneration( 2, 8, 23 )
+  val pow2F32sim = ExponentialSim.expSimGeneric( pow2F32TableI, 2, _ )
+
+  runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
+    n, r, pow2F32sim,
+    "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+  runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
+    n, r, pow2F32sim,
+    "Test All range",generateRealFull(_,_) )
+}
+
