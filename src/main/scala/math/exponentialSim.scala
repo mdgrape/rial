@@ -150,7 +150,10 @@ object ExponentialSim {
       val ye = if ((bit(manW,ymRound)|moreThan2) !=0 ) xe+1 else xe
       val yman = ymRound & maskSL(manW)
       val y = new RealGeneric(x.spec, sgn, ye, yman)
-      pow2simGeneric(t, extraBits, y)
+      //println(f"${x.value}%h ${y.value}%h")
+      val z = pow2simGeneric(t, extraBits, y)
+      //println(f"${z.value}%h ${x.toDouble}%f ${y.toDouble}%f ${z.toDouble}%f")
+      z
     }
   }
 

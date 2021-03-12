@@ -230,6 +230,8 @@ class ExponentialGeneric(
   val pow2 = Module(new Pow2Generic( spec, nOrder, adrW, extraBits, stage,
     enableRangeCheck, enablePolynomialRounding ) )
 
+  //printf("%x %x %x %x\n", io.x, y, ye, pow2.io.z)
+
   pow2.io.x := y
   io.z := pow2.io.z
 

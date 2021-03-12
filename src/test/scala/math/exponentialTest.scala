@@ -78,11 +78,11 @@ class Pow2F32Test extends FlatSpec
               q += ((xi,z0r.value.toLong))
               c.io.x.poke(xi.U(32.W))
               val zi = c.io.z.peek.litValue.toLong
+              c.clock.step(1)
               if (i > nstage) {
                 val (xid,z0d) = q.dequeue
                 assert(zi == z0d, f"x=$xid%08x $zi%08x!=$z0d%08x")
               }
-              c.clock.step(1)
             }
             q.clear
           }
@@ -181,6 +181,7 @@ class ExpF32Test extends FlatSpec
   var n = 1000
 
   override def beforeAll(configMap: ConfigMap) = {
+    println(configMap.getOptional[String]("n"))
     n = configMap.getOptional[String]("n").getOrElse("1000").toInt
     println(s"ncycle=$n")
   }
@@ -219,11 +220,11 @@ class ExpF32Test extends FlatSpec
             q += ((xi.value.toBigInt,z0r.value.toBigInt))
             c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
             val zi = c.io.z.peek.litValue.toBigInt
+            c.clock.step(1)
             if (i > nstage) {
               val (xid,z0d) = q.dequeue
               assert(zi == z0d, f"x=$xid%x $zi%x!=$z0d%x")
             }
-            c.clock.step(1)
           }
         }
       }
@@ -236,15 +237,15 @@ class ExpF32Test extends FlatSpec
     new FuncTableInt( tableD, fracW )
   }
 
-  val pow2F32ExtraBits = 0
-  val pow2F32TableI = pow2TableGeneration( 2, 8, 23 )
-  val pow2F32sim = ExponentialSim.expSimGeneric( pow2F32TableI, 2, _ )
+  val expF32sim = ExponentialSim.expSimGeneric(
+    ExponentialSim.pow2F32TableI,
+    ExponentialSim.pow2F32ExtraBits, _ )
 
   runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
-    n, r, pow2F32sim,
+    n, r, expF32sim,
     "Test Within (-128,128)",generateRealWithin(128.0,_,_))
   runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
-    n, r, pow2F32sim,
+    n, r, expF32sim,
     "Test All range",generateRealFull(_,_) )
 }
 
