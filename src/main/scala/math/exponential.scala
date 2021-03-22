@@ -169,18 +169,6 @@ class Pow2Generic(
   //printf("x=%x z=%x\n", io.x, io.z)
 }
 
-class Pow2F32(
-  nStage: PipelineStageConfig = new PipelineStageConfig,
-  enableRangeCheck : Boolean = true,
-  enablePolynomialRounding : Boolean = false,
-) extends Pow2Generic(RealSpec.Float32Spec,2,8,2,nStage,enableRangeCheck, enablePolynomialRounding) {
-}
-
-object Pow2F32_driver extends App {
-  (new chisel3.stage.ChiselStage).execute(args,
-    Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new Pow2F32(2)) ) )
-}
-
 class ExponentialGeneric(
   val spec : RealSpec, // Input / Output floating spec
   val nOrder: Int, val adrW : Int, val extraBits : Int, // Polynomial spec
@@ -230,9 +218,45 @@ class ExponentialGeneric(
   val pow2 = Module(new Pow2Generic( spec, nOrder, adrW, extraBits, stage,
     enableRangeCheck, enablePolynomialRounding ) )
 
-  //printf("%x %x %x %x\n", io.x, y, ye, pow2.io.z)
+  //printf("%x %x %x %x %x %x\n", io.x, prod, ym, y, ye, pow2.io.z)
 
   pow2.io.x := y
   io.z := pow2.io.z
 
+}
+
+////////////////////////////////////////////////////////////////////////
+// The followings are example implementations
+
+class Pow2F32(
+  nStage: PipelineStageConfig = new PipelineStageConfig,
+  enableRangeCheck : Boolean = true,
+  enablePolynomialRounding : Boolean = false,
+) extends Pow2Generic(RealSpec.Float32Spec,2,8,2,nStage,enableRangeCheck, enablePolynomialRounding) {
+}
+
+class Pow2BF16(
+  nStage: PipelineStageConfig = new PipelineStageConfig,
+  enableRangeCheck : Boolean = true,
+  enablePolynomialRounding : Boolean = false,
+) extends Pow2Generic(RealSpec.BFloat16Spec,0,8,0,nStage,enableRangeCheck, enablePolynomialRounding) {
+}
+
+class ExpF32(
+  nStage: PipelineStageConfig = new PipelineStageConfig,
+  enableRangeCheck : Boolean = true,
+  enablePolynomialRounding : Boolean = false,
+) extends ExponentialGeneric(RealSpec.Float32Spec,2,8,2,nStage,enableRangeCheck, enablePolynomialRounding) {
+}
+
+class ExpBF16(
+  nStage: PipelineStageConfig = new PipelineStageConfig,
+  enableRangeCheck : Boolean = true,
+  enablePolynomialRounding : Boolean = false,
+) extends ExponentialGeneric(RealSpec.BFloat16Spec,0,8,0,nStage,enableRangeCheck, enablePolynomialRounding) {
+}
+
+object Pow2F32_driver extends App {
+  (new chisel3.stage.ChiselStage).execute(args,
+    Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new Pow2F32(2)) ) )
 }

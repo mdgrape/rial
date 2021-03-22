@@ -144,13 +144,13 @@ object ExponentialSim {
       val moreThan2 = bit(manW*2+1, prod)
       val ym = slice(manW+moreThan2, manW, prod)
       val r  = bit(manW-1+moreThan2, prod)
-      val stickey = if (slice(0, manW-2+moreThan2, prod) != 0) 1 else 0 
+      val stickey = if (slice(0, manW-1+moreThan2, prod) != 0) 1 else 0 
       val inc = r & (stickey | bit(0,ym))
       val ymRound = ym + inc
       val ye = if ((bit(manW,ymRound)|moreThan2) !=0 ) xe+1 else xe
       val yman = ymRound & maskSL(manW)
       val y = new RealGeneric(x.spec, sgn, ye, yman)
-      //println(f"${x.value}%h ${y.value}%h")
+      //println(f"${prod}%h ${ym}%h ${x.value}%h ${y.value}%h")
       val z = pow2simGeneric(t, extraBits, y)
       //println(f"${z.value}%h ${x.toDouble}%f ${y.toDouble}%f ${z.toDouble}%f")
       z
