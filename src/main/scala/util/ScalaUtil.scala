@@ -46,6 +46,48 @@ object ScalaUtil {
     }
   }
 
+  def log2UpL( x: Long ) : Int = {
+    var y = abs(x)
+    var n = -1
+    while (y > 0) {
+      y >>= 1
+      n += 1
+    }
+    if ( (n<0) || (abs(x) == (1L<<n)) ) n
+    else n+1
+  }
+
+  def log2DownL( x: Long ) : Int = {
+    var y = abs(x)
+    var n = -1
+    while (y > 0) {
+      y >>= 1
+      n += 1
+    }
+    n
+  }
+
+  def log2UpSL( x: SafeLong ) : Int = {
+    var y = x.abs
+    var n = -1
+    while (y > 0) {
+      y >>= 1
+      n += 1
+    }
+    if ( (n<0) || (x.abs == (1L<<n)) ) n
+    else n+1
+  }
+
+  def log2DownSL( x: SafeLong ) : Int = {
+    var y = x.abs
+    var n = -1
+    while (y > 0) {
+      y >>= 1
+      n += 1
+    }
+    n
+  }
+
   def maskL( n : Int ) = {
     if (n<=0) { 0 }
     else if (n<63) { (1L << n)-1 }
