@@ -30,6 +30,12 @@ class RealSpec (
   //s"disableSign=$disableSign disableNaN=$disableNaN disableSubNormal=$disableSubnormal"
   def toStringShort : String = s"(${exW},${manW})"
 
+  override def equals(that: Any): Boolean =
+    that match {
+      case that: RealSpec => (that.exW==this.exW) &&
+        (that.exBias==this.exBias) && (that.manW==this.manW)
+      case _ => false
+    }
 }
 
 object RealSpec {

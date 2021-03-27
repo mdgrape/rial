@@ -29,38 +29,39 @@ import rial.arith.RealGeneric
 //            z = log_2 x = e + log(1.m)
 //               never overflow for the same input/output precision
 
-object LogSim {
+class Log2Sim( val spec : RealSpec, val nOrder : Int, val aW : Int, extraBits : Int ) {
+  val adrW  = if (spec.manW<aW) {
+    sys.error(f"WARNING: Address width $aW > mantissa width ${spec.manW}")
+    spec.manW
+  } else {
+    aW
+  }
+  val calcW = spec.manW + extraBits
+  val maxZEx = log2Down(max(spec.exMax+1, -spec.exMin))+1
+  val t : FuncTableInt = {
+    val tableD = new FuncTableDouble( x => log(1.0+x)/log(2.0), nOrder )
+    tableD.addRange(0.0, 1.0, 1<<adrW)
+    new FuncTableInt( tableD, calcW )
+  }
 
-  def log2SimGeneric( t : FuncTableInt, extraBits: Int, x: RealGeneric ) : RealGeneric = {
-
-    val adrW = t.adrW
-    val expW = x.spec.exW
-    val manW = x.spec.manW
-    val exBias = x.spec.exBias
+  def eval( x: RealGeneric ) : RealGeneric = {
+    if (x.spec != spec) {
+      sys.error(f"ERROR: input spec != output spec") 
+      return RealGeneric.nan(spec)
+    }
+    val expW = spec.exW
+    val manW = spec.manW
+    val exBias = spec.exBias
 
     val man    = x.man
     val exRaw  = x.ex
-    val sgn    = x.sgn
+    val sgn    = x.sgn // Ignored
     val ex     = exRaw-exBias
 
-    val overflow_value = RealGeneric.inf(x.spec,0)
-    // Check NaN
-    if (x.isNaN)      return RealGeneric.nan(x.spec)
-    if (x.isInfinite) return RealGeneric.inf(x.spec,0)
-    if (x.isZero)     return RealGeneric.inf(x.spec,1) // -Inf
+    if (x.isNaN)      return RealGeneric.nan(spec)
+    if (x.isInfinite) return RealGeneric.inf(spec,0)
+    if (x.isZero)     return RealGeneric.inf(spec,1) // -Inf
 
-    val calcW0 = manW+extraBits
-    val extraManW = if (calcW0<adrW) {
-      if (t.nOrder != 0) {
-        sys.error(f"ERROR: Address width $adrW > calculation width $calcW0 for polynomial order ${t.nOrder}")
-        0
-      } else {
-        adrW-manW
-      }
-    } else {
-      extraBits
-    }
-    val calcW = manW + extraManW
     val dxbp = manW-adrW-1
     val d    = slice(0, dxbp+1, man) - (SafeLong(1)<<dxbp)
     //println(f"d=${d.toLong}%x")
@@ -72,10 +73,6 @@ object LogSim {
     val log2sgn = if (log2 < 0) 1 else 0
     val log2abs = abs(log2)
     val zEx0   = log2Down(log2abs) // Leading 1 pos, -1 for 0
-    val maxXEx = maskI(expW)-1-exBias+1 // for safe
-    val minXEx = 1-exBias
-    val maxXExAbs = if (maxXEx > -minXEx) maxXEx else -minXEx 
-    val maxZEx = 1+log2Down(maxXExAbs)
     val (zEx, zMan) =
       if (zEx0 < 0) {
         (0, 0L)
@@ -101,26 +98,10 @@ object LogSim {
     //println(f"zEx=${zEx}%x zMan=${zMan}%x")
     new RealGeneric(x.spec, log2sgn, zEx, SafeLong(zMan))
   }
+}
 
-  val log2F32Order = 2
-  val log2F32AdrW  = 8
-  val log2F32ExtraBits = 2
-
-  val log2F32TableD = new FuncTableDouble( x => log(1.0+x)/log(2.0), log2F32Order )
-  log2F32TableD.addRange(0.0, 1.0, 1<<log2F32AdrW)
-  val log2F32TableI = new FuncTableInt( log2F32TableD, 23+log2F32ExtraBits )
-
-  val log2F32Sim = log2SimGeneric(log2F32TableI, log2F32ExtraBits, _)
-
-  val log2BF16Order = 0
-  val log2BF16AdrW  = 7
-  val log2BF16ExtraBits = 1
-
-  val log2BF16TableD = new FuncTableDouble( x => log(1.0+x)/log(2.0), log2BF16Order )
-  log2BF16TableD.addRange(0.0, 1.0, 1<<log2BF16AdrW)
-  val log2BF16TableI = new FuncTableInt( log2BF16TableD, 7+log2BF16ExtraBits )
-
-  val log2BF16Sim = log2SimGeneric(log2BF16TableI, log2BF16ExtraBits, _)
+class Log2F32Sim extends Log2Sim( RealSpec.Float32Spec, 2, 8, 2 ) { }
+class Log2BF16Sim extends Log2Sim( RealSpec.BFloat16Spec, 0, 7, 3 ) { }
 
   /*
   def expSimGeneric( t : FuncTableInt, extraBits: Int, x: RealGeneric ) : RealGeneric = {
@@ -154,5 +135,3 @@ object LogSim {
     }
   }
    */
-
-}

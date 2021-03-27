@@ -34,8 +34,9 @@ class LogSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
 
   val r = new Random(19660809)
 
-  def log2Test(t: FuncTableInt, extraBits: Int, spec : RealSpec, n : Int, r : Random,
+  def log2Test(sim: Log2Sim, n : Int, r : Random,
     generatorStr : String, generator : ( (RealSpec, Random) => RealGeneric) ) = {
+    val spec = sim.spec
     test(s"Log base 2 , format ${spec.toStringShort}, ${generatorStr}") {
       var err1lsbPos = 0
       var err1lsbNeg = 0
@@ -45,7 +46,7 @@ class LogSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
         val z0 = log(x0)/log(2.0)
         val z0r = new RealGeneric(spec, z0)
         //println(f"${x0}%f ${z0}%f ${z0r.value.toLong}%x")
-        val zi = LogSim.log2SimGeneric( t, extraBits, x )
+        val zi = sim.eval( x )
         val zd = zi.toDouble
         val errf = zd-z0
         val erri = errorLSB(zi, z0)
@@ -73,26 +74,14 @@ class LogSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
     }
   }
 
-  // fracW include extra bits added during calc.
-  def log2TableGeneration( order : Int, adrW : Int, fracW : Int ) = {
-    val tableD = new FuncTableDouble( x => log(1.0+x)/log(2.0), order )
-    tableD.addRange(0.0, 1.0, 1<<adrW)
-    new FuncTableInt( tableD, fracW )
-  }
-
-  val log2F32ExtraBits = 2
-  val log2F32TableI = log2TableGeneration( 2, 8, 23+log2F32ExtraBits )
-
-  log2Test(log2F32TableI, log2F32ExtraBits, RealSpec.Float32Spec, n, r,
+  log2Test(new Log2Sim( RealSpec.Float32Spec, 2, 8, 2 ), n, r,
     "2^x Test Within (-128,128)",generateRealWithinPos(128.0,_,_))
-  log2Test(log2F32TableI, log2F32ExtraBits, RealSpec.Float32Spec, n, r,
+  log2Test(new Log2Sim( RealSpec.Float32Spec, 2, 8, 2 ), n, r,
     "2^x Test All range",generateRealFullPos(_,_) )
-  val log2BF16ExtraBits = 3
-  val log2BF16TableI = log2TableGeneration( 0, 8, 7+log2BF16ExtraBits )
 
-  log2Test(log2BF16TableI, log2BF16ExtraBits, RealSpec.BFloat16Spec, n, r,
+  log2Test(new Log2Sim( RealSpec.BFloat16Spec, 0, 7, 3 ), n, r,
     "Test Within (-128,128)",generateRealWithinPos(128.0,_,_))
-  log2Test(log2BF16TableI, log2BF16ExtraBits, RealSpec.BFloat16Spec, n, r,
+  log2Test(new Log2Sim( RealSpec.BFloat16Spec, 0, 7, 3 ), n, r,
     "Test All range",generateRealFullPos(_,_) )
 
   /*
