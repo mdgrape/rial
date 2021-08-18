@@ -52,45 +52,41 @@ class MultPackedFPTest extends FlatSpec
     new RealGeneric (spec, SafeLong(BigInt(spec.W, r)))
   }
 
-  def multTest(xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, roundSpec : RoundSpec,
+  def multTest(len : Int, xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, roundSpec : RoundSpec,
     n : Int, stage : PipelineStageConfig ) = {
-      test(new MultPackedFPGeneric( 2, xSpec, ySpec, zSpec, roundSpec, stage )) { c =>
+      test(new MultPackedFPGeneric( len, xSpec, ySpec, zSpec, roundSpec, stage )) { c =>
         {
-          var q  = new Queue[((BigInt,BigInt),(BigInt,BigInt),(BigInt,BigInt))]
+          var q  = new Queue[(Seq[BigInt],Seq[BigInt],Seq[BigInt])]
           val nstage = c.getStage
           for (gen <- List( ("Test Within (-128,128)",generateRealWithin(128.0,_,_)),
                             ("Test All range",generateRealFull(_,_)) ) ) {
             println(gen._1)
             for(i <- 1 to n+nstage) {
-              val x0r = gen._2(xSpec, r)
-              val y0r = gen._2(ySpec, r)
-              val x1r = gen._2(xSpec, r)
-              val y1r = gen._2(ySpec, r)
+              val xrs = Seq.tabulate(len)(i => {gen._2(xSpec, r)})
+              val yrs = Seq.tabulate(len)(i => {gen._2(ySpec, r)})
+              val xis = Seq.tabulate(len)(i => {xrs(i).value.toBigInt})
+              val yis = Seq.tabulate(len)(i => {yrs(i).value.toBigInt})
 
-              val x0i = x0r.value.toBigInt
-              val y0i = y0r.value.toBigInt
-              val x1i = x1r.value.toBigInt
-              val y1i = y1r.value.toBigInt
+              val zrs  = Seq.tabulate(len)(i => {xrs(i).multiply(zSpec, roundSpec, yrs(i))})
+              val z0is = Seq.tabulate(len)(i => {zrs(i).value.toBigInt})
 
-              val z0r = x0r.multiply(zSpec, roundSpec, y0r)
-              val z1r = x1r.multiply(zSpec, roundSpec, y1r)
+              q += ((xis, yis, z0is))
 
-              val zr0i = z0r.value.toBigInt
-              val zr1i = z1r.value.toBigInt
+              for (i <- 0 until len) {
+                c.io.x(i).poke(xis(i).U(64.W))
+                c.io.y(i).poke(yis(i).U(64.W))
+              }
 
-              q += (((x0i, x1i), (y0i, y1i), (zr0i, zr1i)))
-              c.io.x(0).poke(x0i.U(64.W))
-              c.io.y(0).poke(y0i.U(64.W))
-              c.io.x(1).poke(x1i.U(64.W))
-              c.io.y(1).poke(y1i.U(64.W))
-              val z0i = c.io.z(0).peek.litValue.toBigInt
-              val z1i = c.io.z(1).peek.litValue.toBigInt
+              val zis = Seq.tabulate(len)(i => {c.io.z(i).peek.litValue.toBigInt})
 
               c.clock.step(1)
               if (i > nstage) {
-                val ((x0id, x1id),(y0id,y1id),(z0d, z1d)) = q.dequeue
-                assert(z0i == z0d, f"x=$x0id%16x y=$y0id%16x $z0i%16x!=$z0d%16x")
-                assert(z1i == z1d, f"x=$x1id%16x y=$y1id%16x $z1i%16x!=$z1d%16x")
+                val (xids, yids, z0ds) = q.dequeue
+                for (i <- 0 until len) {
+                  val (xid, yid, z0d) = (xids(i), yids(i), z0ds(i))
+                  val zi = zis(i)
+                  assert(zi == z0d, f"x=$xid%16x y=$yid%16x $zi%16x!=$z0d%16x")
+                }
               }
             }
             q.clear
@@ -100,15 +96,15 @@ class MultPackedFPTest extends FlatSpec
   }
 
   it should f"Multiplier Double with pipereg 0" in {
-    multTest( RealSpec.Float64Spec, RealSpec.Float64Spec, RealSpec.Float64Spec,
+    multTest( 4, RealSpec.Float64Spec, RealSpec.Float64Spec, RealSpec.Float64Spec,
       RoundSpec.roundToEven, n, PipelineStageConfig.none())
   }
   it should f"Multiplier Float with pipereg 0" in {
-    multTest( RealSpec.Float32Spec, RealSpec.Float32Spec, RealSpec.Float32Spec,
+    multTest( 4, RealSpec.Float32Spec, RealSpec.Float32Spec, RealSpec.Float32Spec,
       RoundSpec.roundToEven, n, PipelineStageConfig.none())
   }
   it should f"Multiplier Double*Float->Double with pipereg 0" in {
-    multTest( RealSpec.Float64Spec, RealSpec.Float32Spec, RealSpec.Float64Spec,
+    multTest( 4, RealSpec.Float64Spec, RealSpec.Float32Spec, RealSpec.Float64Spec,
       RoundSpec.roundToEven, n, PipelineStageConfig.none())
   }
 //   runtest(n, PipelineStageConfig.default(2))

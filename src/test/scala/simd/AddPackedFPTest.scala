@@ -90,13 +90,13 @@ class AddPackedFPTest extends FlatSpec
     }
   }
 
-  def addTest(xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, roundSpec : RoundSpec,
+  def addTest(len : Int, xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, roundSpec : RoundSpec,
     n : Int, stage : PipelineStageConfig ) = {
-    test(new AddPackedFPGeneric(2, xSpec, ySpec, zSpec, roundSpec, stage, true ) with DebugControlMaster) { c =>
+    test(new AddPackedFPGeneric(len, xSpec, ySpec, zSpec, roundSpec, stage, true ) with DebugControlMaster) { c =>
       {
         c.debugEnableIO.poke(false.B)
 
-        var q  = new Queue[((BigInt, BigInt),(BigInt, BigInt),(BigInt, BigInt))] // x, y, z
+        var q  = new Queue[(Seq[BigInt], Seq[BigInt], Seq[BigInt])] // x, y, z
         val nstage = c.getStage
         for (gen <- List(
           ("Test Within (-128,128)",generateRealWithinPair(128.0,_,_,_)),
@@ -106,43 +106,41 @@ class AddPackedFPTest extends FlatSpec
           println(gen._1)
           for(i <- 1 to n+nstage) {
 
-            val (xr0,yr0) = gen._2(xSpec, ySpec, r)
-            val (xr1,yr1) = gen._2(xSpec, ySpec, r)
-            val zr0 = xr0.add(zSpec, roundSpec, yr0)
-            val zr1 = xr1.add(zSpec, roundSpec, yr1)
+            var xyrs = Seq.tabulate(len)(i => {gen._2(xSpec, ySpec, r)})
+            val zrs  = Seq.tabulate(len)(i => {xyrs(i)._1.add(zSpec, roundSpec, xyrs(i)._2)})
+            val xis  = Seq.tabulate(len)(i => {xyrs(i)._1.value.toBigInt})
+            val yis  = Seq.tabulate(len)(i => {xyrs(i)._2.value.toBigInt})
+            val z0is = Seq.tabulate(len)(i => {zrs(i).value.toBigInt})
 
-            val xr0i = xr0.value.toBigInt
-            val yr0i = yr0.value.toBigInt
-            val zr0i = zr0.value.toBigInt
+            q += ((xis, yis, z0is))
 
-            val xr1i = xr1.value.toBigInt
-            val yr1i = yr1.value.toBigInt
-            val zr1i = zr1.value.toBigInt
-
-            q += (((xr0i,xr1i), (yr0i, yr1i), (zr0i, zr1i)))
-
-            c.io.x(0).poke(xr0i.U(64.W))
-            c.io.x(1).poke(xr1i.U(64.W))
-            c.io.y(0).poke(yr0i.U(64.W))
-            c.io.y(1).poke(yr1i.U(64.W))
-            val z0i = c.io.z(0).peek.litValue.toBigInt
-            val z1i = c.io.z(1).peek.litValue.toBigInt
+            for (i <- 0 until len) {
+              c.io.x(i).poke(xis(i).U(64.W))
+              c.io.y(i).poke(yis(i).U(64.W))
+            }
+            val zis = Seq.tabulate(len)(i => {c.io.z(i).peek.litValue.toBigInt})
 
             //if (zi != z0d) c.debugControlIO.poke(true.B)
             c.clock.step(1)
             if (i > nstage) {
-              val ((x0id, x1id),(y0id, y1id),(z0d, z1d)) = q.dequeue
-              if (z0i != z0d || z1i != z1d) {
-                c.io.x(0).poke(x0id.U(64.W))
-                c.io.x(1).poke(x1id.U(64.W))
-                c.io.y(0).poke(y0id.U(64.W))
-                c.io.y(1).poke(y1id.U(64.W))
+              val (xids,yids,z0ds) = q.dequeue
+              val z_eq  = Seq
+                .tabulate(len)(i => {(zis(i), z0ds(i))})
+                .foldLeft(true)((b : Boolean, zz : (BigInt, BigInt)) => {b && (zz._1 == zz._2)})
+
+              if ( ! z_eq) {
+                for (i <- 0 until len) {
+                  c.io.x(i).poke(xids(i).U(64.W))
+                  c.io.y(i).poke(yids(i).U(64.W))
+                }
                 for(i <- 1 to nstage) c.clock.step(1) // step `nstage` clocks
                 c.debugEnableIO.poke(true.B)
                 c.clock.step(1)
               }
-              assert(z0i == z0d, f"x=$x0id%16x y=$y0id%16x $z0i%16x!=$z0d%16x")
-              assert(z1i == z1d, f"x=$x1id%16x y=$y1id%16x $z1i%16x!=$z1d%16x")
+              for (i <- 0 until len) {
+                val (xid, yid, zi, z0d) = (xids(i), yids(i), zis(i), z0ds(i))
+                assert(zis == z0ds, f"x=$xid%16x y=$yid%16x $zi%16x!=$z0d%16x")
+              }
             }
           }
           q.clear
@@ -151,8 +149,12 @@ class AddPackedFPTest extends FlatSpec
     }
   }
 
-  it should f"Add Double with pipereg 0" in {
-    addTest( RealSpec.Float64Spec, RealSpec.Float64Spec, RealSpec.Float64Spec,
+  it should f"Add 4xDouble with pipereg 0" in {
+    addTest(4, RealSpec.Float64Spec, RealSpec.Float64Spec, RealSpec.Float64Spec,
+      RoundSpec.roundToEven, n, PipelineStageConfig.none())
+  }
+  it should f"Add 3xDouble with pipereg 0" in {
+    addTest(3, RealSpec.Float64Spec, RealSpec.Float64Spec, RealSpec.Float64Spec,
       RoundSpec.roundToEven, n, PipelineStageConfig.none())
   }
 
