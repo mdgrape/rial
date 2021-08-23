@@ -58,7 +58,7 @@ class NegPackedFPGeneric(
 
     val zsgn = ~xsgn // negate
 
-    val zex0   = xex + dBias.S(exW)
+    val zex0   = xex.pad(exW) + dBias.S(exW)
     val exNeg  = (minEx < 0).B && (zex0(exW-1) =/= 0.U)
     val exZero = !zex0.orR.asBool
     val exZN   = exZero || exNeg || xzero
@@ -82,7 +82,7 @@ class NegPackedFPGeneric(
       val inc   = FloatChiselUtil.roundIncBySpec(roundSpec, lsb, round, sticky, zsgn(0))
       zman0 +& inc
     } else if (xSpec.manW < zSpec.manW) {
-      xman(xSpec.manW - 1, 0) ## 0.U(zSpec.manW - xSpec.manW)
+      xman(xSpec.manW - 1, 0) << (zSpec.manW - xSpec.manW)
     } else {
       xman(xSpec.manW - 1, 0)
     }
