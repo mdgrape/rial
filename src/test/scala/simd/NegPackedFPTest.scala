@@ -67,10 +67,23 @@ class NegPackedFPTest extends FlatSpec
               val xis = Seq.tabulate(len)(i => {xrs(i).value.toBigInt})
 
               val zrs  = Seq.tabulate(len)(i => {
-                val xr = xrs(i)
-                new RealGeneric(zSpec, if (xr.sgn == 0) 1 else 0, xr.ex, xr.man)
+                if(xSpec == zSpec) {
+                  val xr = xrs(i)
+                  new RealGeneric(zSpec, if (xr.sgn == 0) 1 else 0, xr.ex, xr.man)
+                } else {
+                  val xr = xrs(i)
+                  val nx = new RealGeneric(xSpec, if (xr.sgn == 0) 1 else 0, xr.ex, xr.man)
+                  nx.convert(zSpec, roundSpec)
+                }
               })
-              val z0is = Seq.tabulate(len)(i => {zrs(i).value.toBigInt})
+              val z0is = Seq.tabulate(len)(i => {
+                val z0i = zrs(i).value.toBigInt
+                if (z0i < 0) {
+                  (1.toBigInt << zSpec.W) + z0i // force make it unsigned
+                } else {
+                  z0i
+                }
+              })
 
               q += ((xis, z0is))
 
@@ -103,15 +116,14 @@ class NegPackedFPTest extends FlatSpec
     negTest( 4, RealSpec.Float32Spec, RealSpec.Float32Spec,
       RoundSpec.roundToEven, n, PipelineStageConfig.none())
   }
-  // FIXME
-//   it should f"Negation Float->Double with pipereg 0" in {
-//     negTest( 4, RealSpec.Float32Spec, RealSpec.Float64Spec,
-//       RoundSpec.roundToEven, n, PipelineStageConfig.none())
-//   }
-//   it should f"Negation Double->Float with pipereg 0" in {
-//     negTest( 4, RealSpec.Float64Spec, RealSpec.Float32Spec,
-//       RoundSpec.roundToEven, n, PipelineStageConfig.none())
-//   }
+  it should f"Negation Float->Double with pipereg 0" in {
+    negTest( 4, RealSpec.Float32Spec, RealSpec.Float64Spec,
+      RoundSpec.roundToEven, n, PipelineStageConfig.none())
+  }
+  it should f"Negation Double->Float with pipereg 0" in {
+    negTest( 4, RealSpec.Float64Spec, RealSpec.Float32Spec,
+      RoundSpec.roundToEven, n, PipelineStageConfig.none())
+  }
 //   runtest(n, PipelineStageConfig.default(2))
 }
 
