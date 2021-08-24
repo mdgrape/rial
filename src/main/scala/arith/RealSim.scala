@@ -176,12 +176,26 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
 
   def convert( newSpec : RealSpec, roundSpec : RoundSpec ) : RealGeneric = {
     val manRound =
-      if (newSpec.manW>=spec.manW) { man << (spec.manW-52) } // left shift
+      if (newSpec.manW>=spec.manW) { man << (newSpec.manW - spec.manW) } // left shift
       else { roundBySpec( roundSpec, spec.manW - newSpec.manW, man ) }
     val moreThan2AfterRound = bit(newSpec.manW, manRound)
     val manRoundNorm = if (moreThan2AfterRound!=0) SafeLong(0) else manRound
-    val exNew = ex - spec.exBias + moreThan2AfterRound + spec.exBias
-    new RealGeneric(newSpec, packToSafeLong(newSpec, sgn, exNew, manRoundNorm))
+
+    val exNew = if (isInfinite || isNaN) {
+      maskI(newSpec.exW)
+    } else {
+      min(maskI(newSpec.exW), ex - spec.exBias + moreThan2AfterRound + newSpec.exBias)
+    }
+
+    if (isInfinite || isNaN) {
+      // avoid exponent check
+      // TODO: consider behavior of converter in case of NaN/Inf, especially mantissa of NaN
+      new RealGeneric(newSpec, packToSafeLongWOCheck(newSpec, sgn, exNew, manRoundNorm))
+    } else if (exNew == 0) { // to keep sign of zero
+      new RealGeneric(newSpec, SafeLong((sgn&1L) << (newSpec.W-1)))
+    } else {
+      new RealGeneric(newSpec, packToSafeLong(newSpec, sgn, exNew, manRoundNorm))
+    }
   }
 
   def scalbn( n : Int ) : RealGeneric = {
@@ -212,12 +226,17 @@ object RealGeneric {
   private def packToSafeLong( spec: RealSpec, sgn : Int, ex: Int, man : SafeLong) : SafeLong = {
     if (ex<=0) {
       // subnormal should be considered later
-      SafeLong(0)
+      // keep sign of zero
+      SafeLong((sgn&1L) << (spec.W-1))
     } else if (ex>=maskI(spec.exW)) {// Inf
       ( maskI(spec.exW+(sgn&1))<<spec.manW )
     } else {
       (man & maskSL(spec.manW))+ ( SafeLong( ex + ((sgn&1)<<spec.exW) ) << spec.manW )
     }
+  }
+  // With exponent w/o check
+  private def packToSafeLongWOCheck( spec: RealSpec, sgn : Int, ex : Int, man : SafeLong) : SafeLong = {
+    (man & maskSL(spec.manW)) + ( SafeLong( ex + ((sgn&1)<<spec.exW) ) << spec.manW )
   }
 
   private def doubleToRealGeneric(spec : RealSpec, x : Double ) : SafeLong = {
