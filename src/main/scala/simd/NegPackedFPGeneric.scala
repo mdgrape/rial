@@ -51,51 +51,75 @@ class NegPackedFPGeneric(
     println("exW   = ",  exW)
   }
 
-  for (i <- 0 until len) {
-    val (xsgn, xex,  xman) = FloatChiselUtil.decompose (xSpec, io.x(i))
-    val (xex0, xinf, xnan) = FloatChiselUtil.checkValue(xSpec, io.x(i))
-    val xzero = !(io.x(i)(xSpec.W-2, 0).orR.asBool)
+  if( ! xSpec.disableSubnormal || ! zSpec.disableSubnormal) {
+    throw new RuntimeException(f"TODO (${this.getClass.getName}): subnormal is not supported")
+    // subnormal numbers are considered to be zero, currently
+  }
 
-    val zsgn = ~xsgn // negate
-
-    val zex0   = xex.pad(exW) + dBias.S(exW)
-    val exNeg  = (minEx < 0).B && (zex0(exW-1) =/= 0.U)
-    val exZero = !zex0.orR.asBool
-    val exZN   = exZero || exNeg || xzero
-
-    // x is already inf ? or conversion result exceeds range of zSpec ?
-    val exInf = !xnan && (if (exW > zSpec.manW) {
-      xinf || (zex0(zSpec.exW-1, 0).andR | zex0(exW-1, zSpec.exW).orR)
-    } else {
-      xinf || zex0(zSpec.exW-1, 0).andR
-    })
-
-    val zex = Mux(exZN,         0.U(zSpec.exW),
-              Mux(exInf | xnan, Fill(zSpec.exW, 1.U(1.W)),
-                                zex0(zSpec.exW-1, 0)))
-
-    val zman_rounded = if(xSpec.manW > zSpec.manW) {
-      val zman0  = xman(xSpec.manW - 1, xSpec.manW - zSpec.manW)
-      val lsb    = zman0(0)
-      val round  = xman(xSpec.manW - zSpec.manW - 1)
-      val sticky = xman(xSpec.manW - zSpec.manW - 2, 0).orR
-      val inc   = FloatChiselUtil.roundIncBySpec(roundSpec, lsb, round, sticky, zsgn(0))
-      zman0 +& inc
-    } else if (xSpec.manW < zSpec.manW) {
-      xman(xSpec.manW - 1, 0) << (zSpec.manW - xSpec.manW)
-    } else {
-      xman(xSpec.manW - 1, 0)
+  if (xSpec == zSpec) {
+    for (i <- 0 until len) {
+      val (xsgn, xex,  xman) = FloatChiselUtil.decompose(xSpec, io.x(i))
+      val z0 = (~xsgn) ## xex ## xman
+      io.z(i) := ShiftRegister(z0, nStage)
     }
+  } else {
+    for (i <- 0 until len) {
+      val (xsgn, xex,  xman) = FloatChiselUtil.decomposeWithLeading1(xSpec, io.x(i))
+      val (xex0, xinf, xnan) = FloatChiselUtil.checkValue(xSpec, io.x(i))
+      val xzero = !(io.x(i)(xSpec.W-2, 0).orR.asBool)
+      // TODO: 2^-126 0.0010 -> 2^-129 1.000
 
-    val zman = Mux(xzero || exInf, 0.U(zSpec.manW.W), zman_rounded)
+      val zsgn = ~xsgn
 
-    if(enableDebug) {
-      printf("xsgn = %d, zsgn = %d\n", xsgn, zsgn)
-      printf("xexp = %x, zexp = %x\n", xex , zex )
-      printf("xman = %x, zman = %x\n", xman, zman)
+      val (zmanRound, zex0) = if (xSpec.manW <= zSpec.manW) {// e.g. f32 -> f64
+        // no rounding required
+        val zmanShift = if(xSpec.manW == zSpec.manW) {
+          xman(xSpec.manW-1, 0)
+        } else {
+          xman(xSpec.manW-1, 0) << (zSpec.manW - xSpec.manW)
+        }
+        // no rounding, so moreThan2AfterRound never be 1
+        val zex0 = xex.pad(exW) - xSpec.exBias.U(exW.W) + zSpec.exBias.U(exW.W)
+        (zmanShift, zex0)
+
+      } else { // e.g. f64 -> f32
+
+        // rounding required
+        val zman0  = xman(xSpec.manW, xSpec.manW - zSpec.manW) // +leading bit
+        val lsb    = zman0(0)
+        val round  = xman(xSpec.manW - zSpec.manW - 1)
+        val sticky = xman(xSpec.manW - zSpec.manW - 2, 0).orR
+        val inc    = FloatChiselUtil.roundIncBySpec(roundSpec, lsb, round, sticky, zsgn(0))
+        val zmanRound = zman0 +& inc
+        val moreThan2 = zmanRound(zSpec.manW+1) // 1.1111|1 -> 10.0000
+
+        val zex0 = xex.pad(exW) - xSpec.exBias.U(exW.W) + zSpec.exBias.U(exW.W) + moreThan2
+        (zmanRound(zSpec.manW-1, 0), zex0)
+      }
+
+      val exNeg  = (minEx < 0).B && (zex0(exW-1) =/= 0.U) // -> 0
+      val exZero = !zex0.orR.asBool                       // -> subnormal (if supported)
+      val exZN   = exZero || exNeg || xzero
+
+      val exInf = !xnan && (if (exW > zSpec.exW) {
+        xinf || (zex0(zSpec.exW-1, 0).andR | zex0(exW-1, zSpec.exW).orR)
+      } else {
+        xinf || zex0(zSpec.exW-1, 0).andR
+      })
+      val zex = Mux(exZN,         0.U(zSpec.exW),
+                Mux(exInf | xnan, Fill(zSpec.exW, 1.U(1.W)),
+                                  zex0(zSpec.exW-1, 0)))
+
+      // since subnormal is disabled, we can just set mantissa zero if exponent is zero
+      val zman = Mux(exZN | exInf, 0.U(zSpec.exW), zmanRound)
+
+      if(enableDebug) {
+        printf("%d -> %d: xsgn = %d, zsgn = %d\n", xSpec.W.U, zSpec.W.U, xsgn, zsgn)
+        printf("%d -> %d: xex  = %x, zex  = %x\n", xSpec.W.U, zSpec.W.U, xex , zex )
+        printf("%d -> %d: xman = %x, zman = %x\n", xSpec.W.U, zSpec.W.U, xman, zman)
+      }
+      val z0 = zsgn ## zex ## zman
+      io.z(i) := ShiftRegister(z0, nStage)
     }
-
-    val z0 = zsgn ## zex ## zman
-    io.z(i) := ShiftRegister(z0, nStage)
   }
 }
