@@ -158,6 +158,129 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
     }
   }
 
+  // FMA
+  //
+  // - any of the arguments is NaN => NaN
+  // - if z is Inf and others are finite => Inf
+  //   - Note: while FMA operation, `x * y` has infinite precision, so overflow
+  //           never happens. -2^1000 * 2^1000 + Inf == Inf, not NaN.
+  // - otherwise => same as `x * y + z`
+  //   - 0 * Inf = NaN
+  //   - Inf - Inf = NaN
+  //
+  // TODO: currently subnormal is not supported
+  //
+  def fmadd( resSpec : RealSpec, roundSpec : RoundSpec, y : RealGeneric, z : RealGeneric ) : RealGeneric = {
+    if (this.isNaN || y.isNaN || z.isNaN) {
+      if (resSpec.disableNaN) {
+        if (this.isNaN) {
+          return inf(resSpec, sgn)
+        } else if (y.isNaN) {
+          return inf(resSpec, y.sgn)
+        } else {
+          return inf(resSpec, z.sgn)
+        }
+      } else {
+        return nan(resSpec)
+      }
+    }
+    val xySgn = this.sgn ^ y.sgn
+    println("xySgn = ", xySgn)
+
+    if (z.isInfinite) {
+      if (!this.isInfinite && !y.isInfinite) { // finite + Inf = Inf
+        return inf(resSpec, z.sgn)
+      } else if (xySgn == z.sgn) { // Inf + Inf = Inf
+        return inf(resSpec, z.sgn)
+      } else {                     // Inf - Inf = NaN
+        if (resSpec.disableNaN) {
+          return inf(resSpec, z.sgn) // sign?
+        } else {
+          return nan(resSpec)
+        }
+      }
+    }
+
+    if (this.isInfinite || y.isInfinite) { // here z is finite
+      return inf(resSpec, xySgn)
+    }
+
+    val xyEx0       = (this.ex - this.spec.exBias) + (y.ex - y.spec.exBias)
+    val xyProd      = this.manW1 * y.manW1
+    val xyWidth     = this.spec.manW + y.spec.manW
+    val xyMoreThan2 = bit(xyWidth+1, xyProd)
+    val xyManWidth  = xyWidth + xyMoreThan2
+    val xyExNobias  = xyEx0   + xyMoreThan2
+
+    println(s"xManW1     = ${this.manW1.toLong.toBinaryString}")
+    println(s"yManW1     = ${   y.manW1.toLong.toBinaryString}")
+    println(s"xyProd     = ${xyProd.toLong.toBinaryString}")
+    println(s"xyMoreThan2= ${xyMoreThan2}")
+
+    val zExNobias = z.ex - z.spec.exBias
+    val diffEx    = abs(xyExNobias - zExNobias)
+    val diffManW  = xyManWidth - z.spec.manW // > 0, normally
+
+    println(s"xyExNobias = ${xyExNobias}")
+    println(s" zExNobias = ${zExNobias}")
+
+    val (sum, ex) = if (xyExNobias > zExNobias && diffEx > diffManW) {
+      val xyshift = xyProd << (diffEx - diffManW)
+      println(s"xyshift = ${xyshift.toLong.toBinaryString}")
+      if (xySgn == z.sgn) {
+        (xyshift + z.manW1, zExNobias)
+      } else {
+        (xyshift - z.manW1, zExNobias)
+      }
+    } else {
+      val zshift = z.manW1 << (diffManW + zExNobias - xyExNobias)
+      println(s"zshift     = ${zshift.toLong.toBinaryString}")
+      if (xySgn == z.sgn) {
+        (xyProd + zshift, xyExNobias)
+      } else {
+        (xyProd - zshift, xyExNobias)
+      }
+    }
+    println(s"sum = ${sum.toLong.toBinaryString}")
+    println(s"ex  = ${ex}")
+
+    val (sumPos, resSgn) = if (sum < 0) { (-sum, xySgn^1) } else { (sum, xySgn) }
+
+    if (sumPos == 0) {
+      return zero(resSpec)
+    }
+
+    // normalize and round
+
+    val leading1  = sumPos.bitLength-1
+    val roundbits = leading1 - resSpec.manW
+    val (resMan, exInc) = if (roundbits > 0) {
+      val sumRound = roundBySpec(roundSpec, roundbits, sumPos)
+      val moreThan2AfterRound = bit(resSpec.manW+1, sumRound)
+      (sumRound >> moreThan2AfterRound, moreThan2AfterRound)
+    } else {
+      (sumPos << (-roundbits), 0)
+    }
+
+    println(s"resMan = ${resMan.toLong.toBinaryString}")
+
+    println(s"ex         = ${ex}")
+    println(s"leading1   = ${leading1}")
+    println(s"xyManWidth = ${xyManWidth}")
+    println(s"exInc      = ${exInc}")
+    println(s"exBias     = ${resSpec.exBias}")
+    val resEx = ex + (leading1 - xyManWidth) + exInc + resSpec.exBias
+    println(s"resEx  = ${resEx}")
+
+    if (resEx <= 0) {
+      zero(resSpec) // subnormal not supported
+    } else if (resEx >= maskI(resSpec.exW)) { // result is inf
+      inf(resSpec, resSgn)
+    } else {
+      new RealGeneric(resSpec, resSgn, resEx, resMan)
+    }
+  }
+
   def toDouble : Double = {
     //println(sgn, ex, man)
     if (isNaN) return Double.NaN
@@ -176,7 +299,7 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
 
   def convert( newSpec : RealSpec, roundSpec : RoundSpec ) : RealGeneric = {
     val manRound =
-      if (newSpec.manW>=spec.manW) { man << (newSpec.manW - spec.manW) } // left shift
+      if (newSpec.manW>=spec.manW) { man << (newSpec.manW - spec.manW) }
       else { roundBySpec( roundSpec, spec.manW - newSpec.manW, man ) }
     val moreThan2AfterRound = bit(newSpec.manW, manRound)
     val manRoundNorm = if (moreThan2AfterRound!=0) SafeLong(0) else manRound
@@ -234,7 +357,6 @@ object RealGeneric {
       (man & maskSL(spec.manW))+ ( SafeLong( ex + ((sgn&1)<<spec.exW) ) << spec.manW )
     }
   }
-  // With exponent w/o check
   private def packToSafeLongWOCheck( spec: RealSpec, sgn : Int, ex : Int, man : SafeLong) : SafeLong = {
     (man & maskSL(spec.manW)) + ( SafeLong( ex + ((sgn&1)<<spec.exW) ) << spec.manW )
   }
