@@ -121,6 +121,13 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
         return ( if (this.isNaN) inf(resSpec, sgn) else inf(resSpec, that.sgn) )
       } else return nan(resSpec)
     }
+    if (this.isInfinite && that.isInfinite) {
+      if (this.sgn == that.sgn) {
+        if(resSpec.disableNaN) {
+          return inf(resSpec, this.sgn)
+        } else return nan(resSpec)
+      } else return inf(resSpec, this.sgn)
+    }
     if (this.isInfinite) return inf(resSpec, sgn)
     if (that.isInfinite) return inf(resSpec, that.sgn)
 
