@@ -185,7 +185,7 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
       }
     }
     val xySgn = this.sgn ^ y.sgn
-    println("xySgn = ", xySgn)
+//     println("xySgn = ", xySgn)
 
     if (z.isInfinite) {
       if (!this.isInfinite && !y.isInfinite) { // finite + Inf = Inf
@@ -212,21 +212,21 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
     val xyManWidth  = xyWidth + xyMoreThan2
     val xyExNobias  = xyEx0   + xyMoreThan2
 
-    println(s"xManW1     = ${this.manW1.toLong.toBinaryString}")
-    println(s"yManW1     = ${   y.manW1.toLong.toBinaryString}")
-    println(s"xyProd     = ${xyProd.toLong.toBinaryString}")
-    println(s"xyMoreThan2= ${xyMoreThan2}")
+//     println(s"xManW1     = ${this.manW1.toLong.toBinaryString}")
+//     println(s"yManW1     = ${   y.manW1.toLong.toBinaryString}")
+//     println(s"xyProd     = ${xyProd.toLong.toBinaryString}")
+//     println(s"xyMoreThan2= ${xyMoreThan2}")
 
     val zExNobias = z.ex - z.spec.exBias
     val diffEx    = abs(xyExNobias - zExNobias)
     val diffManW  = xyManWidth - z.spec.manW // > 0, normally
 
-    println(s"xyExNobias = ${xyExNobias}")
-    println(s" zExNobias = ${zExNobias}")
+//     println(s"xyExNobias = ${xyExNobias}")
+//     println(s" zExNobias = ${zExNobias}")
 
     val (sum, ex) = if (xyExNobias > zExNobias && diffEx > diffManW) {
       val xyshift = xyProd << (diffEx - diffManW)
-      println(s"xyshift = ${xyshift.toLong.toBinaryString}")
+//       println(s"xyshift = ${xyshift.toLong.toBinaryString}")
       if (xySgn == z.sgn) {
         (xyshift + z.manW1, zExNobias)
       } else {
@@ -234,15 +234,15 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
       }
     } else {
       val zshift = z.manW1 << (diffManW + zExNobias - xyExNobias)
-      println(s"zshift     = ${zshift.toLong.toBinaryString}")
+//       println(s"zshift     = ${zshift.toLong.toBinaryString}")
       if (xySgn == z.sgn) {
         (xyProd + zshift, xyExNobias)
       } else {
         (xyProd - zshift, xyExNobias)
       }
     }
-    println(s"sum = ${sum.toLong.toBinaryString}")
-    println(s"ex  = ${ex}")
+//     println(s"sum = ${sum.toLong.toBinaryString}")
+//     println(s"ex  = ${ex}")
 
     val (sumPos, resSgn) = if (sum < 0) { (-sum, xySgn^1) } else { (sum, xySgn) }
 
@@ -262,15 +262,15 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
       (sumPos << (-roundbits), 0)
     }
 
-    println(s"resMan = ${resMan.toLong.toBinaryString}")
-
-    println(s"ex         = ${ex}")
-    println(s"leading1   = ${leading1}")
-    println(s"xyManWidth = ${xyManWidth}")
-    println(s"exInc      = ${exInc}")
-    println(s"exBias     = ${resSpec.exBias}")
+//     println(s"resMan = ${resMan.toLong.toBinaryString}")
+//
+//     println(s"ex         = ${ex}")
+//     println(s"leading1   = ${leading1}")
+//     println(s"xyManWidth = ${xyManWidth}")
+//     println(s"exInc      = ${exInc}")
+//     println(s"exBias     = ${resSpec.exBias}")
     val resEx = ex + (leading1 - xyManWidth) + exInc + resSpec.exBias
-    println(s"resEx  = ${resEx}")
+//     println(s"resEx  = ${resEx}")
 
     if (resEx <= 0) {
       zero(resSpec) // subnormal not supported
