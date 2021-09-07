@@ -212,6 +212,24 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
       return inf(resSpec, xySgn)
     }
 
+    if (this.isZero || y.isZero) {
+      if (z.isZero) {
+        if (roundSpec == RoundSpec.truncate) {
+          if (xySgn == 0 && z.sgn == 0) { // +0 + +0 = +0
+            zero(resSpec)
+          } else {
+            new RealGeneric( resSpec, 1, 0, 0 ) // -0
+          }
+        } else {
+          if (xySgn == 1 && z.sgn == 1) {
+            return z      // -0 + -0 = -0
+          } else {
+            zero(resSpec) // otherwise +0
+          }
+        }
+      } else return z // if z is not zero, then return z.
+    }
+
     val xyEx0       = (this.ex - this.spec.exBias) + (y.ex - y.spec.exBias)
     val xyProd      = this.manW1 * y.manW1
     val xyWidth     = this.spec.manW + y.spec.manW
@@ -223,6 +241,24 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
 //     println(s"yManW1     = ${   y.manW1.toLong.toBinaryString}")
 //     println(s"xyProd     = ${xyProd.toLong.toBinaryString}")
 //     println(s"xyMoreThan2= ${xyMoreThan2}")
+
+    if(z.isZero) {
+
+      val xyRoundbits = xyManWidth - resSpec.manW
+      val xyProdRound = roundBySpec(roundSpec, xyRoundbits, xyProd)
+      val moreThan2AfterRound = bit(resSpec.manW+1, xyProdRound)
+      val resMan = xyProdRound >> moreThan2AfterRound
+      val resEx  = xyExNobias + moreThan2AfterRound + resSpec.exBias
+      val resSgn = xySgn
+
+      if (resEx <= 0) {
+        return zero(resSpec)
+      } else if (resEx >= maskI(resSpec.exW)) { // result is inf
+        return inf(resSpec, resSgn)
+      } else {
+        return new RealGeneric(resSpec, resSgn, resEx, resMan)
+      }
+    }
 
     val zExNobias = z.ex - z.spec.exBias
     val diffEx    = abs(xyExNobias - zExNobias)
@@ -270,7 +306,7 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
     }
 
 //     println(s"resMan = ${resMan.toLong.toBinaryString}")
-//
+
 //     println(s"ex         = ${ex}")
 //     println(s"leading1   = ${leading1}")
 //     println(s"xyManWidth = ${xyManWidth}")
