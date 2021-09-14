@@ -44,9 +44,9 @@ class FusedMulAddFPGeneric(
   val (ysgn, yex, yman) = FloatChiselUtil.decomposeWithLeading1(ySpec, io.y)
   val (zsgn, zex, zman) = FloatChiselUtil.decomposeWithLeading1(zSpec, io.z)
 
-  dbgPrintf("x   = %d|%d(%d)|%d\n", xsgn, xex, xex-xSpec.exBias.U, xman)
-  dbgPrintf("y   = %d|%d(%d)|%d\n", ysgn, yex, yex-ySpec.exBias.U, yman)
-  dbgPrintf("z   = %d|%d(%d)|%d\n", zsgn, zex, zex-zSpec.exBias.U, zman)
+  dbgPrintf("x   = %d|%d(%d)|%d\n", xsgn, xex, xex.asSInt-xSpec.exBias.S, xman)
+  dbgPrintf("y   = %d|%d(%d)|%d\n", ysgn, yex, yex.asSInt-ySpec.exBias.S, yman)
+  dbgPrintf("z   = %d|%d(%d)|%d\n", zsgn, zex, zex.asSInt-zSpec.exBias.S, zman)
 
   val (xzero, xinf, xnan) = FloatChiselUtil.checkValue(xSpec, io.x)
   val (yzero, yinf, ynan) = FloatChiselUtil.checkValue(ySpec, io.y)
