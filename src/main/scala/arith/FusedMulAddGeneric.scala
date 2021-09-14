@@ -70,11 +70,11 @@ class FusedMulAddFPGeneric(
   val xyExW    = if (xyMinEx<0) {xyExW0+1} else {xyExW0}
   val xyExBias = xSpec.exBias + ySpec.exBias
 
-  println(f"xyMaxEx  = $xyMaxEx%d = xMaxEx(${xSpec.exMax}%d) + yMaxEx(${ySpec.exMax}%d)")
-  println(f"xyMinEx  = $xyMinEx%d = xMaxEx(${xSpec.exMin}%d) + yMaxEx(${ySpec.exMin}%d)")
-  println(f"xyExW0   = $xyExW0%d")
-  println(f"xyExW    = $xyExW%d")
-  println(f"xyExBias = $xyExBias%d")
+  dbgPrintf(f"xyMaxEx  = $xyMaxEx%d = xMaxEx(${xSpec.exMax}%d) + yMaxEx(${ySpec.exMax}%d)")
+  dbgPrintf(f"xyMinEx  = $xyMinEx%d = xMaxEx(${xSpec.exMin}%d) + yMaxEx(${ySpec.exMin}%d)")
+  dbgPrintf(f"xyExW0   = $xyExW0%d")
+  dbgPrintf(f"xyExW    = $xyExW%d")
+  dbgPrintf(f"xyExBias = $xyExBias%d")
 
   // nobias
   val xyEx0    = xex.pad(xyExW).asSInt + yex.pad(xyExW).asSInt - xyExBias.S(xyExW.W)
@@ -90,9 +90,9 @@ class FusedMulAddFPGeneric(
 
   dbgPrintf("zexnb = %d\n", zex.pad(diffExW).asSInt - zSpec.exBias.S(diffExW.W))
 
-  println(f"diffMaxXYMinZ = $diffMaxXYMinZ%d")
-  println(f"diffMaxZMinXY = $diffMaxZMinXY%d")
-  println(f"diffExW       = $diffExW%d")
+  dbgPrintf(f"diffMaxXYMinZ = $diffMaxXYMinZ%d")
+  dbgPrintf(f"diffMaxZMinXY = $diffMaxZMinXY%d")
+  dbgPrintf(f"diffExW       = $diffExW%d")
 
   val diffExXYZ = xyEx0.pad(diffExW).asSInt - zex.pad(diffExW).asSInt + zSpec.exBias.S(diffExW.W)
   val diffExZXY = zex.pad(diffExW).asSInt - xyEx0.pad(diffExW).asSInt - zSpec.exBias.S(diffExW.W)
@@ -142,7 +142,6 @@ class FusedMulAddFPGeneric(
   val zManAligned  = Mux(zShiftOut, 0.U, zManInverted >> diffExXYZ(zShiftW-1, 0));
   val sumFarProd   = zManAligned + (0.U(1.W) ## xyprod)
 
-
   // -------------------------------------------------------------------------
   // far path (addend is larger)
   //
@@ -177,24 +176,21 @@ class FusedMulAddFPGeneric(
   val zNearPad       = 0.U(3.W) ## zman ## 0.U((zNearWidth - (1+zSpec.manW) - 3).W)
   val zNearShift     = Mux(diffExZXY(diffExW-1) === 0.U, (zNearPad << diffExZXY(1,0))(zNearWidth-1, 0), (0.U(1.W) ## zNearPad >> 1));
   val xyzNearSum     = (0.U(2.W) ## xyprod) - zNearShift
-  val shiftNearSum   = PriorityEncoder(Reverse(xyzNearSum)) - 3.U // 0001.xxxxxx
-  println(f"zNearWidth     = $zNearWidth%d")
-  println(f"zNearFracWidth = $zNearFracWidth%d")
-  dbgPrintf("zNearPad       = 0b%b(%d), width= %d\n",   zNearPad  , zNearPad  , zNearPad  .getWidth.U)
-  dbgPrintf("zNearShift     = 0b%b(%d), width= %d\n",   zNearShift, zNearShift, zNearShift.getWidth.U)
-  dbgPrintf("xyProd         = 0b  %b(%d), width= %d\n", xyprod    , xyprod    , xyprod    .getWidth.U)
-  dbgPrintf("xyzNearSum     = 0b%b(%d), width= %d\n",   xyzNearSum, xyzNearSum, xyzNearSum.getWidth.U)
-
+  val xyzNearSign    = Mux(xysgn.asBool, ~xyzNearSum(zNearWidth-1), xyzNearSum(zNearWidth-1))
+  val xyzNearAbs     = Mux(xyzNearSum(zNearWidth-1), -xyzNearSum, xyzNearSum)
+  val shiftNearSum   = PriorityEncoder(Reverse(xyzNearAbs)) - 3.U // 0001.xxxxxx
+  dbgPrintf(f"zNearWidth     = $zNearWidth%d")
+  dbgPrintf(f"zNearFracWidth = $zNearFracWidth%d")
+  dbgPrintf("zNearPad       = 0b%b(%d), width= %d\n",   zNearPad   , zNearPad   , zNearPad   .getWidth.U)
+  dbgPrintf("zNearShift     = 0b%b(%d), width= %d\n",   zNearShift , zNearShift , zNearShift .getWidth.U)
+  dbgPrintf("xyProd         = 0b  %b(%d), width= %d\n", xyprod     , xyprod     , xyprod     .getWidth.U)
+  dbgPrintf("xyzNearSum     = 0b%b(%d), width= %d\n",   xyzNearSum , xyzNearSum , xyzNearSum .getWidth.U)
+  dbgPrintf("xyzNearSign    = 0b%b(%d), width=%d\n",    xyzNearSign, xyzNearSign, xyzNearSign.getWidth.U)
+  dbgPrintf("xyzNearAbs     = 0b%b(%d), width=%d\n",    xyzNearAbs , xyzNearAbs , xyzNearAbs .getWidth.U)
   dbgPrintf("shiftNearSum   = %b, width= %d\n", shiftNearSum , shiftNearSum.getWidth.U)
 
-  val xyzNearSign = Mux(xysgn.asBool, ~xyzNearSum(zNearWidth-1), xyzNearSum(zNearWidth-1))
-  val xyzNearAbs  = Mux(xyzNearSum(zNearWidth-1), -xyzNearSum, xyzNearSum)
-  // TODO: shift should be calced from NearAbs
   val xyzNearNorm = (xyzNearAbs << shiftNearSum)(zNearWidth-1, 0)
   val xyzNearExDec = shiftNearSum.asSInt
-//   println(f"xyzNearExInc=${xyzNearExInc}%d")
-  dbgPrintf("xyzNearSign  = %d, width=%d\n", xyzNearSign , xyzNearSign .getWidth.U)
-  dbgPrintf("xyzNearAbs   = %d, width=%d\n", xyzNearAbs  , xyzNearAbs  .getWidth.U)
   dbgPrintf("xyzNearNorm  = %d, width=%d\n", xyzNearNorm , xyzNearNorm .getWidth.U)
   dbgPrintf("xyzNearExDec = %d, width=%d\n", xyzNearExDec, xyzNearExDec.getWidth.U)
 
