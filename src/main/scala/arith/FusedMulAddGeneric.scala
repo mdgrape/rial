@@ -167,7 +167,6 @@ class FusedMulAddFPGeneric(
   val prodPad       = (0.U(1.W) ## xyprod ## 0.U(farProdWidth - 1 - xyprod.getWidth))
   val sumFarProd    = prodPad + zManAligned
   val shiftSticky   = PriorityEncoder(zManInverted) < diffExXYZ(zShiftOutW-1, 0) || zShiftOut
-  dbgPrintf("zManAligned0.getWidth = %d, farProdWidth = %d\n", zManAligned0.getWidth.U, farProdWidth.U)
 
   when(isFarProd) {
     dbgPrintf("zManPad       = 0b%b(%d), width= %d\n", zManPad     , zManPad     , zManPad     .getWidth.U)
@@ -208,10 +207,11 @@ class FusedMulAddFPGeneric(
     val lsbFarProd    = farProdNorm(farProdWidth-1-1-wSpec.manW+1)
     val roundFarProd  = farProdNorm(farProdWidth-1-1-wSpec.manW)
     val stickyFarProd = farProdNorm(farProdWidth-1-1-wSpec.manW-1, 0).orR.asBool || shiftSticky
-    dbgPrintf("lsbFarProd    = 0b%b\n", lsbFarProd   )
-    dbgPrintf("roundFarProd  = 0b%b\n", roundFarProd )
-    dbgPrintf("stickyFarProd = 0b%b\n", stickyFarProd)
-
+    when(isFarProd) {
+      dbgPrintf("lsbFarProd    = 0b%b\n", lsbFarProd   )
+      dbgPrintf("roundFarProd  = 0b%b\n", roundFarProd )
+      dbgPrintf("stickyFarProd = 0b%b\n", stickyFarProd)
+    }
     wIncFarProd := FloatChiselUtil.roundIncBySpec(roundSpec, lsbFarProd, roundFarProd, stickyFarProd)
     wmanFarProd := farProdNorm(farProdWidth-1, farProdWidth-1-wSpec.manW);
   } else {
@@ -219,8 +219,10 @@ class FusedMulAddFPGeneric(
     wIncFarProd := false.asBool
     wmanFarProd := padLSB(wSpec.manW+1, farProdNorm)
   }
-  dbgPrintf("wIncFarProd   = 0b%b(%d)\n", wIncFarProd, wIncFarProd )
-  dbgPrintf("wmanFarProd   = 0b%b(%d)\n", wmanFarProd, wmanFarProd)
+  when(isFarProd) {
+    dbgPrintf("wIncFarProd   = 0b%b(%d)\n", wIncFarProd, wIncFarProd )
+    dbgPrintf("wmanFarProd   = 0b%b(%d)\n", wmanFarProd, wmanFarProd)
+  }
 
   val wman0FarProd = wmanFarProd + wIncFarProd.asUInt
   val wex0FarProd  = xyEx0 + farProdExInc + wSpec.exBias.S
@@ -233,8 +235,93 @@ class FusedMulAddFPGeneric(
   // -------------------------------------------------------------------------
   // far path (addend is larger)
   //
-  // xyEx < zEx, so deltaEx = zEx - xyEx = diffExZXY
+  // xyEx < zEx, so deltaEx = zEx - xyEx = diffExZXY >= 3.
+  // if deltaEx == 2 || 1 || 0 || -1, use near path.
+  //
+  // 00*.******
+  // 000.000xxxxxxxxxxxxxxxx
 
+  val diffExFarAdd = diffExZXY.asUInt // >= 3
+  val farAddWidth = max(1 + (1+xSpec.manW) + (1+ySpec.manW), 2 + (1+wSpec.manW) + 1)
+  val farAddFracWidth = farAddWidth - 2
+
+  when(isFarAddend) {
+    dbgPrintf("diffExFarAdd   = %d\n", diffExFarAdd)
+  }
+
+  val xyShiftOutLimit = farAddFracWidth + 2
+  val xyShiftOutW     = log2Up(xyShiftOutLimit)
+  val xyShiftOut      = (diffExFarAdd >= xyShiftOutLimit.U)
+
+  val zManFarAddPad      = 0.U(2.W) ## zman ## 0.U((farAddWidth - (1+zSpec.manW) - 2).W)
+  val zManFarAddInverted = Mux(xyzop, -(zManFarAddPad.asSInt), zManFarAddPad.asSInt)
+  val xyManFarAddAligned = 0.U(1.W) ## (xyprod >> diffExZXY(xyShiftOutW-1, 0))
+  val sumFarAdd          = xyManFarAddAligned.asSInt + zManFarAddInverted
+  val shiftStickyFarAdd  = PriorityEncoder(zManInverted) < diffExXYZ(xyShiftOutW-1, 0) || xyShiftOut
+
+  when(isFarAddend) {
+    dbgPrintf("xyProd              = 0b%b(%d), width= %d\n", xyprod     , xyprod     , xyprod     .getWidth.U)
+    dbgPrintf("xyManFarAddAligned  = 0b%b(%d), width= %d\n", xyManFarAddAligned, xyManFarAddAligned, xyManFarAddAligned.getWidth.U)
+    dbgPrintf("zManFarAddPad       = 0b%b(%d), width= %d\n", zManFarAddPad     , zManFarAddPad     , zManFarAddPad     .getWidth.U)
+    dbgPrintf("zManFarAddInverted  = 0b%b(%d), width= %d\n", zManFarAddInverted, zManFarAddInverted, zManFarAddInverted.getWidth.U)
+    dbgPrintf("sumFarAdd           = 0b%b(%d), width= %d\n", sumFarAdd         , sumFarAdd         , sumFarAdd         .getWidth.U)
+    dbgPrintf("shiftStickyFarAdd   = 0b%b(%d), width= %d\n", shiftStickyFarAdd , shiftStickyFarAdd , shiftStickyFarAdd .getWidth.U)
+  }
+
+  val farAddSgn   = Mux(xysgn.asBool, ~sumFarAdd(sumFarAdd.getWidth-1), sumFarAdd(sumFarAdd.getWidth-1))
+  val farAddAbs   = Mux(sumFarAdd(sumFarAdd.getWidth-1), -sumFarAdd, sumFarAdd)
+  val shiftFarAdd = PriorityEncoder(Reverse(farAddAbs.asUInt))
+
+  // 00*.****** (zex)
+  // 000.000xxxxxxxxxxxxxxxx
+  // 00w.wwwww
+  // www.www  <<2 -> ex+=0
+  //
+  // 000.wwwwww
+  // www.www  <<3 -> ex-=1
+  //
+  // 000.0wwwwww
+  // www.www  <<4 -> ex-=2
+
+  val farAddNorm   = (farAddAbs << shiftFarAdd)(farAddWidth-1, 0)
+  val farAddExDec  = shiftFarAdd - 2.U
+
+  when(isFarAddend) {
+    dbgPrintf("shiftFarAdd   = 0b%b(%d), width= %d\n", shiftFarAdd  , shiftFarAdd , shiftFarAdd .getWidth.U)
+    dbgPrintf("farAddNorm    = 0b%b(%d), width= %d\n", farAddNorm   , farAddNorm  , farAddNorm  .getWidth.U)
+    dbgPrintf("farAddExDec   = 0b%b(%d), width= %d\n", farAddExDec  , farAddExDec , farAddExDec .getWidth.U)
+  }
+
+  val wmanFarAdd = Wire(UInt((wSpec.manW+1).W)) // has leading 1 to check carry
+  val wIncFarAdd = Wire(Bool())
+  if (wSpec.manW < farAddFracWidth) {
+    //                                          + leading 1
+    //                              + MSB       |   + mantissa width
+    //                            .-+---------. v .-+--------.
+    val lsbFarAdd    = farAddNorm(farAddWidth-1-1-wSpec.manW+1)
+    val roundFarAdd  = farAddNorm(farAddWidth-1-1-wSpec.manW)
+    val stickyFarAdd = farAddNorm(farAddWidth-1-1-wSpec.manW-1, 0).orR.asBool || shiftStickyFarAdd
+    when(isFarAddend) {
+      dbgPrintf("lsbFarAdd    = 0b%b\n", lsbFarAdd   )
+      dbgPrintf("roundFarAdd  = 0b%b\n", roundFarAdd )
+      dbgPrintf("stickyFarAdd = 0b%b\n", stickyFarAdd)
+    }
+    wIncFarAdd := FloatChiselUtil.roundIncBySpec(roundSpec, lsbFarAdd, roundFarAdd, stickyFarAdd)
+    wmanFarAdd := farAddNorm(farAddWidth-1, farAddWidth-1-wSpec.manW);
+  } else {
+    // w is wider, no rounding required
+    wIncFarAdd := false.asBool
+    wmanFarAdd := padLSB(wSpec.manW+1, farAddNorm)
+  }
+  val wman0FarAdd = wmanFarAdd + wIncFarAdd.asUInt
+  val zexNobias   = 0.U(1.W) ## zex - zSpec.exBias.U
+  val wex0FarAdd  = zexNobias.asSInt - farAddExDec.asSInt + wSpec.exBias.S
+
+  when(isFarAddend) {
+    dbgPrintf("zex         = 0b%b(%d), width = %d\n", zex        , zex        , zex        .getWidth.U)
+    dbgPrintf("farAddExDec = 0b%b(%d), width = %d\n", farAddExDec, farAddExDec, farAddExDec.getWidth.U)
+    dbgPrintf("wex0FarAdd  = 0b%b(%d), width = %d\n", wex0FarAdd , wex0FarAdd , wex0FarAdd .getWidth.U)
+  }
 
   // -------------------------------------------------------------------------
   // near path (signs are different)
@@ -329,9 +416,9 @@ class FusedMulAddFPGeneric(
   //----------------------------------------------------------------------
   // Merge Far(Prod/Addend) / Near
 
-  val wsgn0 = Mux(isNear, nearSgn,   farProdSgn)
-  val wman0 = Mux(isNear, wman0Near, wman0FarProd);
-  val wex0  = Mux(isNear, wex0Near,  wex0FarProd)
+  val wsgn0 = Mux(isNear, nearSgn,   Mux(isFarProd, farProdSgn  , farAddSgn  ))
+  val wman0 = Mux(isNear, wman0Near, Mux(isFarProd, wman0FarProd, wman0FarAdd))
+  val wex0  = Mux(isNear, wex0Near,  Mux(isFarProd, wex0FarProd , wex0FarAdd ))
 
   val wZeroAfterAdd = (wex0.asSInt < 0.S)
   val wInfAfterAdd  = wex0 >= maskI(wSpec.exW).S
