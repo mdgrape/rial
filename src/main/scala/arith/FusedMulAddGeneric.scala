@@ -100,14 +100,15 @@ class FusedMulAddFPGeneric(
   dbgPrintf("diffExXYZ = %d\n", diffExXYZ)
   dbgPrintf("diffExZXY = %d\n", diffExZXY)
 
-  // zEx - xyEx == +2, +1, 0, -1 (for detail, see "naer path")
+  // zEx - xyEx == +2, +1, 0, -1 and signs are different
   val isNear = (!xyzero) && (!zzero) && (xysgn =/= zsgn) &&
                ((diffExZXY === 2.S) || (diffExZXY ===  1.S) ||
                 (diffExZXY === 0.S) || (diffExZXY === -1.S))
   val exXYLargerThanZ = diffExXYZ(diffExW-1) === 0.U // exponent of xy >= z
 
+  // xyEx - zEx >= 0 (if 0 or 1, signs are the same)
   val isFarProd   = (!isNear) && exXYLargerThanZ
-  val isFarAddend = (!isNear) && (!isFarProd)
+  val isFarAddend = (!isNear) && (!isFarProd)    // zEx - xyEx >= 1
 
   // -------------------------------------------------------------------------
   // multiply
@@ -118,7 +119,8 @@ class FusedMulAddFPGeneric(
   // far path (product is larger)
   //
   // xyEx > zEx, so |deltaEx| = xyEx - zEx = diffExXYZ >= 2.
-  // if diffExXYZ == 1 || 0, use near path.
+  // if diffExXYZ == 1 || 0 and signs are different, use near path.
+  // Note that, if diffExXYZ == 1 || 0 and signs are the same, use this path.
   //
   // +--carry
   // |      +---- 1+xSpec.manW + 1+ySpec.manW = 48
@@ -131,9 +133,9 @@ class FusedMulAddFPGeneric(
   //         + wSpec.manW+1   |     ex -= 1
 
   val diffExFarProd = diffExXYZ.asUInt
-  val farProdWidth = max(1 + (1+xSpec.manW) + (1+ySpec.manW)+1,
+  val farProdWidth = max(2 + (1+xSpec.manW) + (1+ySpec.manW)+1,
                          3 + (1+wSpec.manW) + 1)
-  val farProdFracWidth = farProdWidth - 3
+  val farProdFracWidth = farProdWidth - 4
 
   when(isFarProd) {
     dbgPrintf("diffExFarProd     = %d\n", diffExFarProd)
@@ -158,12 +160,12 @@ class FusedMulAddFPGeneric(
     dbgPrintf("zShiftOut       = %d\n", zShiftOut)
   }
 
-  val zManPad       = 0.U(2.W) ## zman ## 0.U((farProdWidth - (1+zSpec.manW) - 2).W)
+  val zManPad       = 0.U(3.W) ## zman ## 0.U((farProdWidth - (1+zSpec.manW) - 3).W)
   val zManInverted  = Mux(xyzop, -(zManPad.asSInt), zManPad.asSInt)
   val zManAligned0  = zManInverted.asSInt >> diffExXYZ(zShiftOutW-1, 0)
   val zManAligned   = Mux(zShiftOut, 0.U,
     zManAligned0(zManAligned0.getWidth - 1, zManAligned0.getWidth - 1 - (farProdWidth-1)))
-  val prodPad       = (0.U(1.W) ## xyprod ## 0.U(farProdWidth - 1 - xyprod.getWidth))
+  val prodPad       = (0.U(2.W) ## xyprod ## 0.U(farProdWidth - 2 - xyprod.getWidth))
   val sumFarProd    = prodPad + zManAligned
   val shiftSticky   = PriorityEncoder(zManInverted) < diffExXYZ(zShiftOutW-1, 0) || zShiftOut
 
@@ -181,13 +183,13 @@ class FusedMulAddFPGeneric(
   val farProdAbs    = Mux(sumFarProd(sumFarProd.getWidth-1), -sumFarProd, sumFarProd)
   val shiftFarProd  = PriorityEncoder(Reverse(farProdAbs))
 
-  // xxx.xxxxx   : shiftNearSum 0, ex += 2
-  // 0xx.xxxxxx  : shiftNearSum 1, ex += 1
-  // 00x.xxxxxxx : shiftNearSum 2, ex += 0
-  // 000.xxxxxxxx: shiftNearSum 3, ex += -1
+  // xxxx.xxxx   : shiftNearSum 0, ex += 3
+  // 0xxx.xxxxx  : shiftNearSum 1, ex += 2
+  // 00xx.xxxxxx : shiftNearSum 2, ex += 1
+  // 000x.xxxxxxx: shiftNearSum 3, ex += 0
 
   val farProdNorm   = (farProdAbs << shiftFarProd)(farProdWidth-1, 0)
-  val farProdExInc  = 2.S - shiftFarProd.asSInt
+  val farProdExInc  = 3.S - shiftFarProd.asSInt
 
   when(isFarProd) {
     dbgPrintf("farProdSgn    = 0b%b(%d), width= %d\n", farProdSgn  , farProdSgn  , farProdSgn  .getWidth.U)
