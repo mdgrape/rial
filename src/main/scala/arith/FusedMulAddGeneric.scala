@@ -40,17 +40,21 @@ class FusedMulAddFPGeneric(
     val w   = Output(UInt(wSpec.W.W))
   })
 
-  val (xsgn, xex, xman) = FloatChiselUtil.decomposeWithLeading1(xSpec, io.x)
-  val (ysgn, yex, yman) = FloatChiselUtil.decomposeWithLeading1(ySpec, io.y)
-  val (zsgn, zex, zman) = FloatChiselUtil.decomposeWithLeading1(zSpec, io.z)
+  val (xsgn, xex, xman0) = FloatChiselUtil.decomposeWithLeading1(xSpec, io.x)
+  val (ysgn, yex, yman0) = FloatChiselUtil.decomposeWithLeading1(ySpec, io.y)
+  val (zsgn, zex, zman0) = FloatChiselUtil.decomposeWithLeading1(zSpec, io.z)
 
-  dbgPrintf("x   = %d|%d(%d)|%d\n", xsgn, xex, xex.asSInt-xSpec.exBias.S, xman)
-  dbgPrintf("y   = %d|%d(%d)|%d\n", ysgn, yex, yex.asSInt-ySpec.exBias.S, yman)
-  dbgPrintf("z   = %d|%d(%d)|%d\n", zsgn, zex, zex.asSInt-zSpec.exBias.S, zman)
+  dbgPrintf("x   = %d|%d(%d)|%d\n", xsgn, xex, xex.asSInt-xSpec.exBias.S, xman0)
+  dbgPrintf("y   = %d|%d(%d)|%d\n", ysgn, yex, yex.asSInt-ySpec.exBias.S, yman0)
+  dbgPrintf("z   = %d|%d(%d)|%d\n", zsgn, zex, zex.asSInt-zSpec.exBias.S, zman0)
 
   val (xzero, xinf, xnan) = FloatChiselUtil.checkValue(xSpec, io.x)
   val (yzero, yinf, ynan) = FloatChiselUtil.checkValue(ySpec, io.y)
   val (zzero, zinf, znan) = FloatChiselUtil.checkValue(zSpec, io.z)
+
+  val xman = Mux(xzero, 0.U, xman0)
+  val yman = Mux(yzero, 0.U, yman0)
+  val zman = Mux(zzero, 0.U, zman0)
 
   val xysgn  = xsgn ^ ysgn
   val xyzop  = (xysgn ^ zsgn).asBool // 0->(+), 1->(-)
@@ -69,32 +73,34 @@ class FusedMulAddFPGeneric(
   val xyExW    = if (xyMinEx<0) {xyExW0+1} else {xyExW0}
   val xyExBias = xSpec.exBias + ySpec.exBias
 
+  val diffMaxXYMinZ = xyMaxEx - zSpec.exMin
+  val diffMaxZMinXY = zSpec.exMax - xyMinEx
+  val diffExW       = log2Up(max(diffMaxXYMinZ, diffMaxZMinXY) + 1) + 1
+
   dbgPrintf(f"xyMaxEx  = $xyMaxEx%d = xMaxEx(${xSpec.exMax}%d) + yMaxEx(${ySpec.exMax}%d)\n")
   dbgPrintf(f"xyMinEx  = $xyMinEx%d = xMaxEx(${xSpec.exMin}%d) + yMaxEx(${ySpec.exMin}%d)\n")
   dbgPrintf(f"xyExW0   = $xyExW0%d\n")
   dbgPrintf(f"xyExW    = $xyExW%d\n")
   dbgPrintf(f"xyExBias = $xyExBias%d\n")
 
-  // nobias
-  val xyEx0    = xex.pad(xyExW).asSInt + yex.pad(xyExW).asSInt - xyExBias.S(xyExW.W)
+  val xyExNobias = xex.pad(xyExW).asSInt + yex.pad(xyExW).asSInt - xyExBias.S(xyExW.W)
+  val zExNobias  = zex.pad(diffExW).asSInt - zSpec.exBias.S(diffExW.W)
+
+  val zEx0  = Mux(zzero,  xyExNobias, zExNobias)
+  val xyEx0 = Mux(xyzero, zExNobias, xyExNobias)
 
   dbgPrintf("xex   = %d\n", xex.pad(xyExW))
   dbgPrintf("yex   = %d\n", yex.pad(xyExW))
-  dbgPrintf("xyEx0 = %d\n", xyEx0)
   dbgPrintf("zex   = %d\n", zex)
-
-  val diffMaxXYMinZ = xyMaxEx - zSpec.exMin
-  val diffMaxZMinXY = zSpec.exMax - xyMinEx
-  val diffExW       = log2Up(max(diffMaxXYMinZ, diffMaxZMinXY) + 1) + 1
-
-  dbgPrintf("zexnb = %d\n", zex.pad(diffExW).asSInt - zSpec.exBias.S(diffExW.W))
+  dbgPrintf("xyEx0 = %d\n", xyEx0)
+  dbgPrintf("zexnb = %d\n", zEx0)
 
   dbgPrintf(f"diffMaxXYMinZ = $diffMaxXYMinZ%d\n")
   dbgPrintf(f"diffMaxZMinXY = $diffMaxZMinXY%d\n")
   dbgPrintf(f"diffExW       = $diffExW%d\n")
 
-  val diffExXYZ = xyEx0.pad(diffExW).asSInt - zex.pad(diffExW).asSInt + zSpec.exBias.S(diffExW.W)
-  val diffExZXY = zex.pad(diffExW).asSInt - xyEx0.pad(diffExW).asSInt - zSpec.exBias.S(diffExW.W)
+  val diffExXYZ = xyEx0.pad(diffExW).asSInt - zEx0.pad(diffExW).asSInt
+  val diffExZXY = zEx0.pad(diffExW).asSInt - xyEx0.pad(diffExW).asSInt
 
   // later we may take abs of diffEx, so we calculate + and - beforehand.
   dbgPrintf("diffExXYZ = %d\n", diffExXYZ)
@@ -226,11 +232,13 @@ class FusedMulAddFPGeneric(
   }
 
   val wman0FarProd = wmanFarProd + wIncFarProd.asUInt
-  val wex0FarProd  = xyEx0 + farProdExInc + wSpec.exBias.S
+  val wex0FarProd  = xyEx0 + farProdExInc + wSpec.exBias.S((xyExW+1).W)
 
   when(isFarProd) {
     dbgPrintf("wman0FarProd  = 0b%b(%d), width= %d\n", wman0FarProd  , wman0FarProd  , wman0FarProd.getWidth.U)
     dbgPrintf("wex0FarProd   = 0b%b(%d), width= %d\n", wex0FarProd   , wex0FarProd   , wex0FarProd .getWidth.U)
+    dbgPrintf("xyEx0         = 0b%b(%d), width= %d\n", xyEx0         , xyEx0         , xyEx0       .getWidth.U)
+    dbgPrintf("farProdExInc  = 0b%b(%d), width= %d\n", farProdExInc  , farProdExInc  , farProdExInc.getWidth.U)
   }
 
   // -------------------------------------------------------------------------
@@ -256,8 +264,8 @@ class FusedMulAddFPGeneric(
 
   val zManFarAddPad      = 0.U(2.W) ## zman ## 0.U((farAddWidth - (1+zSpec.manW) - 2).W)
   val zManFarAddInverted = Mux(xyzop, -(zManFarAddPad.asSInt), zManFarAddPad.asSInt)
-  val xyManFarAddAligned = 0.U(1.W) ## (xyprod >> diffExZXY(xyShiftOutW-1, 0))
-  val sumFarAdd          = xyManFarAddAligned.asSInt + zManFarAddInverted
+  val xyManFarAddAligned = 0.U(1.W) ## (xyprod >> diffExFarAdd(xyShiftOutW-1, 0))
+  val sumFarAdd          = Mux(xyShiftOut, zManFarAddInverted, xyManFarAddAligned.asSInt + zManFarAddInverted)
   val shiftStickyFarAdd  = PriorityEncoder(zManInverted) < diffExXYZ(xyShiftOutW-1, 0) || xyShiftOut
 
   when(isFarAddend) {
@@ -315,8 +323,7 @@ class FusedMulAddFPGeneric(
     wmanFarAdd := padLSB(wSpec.manW+1, farAddNorm)
   }
   val wman0FarAdd = wmanFarAdd + wIncFarAdd.asUInt
-  val zexNobias   = 0.U(1.W) ## zex - zSpec.exBias.U
-  val wex0FarAdd  = zexNobias.asSInt - farAddExDec.asSInt + wSpec.exBias.S
+  val wex0FarAdd  = zExNobias.asSInt - farAddExDec.asSInt + wSpec.exBias.S
 
   when(isFarAddend) {
     dbgPrintf("zex         = 0b%b(%d), width = %d\n", zex        , zex        , zex        .getWidth.U)
@@ -431,7 +438,7 @@ class FusedMulAddFPGeneric(
 
   val wex  = Mux(infOrNaN, maskU(wSpec.exW), Mux(wzero, 0.U(wSpec.exW), wex0(wSpec.exW-1,0)))
   val wman = Mux(infOrNaN || wzero, xyznan ## 0.U((wSpec.manW-1).W), wman0(wSpec.manW-1, 0))
-  val wsgn = Mux(xyzinf, xysgn, wsgn0)
+  val wsgn = Mux(xyznan, 0.U, Mux(xyzinf, xysgn, wsgn0)) // XXX sign of NaN?
   // +inf + inf = +inf, -inf - inf = inf, but inf - inf = nan.
   // so if xyzinf == true, then xysgn and zsgn should be the same.
   // if infAfterAdd == true, then xyzinf != true.
