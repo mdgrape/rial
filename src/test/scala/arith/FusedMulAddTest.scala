@@ -163,7 +163,15 @@ class FMAFPTest extends FlatSpec
                 c.debugEnableIO.poke(true.B)
                 c.clock.step(1)
               }
-              assert(wi0 == wid, f"test(${bit(31, wi0).toInt}|${slice(wSpec.manW, wSpec.exW, wi0)}|${wi0 & maskSL(wSpec.manW)}) != ref(${bit(31, wid).toInt}|${slice(wSpec.manW, wSpec.exW, wid)}|${wid & maskSL(wSpec.manW)})")
+
+              val wi0sgn = bit(wSpec.W-1, wi0).toInt
+              val wi0exp = slice(wSpec.manW, wSpec.exW, wi0)
+              val wi0man = wi0 & maskSL(wSpec.manW)
+
+              val widsgn = bit(wSpec.W-1, wid).toInt
+              val widexp = slice(wSpec.manW, wSpec.exW, wid)
+              val widman = wid & maskSL(wSpec.manW)
+              assert(wi0 == wid, f"test(${wi0sgn}|${wi0exp}|${wi0man}) != ref(${widsgn}|${widexp}|${widman})")
             }
           }
           q.clear
