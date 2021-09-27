@@ -252,7 +252,7 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
       val resSgn = xySgn
 
       if (resEx <= 0) {
-        return zero(resSpec)
+        return new RealGeneric(resSpec, resSgn, 0, 0) // underflow to zero but keep xySgn.
       } else if (resEx >= maskI(resSpec.exW)) { // result is inf
         return inf(resSpec, resSgn)
       } else {
