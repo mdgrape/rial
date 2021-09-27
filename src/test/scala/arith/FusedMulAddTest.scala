@@ -98,9 +98,16 @@ class FMAFPTest extends FlatSpec
   }
 
   def generateClosePathTriple ( xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, r : Random ) = {
-    val x = generateRealExWithin( 64.0, 128.0, xSpec, r )
-    val y = generateRealExWithin(  0.5,   2.0, ySpec, r )
-    val z = generateRealExWithin( 64.0, 128.0, zSpec, r )
+    val x = generateRealExWithin(  64.0, 128.0, xSpec, r )
+    val y = generateRealExWithin(   0.5,   2.0, ySpec, r )
+    val z = generateRealExWithin(-128.0, -64.0, zSpec, r )
+    (x, y, z)
+  }
+
+  def generateCloseAddPathTriple ( xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, r : Random ) = {
+    val x = generateRealExWithin(64.0, 128.0, xSpec, r )
+    val y = generateRealExWithin( 0.5,   2.0, ySpec, r )
+    val z = generateRealExWithin(64.0, 128.0, zSpec, r )
     (x, y, z)
   }
 
@@ -148,6 +155,7 @@ class FMAFPTest extends FlatSpec
         val nstage = c.getStage
         for (gen <- List(
           ("Test close path", generateClosePathTriple(_,_,_,_)),
+          ("Test close add path", generateCloseAddPathTriple(_,_,_,_)),
           ("Test far prod path", generateFarProdPathTriple(_,_,_,_)),
           ("Test far addend path", generateFarAddendPathTriple(_,_,_,_)),
           ("Test Within (-128,128)",generateRealWithinPair(128.0,_,_,_,_)),
@@ -211,6 +219,5 @@ class FMAFPTest extends FlatSpec
     fmaTest( RealSpec.Float64Spec, RealSpec.Float64Spec, RealSpec.Float64Spec, RealSpec.Float64Spec,
       RoundSpec.roundToEven, n, PipelineStageConfig.none())
   }
-
 }
 
