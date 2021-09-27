@@ -118,7 +118,27 @@ class FMAFPTest extends FlatSpec
     (x, y, z)
   }
 
-  def addTest(xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, wSpec : RealSpec,
+  // TODO: make it efficient
+  def generateEdgeCaseFloatTriple1( xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, r : Random ) = {
+    val x = new RealGeneric(xSpec, 0, xSpec.exBias,    0)
+    val y = new RealGeneric(ySpec, 0, ySpec.exBias,    maskI(ySpec.manW))
+    val z = new RealGeneric(zSpec, 0, zSpec.exBias-1-ySpec.manW, maskI(maskI(zSpec.manW)))
+    (x, y, z)
+  }
+  def generateEdgeCaseFloatTriple2( xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, r : Random ) = {
+    val x = new RealGeneric(xSpec, 0, xSpec.exBias,    0)
+    val y = new RealGeneric(ySpec, 0, ySpec.exBias-1-zSpec.manW, maskI(ySpec.manW))
+    val z = new RealGeneric(zSpec, 0, zSpec.exBias, maskI(maskI(zSpec.manW)))
+    (x, y, z)
+  }
+  def generateEdgeCaseFloatTriple3( xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, r : Random ) = {
+    val x = new RealGeneric(xSpec, 0, xSpec.exBias-1, 0)
+    val y = new RealGeneric(ySpec, 0, ySpec.exBias-1, Integer.parseInt(  "01010101010101010101011", 2))
+    val z = new RealGeneric(zSpec, 0, zSpec.exBias, Integer.parseInt("11101010101010101010101", 2))
+    (x, y, z)
+  }
+
+  def fmaTest(xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, wSpec : RealSpec,
     roundSpec : RoundSpec, n : Int, stage : PipelineStageConfig ) = {
     test(new FusedMulAddFPGeneric( xSpec, ySpec, zSpec, wSpec, roundSpec, stage, true ) with DebugControlMaster) { c =>
       {
@@ -131,7 +151,10 @@ class FMAFPTest extends FlatSpec
           ("Test far prod path", generateFarProdPathTriple(_,_,_,_)),
           ("Test far addend path", generateFarAddendPathTriple(_,_,_,_)),
           ("Test Within (-128,128)",generateRealWithinPair(128.0,_,_,_,_)),
-          ("Test All range",generateRealFullPair(_,_,_,_))
+          ("Test All range",generateRealFullPair(_,_,_,_)),
+          ("Test edge case",generateEdgeCaseFloatTriple1(_,_,_,_)),
+          ("Test edge case",generateEdgeCaseFloatTriple2(_,_,_,_)),
+          ("Test edge case",generateEdgeCaseFloatTriple3(_,_,_,_))
         ) ) {
           println(gen._1)
           for(i <- 1 to n+nstage) {
@@ -179,9 +202,9 @@ class FMAFPTest extends FlatSpec
       }
     }
   }
-  
+
   it should f"FMA float32 with pipereg 0" in {
-    addTest( RealSpec.Float32Spec, RealSpec.Float32Spec, RealSpec.Float32Spec, RealSpec.Float32Spec,
+    fmaTest( RealSpec.Float32Spec, RealSpec.Float32Spec, RealSpec.Float32Spec, RealSpec.Float32Spec,
       RoundSpec.roundToEven, n, PipelineStageConfig.none())
   }
 
