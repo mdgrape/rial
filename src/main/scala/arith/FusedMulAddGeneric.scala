@@ -52,6 +52,9 @@ class FusedMulAddFPGeneric(
   val (yzero, yinf, ynan) = FloatChiselUtil.checkValue(ySpec, io.y)
   val (zzero, zinf, znan) = FloatChiselUtil.checkValue(zSpec, io.z)
 
+  // if subnormal numbers are disabled, the mantissa of "zero(exponent == 0)"
+  // may contain non-zero value and it can affect to the result. to avoid it,
+  // we replace the whole mantissa of z with zeroes.
   val xman = Mux(xzero, 0.U, xman0)
   val yman = Mux(yzero, 0.U, yman0)
   val zman = Mux(zzero, 0.U, zman0)
@@ -119,7 +122,7 @@ class FusedMulAddFPGeneric(
   // -------------------------------------------------------------------------
   // multiply
 
-  val xyprod = Mux(xyzero, 0.U((1 + xSpec.manW + 1 + ySpec.manW).W), xman * yman);
+  val xyprod = xman * yman;
 
   // -------------------------------------------------------------------------
   // far path (product is larger)
@@ -223,7 +226,7 @@ class FusedMulAddFPGeneric(
     val wmanFarProd = farProdNorm(farProdWidth-1, farProdWidth-1-wSpec.manW); // ?
 
     // 1.11111111 + Round = 10.00000000 -> ex+1 1.000000
-    val carryRoundFarProd  = wIncFarProd && (wmanFarProd === maskI(wSpec.manW+1).U)
+    val carryRoundFarProd  = wIncFarProd && (wmanFarProd === maskL(wSpec.manW+1).U)
 
     wman0FarProd := Mux(carryRoundFarProd, 0.U, (wmanFarProd + wIncFarProd.asUInt)(wSpec.manW-1, 0))
     wex0FarProd  := Mux(carryRoundFarProd, xyEx0 + farProdExInc + (wSpec.exBias + 1).S((xyExW+1).W),
@@ -324,7 +327,7 @@ class FusedMulAddFPGeneric(
     val wmanFarAdd = farAddNorm(farAddWidth-1, farAddWidth-1-wSpec.manW);
 
     // 1.11111111 + Round = 10.00000000 -> ex+1 1.000000
-    val carryRoundFarAdd = wIncFarAdd && (wmanFarAdd === maskI(wSpec.manW+1).U)
+    val carryRoundFarAdd = wIncFarAdd && (wmanFarAdd === maskL(wSpec.manW+1).U)
 
     wman0FarAdd := Mux(carryRoundFarAdd, 0.U, (wmanFarAdd + wIncFarAdd.asUInt)(wSpec.manW-1, 0))
     wex0FarAdd  := Mux(carryRoundFarAdd, zExNobias.asSInt - farAddExDec.asSInt + (wSpec.exBias+1).S,
@@ -415,7 +418,7 @@ class FusedMulAddFPGeneric(
     val wIncNear = FloatChiselUtil.roundIncBySpec(roundSpec, lsbNear, roundNear, stickyNear)
     val wmanNear = nearNorm(zNearWidth-1, zNearWidth-1-wSpec.manW); // ?
 
-    val carryRoundNear = wIncNear && (wmanNear === maskI(wSpec.manW+1).U)
+    val carryRoundNear = wIncNear && (wmanNear === maskL(wSpec.manW+1).U)
 
     wman0Near := Mux(carryRoundNear, 0.U, (wmanNear + wIncNear.asUInt)(wSpec.manW-1, 0))
     wex0Near  := Mux(carryRoundNear, xyEx0 - nearExDec + (wSpec.exBias+1).S,
