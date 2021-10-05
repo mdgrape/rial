@@ -128,14 +128,14 @@ class FMAFPTest extends FlatSpec
   // TODO: make it efficient
   def generateEdgeCaseFloatTriple1( xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, r : Random ) = {
     val x = new RealGeneric(xSpec, 0, xSpec.exBias,    0)
-    val y = new RealGeneric(ySpec, 0, ySpec.exBias,    maskI(ySpec.manW))
-    val z = new RealGeneric(zSpec, 0, zSpec.exBias-1-ySpec.manW, maskI(maskI(zSpec.manW)))
+    val y = new RealGeneric(ySpec, 0, ySpec.exBias,    maskL(ySpec.manW))
+    val z = new RealGeneric(zSpec, 0, zSpec.exBias-1-ySpec.manW, maskL(zSpec.manW))
     (x, y, z)
   }
   def generateEdgeCaseFloatTriple2( xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, r : Random ) = {
     val x = new RealGeneric(xSpec, 0, xSpec.exBias,    0)
-    val y = new RealGeneric(ySpec, 0, ySpec.exBias-1-zSpec.manW, maskI(ySpec.manW))
-    val z = new RealGeneric(zSpec, 0, zSpec.exBias, maskI(maskI(zSpec.manW)))
+    val y = new RealGeneric(ySpec, 0, ySpec.exBias-1-zSpec.manW, maskL(ySpec.manW))
+    val z = new RealGeneric(zSpec, 0, zSpec.exBias, maskL(zSpec.manW))
     (x, y, z)
   }
   def generateEdgeCaseFloatTriple3( xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, r : Random ) = {
