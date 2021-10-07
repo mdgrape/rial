@@ -229,12 +229,16 @@ class FusedMulAddFPGeneric(
     val carryRoundFarProd  = wIncFarProd && (wmanFarProd === maskL(wSpec.manW+1).U)
 
     wman0FarProd := Mux(carryRoundFarProd, 0.U, (wmanFarProd + wIncFarProd.asUInt)(wSpec.manW-1, 0))
-    wex0FarProd  := Mux(carryRoundFarProd, xyEx0 + farProdExInc + (wSpec.exBias + 1).S((xyExW+1).W),
-                                           xyEx0 + farProdExInc +  wSpec.exBias.S((xyExW+1).W))
+    wex0FarProd  := xyEx0 + farProdExInc + wSpec.exBias.S((xyExW+1).W) + Mux(carryRoundFarProd, 1.S, 0.S)
 
     when(isFarProd) {
-      dbgPrintf("wIncFarProd   = 0b%b(%d)\n", wIncFarProd, wIncFarProd )
-      dbgPrintf("wmanFarProd   = 0b%b(%d)\n", wmanFarProd, wmanFarProd)
+      dbgPrintf("wIncFarProd       = 0b%b(%d)\n", wIncFarProd,  wIncFarProd )
+      dbgPrintf("wmanFarProd       = 0b%b(%d)\n", wmanFarProd,  wmanFarProd)
+      dbgPrintf("xyExW             = 0b%b(%d)\n", xyEx0,        xyEx0)
+      dbgPrintf("farProdExInc      = 0b%b(%d)\n", farProdExInc,  farProdExInc)
+      dbgPrintf("wSpec.exBias      = 0b%b(%d)\n", wSpec.exBias.U, wSpec.exBias.U)
+      dbgPrintf("carryRoundFarProd = 0b%b(%d)\n", carryRoundFarProd.asSInt, carryRoundFarProd.asSInt )
+      dbgPrintf("wex0FarProd       = 0b%b(%d)\n", wex0FarProd,  wex0FarProd)
     }
   } else {
     // w is wider, no rounding required
@@ -330,8 +334,7 @@ class FusedMulAddFPGeneric(
     val carryRoundFarAdd = wIncFarAdd && (wmanFarAdd === maskL(wSpec.manW+1).U)
 
     wman0FarAdd := Mux(carryRoundFarAdd, 0.U, (wmanFarAdd + wIncFarAdd.asUInt)(wSpec.manW-1, 0))
-    wex0FarAdd  := Mux(carryRoundFarAdd, zExNobias.asSInt - farAddExDec.asSInt + (wSpec.exBias+1).S,
-                                         zExNobias.asSInt - farAddExDec.asSInt +  wSpec.exBias.S)
+    wex0FarAdd  := zExNobias.asSInt - farAddExDec.asSInt + wSpec.exBias.S((xyExW+1).W) + Mux(carryRoundFarAdd, 1.S, 0.S)
   } else {
     // w is wider, no rounding required
     wman0FarAdd := padLSB(wSpec.manW+1, farAddNorm)
@@ -421,8 +424,8 @@ class FusedMulAddFPGeneric(
     val carryRoundNear = wIncNear && (wmanNear === maskL(wSpec.manW+1).U)
 
     wman0Near := Mux(carryRoundNear, 0.U, (wmanNear + wIncNear.asUInt)(wSpec.manW-1, 0))
-    wex0Near  := Mux(carryRoundNear, xyEx0 - nearExDec + (wSpec.exBias+1).S,
-                                     xyEx0 - nearExDec + wSpec.exBias.S)
+    wex0Near  := xyEx0 - nearExDec + wSpec.exBias.S + Mux(carryRoundNear, 1.S, 0.S)
+
     when(isNear) {
       dbgPrintf("wmanNear  = 0b%b(%d)\n", wmanNear, wmanNear)
       dbgPrintf("wman0Near = 0b%b(%d)\n", wmanNear, wmanNear)
