@@ -113,19 +113,19 @@ class SqrtTest extends FlatSpec
   val sqrtF32TableIOdd  = SqrtSim.sqrtTableGenerationOdd ( 2, 8, 23, 23+2 )
 
   // OK
-//   runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
-//     n, r, sqrtBF16TableIEven, sqrtBF16TableIOdd,
-//     "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-//   runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
-//     n, r, sqrtBF16TableIEven, sqrtBF16TableIOdd,
-//     "Test All range",generateRealFull(_,_) )
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
+    n, r, sqrtBF16TableIEven, sqrtBF16TableIOdd,
+    "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
+    n, r, sqrtBF16TableIEven, sqrtBF16TableIOdd,
+    "Test All range",generateRealFull(_,_) )
 
   runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
     n, r, sqrtF32TableIEven, sqrtF32TableIOdd,
     "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-//   runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
-//     n, r, sqrtF32TableIEven, sqrtF32TableIOdd,
-//     "Test All range",generateRealFull(_,_) )
+  runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
+    n, r, sqrtF32TableIEven, sqrtF32TableIOdd,
+    "Test All range",generateRealFull(_,_) )
 
 }
 
