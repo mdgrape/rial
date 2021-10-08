@@ -114,7 +114,7 @@ object SqrtSim {
         t_odd .interval(adr).eval(d.toLong, dxbp)
       }
       // here we get y = 2 - sqrt(...)
-      val rres = res0 - 2 * (SafeLong(1) << calcW) //   y-2  (-sqrt(...))
+      val rres = res0 - (SafeLong(2) << calcW) //   y-2  (-sqrt(...))
       val res = -rres                              // -(y-2) ( sqrt(...))
 //       println(f"res0 = ${res0.toBinaryString}(${res0})")
 //       println(f"rres = ${rres.toInt.toBinaryString}(${rres})")
