@@ -97,18 +97,28 @@ object SqrtSim {
       val d   = (SafeLong(1)<<dxbp) - slice(0, manW-adrW, man) - 1
       val adr = maskI(adrW)-slice(manW-adrW, adrW, man).toInt
 
-//       println(f"d = ${d.toLong.toBinaryString}(${d.toLong})")
+//       println(f"d   = ${d.toLong.toBinaryString}(${d.toLong})")
+//       println(f"adr = ${adr.toBinaryString}(${adr})")
 
       val res0 = if(ex % 2 == 0) {
-//         println(f"cw = ${t_even.interval(adr).cw(0)._1},  ${t_even.interval(adr).cw(1)._1},  ${t_even.interval(adr).cw(2)._1}")
+//         val c0 = t_even.interval(adr).cw(0)
+//         val c1 = t_even.interval(adr).cw(1)
+//         val c2 = t_even.interval(adr).cw(2)
+//         println(f"cw = ${c0._1}(${c0._2}), ${c1._1}(${c1._2}), ${c2._1}(${c2._2})")
         t_even.interval(adr).eval(d.toLong, dxbp)
       } else {
-//         println(f"cw = ${t_odd .interval(adr).cw(0)._1},  ${t_odd .interval(adr).cw(1)._1},  ${t_odd .interval(adr).cw(2)._1}")
+//         val c0 = t_odd.interval(adr).cw(0)
+//         val c1 = t_odd.interval(adr).cw(1)
+//         val c2 = t_odd.interval(adr).cw(2)
+//         println(f"cw = ${c0._1}(${c0._2}), ${c1._1}(${c1._2}), ${c2._1}(${c2._2})")
         t_odd .interval(adr).eval(d.toLong, dxbp)
       }
       // here we get y = 2 - sqrt(...)
       val rres = res0 - 2 * (SafeLong(1) << calcW) //   y-2  (-sqrt(...))
       val res = -rres                              // -(y-2) ( sqrt(...))
+//       println(f"res0 = ${res0.toBinaryString}(${res0})")
+//       println(f"rres = ${rres.toInt.toBinaryString}(${rres})")
+//       println(f"res  = ${res .toInt.toBinaryString}(${res })")
       res.toLong
     }
     // remove leading 1
