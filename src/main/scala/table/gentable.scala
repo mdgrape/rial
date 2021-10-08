@@ -189,20 +189,33 @@ class FuncTableIntervalInt (iv : FuncTableIntervalDouble, val floating: Boolean,
   def horner( c: (Long, Int), z: (Long, Int), dx: Long, dxBp: Int, checkOverflow: Boolean ) = {
     val zw   = z._2
     val d    = c._2
-    val dxf = dx.toDouble
-    val dxl  = floor(scalb(dxf, min(zw-dxBp, 0)))
-    val term = (c._1 + floor(scalb( dxl*z._1, -min(dxBp,zw)))).toLong
+    val dxw  = min(zw, dxBp)
+    val dxl  = dx >> (dxBp - dxw)// MSBs?
+    val prod = dxl * z._1
+    val prod_sft = prod >> dxw
+    val term = c._1 + prod_sft
+
     if (checkOverflow) {
       // Check width
       val zmax = (1L<<(d-1))-1
       val zmin = -zmax-1
       if ( (term > zmax) || (term < zmin) ) {
-        val x = xMin + w*(scalb(dxf,-dxBp)+1.0);
-        println(f"INFO (${this.getClass.getName}) : Range error: x=$x%f, dx=$dx%h, z=${term}%h(${term.toDouble}%e), c=${c._1}%h, cmin=$zmin%h, zmax=$zmax%h")
+        println(f"INFO (${this.getClass.getName}) : Range error: dx=$dx%f, dx=$dx%h, z=${term}%h(${term.toDouble}%e), c=${c._1}%h, cmin=$zmin%h, zmax=$zmax%h")
         //println(f"${c._1} ${z._1} ${term} $zw $d $dxBp $dx%h $dxl")
       }
       //println(f"${c._1}%x ${z._1}%x ${term}%x $zw $d $dxBp $dx%x $dxl")
     }
+//     println("sim----------------------------------------")
+//     println(f"c     : ${c._1.toBinaryString}(${c._1})")
+//     println(f"zw    : ${zw  .toBinaryString}(${zw  })")
+//     println(f"dx    : ${dx.toBinaryString}(${dx})")
+//     println(f"dxBp  : ${dxBp.toBinaryString}(${dxBp})")
+//     println(f"dxw   : ${dxw                }         ")
+//     println(f"dxl   : ${dxl                }         ")
+//     println(f"z     : ${z                  }         ")
+//     println(f"prod  : ${prod}")
+//     println(f"prodsf: ${prod_sft}")
+//     println(f"term  : ${term.toBinaryString}(${term})")
     (term, d)
   }
 
@@ -299,9 +312,14 @@ trait FuncTable {
   def nInterval = interval.length
   def adrW = log2Up(interval.length)
 
+  //   signMode=0 : always include sign bit
+  //   signMode=1 : 2's complement and no sign bit (if possible)
+  //   signMode=2 : absolute and no sign bit (if possible)
   def getVectorUnified( signMode : Int = 0 ) = {
     val nAdr = log2Up(interval.size);
     val w = cbit.zip(sign).map( x => if ((x._2 != 3) && (signMode!=0)) x._1-1 else x._1 )
+//     println(f"getVectorUnified: cbit = ${cbit}")
+//     println(f"getVectorUnified: w    = ${w}")
     val s = sign.map( x =>
       if ((x == 2) && (signMode!=0)) -1
       else if ((x == 1) && (signMode!=0)) 1
@@ -455,9 +473,9 @@ class FuncTableInt (t: FuncTableDouble, val bp: Int) extends FuncTable {
   val minMax = t.minMax
   val absMax = minMax.map( x => max( abs(x._1), abs(x._2) ) )
   println("Absmax    : "+absMax.mkString("", ", ",""))
-  // getExponent returns -1 for [0.5,1) corresponds bp+1 including sign.
+
   // Here, we always include sign bit, so plus 1.
-  val cbit   = absMax.map(x => bp + java.lang.Math.getExponent(x)+1+1)
+  val cbit   = absMax.map(x => round(scalb(x, bp)).toLong.toBinaryString.length()+1)
   //println(s"bp        : $bp")
   println("Cbits     : "+cbit.mkString("", ", ",""))
 
@@ -465,7 +483,7 @@ class FuncTableInt (t: FuncTableDouble, val bp: Int) extends FuncTable {
   val minMaxCalc = t.getMinMaxAll
   val absMaxCalc = minMaxCalc.map( x => max( abs(x._1), abs(x._2) ) )
   println("CalcMax   : "+absMaxCalc.mkString("", ", ",""))
-  val calcWidth = absMaxCalc.map(x => bp + java.lang.Math.getExponent(x)+1+1)
+  val calcWidth = absMaxCalc.map(x => round(scalb(x, bp)).toLong.toBinaryString.length()+1)
   println("CalcWidth : "+calcWidth.mkString("", ", ",""))
   println(f"ResRange  : ${minMaxCalc.head._1} ~ ${minMaxCalc.head._2}")
 
