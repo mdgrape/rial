@@ -108,82 +108,76 @@ class SqrtGeneric(
     val zeroFlush = zinf || zzero || znan
     z0 := zSgn ## zEx ## Mux(zeroFlush, znan ## 0.U((manW-1).W), zman)
   } else {
-    z0 := 0.U
-//     // Fractional part by Polynomial
-//     val adr = ~xman(manW-1, manW-adrW)
-//     val d   = Cat(xman(manW-adrW-1),~xman(manW-adrW-2,0)).asSInt
-// //     printf("xman = %b(%d)\n", xman, xman)
-// //     printf("d    = %b(%d)\n", d, d)
-// //     printf("adr  = %b(%d)\n", adr, adr)
-//
-//     val eps = pow(2.0, -manW)
-//     val tableDeven = new FuncTableDouble(x => 2.0 - math.sqrt(2.0 -     (x+eps)), order)
-//     val tableDodd  = new FuncTableDouble(x => 2.0 - math.sqrt(4.0 - 2.0*(x+eps)), order)
-//     tableDeven.addRange(0.0, 1.0, 1<<adrW) // gen table, dividing the range [0,1]
-//     tableDodd .addRange(0.0, 1.0, 1<<adrW) // into 1<<adrW subregions
-//     val tableIeven = new FuncTableInt( tableDeven, bp ) // convert float table
-//     val tableIodd  = new FuncTableInt( tableDodd,  bp ) // into mantissa-Int
-//     val (coeffTableEven, coeffWidthEven) = tableIeven.getVectorUnified(/*sign mode =*/1)
-//     val (coeffTableOdd,  coeffWidthOdd ) = tableIodd .getVectorUnified(1)
-//     // signMode=0 : always include sign bit
-//     // signMode=1 : 2's complement and no sign bit (if possible)
-//     // signMode=2 : absolute and no sign bit (if possible)
-//
-//     val coeffEven  = getSlices(coeffTableEven(adr), coeffWidthEven)
-//     val coeffOdd   = getSlices(coeffTableOdd (adr), coeffWidthOdd)
-//     val coeffSEven = coeffEven.map( x => x.zext )
-//     val coeffSOdd  = coeffOdd .map( x => x.zext )
-//
-//     def hornerC( c: SInt, z: SInt, dx: SInt, enableRounding: Boolean = false ) : SInt = {
-//       val zw   = z.getWidth
-//       val dxBp = dx.getWidth-1
-//       val dxw  = min(zw, dxBp)
-//       val dxl  = dx(dxBp, dxBp-dxw).asSInt // ?
-//       val prod = dxl * z
-//       val prod_sft = dropLSB(dxw, prod)
-//       val sum = c +& prod_sft // Extend for safe
-// //       printf("----------------------------------------\n")
-// //       printf("horner  : ci + dx * z; z is the current sum\n")
-// //       printf("c       : %b(%d), W=%d\n", c              , c              , c              .getWidth.U)
-// //       printf("zw      : %b(%d), W=%d\n", zw      .asUInt, zw      .asUInt, zw      .asUInt.getWidth.U)
-// //       printf("dxBp    : %b(%d), W=%d\n", dxBp    .asUInt, dxBp    .asUInt, dxBp    .asUInt.getWidth.U)
-// //       printf("dxw     : %b(%d), W=%d\n", dxw     .asUInt, dxw     .asUInt, dxw     .asUInt.getWidth.U)
-// //       printf("dx      : %b(%d), W=%d\n", dx             , dx             , dx             .getWidth.U)
-// //       printf("dxl     : %b(%d), W=%d\n", dxl            , dxl            , dxl            .getWidth.U)
-// //       printf("z       : %b(%d), W=%d\n", z              , z              , z              .getWidth.U)
-// //       printf("prod    : %b(%d), W=%d\n", prod           , prod           , prod           .getWidth.U)
-// //       printf("prod_sft: %b(%d), W=%d\n", prod_sft       , prod_sft       , prod_sft       .getWidth.U)
-// //       printf("sum     : %b(%d), W=%d\n", sum            , sum            , sum            .getWidth.U)
-//       sum
-//     }
-//
-//     def polynomialEvaluationC( c : Seq[SInt], dx : SInt, enableRounding: Boolean = false ) = {
-//       val res = c.init.foldRight(c.last)( (c,z) => hornerC( c, z, dx, enableRounding ) )
-//       res
-//     }
-//
-//     val res0 = Mux(xExNobias(0) === 1.U(1.W), zodd, zeven) // 2-sqrt(...)
-//     val rres = res0 - (2.U << (manW + extraBits))          //  -sqrt(...)
-//     val s0   = ~rres + 1.U - (1.U << (manW + extraBits))   //   sqrt(...)
-//
-// //     printf("Odd : %b(%d), width=%d\n", zodd , zodd , zodd .getWidth.U)
-// //     printf("Even: %b(%d), width=%d\n", zeven, zeven, zeven.getWidth.U)
-// //     printf("xEx : %b(%d), width=%d\n", xExNobias, xExNobias, xExNobias.getWidth.U)
-// //     printf("res0: %b(%d), width=%d\n", res0,  res0, res0.getWidth.U)
-// //     printf("rres: %b(%d), width=%d\n", rres,  rres, rres.getWidth.U)
-// //     printf("s0  : %b(%d), width=%d\n", s0,    s0, s0.getWidth.U)
-//
-//     val zman  = dropLSB(extraBits, s0) + s0(extraBits-1)
-//     val polynomialOvf = zman.head(2) === 1.U
-//     val polynomialUdf = zman.head(1) === 1.U
-//     val zeroFlush = zinf || zzero || polynomialUdf || znan
-//     val zman_checkovf = Mux(polynomialOvf, Fill(manW,1.U(1.W)), zman(manW-1,0))
-//
-// //     printf("zman: %b(%d), width=%d\n", zman , zman , zman .getWidth.U)
-// //     printf("xExNobias(0) = %b, zman.head(1) = %b, zman.head(2) = %b\n", xExNobias(0), zman.head(1), zman.head(2))
-// //     printf("z0: %b|%b(%d)|%b(%d)\n", zSgn, zEx, zEx, zman_checkovf, zman_checkovf)
-//
-//     z0 := zSgn ## zEx ## Mux(zeroFlush, znan ## 0.U((manW-1).W), zman_checkovf)
+    // Fractional part by Polynomial
+    val adr = ~man(emanW-1, emanW-adrW)
+    val d   = Cat(man(emanW-adrW-1),~man(emanW-adrW-2,0)).asSInt
+//     printf("xman = %b(%d)\n", xman, xman)
+//     printf("d    = %b(%d)\n", d, d)
+//     printf("adr  = %b(%d)\n", adr, adr)
+
+    val eps = pow(2.0, -(emanW))
+    val tableD = new FuncTableDouble( x => 3.0 - sqrt(5.0-4.0*(x+eps)), order )
+    tableD.addRange(0.0, 1.0, 1<<adrW) // gen table, dividing the range [0,1]
+    val tableI = new FuncTableInt( tableD, bp ) // convert float table into int
+
+    val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/1)
+    // signMode=0 : always include sign bit
+    // signMode=1 : 2's complement and no sign bit (if possible)
+    // signMode=2 : absolute and no sign bit (if possible)
+
+    val coeff  = getSlices(coeffTable(adr), coeffWidth)
+    val coeffS = coeff.map( x => x.zext )
+
+    def hornerC( c: SInt, z: SInt, dx: SInt, enableRounding: Boolean = false ) : SInt = {
+      val zw   = z.getWidth
+      val dxBp = dx.getWidth-1
+      val dxw  = min(zw, dxBp)
+      val dxl  = dx(dxBp, dxBp-dxw).asSInt // ?
+      val prod = dxl * z
+      val prod_sft = dropLSB(dxw, prod)
+      val sum = c +& prod_sft // Extend for safe
+//       printf("----------------------------------------\n")
+//       printf("horner  : ci + dx * z; z is the current sum\n")
+//       printf("c       : %b(%d), W=%d\n", c              , c              , c              .getWidth.U)
+//       printf("zw      : %b(%d), W=%d\n", zw      .asUInt, zw      .asUInt, zw      .asUInt.getWidth.U)
+//       printf("dxBp    : %b(%d), W=%d\n", dxBp    .asUInt, dxBp    .asUInt, dxBp    .asUInt.getWidth.U)
+//       printf("dxw     : %b(%d), W=%d\n", dxw     .asUInt, dxw     .asUInt, dxw     .asUInt.getWidth.U)
+//       printf("dx      : %b(%d), W=%d\n", dx             , dx             , dx             .getWidth.U)
+//       printf("dxl     : %b(%d), W=%d\n", dxl            , dxl            , dxl            .getWidth.U)
+//       printf("z       : %b(%d), W=%d\n", z              , z              , z              .getWidth.U)
+//       printf("prod    : %b(%d), W=%d\n", prod           , prod           , prod           .getWidth.U)
+//       printf("prod_sft: %b(%d), W=%d\n", prod_sft       , prod_sft       , prod_sft       .getWidth.U)
+//       printf("sum     : %b(%d), W=%d\n", sum            , sum            , sum            .getWidth.U)
+      sum
+    }
+
+    def polynomialEvaluationC( c : Seq[SInt], dx : SInt, enableRounding: Boolean = false ) = {
+      val res = c.init.foldRight(c.last)( (c,z) => hornerC( c, z, dx, enableRounding ) )
+      res
+    }
+
+    val res0 = polynomialEvaluationC( coeffS,  d, enablePolynomialRounding ).asUInt
+    val rres = res0 - (1.U << (bp+1))
+    val s0   = ~rres + 1.U
+
+//     printf("Odd : %b(%d), width=%d\n", zodd , zodd , zodd .getWidth.U)
+//     printf("Even: %b(%d), width=%d\n", zeven, zeven, zeven.getWidth.U)
+//     printf("xEx : %b(%d), width=%d\n", xExNobias, xExNobias, xExNobias.getWidth.U)
+//     printf("res0: %b(%d), width=%d\n", res0,  res0, res0.getWidth.U)
+//     printf("rres: %b(%d), width=%d\n", rres,  rres, rres.getWidth.U)
+//     printf("s0  : %b(%d), width=%d\n", s0,    s0, s0.getWidth.U)
+
+    val zman  = dropLSB(extraBits, s0) + s0(extraBits-1)
+    val polynomialOvf = zman.head(2) === 1.U
+    val polynomialUdf = zman.head(1) === 1.U
+    val zeroFlush = zinf || zzero || polynomialUdf || znan
+    val zman_checkovf = Mux(polynomialOvf, Fill(manW,1.U(1.W)), zman(manW-1,0))
+
+//     printf("zman: %b(%d), width=%d\n", zman , zman , zman .getWidth.U)
+//     printf("xExNobias(0) = %b, zman.head(1) = %b, zman.head(2) = %b\n", xExNobias(0), zman.head(1), zman.head(2))
+//     printf("z0: %b|%b(%d)|%b(%d)\n", zSgn, zEx, zEx, zman_checkovf, zman_checkovf)
+
+    z0 := zSgn ## zEx ## Mux(zeroFlush, znan ## 0.U((manW-1).W), zman_checkovf)
   }
 
   io.z   := ShiftRegister(z0, nStage)
