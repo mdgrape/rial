@@ -90,7 +90,7 @@ class SqrtGeneric(
   if (order<=0) { // generate fixed-sized table. no calculation needed.
     val adr = man(emanW-1, emanW-adrW) // take MSBs as an address
 
-    val tbl = VecInit( (0L to (1L<<adrW)-1L).map(
+    val tbl = VecInit( (0L to 3L<<(adrW-2)).map(
       n => {
         val x = 1.0 + (n.toDouble / (1L<<adrW)) * 4.0
         val y = round((math.sqrt(x)-1.0) * (1L<<manW))
@@ -115,6 +115,8 @@ class SqrtGeneric(
 //     printf("d    = %b(%d)\n", d, d)
 //     printf("adr  = %b(%d)\n", adr, adr)
 
+    // TODO: make table a bit smaller. since the mantissa takes only [0, 3) range,
+    //       coefficients for [3, 4) is redundant.
     val eps = pow(2.0, -(emanW))
     val tableD = new FuncTableDouble( x => 3.0 - sqrt(5.0-4.0*(x+eps)), order )
     tableD.addRange(0.0, 1.0, 1<<adrW) // gen table, dividing the range [0,1]
