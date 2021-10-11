@@ -23,7 +23,7 @@ import rial.table._
 
 class SqrtSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
 //class SqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
-  var n = 1000
+  var n = 10000
 
   override def beforeAll(configMap: ConfigMap) = {
     n = configMap.getOptional[String]("n").getOrElse("1000").toInt
@@ -31,6 +31,14 @@ class SqrtSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
   }
 
   val r = new Random(123456789)
+
+  var c = 0
+  def generateReal1to4( spec: RealSpec, r : Random) = {
+    val ex  = if (c > (n/2)) {spec.exBias + 1} else {spec.exBias}
+    val man = round(c.toDouble * maskL(spec.manW))
+    c += 1
+    new RealGeneric (spec, 0, ex, man)
+  }
 
   def generateRealWithin( p : Double, spec: RealSpec, r : Random ) = {
     val rD : Double = (r.nextDouble()-0.5)*p
@@ -47,7 +55,7 @@ class SqrtSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
     java.lang.Math.scalb(err, -x.exNorm+x.spec.manW)
   }
 
-  def sqrtTest(t_even: FuncTableInt, t_odd: FuncTableInt, spec : RealSpec, n : Int, r : Random,
+  def sqrtTest(t: FuncTableInt, spec : RealSpec, n : Int, r : Random,
     generatorStr : String, generator : ( (RealSpec, Random) => RealGeneric) ) = {
     test(s"sqrt(x), format ${spec.toStringShort}, ${generatorStr}") {
       var err1lsbPos = 0
@@ -57,7 +65,7 @@ class SqrtSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
         val x0   = x.toDouble
         val z0   = math.sqrt(x0)
         val z0r  = new RealGeneric(spec, z0)
-        val zi   = SqrtSim.sqrtSimGeneric( t_even, t_odd, x )
+        val zi   = SqrtSim.sqrtSimGeneric( t, x )
         val zd   = zi.toDouble
         val errf = zd - z0r.toDouble
         val erri = errorLSB(zi, z0r.toDouble)
@@ -80,7 +88,6 @@ class SqrtSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
 
           println(f"gen = ${x0}")
           println(f"ref = ${z0}, ref^2 = ${z0*z0}")
-//           println(f"ref'= ${zrefd}, ref'^2 = ${zrefd*zrefd}")
           println(f"sim = ${zd}, sim^2 = ${zd*zd}")
           println(f"test(${ztestsgn}|${ztestexp}(${ztestexp - spec.exBias})|${ztestman}(${ztestman.toLong}%x)) != ref(${zrefsgn}|${zrefexp}(${zrefexp - spec.exBias})|${zrefman}(${zrefman.toLong}%x)) = sqrt(x = ${xsgn}|${xexp}(${xexp - spec.exBias})|${xman}(${xman.toLong}%x))")
         }
@@ -105,19 +112,19 @@ class SqrtSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
     }
   }
 
-  val sqrtF32TableIEven = SqrtSim.sqrtTableGenerationEven( 2, 8, 23, 23+2 )
-  val sqrtF32TableIOdd  = SqrtSim.sqrtTableGenerationOdd ( 2, 8, 23, 23+2 )
+  val sqrtF32TableI = SqrtSim.sqrtTableGeneration( 2, 8, 23, 23+1+2 )
 
-  sqrtTest(sqrtF32TableIEven, sqrtF32TableIOdd, RealSpec.Float32Spec, n, r,
+  sqrtTest(sqrtF32TableI, RealSpec.Float32Spec, n, r,
+    "Test Within [0, 4)",generateReal1to4(_,_))
+  sqrtTest(sqrtF32TableI, RealSpec.Float32Spec, n, r,
     "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-  sqrtTest(sqrtF32TableIEven, sqrtF32TableIOdd, RealSpec.Float32Spec, n, r,
+  sqrtTest(sqrtF32TableI, RealSpec.Float32Spec, n, r,
     "Test All range",generateRealFull(_,_) )
 
-  val sqrtBF16TableIEven = SqrtSim.sqrtTableGenerationEven( 0, 7, 7, 7 )
-  val sqrtBF16TableIOdd  = SqrtSim.sqrtTableGenerationOdd ( 0, 7, 7, 7 )
+  val sqrtBF16TableI = SqrtSim.sqrtTableGeneration(0, 7, 7, 7 ) // [1,2) + [2,4) + 1.0
 
-  sqrtTest(sqrtBF16TableIEven, sqrtBF16TableIOdd, RealSpec.BFloat16Spec, n, r,
+  sqrtTest(sqrtBF16TableI, RealSpec.BFloat16Spec, n, r,
     "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-  sqrtTest(sqrtBF16TableIEven, sqrtBF16TableIOdd, RealSpec.BFloat16Spec, n, r,
+  sqrtTest(sqrtBF16TableI, RealSpec.BFloat16Spec, n, r,
     "Test All range",generateRealFull(_,_) )
 }

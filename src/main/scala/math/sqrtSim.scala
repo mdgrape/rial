@@ -22,24 +22,36 @@ import rial.arith.RealGeneric
 
 object SqrtSim {
 
-  def sqrtSimGeneric( t_even : FuncTableInt, t_odd : FuncTableInt, x: RealGeneric ) : RealGeneric = {
-    assert(t_even.nOrder == t_odd.nOrder)
-    assert(t_even.adrW   == t_odd.adrW)
-    assert(t_even.bp     == t_odd.bp)
-
-    val adrW   = t_even.adrW
-    val nOrder = t_even.nOrder
-    val bp     = t_even.bp
+  // [1, 4) -> [1, 2)
+  def sqrtSimGeneric( t : FuncTableInt, x: RealGeneric ) : RealGeneric = {
+//     println("-----------------------------")
+    val adrW   = t.adrW
+    val nOrder = t.nOrder
+    val bp     = t.bp
 
     val expW = x.spec.exW
     val manW = x.spec.manW
     val exBias = x.spec.exBias
     val extraBits = if (nOrder==0) {0} else {(bp - manW)}
 
-    val man    = x.man
     val exRaw  = x.ex
     val sgn    = x.sgn
     val ex     = exRaw-exBias
+    val man    = if (bit(0, ex) == 1) {
+      (x.man << 1) + (1 << x.spec.manW)
+    } else {
+      x.man
+    }
+
+//     println(f"x    = ${sgn}|${x.ex}(${ex})|${x.man.toLong.toBinaryString}")
+//     println(f"xman = ${man.toLong.toBinaryString}")
+
+    // [1, 2)        [2, 4)
+    // 1.xxx -(*2)-> 1x.xx
+    //  |             |
+    //  v -1          v -10
+    // 0.xxx          x.xx
+    // [0, 1)        [0, 2) needs +1 -> [1, 3)
 
     if (x.isNaN)      return RealGeneric.nan (x.spec)
     if (x.isZero)     return RealGeneric.zero(x.spec)
@@ -59,16 +71,12 @@ object SqrtSim {
       }
     val calcW = manW + extraBits
 
-    val zman0 = if (order==0) {
+    val zman = if (order==0) {
       if (adrW<manW) {
         println("WARNING: table address width < mantissa width, for polynomial order is zero. address width set to mantissa width.")
       }
       val adr = man.toInt
-      if (ex % 2 == 0) {
-        t_even.interval(adr).eval(0L, 0)
-      } else {
-        t_odd .interval(adr).eval(0L, 0)
-      }
+      t.interval(adr).eval(0L, 0)
     } else {
       //      +- address part
       //      |        +- fraction part (from 00..0 to 11..1): dxbp
@@ -83,50 +91,28 @@ object SqrtSim {
       // To make all the coefficients positive (to reduce complexity of multiplier),
       // we convert sqrt(x) to -sqrt(-x). To do that, we invert x and also invert
       // the result. Also, [0, 1) -> (-1, 0], so we need to add 1 to make the range (0, 1]
-      //
 
-      // convert d into [-1, 1] in the same way as FuncIntervalDouble.eval -> evalNorm
-//       val dxbp  = manW - adrW
-//       val d     = (slice(0, dxbp, man) << 1) - SafeLong(1 << dxbp)
-//          -invert-> SafeLong(1 << dxbp) - (slice(0, dxbp, man) << 1)
-//          -  +1  -> SafeLong(1 << dxbp) - (slice(0, dxbp, man) << 1) + 1
-//       val adr   = slice(manW-adrW, adrW, man).toInt
+      val dxbp = (manW+2)-adrW-1
+      val d   = (SafeLong(1)<<dxbp) - slice(0, (manW+2)-adrW, man) - 1
+      val adr = maskI(adrW)-slice((manW+2)-adrW, adrW, man).toInt
 
-      val dxbp = manW-adrW-1
-      // we subtract 1 to convert 0 -> 1111(-1), not 0 -> 0
-      val d   = (SafeLong(1)<<dxbp) - slice(0, manW-adrW, man) - 1
-      val adr = maskI(adrW)-slice(manW-adrW, adrW, man).toInt
+//       println(f"dxbp = ${dxbp}, manW = ${manW}, adrW = ${adrW}")
+//       println(f"d    = ${d.toLong.toBinaryString}, d/dmax = ${d.toDouble/(1<<dxbp)}")
+//       println(f"adr  = ${adr.toBinaryString}, d/adrmax = ${adr.toDouble/(1<<adrW)}")
 
-//       println(f"d   = ${d.toLong.toBinaryString}(${d.toLong})")
-//       println(f"adr = ${adr.toBinaryString}(${adr})")
-
-      val res0 = if(ex % 2 == 0) {
-//         val c0 = t_even.interval(adr).cw(0)
-//         val c1 = t_even.interval(adr).cw(1)
-//         val c2 = t_even.interval(adr).cw(2)
-//         println(f"cw = ${c0._1}(${c0._2}), ${c1._1}(${c1._2}), ${c2._1}(${c2._2})")
-        t_even.interval(adr).eval(d.toLong, dxbp)
-      } else {
-//         val c0 = t_odd.interval(adr).cw(0)
-//         val c1 = t_odd.interval(adr).cw(1)
-//         val c2 = t_odd.interval(adr).cw(2)
-//         println(f"cw = ${c0._1}(${c0._2}), ${c1._1}(${c1._2}), ${c2._1}(${c2._2})")
-        t_odd .interval(adr).eval(d.toLong, dxbp)
-      }
-      // here we get y = 2 - sqrt(...)
-      val rres = res0 - (SafeLong(2) << calcW) //   y-2  (-sqrt(...))
-      val res = -rres                              // -(y-2) ( sqrt(...))
-//       println(f"res0 = ${res0.toBinaryString}(${res0})")
-//       println(f"rres = ${rres.toInt.toBinaryString}(${rres})")
-//       println(f"res  = ${res .toInt.toBinaryString}(${res })")
+      val res0 = t.interval(adr).eval(d.toLong, dxbp) //   y    (2 - sqrt(...))
+      val rres = res0 - (SafeLong(1) << (calcW+1))    //   y-2  (   -sqrt(...))
+      val res = -rres                                 // -(y-2) (    sqrt(...))
+//       println(f"res0  = ${res0.toLong.toBinaryString}")
+//       println(f"rres  = ${rres.toLong.toBinaryString}")
+//       println(f"res   = ${res .toLong.toBinaryString}")
       res.toLong
     }
-    // remove leading 1
-    val zman = slice(0, calcW, zman0)
+//     println(f"zman      = ${zman.toBinaryString}(${zman}), extrabits = ${extraBits}")
 
     // Simple rounding
     val zmanRound = if (extraBits>0) { (zman>>extraBits) + bit(extraBits-1, zman)} else zman
-    //println(f"zman=${zman}%h")
+//     println(f"zmanRound = ${zmanRound.toLong.toBinaryString}")
 
     val z = if (zman<0) {
       println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=$x%h")
@@ -137,50 +123,33 @@ object SqrtSim {
     } else {
       zmanRound
     }
+//     println(f"z     = ${z.toLong.toBinaryString}")
     new RealGeneric(x.spec, zSgn, zEx, SafeLong(z))
   }
 
-  //
-  // 2^{2k} * 1.m -> 2^k * sqrt(1.m = 1.0 + x)
-  //
-  // To make all the 0th, 1st, 2nd coefficients positive...
-  // sqrt(1+x) -(x:=-x)->  sqrt(1-x) -(x:=x+1)-> sqrt(2-x)
-  //           -(y:=-y)-> -sqrt(2-x) -(y:=y+2)-> 2-sqrt(2-x)
-  //
-  def sqrtTableGenerationEven( order : Int, adrW : Int, manW : Int, fracW : Int ) = {
-    val tableD = if (order == 0 || order == 1) {
-      new FuncTableDouble( x => sqrt(1.0+x), order )
+  def sqrtTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int ) = {
+    if (order == 0) {
+      // even: 2^2k * 1.m, odd: 2^2k+1 * 1.m = 2^2k * (2 * 1.m)
+      // 1.m [= 1.0 + m] is in [1,2), 2*1.m [= 2.0 + 2 * m] is in [2,4)
+      // m_even is in [0, 1), m_odd is in [0, 2). to align them, we need to add
+      // 1.0 to m_odd to make the range [1, 3). That means that the width of
+      // mantissa will increase twice. the first time is 2* in the odd case,
+      // the seocnd is +1.0 in the odd case.
+      val tableD = new FuncTableDouble( x => sqrt(1.0+x*4.0) - 1.0, order )
+      tableD.addRange(0.0, 1.0, 1<<(manW+2))
+      new FuncTableInt( tableD, fracW )
     } else {
-      val eps=pow(2.0,-manW)
-      new FuncTableDouble( x => (2.0 - sqrt(2.0-(x+eps))), order )
+      val eps=pow(2.0,-(manW+2)) // shift + 1, the range is [0, 4), not [0, 1)
+      // To make all the 0th, 1st, 2nd coefficients positive...
+      val tableD = new FuncTableDouble( x => 3.0 - sqrt(5.0-4.0*(x+eps)), order )
+      tableD.addRange(0.0, 1.0, 1<<adrW)
+      new FuncTableInt( tableD, fracW )
     }
-    tableD.addRange(0.0, 1.0, 1<<adrW)
-    new FuncTableInt( tableD, fracW )
   }
 
-  //
-  // 2^{2k+1} * 1.m -> 2^k * sqrt(2 * 1.m)
-  //
-  // To make all the 0th, 1st, 2nd coefficients positive...
-  // sqrt(2*(1+x)) -(x:=-x)->  sqrt(2*(1-x)) -(x:=x+1)-> sqrt(2*(2-x))
-  //               -(y:=-y)-> -sqrt(2*(2-x)) -(y:=y+2)-> 2-sqrt(2*(2-x))
-  //
-  def sqrtTableGenerationOdd( order : Int, adrW : Int, manW : Int, fracW : Int ) = {
-    val tableD = if (order == 0 || order == 1) {
-      new FuncTableDouble( x => sqrt(2.0 * (1.0 + x)), order )
-    } else {
-      val eps=pow(2.0,-manW)
-      new FuncTableDouble( x => 2.0 - sqrt(2.0 * (2.0 - (x+eps))), order )
-    }
-    tableD.addRange(0.0, 1.0, 1<<adrW)
-    new FuncTableInt( tableD, fracW )
-  }
+//   val sqrtF32TableI = SqrtSim.sqrtTableGeneration( 2, 8, 23, 23+1+2 )
+//   val sqrtF32Sim = sqrtSimGeneric(sqrtF32TableI, _ )
 
-  val sqrtF32TableIEven = SqrtSim.sqrtTableGenerationEven( 2, 8, 23, 23+2 )
-  val sqrtF32TableIOdd  = SqrtSim.sqrtTableGenerationOdd ( 2, 8, 23, 23+2 )
-  val sqrtF32Sim = sqrtSimGeneric(sqrtF32TableIEven, sqrtF32TableIOdd, _ )
-
-  val sqrtBF16TableIEven = SqrtSim.sqrtTableGenerationEven( 0, 7, 7, 7 )
-  val sqrtBF16TableIOdd  = SqrtSim.sqrtTableGenerationOdd ( 0, 7, 7, 7 )
-  val sqrtBF16Sim = sqrtSimGeneric(sqrtBF16TableIEven, sqrtBF16TableIOdd, _ )
+//   val sqrtBF16TableI = SqrtSim.sqrtTableGeneration( 0, 7, 7, 7 )
+//   val sqrtBF16Sim = sqrtSimGeneric(sqrtBF16TableI, _ )
 }
