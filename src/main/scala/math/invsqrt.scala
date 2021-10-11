@@ -85,63 +85,62 @@ class InvSqrtGeneric(
   // Note that xinf === true.B even if x is nan. to avoid it (the simulator does
   // not care about the sign of NaN), we need to check !nan here.
 
+  // --------------------------------------------------------------------------
+  // mantissa calculation
+  //
+  // ex==even: 1.xxxx..x: [1, 2) -> 0.xxxx..x: [0, 1) ->    0 .xxxx..x: [0, 1)
+  // ex==odd: 1x.xxx..x0: [2, 4) -> x.xxx..x0: [0, 2) -> (1+x).xxx..x0: [1, 3)
+
+  val man_even = 0.U(2.W) ## xman(manW-1, 0)
+  val man_odd  = Mux(xman(manW-1)===1.U, 2.U(2.W), 1.U(2.W)) ## xman(manW-2, 0) ## 0.U(1.W)
+  val man = Mux(xExNobias(0) === 1.U(1.W), man_odd, man_even)
+  val emanW = manW + 2
+  // in tests, since this class is constructed from generated table in sqrtSim,
+  // adrW is already extended.
+
   val z0 = Wire(UInt(spec.W.W))
 
   if (order<=0) { // generate fixed-sized table. no calculation needed.
-    val adr = xman(manW-1, manW-adrW) // take MSBs as an address
+    val adr = man(emanW-1, emanW-adrW) // take MSBs as an address
 
-    val tbl_even = VecInit( (0L to (1L<<adrW)-1L).map(
+    val tbl = VecInit( (0L to 3L<<(adrW-2)).map(
       n => {
-        val x = 1.0 + n.toDouble / (1L<<adrW)  // in [1, 2), normalized
+        val x = 1.0 + (n.toDouble / (1L<<adrW))*4.0
         val y = round((2.0 / math.sqrt(x)-1.0) * (1L<<manW))
         if (y >= (1L<<manW)) {
           println("WARNING: mantissa reaches to 2")
           maskL(manW).U(manW.W)
+        } else if(y < 0.0) { // not used, actually
+          0.U(manW.W)
         } else {
           y.U(manW.W)
         }
       })
     )
-    val tbl_odd = VecInit( (0L to (1L<<adrW)-1L).map(
-      n => {
-        val x = 1.0 + n.toDouble / (1L<<adrW)  // in [1, 2), normalized
-        val y = round((2.0 / math.sqrt(x * 2.0)-1.0) * (1L<<manW))
-        if (y >= (1L<<manW)) {
-          println("WARNING: mantissa reaches to 2")
-          maskL(manW).U(manW.W)
-        } else {
-          y.U(manW.W)
-        }
-      })
-    )
-    val zman = Mux(xExNobias(0) === 1.U(1.W), tbl_odd(adr), tbl_even(adr))
+    val zman = tbl(adr)
     val zeroFlush = zinf || zzero || znan
     z0 := zSgn ## zEx ## Mux(zeroFlush, znan ## 0.U((manW-1).W), zman)
   } else {
     // Fractional part by Polynomial
-    val adr = ~xman(manW-1, manW-adrW)
-    val d   = Cat(xman(manW-adrW-1),~xman(manW-adrW-2,0)).asSInt
+    val adr = ~man(emanW-1, emanW-adrW)
+    val d   = Cat(man(emanW-adrW-1),~man(emanW-adrW-2,0)).asSInt
 //     printf("xman = %b(%d)\n", xman, xman)
 //     printf("d    = %b(%d)\n", d, d)
 //     printf("adr  = %b(%d)\n", adr, adr)
 
-    val eps = pow(2.0, -manW)
-    val tableDeven = new FuncTableDouble(x => 2.0 / math.sqrt(2.0 -     (x+eps)) - 1.0, order)
-    val tableDodd  = new FuncTableDouble(x => 2.0 / math.sqrt(4.0 - 2.0*(x+eps)) - 1.0, order)
-    tableDeven.addRange(0.0, 1.0, 1<<adrW) // gen table, dividing the range [0,1]
-    tableDodd .addRange(0.0, 1.0, 1<<adrW) // into 1<<adrW subregions
-    val tableIeven = new FuncTableInt( tableDeven, bp ) // convert float table
-    val tableIodd  = new FuncTableInt( tableDodd,  bp ) // into mantissa-Int
-    val (coeffTableEven, coeffWidthEven) = tableIeven.getVectorUnified(/*sign mode =*/1)
-    val (coeffTableOdd,  coeffWidthOdd ) = tableIodd .getVectorUnified(1)
+    // TODO: make table a bit smaller. since the mantissa takes only [0, 3) range,
+    //       coefficients for [3, 4) is redundant.
+    val eps = pow(2.0, -emanW)
+    val tableD = new FuncTableDouble( x => 2.0 / sqrt(4.0-(x+eps)*4.0 + 1.0), order )
+    tableD.addRange(0.0, 1.0, 1<<adrW) // gen table, dividing the range [0,1]
+    val tableI = new FuncTableInt( tableD, bp ) // convert float table
+    val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/1)
     // signMode=0 : always include sign bit
     // signMode=1 : 2's complement and no sign bit (if possible)
     // signMode=2 : absolute and no sign bit (if possible)
 
-    val coeffEven  = getSlices(coeffTableEven(adr), coeffWidthEven)
-    val coeffOdd   = getSlices(coeffTableOdd (adr), coeffWidthOdd)
-    val coeffSEven = coeffEven.map( x => x.zext )
-    val coeffSOdd  = coeffOdd .map( x => x.zext )
+    val coeff  = getSlices(coeffTable(adr), coeffWidth)
+    val coeffS = coeff.map( x => x.zext )
 
     def hornerC( c: SInt, z: SInt, dx: SInt, enableRounding: Boolean = false ) : SInt = {
       val zw   = z.getWidth
@@ -171,9 +170,7 @@ class InvSqrtGeneric(
       res
     }
 
-    val zodd  = polynomialEvaluationC( coeffSOdd,  d, enablePolynomialRounding ).asUInt
-    val zeven = polynomialEvaluationC( coeffSEven, d, enablePolynomialRounding ).asUInt
-    val s0    = Mux(xExNobias(0) === 1.U(1.W), zodd, zeven)
+    val s0 = polynomialEvaluationC( coeffS,  d, enablePolynomialRounding ).asUInt
 
 //     printf("Odd : %b(%d), width=%d\n", zodd , zodd , zodd .getWidth.U)
 //     printf("Even: %b(%d), width=%d\n", zeven, zeven, zeven.getWidth.U)

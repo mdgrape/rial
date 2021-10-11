@@ -59,15 +59,13 @@ class InvSqrtTest extends FlatSpec
   }
 
   private def runtest ( spec : RealSpec, stage : PipelineStageConfig,
-    n : Int, r : Random,
-    tableEven : FuncTableInt,
-    tableOdd  : FuncTableInt,
+    n : Int, r : Random, table : FuncTableInt,
     generatorStr : String, generator : ( (RealSpec, Random) => RealGeneric) ) = {
     val total = stage.total
     val pipeconfig = stage.getString
-    val reference  = InvSqrtSim.invsqrtSimGeneric( tableEven, tableOdd, _ )
+    val reference  = InvSqrtSim.invsqrtSimGeneric( table, _ )
     it should f"1/sqrt(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
-      test( new InvSqrtGeneric(spec, tableEven.nOrder, tableEven.adrW, tableEven.bp-spec.manW, stage, false, false)) { c =>
+      test( new InvSqrtGeneric(spec, table.nOrder, table.adrW, table.bp-spec.manW, stage, false, false)) { c =>
         {
           val nstage = c.getStage
           val q  = new Queue[(BigInt,BigInt)]
@@ -98,6 +96,10 @@ class InvSqrtTest extends FlatSpec
                 c.clock.step(1)
               }
 
+//               println(f"x    = ${new RealGeneric(spec, xid).toDouble},  1/sqrt(x) = ${1.0 / sqrt(new RealGeneric(spec, xid).toDouble)}")
+//               println(f"test = ${new RealGeneric(spec, zi ).toDouble} = (${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString}(${ziman}))")
+//               println(f"ref  = ${new RealGeneric(spec, z0d).toDouble} = (${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString}(${z0dman}))")
+
               assert(zi == z0d, f"x = (${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman}), test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman}) != ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman})")
             }
             c.clock.step(1)
@@ -107,24 +109,16 @@ class InvSqrtTest extends FlatSpec
     }
   }
 
-  val invsqrtBF16TableIEven = InvSqrtSim.invsqrtTableGenerationEven( 0, 7, 7, 7 )
-  val invsqrtBF16TableIOdd  = InvSqrtSim.invsqrtTableGenerationOdd ( 0, 7, 7, 7 )
-  val invsqrtF32TableIEven = InvSqrtSim.invsqrtTableGenerationEven( 2, 8, 23, 23+2 )
-  val invsqrtF32TableIOdd  = InvSqrtSim.invsqrtTableGenerationOdd ( 2, 8, 23, 23+2 )
+  val invsqrtBF16TableI = InvSqrtSim.invsqrtTableGeneration( 0, 7, 7, 7 )
+  val invsqrtF32TableI = InvSqrtSim.invsqrtTableGeneration( 2, 8, 23, 23+2 )
 
-  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
-    n, r, invsqrtBF16TableIEven, invsqrtBF16TableIOdd,
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(), n, r, invsqrtBF16TableI,
     "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
-    n, r, invsqrtBF16TableIEven, invsqrtBF16TableIOdd,
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(), n, r, invsqrtBF16TableI,
     "Test All range",generateRealFull(_,_) )
 
-  runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
-    n, r, invsqrtF32TableIEven, invsqrtF32TableIOdd,
+  runtest(RealSpec.Float32Spec, PipelineStageConfig.none(), n, r, invsqrtF32TableI,
     "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-  runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
-    n, r, invsqrtF32TableIEven, invsqrtF32TableIOdd,
+  runtest(RealSpec.Float32Spec, PipelineStageConfig.none(), n, r, invsqrtF32TableI,
     "Test All range",generateRealFull(_,_) )
-
 }
-
