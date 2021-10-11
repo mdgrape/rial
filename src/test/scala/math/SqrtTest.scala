@@ -59,15 +59,13 @@ class SqrtTest extends FlatSpec
   }
 
   private def runtest ( spec : RealSpec, stage : PipelineStageConfig,
-    n : Int, r : Random,
-    tableEven : FuncTableInt,
-    tableOdd  : FuncTableInt,
+    n : Int, r : Random, table : FuncTableInt,
     generatorStr : String, generator : ( (RealSpec, Random) => RealGeneric) ) = {
     val total = stage.total
     val pipeconfig = stage.getString
-    val reference  = SqrtSim.sqrtSimGeneric( tableEven, tableOdd, _ )
+    val reference  = SqrtSim.sqrtSimGeneric( table, _ )
     it should f"sqrt(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
-      test( new SqrtGeneric(spec, tableEven.nOrder, tableEven.adrW, tableEven.bp-spec.manW, stage, false, false)) { c =>
+      test( new SqrtGeneric(spec, table.nOrder, table.adrW, table.bp-spec.manW, stage, false, false)) { c =>
         {
           val nstage = c.getStage
           val q  = new Queue[(BigInt,BigInt)]
@@ -107,17 +105,15 @@ class SqrtTest extends FlatSpec
     }
   }
 
-  val sqrtBF16TableIEven = SqrtSim.sqrtTableGenerationEven( 0, 7, 7, 7 )
-  val sqrtBF16TableIOdd  = SqrtSim.sqrtTableGenerationOdd ( 0, 7, 7, 7 )
-  val sqrtF32TableIEven = SqrtSim.sqrtTableGenerationEven( 2, 8, 23, 23+2 )
-  val sqrtF32TableIOdd  = SqrtSim.sqrtTableGenerationOdd ( 2, 8, 23, 23+2 )
+  val sqrtBF16TableI = SqrtSim.sqrtTableGeneration( 0, 7, 7, 7 )
+  val sqrtF32TableI  = SqrtSim.sqrtTableGeneration( 2, 8, 23, 23+2 )
 
   // OK
   runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
-    n, r, sqrtBF16TableIEven, sqrtBF16TableIOdd,
+    n, r, sqrtBF16TableI,
     "Test Within (-128,128)",generateRealWithin(128.0,_,_))
   runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
-    n, r, sqrtBF16TableIEven, sqrtBF16TableIOdd,
+    n, r, sqrtBF16TableI,
     "Test All range",generateRealFull(_,_) )
 
   runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
