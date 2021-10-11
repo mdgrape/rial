@@ -47,7 +47,7 @@ class InvSqrtSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
     java.lang.Math.scalb(err, -x.exNorm+x.spec.manW)
   }
 
-  def invsqrtTest(t_even: FuncTableInt, t_odd: FuncTableInt, spec : RealSpec, n : Int, r : Random,
+  def invsqrtTest(t : FuncTableInt, spec : RealSpec, n : Int, r : Random,
     generatorStr : String, generator : ( (RealSpec, Random) => RealGeneric) ) = {
     test(s"invsqrt(x), format ${spec.toStringShort}, ${generatorStr}") {
       var err1lsbPos = 0
@@ -57,7 +57,7 @@ class InvSqrtSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
         val x0   = x.toDouble
         val z0   = 1.0 / math.sqrt(x0)
         val z0r  = new RealGeneric(spec, z0)
-        val zi   = InvSqrtSim.invsqrtSimGeneric( t_even, t_odd, x )
+        val zi   = InvSqrtSim.invsqrtSimGeneric( t, x )
         val zd   = zi.toDouble
         val errf = zd - z0r.toDouble
         val erri = errorLSB(zi, z0r.toDouble)
@@ -104,19 +104,17 @@ class InvSqrtSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
     }
   }
 
-  val invsqrtF32TableIEven = InvSqrtSim.invsqrtTableGenerationEven( 2, 8, 23, 23+2 )
-  val invsqrtF32TableIOdd  = InvSqrtSim.invsqrtTableGenerationOdd ( 2, 8, 23, 23+2 )
+  val invsqrtF32TableI  = InvSqrtSim.invsqrtTableGeneration( 2, 8, 23, 23+2 )
 
-  invsqrtTest(invsqrtF32TableIEven, invsqrtF32TableIOdd, RealSpec.Float32Spec, n, r,
+  invsqrtTest(invsqrtF32TableI, RealSpec.Float32Spec, n, r,
     "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-  invsqrtTest(invsqrtF32TableIEven, invsqrtF32TableIOdd, RealSpec.Float32Spec, n, r,
+  invsqrtTest(invsqrtF32TableI, RealSpec.Float32Spec, n, r,
     "Test All range",generateRealFull(_,_) )
 
-  val invsqrtBF16TableIEven = InvSqrtSim.invsqrtTableGenerationEven( 0, 7, 7, 7 )
-  val invsqrtBF16TableIOdd  = InvSqrtSim.invsqrtTableGenerationOdd ( 0, 7, 7, 7 )
+  val invsqrtBF16TableI  = InvSqrtSim.invsqrtTableGeneration( 0, 7, 7, 7 )
 
-  invsqrtTest(invsqrtBF16TableIEven, invsqrtBF16TableIOdd, RealSpec.BFloat16Spec, n, r,
+  invsqrtTest(invsqrtBF16TableI, RealSpec.BFloat16Spec, n, r,
     "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-  invsqrtTest(invsqrtBF16TableIEven, invsqrtBF16TableIOdd, RealSpec.BFloat16Spec, n, r,
+  invsqrtTest(invsqrtBF16TableI, RealSpec.BFloat16Spec, n, r,
     "Test All range",generateRealFull(_,_) )
 }
