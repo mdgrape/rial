@@ -147,9 +147,9 @@ object SqrtSim {
     }
   }
 
-//   val sqrtF32TableI = SqrtSim.sqrtTableGeneration( 2, 8, 23, 23+1+2 )
-//   val sqrtF32Sim = sqrtSimGeneric(sqrtF32TableI, _ )
+  val sqrtF32TableI = SqrtSim.sqrtTableGeneration( 2, 8, 23, 23+2 )
+  val sqrtF32Sim = sqrtSimGeneric(sqrtF32TableI, _ )
 
-//   val sqrtBF16TableI = SqrtSim.sqrtTableGeneration( 0, 7, 7, 7 )
-//   val sqrtBF16Sim = sqrtSimGeneric(sqrtBF16TableI, _ )
+  val sqrtBF16TableI = SqrtSim.sqrtTableGeneration( 0, 7, 7, 7 )
+  val sqrtBF16Sim = sqrtSimGeneric(sqrtBF16TableI, _ )
 }

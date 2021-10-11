@@ -112,7 +112,7 @@ class SqrtSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
     }
   }
 
-  val sqrtF32TableI = SqrtSim.sqrtTableGeneration( 2, 8, 23, 23+1+2 )
+  val sqrtF32TableI = SqrtSim.sqrtTableGeneration( 2, 8, 23, 23+2 )
 
   sqrtTest(sqrtF32TableI, RealSpec.Float32Spec, n, r,
     "Test Within [0, 4)",generateReal1to4(_,_))
