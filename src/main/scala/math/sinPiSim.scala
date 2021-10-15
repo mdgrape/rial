@@ -62,7 +62,9 @@ object SinPiSim {
 
     // skip large x (2 < x)
     if (1 <= xexNobias) {
-      if (xexNobias == 0 && x.man == 0) {
+      if (xexNobias == 0 && x.man == 0) { // x = 1.0
+        return RealGeneric.zero(x.spec)
+      } else if (xexNobias == 1 && x.man == 0) { // x = 1.0
         return RealGeneric.zero(x.spec)
       } else {
         return RealGeneric.nan(x.spec)
@@ -111,9 +113,17 @@ object SinPiSim {
     } else { // already small enough
       (xexNobias.toLong, x.man.toLong)
     }
-    assert(xex  <= -2)
+//     println(f"x         = ${x.toDouble}")
+//     println(f"xexNobias = ${xexNobias}")
+//     println(f"xman      = ${x.man.toInt.toBinaryString}")
+//     println(f"newx      = ${new RealGeneric(x.spec, 0, xex.toInt + exBias, xman).toDouble}")
+//     println(f"newex     = ${xex}")
+//     println(f"newman    = ${xman.toInt.toBinaryString}")
+    assert(xex  <= -1)
     assert(xman <  (1<<manW))
-    // {xex, xman} is in [0, 1/2).
+    if (xex == -1) {assert(xman == 0)}
+
+    // {xex, xman} is in [0, 1/2].
 
     val linearThreshold = (-math.ceil((manW + 1) / 2)).toLong // -12, if FP32
     val coef1 = new RealGeneric(x.spec, Pi)
@@ -121,6 +131,10 @@ object SinPiSim {
     if (xex == -exBias && xman == 0) { // sin(0) = 0
 
       return RealGeneric.zero(x.spec)
+
+    } else if (xex == -1 && xman == 0) { // sin(pi/2) = 0
+
+      return new RealGeneric(x.spec, zSgn, exBias, 0)
 
     } else if (xex < linearThreshold) { // sin(pix) = pix
 
@@ -143,30 +157,47 @@ object SinPiSim {
       val exadr = (-xex - 2).toInt
       val t = ts(exadr)
 
-      val adrW   = t.adrW
-      val nOrder = t.nOrder
-      val bp     = t.bp
-      val extraBits = if (nOrder==0) {0} else {(bp - manW)}
-      val calcW  = manW + extraBits
+      val adrW      = t.adrW
+      val nOrder    = t.nOrder
+      val bp        = t.bp
+      val extraBits = bp - manW
+      val calcW     = manW + extraBits
 
-      val dxbp = manW-adrW-1
-      val d   = (SafeLong(1)<<dxbp) - slice(0, manW-adrW, xman) - 1
-      val adr = maskI(adrW)-slice(manW-adrW, adrW, xman).toInt
+      val order = if(adrW >= manW) {
+          if (nOrder != 0)
+            println("WARNING: table address width >= mantissa width, but polynomial order is not zero. Polynomial order is set to zero.")
+          0
+        } else {
+          nOrder
+        }
 
-      val res0 = t.interval(adr).eval(d.toLong, dxbp)
-      val res  = (1 << calcW) - res0
+      val (zEx, zman) = if (order == 0) {
+        val adr   = xman.toInt
+        val res   = t.interval(adr).eval(0L, 0)
+        val shift = calcW+1 - res.toLong.toBinaryString.length
 
-      val shift = calcW+1 - res.toLong.toBinaryString.length
-      val zEx   = -shift;
+        (-shift, (res << shift).toLong - (1 << calcW))
 
-      val zman = (res << shift).toLong - (1 << calcW)
-      val zmanRound = if (extraBits>0) { (zman>>extraBits) + bit(extraBits-1, zman)} else {zman}
+      } else {
+        val dxbp = manW-adrW-1
+        val d   = (SafeLong(1)<<dxbp) - slice(0, manW-adrW, xman) - 1
+        val adr = maskI(adrW)-slice(manW-adrW, adrW, xman).toInt
+
+        val res0 = t.interval(adr).eval(d.toLong, dxbp)
+        val res  = (1 << calcW) - res0
+
+        val shift = calcW+1 - res.toLong.toBinaryString.length
+
+        (-shift, (res << shift).toLong - (1 << calcW))
+      }
+      val zmanRound = if (extraBits>0) {(zman>>extraBits) + bit(extraBits-1, zman)} else {zman}
 
       val z = if (zman<0) {
         println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=$x%h")
         0L
       } else if (zmanRound >= (1L<<manW)) {
         println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=$x%h")
+        println(f"WARNING (${this.getClass.getName}) : x = ${x.toDouble}, sin(x) = ${sin(x.toDouble)}, z = ${new RealGeneric(x.spec, zSgn, zEx.toInt + exBias, SafeLong(maskL(manW))).toDouble}, zman = ${zmanRound.toBinaryString}")
         maskL(manW)
       } else {
         zmanRound
@@ -177,20 +208,27 @@ object SinPiSim {
 
   def sinPiTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int ) = {
     val linearThreshold = (-math.ceil((manW + 1) / 2)).toInt // -12, if FP32
-//     val cubicThreshold  = (-math.ceil( manW / 4)).toInt
 
-    // ex=-2 means the value is in [1/4, 1/2).
-    (-2 to linearThreshold by -1).map( i => {
-      val eps = pow(2.0, -manW)
-      val tableD = new FuncTableDouble( x => 1.0 - sin(Pi * scalb(2.0 - (x+eps), i)), order )
-      tableD.addRange(0.0, 1.0, 1<<adrW)
-      new FuncTableInt( tableD, fracW )
-    })
+    if (order == 0 || adrW >= manW) {
+      (-2 to linearThreshold by -1).map( i => {
+        val tableD = new FuncTableDouble( x => sin(Pi * scalb(1.0 + x, i)), 0)
+        tableD.addRange(0.0, 1.0, 1<<manW)
+        new FuncTableInt( tableD, fracW )
+      })
+    } else {
+      // ex=-2 means the value is in [1/4, 1/2).
+      (-2 to linearThreshold by -1).map( i => {
+        val eps = pow(2.0, -manW)
+        val tableD = new FuncTableDouble( x => 1.0 - sin(Pi * scalb(2.0 - (x+eps), i)), order )
+        tableD.addRange(0.0, 1.0, 1<<adrW)
+        new FuncTableInt( tableD, fracW )
+      })
+    }
   }
 
-  val sinPiF32TableI = SinPiSim.sinPiTableGeneration( 2, 8, 23, 23+2 )
+  val sinPiF32TableI = SinPiSim.sinPiTableGeneration( 2, 8, 23, 23+6 )
   val sinPiF32Sim = sinPiSimGeneric(sinPiF32TableI, _ )
 
-//   val sinPiBF16TableI = sinPiSim.sinPiTableGeneration( 0, 7, 7, 7 )
-//   val sinPiBF16Sim = sinPiSimGeneric(sinPiBF16TableI, _ )
+  val sinPiBF16TableI = sinPiSim.sinPiTableGeneration( 0, 7, 7, 7+2 )
+  val sinPiBF16Sim = sinPiSimGeneric(sinPiBF16TableI, _ )
 }
