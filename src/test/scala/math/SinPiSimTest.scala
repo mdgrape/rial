@@ -35,8 +35,7 @@ class SinPiSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
 
   def generateRealWithin( from : Double, to : Double, spec: RealSpec, r : Random ) = {
     val rD : Double = from + r.nextDouble() * (to - from)
-    val x = new RealGeneric(spec, rD)
-    new RealGeneric (spec, (x.value & (maskSL(spec.exW+1)<<spec.manW)) + SafeLong(BigInt(spec.manW, r)))
+    new RealGeneric(spec, rD)
   }
 
   def errorLSB( x : RealGeneric, y : Double ) : Double = {
