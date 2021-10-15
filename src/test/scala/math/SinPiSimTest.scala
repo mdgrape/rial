@@ -100,7 +100,7 @@ class SinPiSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
     }
   }
 
-  val sinPiF32TableI = SinPiSim.sinPiTableGeneration( 2, 8, 23, 23+5 )
+  val sinPiF32TableI = SinPiSim.sinPiTableGeneration( 2, 8, 23, 23+2 )
 
   sinPiTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
      "Test Within [-1, 0]", generateRealWithin(-1.0, 0.0,_,_))
