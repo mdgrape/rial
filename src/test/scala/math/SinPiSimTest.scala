@@ -44,8 +44,13 @@ class SinPiSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
   }
 
   def sinPiTest(t: Seq[FuncTableInt], spec : RealSpec, n : Int, r : Random,
-    generatorStr : String, generator : ( (RealSpec, Random) => RealGeneric) ) = {
+    generatorStr : String, generator : ( (RealSpec, Random) => RealGeneric),
+    tolerance : Int ) = {
     test(s"sinPi(x), format ${spec.toStringShort}, ${generatorStr}") {
+      var maxError   = 0.0
+      var xatMaxError = 0.0
+      var zatMaxError = 0.0
+
       var err1lsbPos = 0
       var err1lsbNeg = 0
       for(i <- 1 to n) {
@@ -71,10 +76,10 @@ class SinPiSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
           val zrefexp = slice(spec.manW, spec.exW, z0r.value)
           val zrefman = z0r.value & maskSL(spec.manW)
 
-//           println(f"x   = ${x0})
-//           println(f"ref = ${z0}")
-//           println(f"sim = ${zd}")
-//           println(f"test(${ztestsgn}|${ztestexp}(${ztestexp - spec.exBias})|${ztestman.toLong.toBinaryString}(${ztestman.toLong}%x)) != ref(${zrefsgn}|${zrefexp}(${zrefexp - spec.exBias})|${zrefman.toLong.toBinaryString}(${zrefman.toLong}%x))")
+//           println(f"test: x   = ${x0}")
+//           println(f"test: ref = ${z0}")
+//           println(f"test: sim = ${zd}")
+//           println(f"test: test(${ztestsgn}|${ztestexp}(${ztestexp - spec.exBias})|${ztestman.toLong.toBinaryString}(${ztestman.toLong}%x)) != ref(${zrefsgn}|${zrefexp}(${zrefexp - spec.exBias})|${zrefman.toLong.toBinaryString}(${zrefman.toLong}%x))")
         }
         if (x0.isInfinity) {
           assert(zi.isNaN)
@@ -89,32 +94,46 @@ class SinPiSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
           else if (erri<= -1.0) {
             err1lsbNeg+=1
           }
-          assert(erri.abs<=16.0 || (z0 - zd).abs < pow(2.0, -spec.manW)) // XXX
+          assert(erri.abs<=tolerance.toDouble || (z0 - zd).abs < pow(2.0, -spec.manW)) // XXX
+
+          if (maxError < erri.abs) {
+            maxError = erri.abs
+            xatMaxError = x0
+            zatMaxError = zd
+          }
         }
         //println(f"$x%14.7e : $z0%14.7e $z%14.7e $errf%14.7e $erri%d")
       }
+      println(f"N=$n%d : largest errors ${maxError.toInt}%d where the value is ${zatMaxError} != ${math.sin(Pi * xatMaxError)} (cos(Pi * ${xatMaxError})), diff = ${zatMaxError - math.sin(Pi * xatMaxError)}")
       println(f"N=$n%d : 1LSB errors positive $err1lsbPos%d / negative $err1lsbNeg%d")
     }
   }
 
-  val sinPiF32TableI = SinPiSim.sinPiTableGeneration( 2, 8, 23, 23+6 ) // +6 to suppress error in [2^-12, 2^-1)
+  // +6 to suppress error in [2^-12, 2^-1)
+  val sinPiF32TableI = SinPiSim.sinPiTableGeneration( 2, 8, 23, 23+6 )
 
   sinPiTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
-     "Test Within [-1, 0]", generateRealWithin(-1.0, 0.0,_,_))
+     "Test Within [-1, 0]", generateRealWithin(-1.0, 0.0,_,_), 1)
 
   sinPiTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
-    "Test Within [0, 2^-12]", generateRealWithin(0.0, pow(2.0, -12)-pow(2.0, -35),_,_))
+    "Test Within [0, 2^-12]", generateRealWithin(0.0, pow(2.0, -12)-pow(2.0, -35),_,_), 1)
   sinPiTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
-    "Test Within [2^-12, 2^-1]", generateRealWithin(pow(2.0, -12), 0.5,_,_))
+    "Test Within [2^-12, 2^-1]", generateRealWithin(pow(2.0, -12), 0.5,_,_), 1)
   sinPiTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
-    "Test Within [2^-1, 1]", generateRealWithin(0.5, 1.0,_,_))
+    "Test Within [2^-1, 1]", generateRealWithin(0.5, 1.0,_,_), 1)
   sinPiTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
-    "Test Within [1, 2]", generateRealWithin(1.0, 2.0,_,_))
+    "Test Within [1, 2]", generateRealWithin(1.0, 2.0,_,_), 1)
 
-//   val sinPiBF16TableI = SinPiSim.sinPiTableGeneration(0, 7, 7, 7 )
-//
-//   sinPiTest(sinPiBF16TableI, RealSpec.BFloat16Spec, n, r,
-//     "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-//   sinPiTest(sinPiBF16TableI, RealSpec.BFloat16Spec, n, r,
-//     "Test All range",generateRealFull(_,_) )
+  val sinPiBF16TableI = SinPiSim.sinPiTableGeneration(0, 7, 7, 7+2 )
+
+  sinPiTest(sinPiBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test Within (-1,0)",generateRealWithin(-1.0, 0.0,_,_), 1)
+  sinPiTest(sinPiBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test Within ( 0,2^-12)",generateRealWithin(0.0, pow(2.0, -12) - pow(2.0, -35),_,_), 1)
+  sinPiTest(sinPiBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test Within (2^-12, 0.5)",generateRealWithin(pow(2.0, -12) - pow(2.0, -35), 0.5,_,_), 1)
+  sinPiTest(sinPiBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test Within (0.5,1)",generateRealWithin(0.5, 1.0,_,_), 1)
+  sinPiTest(sinPiBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test Within (1,2)",generateRealWithin(1.0, 2.0,_,_), 1)
 }
