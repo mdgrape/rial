@@ -64,7 +64,7 @@ class SinPiGeneric(
   val (xzero, xinf, xnan)  = FloatChiselUtil.checkValue(spec, io.x)
   val xExNobias = xex_.zext - exBias.S((exW + 1).W)
 
-  printf("x = %d|%d(%d)|%d\n", xsgn_, xex_, xExNobias, xman_)
+//   printf("x = %d|%d(%d)|%d\n", xsgn_, xex_, xExNobias, xman_)
 
   val out_of_bounds = (1.S <= xExNobias) && (xman_ =/= 0.U) // 2 < |x|
   val znan  = xnan || xinf || out_of_bounds
@@ -85,10 +85,10 @@ class SinPiGeneric(
   // convert everything into [0, 0.5) (ex = [-inf to -2])
 
   val manExceedsHalf = xman_(manW-1) === 1.U
-  val halfpos  = xman_
-  val halfneg  = (1<<manW).U - xman_
-  val shiftpos = (manW + 1).U - PriorityEncoder(Reverse(halfpos))
-  val shiftneg = (manW + 1).U - PriorityEncoder(Reverse(halfneg))
+  val halfpos  = xman_               // width = manW
+  val halfneg  = (1<<manW).U - xman_ // width = manW+1
+  val shiftpos = PriorityEncoder(Reverse(halfpos)) + 1.U
+  val shiftneg = PriorityEncoder(Reverse(halfneg)) // already +1-ed
 
   val halfEx0  = Mux(manExceedsHalf, halfneg, halfpos)
   val shiftEx0 = Mux(manExceedsHalf, shiftneg, shiftpos)
@@ -101,9 +101,8 @@ class SinPiGeneric(
     (xExNobias ===  0.S) -> Mux(halfEx0 === 0.U, -exBias.S((exW+1).W), -shiftEx0.zext),
     (xExNobias === -1.S) -> (-1.S((exW+1).W) - shiftneg.zext)
   ))
-  printf("circ xex  = %b(%d)\n", xex,  xex)
-  printf("circ xman = %b(%d)\n", xman, xman)
-  printf("1|%d|%b\n", xex, xman)
+//   printf("circ xex  = %b(%d)\n", xex,  xex)
+//   printf("circ xman = %b(%d)\n", xman, xman)
 
   val zzero = ((0.S <= xExNobias) && xman_ === 0.U) || // integer input
               (xex === -exBias.S  && xman  === 0.U)    // converted into 0
@@ -142,9 +141,6 @@ class SinPiGeneric(
   assert(zExLinear0 >= 0.S)
   val zExLinear  = zExLinear0(exW-1, 0)
 
-//   printf("isLinear      = %b\n", isLinear)
-//   printf("linear = %d|%d(%d)|%d\n", zSgn, zExLinear, zExLinear.zext - exBias.S((1+exW).W), zManLinear)
-
   // --------------------------------------------------------------------------
   // interpolation using table
   //
@@ -165,27 +161,29 @@ class SinPiGeneric(
       VecInit((0L to (1L << adrW)).map(
         n => {
           val x = n.toDouble / (1L<<adrW)
-          val y = round(math.sin(Pi * scalb(1.0 + x, exponent)) * (1L<<manW))
-          if (y >= (1L<<manW)) {
+          val y = round(math.sin(Pi * scalb(1.0 + x, exponent)) * (1L<<bp))
+          if (y >= (1L<<bp)) {
             println(f"WARNING: mantissa reaches to 2 with n = ${n.toBinaryString}/${(1L<<manW).toBinaryString}(x = ${x})")
-            Fill(manW, 1.U(1.W))
+            Fill(bp, 1.U(1.W))
           } else {
-            y.U(manW.W)
+            y.U(bp.W)
           }
         }))
       })
     )
-    val zres  = tbl(exAdr)(adr)
-    val shift = (bp + 1).U - PriorityEncoder(Reverse(zres))
+    val zres0 = tbl(exAdr)(adr)
+    val shift = PriorityEncoder(Reverse(zres0)) + 1.U
+    val zres  = (zres0 << shift) - (1 << bp).U
 
-    printf("zres  = %b\n", zres)
-    printf("ex    = %d\n", xex)
-    printf("exOfs = %d\n", exOfs)
-    printf("exAdr = %d\n", exAdr)
+    val zman = if (extraBits >= 1) {
+      val zmanRound = zres(bp-1, bp-manW) +& zres(bp-manW-1)
+      Mux(zmanRound(manW), Fill(manW, 1.U(1.W)), zmanRound)
+    } else {
+      zres
+    }
 
     zExTable  := exBias.U - shift
-    zManTable := (zres << shift) - (1 << bp).U
-
+    zManTable := zman
   } else { // second order table
     val adr = ~xman(manW-1, manW-adrW)
     val d   = Cat(xman(manW-adrW-1),~xman(manW-adrW-2,0)).asSInt
@@ -234,22 +232,15 @@ class SinPiGeneric(
     val res   = ((1 << bp).U - res0)(bp-1, 0)
     val shift = PriorityEncoder(Reverse(res)) + 1.U
     val s0    = (res << shift) - (1 << bp).U
-    val zman  = dropLSB(extraBits, s0) + s0(extraBits-1)
-
-    printf("res0  = %b(%d)\n", res0 , res0)
-    printf("res   = %b(%d)\n", res  , res )
-    printf("Reverse(res) = %b(%d)\n", Reverse(res)  , Reverse(res) )
-    printf("PriorityEncoder = %b(%d)\n", PriorityEncoder(Reverse(res))  , PriorityEncoder(Reverse(res)) )
-    printf("shift = %b(%d)\n", shift, shift)
+    val zman  = dropLSB(extraBits, s0) +& s0(extraBits-1)
 
     zExTable  := exBias.U - shift
-    zManTable := zman
+    zManTable := Mux(zman(manW) === 1.U, Fill(manW, 1.U(1.W)), zman) // check overflow
   }
-  printf("zExTable  = %b(%d)\n", zExTable , zExTable)
-  printf("zManTable = %b(%d)\n", zManTable, zManTable)
+//   printf("zExTable  = %b(%d)\n", zExTable , zExTable)
+//   printf("zManTable = %b(%d)\n", zManTable, zManTable)
 
   val zeroFlush = zzero || zone || znan
-  printf("zzero = %b, zone = %b, znan = %b\n", zzero, zone, znan)
 
   val zMan = MuxCase(zManTable, Seq(
     isLinear  -> zManLinear,
