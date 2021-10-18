@@ -60,18 +60,14 @@ object SinPiSim {
 
     val xexNobias = x.ex - x.spec.exBias
 
-    // skip large x (2 < x)
+    // skip large x (2 <= x)
     if (1 <= xexNobias) {
-      if (xexNobias == 0 && x.man == 0) { // x = 1.0
-        return RealGeneric.zero(x.spec)
-      } else if (xexNobias == 1 && x.man == 0) { // x = 1.0
+      if (xexNobias == 1 && x.man == 0) { // x = 2.0
         return RealGeneric.zero(x.spec)
       } else {
         return RealGeneric.nan(x.spec)
       }
     }
-
-    // here, x.ex <= 0
 
     //         y
     //         ^
@@ -132,7 +128,7 @@ object SinPiSim {
 
       return RealGeneric.zero(x.spec)
 
-    } else if (xex == -1 && xman == 0) { // sin(pi/2) = 0
+    } else if (xex == -1 && xman == 0) { // sin(pi/2) = 1
 
       return new RealGeneric(x.spec, zSgn, exBias, 0)
 
@@ -229,6 +225,6 @@ object SinPiSim {
   val sinPiF32TableI = SinPiSim.sinPiTableGeneration( 2, 8, 23, 23+6 )
   val sinPiF32Sim = sinPiSimGeneric(sinPiF32TableI, _ )
 
-  val sinPiBF16TableI = sinPiSim.sinPiTableGeneration( 0, 7, 7, 7+2 )
+  val sinPiBF16TableI = SinPiSim.sinPiTableGeneration( 0, 7, 7, 7+2 )
   val sinPiBF16Sim = sinPiSimGeneric(sinPiBF16TableI, _ )
 }
