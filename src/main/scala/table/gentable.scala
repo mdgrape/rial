@@ -341,6 +341,28 @@ trait FuncTable {
     (z,w)
   }
 
+  def getCBitWidth(signMode : Int = 0 ) = {
+    cbit.zip(sign).map( x => if ((x._2 != 3) && (signMode!=0)) x._1-1 else x._1 )
+  }
+  def getVectorWithWidth(w : Seq[Int], signMode : Int = 0 ) = {
+    val nAdr = log2Up(interval.size);
+    val s = sign.map( x =>
+      if ((x == 2) && (signMode!=0)) -1
+      else if ((x == 1) && (signMode!=0)) 1
+      else 0
+    )
+    val takeAbs = sign.map( x => (x!=3) && (signMode==2) )
+    val wTotal = w.sum
+    // combined, Vector of Vector
+    val cmask = interval.map( iv =>
+      iv.coeff.zip(takeAbs).map( x => if (x._2) abs(x._1) else x._1).
+        zip(w).map( x => toBinStringFill( x._1 & ((1L<<x._2)-1), x._2)).mkString("b","_","")
+    )
+    //cmask.foreach( x=> println(x) )
+    val z = VecInit( cmask.toArray.map( x => x.U(wTotal.W) ) )
+    z
+  }
+
   def getVectorSeparate( signMode : Int = 0) = {
     val nAdr = log2Up(interval.size);
     val w = cbit.zip(sign).map( x => if ((x._2 != 3) && (signMode!=0)) x._1-1 else x._1 )
@@ -507,9 +529,7 @@ class FuncTableInt (t: FuncTableDouble, val bp: Int) extends FuncTable {
       case None     => { println(f"${this.getClass.getName}.eval: Range Error"); 0.0 }
     }
   }
-
 }
-
 
 // Currently, always add sign bits
 // cbitGiven must include sign bits
