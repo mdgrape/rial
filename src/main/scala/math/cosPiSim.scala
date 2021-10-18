@@ -39,7 +39,7 @@ import rial.arith._
 //
 object CosPiSim {
 
-  def cosPiSimGeneric( ts : Seq[FuncTableInt], x: RealGeneric ) : RealGeneric = {
+  def cosPiSimGeneric( ts : Seq[FuncTableIntFixedWidth], x: RealGeneric ) : RealGeneric = {
 
     val expW = x.spec.exW
     val manW = x.spec.manW
@@ -117,23 +117,24 @@ object CosPiSim {
 //     println(f"newx   = ${new RealGeneric(x.spec, 0, xex.toInt + exBias, xman).toDouble}")
 //     println(f"newex  = ${xex}")
 //     println(f"newman = ${xman.toInt.toBinaryString}")
-    assert(xex  <= -2)
+    assert(xex  <= -1)
+    if (xex == -1) {assert(xman == 0)}
     assert(xman <  (1<<manW))
 
-    // {xex, xman} is in [0, 1/2).
+    // {xex, xman} is in [0, 1/2].
 
     val linearThreshold = (-math.ceil((manW + 1) / 2)).toLong // -12, if FP32
-    val cubicThreshold  = (-math.ceil( manW      / 4)).toLong //  -6, if FP32
     val coef1 = new RealGeneric(x.spec, Pi)
-    val coef2 = new RealGeneric(x.spec, Pi * Pi * Pi / (1.0 * 2.0 * 3.0))
 
-    if (xex == -exBias && xman == 0) { // cos(0) = 0
+    if (xex == -exBias && xman == 0) { // sin(0) = 0
 
       return RealGeneric.zero(x.spec)
 
-    } else if (xex < linearThreshold) {
-//       println(f"xex(${xex}) < linearThreshold${linearThreshold}")
-      // c1 * x
+    } else if (xex == -1 && xman == 0) { // sin(pi/2) = 1
+
+      return new RealGeneric(x.spec, zSgn, exBias, 0)
+
+    } else if (xex < linearThreshold) { // sin(pix) = pix
 
       val prodEx        = coef1.ex-exBias + xex
       val prodMan       = (coef1.man + (1<<manW)).toLong * (xman + (1<<manW)).toLong
@@ -148,120 +149,101 @@ object CosPiSim {
       val zEx  = prodEx + exBias + prodExInc
       return new RealGeneric(x.spec, zSgn, zEx.toInt, zMan)
 
-    } else if (xex < cubicThreshold) {
-//       println(f"xex(${xex}) < cubicThreshold${cubicThreshold}")
-      // c1 * x - c2 * x * x * x = (c1 - c2 * x * x) * x
-
-      // do we need to use accurate rounding method here?
-      // TODO: use upper part of x to reduce complexity in multiplier
-      // here x < 2^-6, so c2 * x * x < 2^-8, c1 ~ 5.168 = 2^2 * 1.292
-
-//       println(f"x     = ${new RealGeneric(x.spec, 0, xex.toInt + exBias, xman).toDouble}")
-
-      // x * x
-      val xsqEx0       = xex + xex
-      val xsqMan0      = (xman + (1<<manW)).toLong * (xman + (1<<manW)).toLong
-      val xsqbp        = manW + manW
-      val xsqMoreThan2 = bit(xsqbp+1, xsqMan0)
-      val xsqRoundBits = xsqbp - manW + xsqMoreThan2
-      val xsqRound     = roundBySpec(RoundSpec.roundToEven, xsqRoundBits.toInt, SafeLong(xsqMan0))
-      val xsqMoreThan2AfterRound = bit(manW + 1, xsqRound)
-      val xsqExInc     = if(xsqMoreThan2 == 1 || xsqMoreThan2AfterRound == 1) {1} else {0}
-
-      val xsqMan = if (xsqMoreThan2AfterRound == 1) {xsqRound >> 1} else {xsqRound}
-      val xsqEx  = xsqEx0 + xsqExInc
-
-//       println(f"x^2   = ${new RealGeneric(x.spec, 0, xsqEx.toInt + exBias, xsqMan).toDouble} == ${pow(new RealGeneric(x.spec, 0, xex.toInt + exBias, xman).toDouble, 2)}")
-
-      // c2 * x * x
-      val prod1Ex0  = xsqEx + coef2.ex - exBias
-      val prod1Man0 = xsqMan * (coef2.man + (1<<manW))
-      val prod1ManS = (prod1Man0 >> manW) + bit(manW-1, prod1Man0)
-      val prod1MoreThan2 = bit(manW+1, prod1ManS) == 1
-      val prod1Ex   = if(prod1MoreThan2) {prod1Ex0 + 1} else {prod1Ex0}
-      val prod1Man  = if(prod1MoreThan2) {(prod1ManS >> 1) + bit(0, prod1ManS)} else {prod1ManS}
-
-//       println(f"c2x^2 = ${new RealGeneric(x.spec, 0, prod1Ex.toInt + exBias, prod1Man - (1<<manW)).toDouble} == ${coef2.toDouble * pow(new RealGeneric(x.spec, 0, xex.toInt + exBias, xman).toDouble, 2)}")
-
-      // c1 - c2 * x * x
-
-      val coefMan0 = coef1.man + (1<<manW) - (prod1Man >> (coef1.ex - exBias - prod1Ex.toInt))
-      val coefEx   = if (bit(manW, coefMan0) == 0) {coef1.ex  + 1 - exBias} else {coef1.ex - exBias}
-      val coefMan  = if (bit(manW, coefMan0) == 0) {coefMan0 << 1}          else {coefMan0}
-
-//       println(f"c1 - c2x^2 = ${new RealGeneric(x.spec, 0, coefEx.toInt + exBias, coefMan - (1<<manW)).toDouble} == ${coef1.toDouble - coef2.toDouble * pow(new RealGeneric(x.spec, 0, xex.toInt + exBias, xman).toDouble, 2)}")
-
-      // (c1 - c2 * x * x) * x
-      val prod2Ex0  = coefEx + xex
-      val prod2Man0 = coefMan * (xman + (1<<manW))
-      val prod2ManS = (prod2Man0 >> manW) + bit(manW-1, prod2Man0)
-      val prod2MoreThan2 = bit(manW+1, prod2ManS) == 1
-      val prod2Ex   = if (prod2MoreThan2) {prod2Ex0+1} else {prod2Ex0}
-      val prod2Man  = if (prod2MoreThan2) {(prod2ManS >> 1) + bit(0, prod2ManS)} else {prod2ManS}
-
-//       println(f"c1x - c2x^3 = ${new RealGeneric(x.spec, 0, prod2Ex.toInt + exBias, prod2Man - (1<<manW)).toDouble} == ${(coef1.toDouble - coef2.toDouble * pow(new RealGeneric(x.spec, 0, xex.toInt + exBias, xman).toDouble, 2)) * new RealGeneric(x.spec, 0, xex.toInt + exBias, xman).toDouble}")
-
-      return new RealGeneric(x.spec, zSgn, prod2Ex.toInt + exBias, prod2Man - (1<<manW))
-
-    } else {
-      assert(-5 <= xex && xex <= -2)
+    } else { // table interpolation
 
       // table interpolate for x in [0, 1/2) (x.ex = -2, -3, -4, -5 if FP32)
       val exadr = (-xex - 2).toInt
       val t = ts(exadr)
 
-      val adrW   = t.adrW
-      val nOrder = t.nOrder
-      val bp     = t.bp
-      val extraBits = if (nOrder==0) {0} else {(bp - manW)}
-      val calcW  = manW + extraBits
+      val adrW      = t.adrW
+      val nOrder    = t.nOrder
+      val bp        = t.bp
+      val extraBits = bp - manW
+      val calcW     = manW + extraBits
 
-      val dxbp = manW-adrW-1
-      val d   = (SafeLong(1)<<dxbp) - slice(0, manW-adrW, xman) - 1
-      val adr = maskI(adrW)-slice(manW-adrW, adrW, xman).toInt
+      val order = if(adrW >= manW) {
+          if (nOrder != 0)
+            println("WARNING: table address width >= mantissa width, but polynomial order is not zero. Polynomial order is set to zero.")
+          0
+        } else {
+          nOrder
+        }
 
-      val res0 = t.interval(adr).eval(d.toLong, dxbp)
-      val res  = (1 << calcW) - res0
+      val (zEx, zman) = if (order == 0) {
+        val adr   = xman.toInt
+        val res00 = t.interval(adr).eval(0L, 0)
+        // fix range < (1<<bp)
+        val res0  = if(res00 >= (1 << calcW)) {maskL(bp)} else {res00}
+        val shift = calcW+1 - res0.toLong.toBinaryString.length
+        val res   = (res0 << shift).toLong - (1 << calcW)
 
-//       println(f"res0 = ${res0.toInt.toBinaryString}(${res0})")
-//       println(f"res  = ${res .toInt.toBinaryString}(${res })")
+        (-shift, res)
 
-      val shift = calcW+1 - res.toLong.toBinaryString.length
-      val zEx   = -shift;
+      } else {
+        val dxbp = manW-adrW-1
+        val d   = (SafeLong(1)<<dxbp) - slice(0, manW-adrW, xman) - 1
+        val adr = maskI(adrW)-slice(manW-adrW, adrW, xman).toInt
 
-//       println(f"shift = ${shift}")
-//       println(f"zEx   = ${zEx}")
+        val res00= t.interval(adr).eval(d.toLong, dxbp)
+        val res0 =  if(res00 >= (1 << calcW)) {maskL(bp)} else {res00}
+        val res  = (1 << calcW) - res0
 
-      val zman = (res << shift).toLong - (1 << calcW)
-      val zmanRound = if (extraBits>0) { (zman>>extraBits) + bit(extraBits-1, zman)} else {zman}
+        val shift = calcW+1 - res.toLong.toBinaryString.length
 
-//       println(f"zman      = ${zman     .toInt.toBinaryString}")
-//       println(f"zmanRound = ${zmanRound.toInt.toBinaryString}")
+        (-shift, (res << shift).toLong - (1 << calcW))
+      }
+      val zmanRound = if (extraBits>0) {(zman>>extraBits) + bit(extraBits-1, zman)} else {zman}
 
       val z = if (zman<0) {
         println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=$x%h")
         0L
       } else if (zmanRound >= (1L<<manW)) {
         println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=$x%h")
+        println(f"WARNING (${this.getClass.getName}) : x = ${x.toDouble}, sin(x) = ${sin(Pi * x.toDouble)}, z = ${new RealGeneric(x.spec, zSgn, zEx.toInt + exBias, SafeLong(maskL(manW))).toDouble}, zman = ${zmanRound.toBinaryString}")
         maskL(manW)
       } else {
         zmanRound
       }
-//       println(f"z = ${z.toInt.toBinaryString}")
+      println(f"Sim: zman = ${z}")
       new RealGeneric(x.spec, zSgn, zEx.toInt + exBias, SafeLong(z))
     }
   }
 
   def cosPiTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int ) = {
-    val cubicThreshold  = (-math.ceil( manW / 4)).toInt
+    val linearThreshold = (-math.ceil((manW + 1) / 2)).toInt // -12, if FP32
 
-    // ex=-2 means the value is in [1/4, 1/2).
-    (-2 to cubicThreshold by -1).map( i => {
+    if (order == 0 || adrW >= manW) {
+      val maxCalcWidth = (-2 to linearThreshold by -1).map(exponent => {
+        val tableD = new FuncTableDouble( x => sin(Pi * scalb(1.0 + x, exponent)), 0)
+        tableD.addRange(0.0, 1.0, 1<<adrW)
+        val tableI = new FuncTableInt( tableD, fracW ) // convert float table into int
+        tableI.calcWidth
+      }).reduce( (lhs, rhs) => {
+        lhs.zip(rhs).map( x => max(x._1, x._2))
+      })
+
+      (-2 to linearThreshold by -1).map( i => {
+        val tableD = new FuncTableDouble( x => sin(Pi * scalb(1.0 + x, i)), 0)
+        tableD.addRange(0.0, 1.0, 1<<manW)
+        new FuncTableIntFixedWidth( tableD, fracW, maxCalcWidth )
+      })
+    } else {
       val eps = pow(2.0, -manW)
-      val tableD = new FuncTableDouble( x => 1.0 - sin(Pi * scalb(2.0 - (x+eps), i)), order )
-      tableD.addRange(0.0, 1.0, 1<<adrW)
-      new FuncTableInt( tableD, fracW )
-    })
+      val maxCalcWidth = (-2 to linearThreshold by -1).map(exponent => {
+        val tableD = new FuncTableDouble( x => 1.0 - sin(Pi * scalb(2.0 - (x+eps), exponent)), order)
+        tableD.addRange(0.0, 1.0, 1<<adrW)
+        val tableI = new FuncTableInt( tableD, fracW ) // convert float table into int
+        tableI.calcWidth
+      }).reduce( (lhs, rhs) => {
+        lhs.zip(rhs).map( x => max(x._1, x._2))
+      })
+
+      (-2 to linearThreshold by -1).map( i => {
+        val tableD = new FuncTableDouble( x => 1.0 - sin(Pi * scalb(2.0 - (x+eps), i)), order )
+        tableD.addRange(0.0, 1.0, 1<<adrW)
+        new FuncTableIntFixedWidth( tableD, fracW, maxCalcWidth )
+      })
+    }
   }
 
   val cosPiF32TableI = CosPiSim.cosPiTableGeneration( 2, 8, 23, 23+2 )
