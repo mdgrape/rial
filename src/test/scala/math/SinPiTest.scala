@@ -91,11 +91,7 @@ class SinPiTest extends FlatSpec
                 c.clock.step(1)
               }
 
-              println(f"x           = ${xi.toDouble}")
-              println(f"pi * x      = ${Pi * xi.toDouble}")
-              println(f"sin(pi * x) = ${sin(Pi * xi.toDouble)}")
               val ref = new RealGeneric(spec, sin(Pi * xi.toDouble))
-              println(f"sin(pi * x) = ${ref.sgn}|${ref.ex}(${ref.ex - spec.exBias})|${ref.man})")
               assert(zi == z0d, f"x = (${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman}), test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString}) != ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})")
             }
             c.clock.step(1)
