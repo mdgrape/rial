@@ -493,8 +493,9 @@ class FuncTableInt (t: FuncTableDouble, val bp: Int) extends FuncTable {
   val sign = t.checkSign
   // Coefficient max
   val minMax = t.minMax
+  println("minMax    : "+minMax.mkString("", ", ",""))
   val absMax = minMax.map( x => max( abs(x._1), abs(x._2) ) )
-  println("Absmax    : "+absMax.mkString("", ", ",""))
+  println("absMax    : "+absMax.mkString("", ", ",""))
 
   // Here, we always include sign bit, so plus 1.
   val cbit   = absMax.map(x => round(scalb(x, bp)).toLong.toBinaryString.length()+1)
@@ -503,8 +504,9 @@ class FuncTableInt (t: FuncTableDouble, val bp: Int) extends FuncTable {
 
   // Calculate max
   val minMaxCalc = t.getMinMaxAll
+  println("minMaxCalc: "+minMaxCalc.mkString("", ", ",""))
   val absMaxCalc = minMaxCalc.map( x => max( abs(x._1), abs(x._2) ) )
-  println("CalcMax   : "+absMaxCalc.mkString("", ", ",""))
+  println("absMaxCalc: "+absMaxCalc.mkString("", ", ",""))
   val calcWidth = absMaxCalc.map(x => round(scalb(x, bp)).toLong.toBinaryString.length()+1)
   println("CalcWidth : "+calcWidth.mkString("", ", ",""))
   println(f"ResRange  : ${minMaxCalc.head._1} ~ ${minMaxCalc.head._2}")
@@ -530,6 +532,34 @@ class FuncTableInt (t: FuncTableDouble, val bp: Int) extends FuncTable {
     }
   }
 }
+
+class FuncTableIntFixedWidth(t: FuncTableDouble, val bp: Int, val calcWidth : Seq[Int]) extends FuncTable {
+  val nOrder = t.nOrder
+  val sign = t.checkSign
+  // Coefficient max
+  val minMax = t.minMax
+  println("minMax    : "+minMax.mkString("", ", ",""))
+  val absMax = minMax.map( x => max( abs(x._1), abs(x._2) ) )
+  println("absMax    : "+absMax.mkString("", ", ",""))
+  // Here, we always include sign bit, so plus 1.
+  val cbit   = absMax.map(x => round(scalb(x, bp)).toLong.toBinaryString.length()+1)
+
+  val interval = t.interval.map( x => new FuncTableIntervalInt( x, false, calcWidth, bp ) )
+
+  def checkWidthAll( dxBp : Int ) = {
+    (t.nOrder to 1 by -1).toSeq.map(
+      n => interval.foldLeft(0)( (w, iv) => max(w, iv.checkWidth(dxBp, n)) )
+    )
+  }
+
+  def eval(x : Double, dxBp : Int) = {
+    interval.find( t => t.inRange(x) ) match {
+      case Some(iv) => iv.evalD(x, dxBp, true)
+      case None     => { println(f"${this.getClass.getName}.eval: Range Error"); 0.0 }
+    }
+  }
+}
+
 
 // Currently, always add sign bits
 // cbitGiven must include sign bits
