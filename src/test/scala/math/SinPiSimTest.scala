@@ -43,7 +43,7 @@ class SinPiSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
     java.lang.Math.scalb(err, -x.exNorm+x.spec.manW)
   }
 
-  def sinPiTest(t: Seq[FuncTableInt], spec : RealSpec, n : Int, r : Random,
+  def sinPiTest(t: Seq[FuncTableIntFixedWidth], spec : RealSpec, n : Int, r : Random,
     generatorStr : String, generator : ( (RealSpec, Random) => RealGeneric),
     tolerance : Int ) = {
     test(s"sinPi(x), format ${spec.toStringShort}, ${generatorStr}") {
