@@ -55,8 +55,8 @@ object ACosSim {
     val ex     = exRaw-exBias
     val man    = x.man
 
-    println(f"x = ${x.sgn}|${x.ex}(${ex})|${man.toLong.toBinaryString}")
-    println(f"x = ${x.toDouble}, acos(x) = ${acos(x.toDouble)}")
+//     println(f"x = ${x.sgn}|${x.ex}(${ex})|${man.toLong.toBinaryString}")
+//     println(f"x = ${x.toDouble}, acos(x) = ${acos(x.toDouble)}")
 
     if(x.isNaN) {
       return RealGeneric.nan(x.spec)
@@ -81,18 +81,18 @@ object ACosSim {
     // here ex < 0.
 
     val constThreshold  = -manW                   // -23, if FP32
-    val linearThreshold = -math.ceil((manW - 1) / 3.0) //  -7
+    val linearThreshold =  math.ceil((-manW - 1) / 3.0) //  -7
     val halfPi = new RealGeneric(x.spec, Pi * 0.5)
 
-    println(f"constant threshold = ${constThreshold}")
-    println(f"linear   threshold = ${linearThreshold}")
+//     println(f"constant threshold = ${constThreshold}")
+//     println(f"linear   threshold = ${linearThreshold}")
 
     // here the x.sgn has no effect because |x| << 1.
     if (ex < constThreshold) {
-      println(f"x < constantThreshold(${pow(2.0, -constThreshold)})")
+//       println(f"x < constantThreshold(${pow(2.0, -constThreshold)})")
       return halfPi
     } else if (ex < linearThreshold) { // Pi/2 - x
-      println(f"x < linearThreshold(${pow(2.0, -linearThreshold)})")
+//       println(f"x < linearThreshold(${pow(2.0, linearThreshold)})")
       // Pi / 2 ~ 1.57... and x < 2^(linearThreshold). we don't need to check MoreThan2.
 
 //       val simz = new RealGeneric(x.spec, Pi * 0.5 - x.toDouble)
@@ -100,19 +100,19 @@ object ACosSim {
 //       println(f"pi/2 - x = ${simz.toDouble}(${simz.sgn}|${simz.ex}|${simz.man.toLong.toBinaryString})")
 //       println(f"acos(x)  = ${refz.toDouble}(${refz.sgn}|${refz.ex}|${refz.man.toLong.toBinaryString})")
 
-      val shiftOffset = -linearThreshold.toInt
+      val shiftOffset = 3
       val calcW       = (manW + 1) + shiftOffset
       val halfPiMan   = ((1 << manW) + halfPi.man) << shiftOffset
-      val xManAligned = ((1 << manW) + x.man) >> (linearThreshold.toInt - ex)
+      val xManAligned = ((1 << manW) + x.man) >> (- ex - shiftOffset)
       val xManSigned  = if (sgn == 0) { ~(xManAligned.toLong) + 1 } else { xManAligned.toLong }
       val zMan0       = slice(0, calcW, halfPiMan + xManSigned) // rm the leading 1
 
-      println(f"shiftOffset = ${shiftOffset}")
-      println(f"calcW       = ${calcW      }")
-      println(f"halfPiMan   = ${halfPiMan  .toLong.toBinaryString}")
-      println(f"xManAligned = ${xManAligned.toLong.toBinaryString}")
-      println(f"xManSigned  = ${xManSigned .toLong.toBinaryString}")
-      println(f"zMan0       = ${zMan0      .toLong.toBinaryString}")
+//       println(f"shiftOffset = ${shiftOffset}")
+//       println(f"calcW       = ${calcW      }")
+//       println(f"halfPiMan   = ${halfPiMan  .toLong.toBinaryString}")
+//       println(f"xManAligned = ${xManAligned.toLong.toBinaryString}")
+//       println(f"xManSigned  = ${xManSigned .toLong.toBinaryString}")
+//       println(f"zMan0       = ${zMan0      .toLong.toBinaryString}")
 
       if(bit(calcW, zMan0) == 1) {
         val zEx  = exBias + 1
@@ -129,7 +129,7 @@ object ACosSim {
         return new RealGeneric(x.spec, 0, zEx, zMan)
       }
     } else { // use table.
-      println(f"linearThreshold < x. use table.")
+//       println(f"linearThreshold < x. use table.")
 
       // ex = -1 -> idx = 0,
       // ex = -2 -> idx = 1,
@@ -166,9 +166,9 @@ object ACosSim {
         val d    = slice(0, dxbp+1, man) - (SafeLong(1)<<dxbp)
         val adr  = slice(dxbp+1, adrW, man).toInt
 
-        println(f"man = ${man.toLong.toBinaryString}")
-        println(f"d   = ${d  .toLong.toBinaryString}")
-        println(f"adr = ${adr.toLong.toBinaryString}(${adr})")
+//         println(f"man = ${man.toLong.toBinaryString}")
+//         println(f"d   = ${d  .toLong.toBinaryString}")
+//         println(f"adr = ${adr.toLong.toBinaryString}(${adr})")
 
         val halfPiFixed = math.round(Pi * 0.5 * (1<<calcW))
 
@@ -182,21 +182,22 @@ object ACosSim {
         val shift = calcW+2 - res.toLong.toBinaryString.length
         val resShifted = ((res << shift).toLong) >> 1
 
-        println(f"res0   = ${res0.toLong.toBinaryString}")
-        println(f"res0   = ${res0.toDouble / (1<<calcW)}, pi/2-acos(x) = ${Pi*0.5 - acos(x.toDouble)}")
-        println(f"halfPi = ${halfPiFixed.toLong.toBinaryString}")
-        println(f"res0-hp= ${(-res0 + halfPiFixed).toDouble / (1<<calcW)}, acos(x) = ${acos(x.toDouble)}")
-        println(f"res    = ${res .toLong.toBinaryString}")
-        println(f"shift  = ${shift}")
-        println(f"resS   = ${resShifted.toLong.toBinaryString}")
+//         println(f"calcW  = ${calcW}")
+//         println(f"res0   = ${res0.toLong.toBinaryString}")
+//         println(f"res0   = ${res0.toDouble / (1<<calcW)}, pi/2-acos(x) = ${Pi*0.5 - acos(x.toDouble)}")
+//         println(f"halfPi = ${halfPiFixed.toLong.toBinaryString}")
+//         println(f"res0-hp= ${(-res0 + halfPiFixed).toDouble / (1<<calcW)}, acos(x) = ${acos(x.toDouble)}")
+//         println(f"res    = ${res .toLong.toBinaryString}")
+//         println(f"shift  = ${shift}")
+//         println(f"resS   = ${resShifted.toLong.toBinaryString}")
 
         (-shift+1, resShifted - (1 << calcW))
       }
-      println(f"zman   = ${zman.toLong.toBinaryString}")
+//       println(f"zman   = ${zman.toLong.toBinaryString}")
 
-      val zmanRound = if (extraBits>0) {roundBySpec(RoundSpec.roundToEven, extraBits, zman)} else {zman}
+      val zmanRound = if (extraBits>0) {(zman >> extraBits) + bit(extraBits-1, zman)} else {zman}
 
-      println(f"zmanR  = ${zmanRound.toLong.toBinaryString}")
+//       println(f"zmanR  = ${zmanRound.toLong.toBinaryString}")
 
       val z = if (zman<0) {
         println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=$x%h")
@@ -207,14 +208,14 @@ object ACosSim {
       } else {
         zmanRound
       }
-      println(f"Sim: zman = ${z.toBinaryString}")
+//       println(f"Sim: zman = ${z.toBinaryString}")
 
       return new RealGeneric(x.spec, zSgn, zEx + exBias, SafeLong(z))
     }
   }
 
   def acosTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int ) = {
-    val linearThreshold = -math.ceil((manW - 1) / 3.0).toInt
+    val linearThreshold = math.ceil((-manW - 1) / 3.0).toInt
 
     if (order == 0 || adrW >= manW) {
       val maxCalcWidth = (-2 to linearThreshold by -1).map(i => {
