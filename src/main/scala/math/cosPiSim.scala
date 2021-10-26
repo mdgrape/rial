@@ -52,8 +52,8 @@ object CosPiSim {
 
     // skip large x (2 < x)
     if (1 <= xexNobias) {
-      if (xexNobias == 0 && x.man == 0) {
-        return RealGeneric.zero(x.spec)
+      if (xexNobias == 1 && x.man == 0) {
+        return new RealGeneric(x.spec, 1.0)
       } else {
         return RealGeneric.nan(x.spec)
       }
@@ -98,7 +98,7 @@ object CosPiSim {
 
       (1, newex, newman)
 
-    } else if (xexNobias >= -23) { // 0 ~ 0.5
+    } else if (xexNobias >= -manW) { // 0 ~ 0.5
 
       val from0 = (1 << manW) - (((1<<manW) + x.man) >> (-1 - xexNobias))
       val shift = (manW+1) - from0.toLong.toBinaryString.length
@@ -204,7 +204,6 @@ object CosPiSim {
       } else {
         zmanRound
       }
-      println(f"Sim: zman = ${z}")
       new RealGeneric(x.spec, zSgn, zEx.toInt + exBias, SafeLong(z))
     }
   }
@@ -246,9 +245,9 @@ object CosPiSim {
     }
   }
 
-  val cosPiF32TableI = CosPiSim.cosPiTableGeneration( 2, 8, 23, 23+2 )
+  val cosPiF32TableI = CosPiSim.cosPiTableGeneration( 2, 8, 23, 23+5 )
   val cosPiF32Sim = cosPiSimGeneric(cosPiF32TableI, _ )
 
-//   val cosPiBF16TableI = cosPiSim.cosPiTableGeneration( 0, 7, 7, 7 )
-//   val cosPiBF16Sim = cosPiSimGeneric(cosPiBF16TableI, _ )
+  val cosPiBF16TableI = CosPiSim.cosPiTableGeneration( 0, 7, 7, 7+2 )
+  val cosPiBF16Sim = cosPiSimGeneric(cosPiBF16TableI, _ )
 }
