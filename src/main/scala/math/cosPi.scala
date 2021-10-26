@@ -66,8 +66,13 @@ class CosPiGeneric(
 
 //   printf("x = %d|%d(%d)|%d\n", xsgn_, xex_, xExNobias, xman_)
 
-  val out_of_bounds = (1.S <= xExNobias) && (xman_ =/= 0.U) // 2 < |x|
+  val out_of_bounds = (1.S === xExNobias && xman_ =/= 0.U) || (1.S < xExNobias)
   val znan  = xnan || xinf || out_of_bounds
+
+  val zzero_ = ((xExNobias === -1.S) && (xman_ === 0.U)) ||
+               ((xExNobias ===  0.S) && (xman_ === (1 << (manW-1)).U))
+  val zone_  = xzero || ((xExNobias === 0.S) && (xman_ === 0.U)) ||
+                        ((xExNobias === 1.S) && (xman_ === 0.U))
 
   // --------------------------------------------------------------------------
   // convert cos to sin
@@ -81,34 +86,46 @@ class CosPiGeneric(
   //           '-'---'-----'
   //            |  -1  ex=0
   //            -2
-  //
-  // TODO
 
-  val manExceedsHalf = xman_(manW-1) === 1.U
-  val halfpos  = xman_               // width = manW
-  val halfneg  = (1<<manW).U - xman_ // width = manW+1
-  val shiftpos = PriorityEncoder(Reverse(halfpos)) + 1.U
-  val shiftneg = PriorityEncoder(Reverse(halfneg)) // already +1-ed
 
-  val halfEx0  = Mux(manExceedsHalf, halfneg, halfpos)
-  val shiftEx0 = Mux(manExceedsHalf, shiftneg, shiftpos)
+  val from0_ex0_neg = xman_ - (1 << (manW-1)).U
+  val from0_ex0_pos = (1 << (manW-1)).U - xman_
+  val from0_ex0     = Mux(xman_(manW-1), from0_ex0_neg, from0_ex0_pos)
+  val shift_ex0     = PriorityEncoder(Reverse(from0_ex0)) + 1.U
+  val norm_ex0      = from0_ex0 << shift_ex0
 
-  val xman = MuxCase(xman_, Seq(
-    (xExNobias ===  0.S) -> ((halfEx0 << shiftEx0) - (1 << manW).U),
-    (xExNobias === -1.S) -> ((halfneg << shiftneg) - (1 << manW).U)
+  val from0_ex1 = xman_
+  val shift_ex1 = PriorityEncoder(Reverse(from0_ex1)) + 1.U
+  val norm_ex1  = from0_ex1 << shift_ex1
+
+  val align_exmanW = ((1 << manW) - 1).U - xExNobias.asUInt
+  val from0_exmanW = ((1 << manW).U - (((1<<manW).U + xman_) >> align_exmanW))(manW-1, 0)
+  val shift_exmanW = PriorityEncoder(Reverse(from0_exmanW)) + 1.U
+  val norm_exmanW  = from0_exmanW << shift_exmanW
+
+  val xman = MuxCase(((1 << manW) - 1).U(manW.W), Seq(
+    (xExNobias ===       0.S)                    -> norm_ex0(manW-1, 0),
+    (xExNobias ===      -1.S)                    -> norm_ex1(manW-1, 0),
+    ((-manW).S < xExNobias && xExNobias <= -1.S) -> norm_exmanW(manW-1, 0)
   ))
-  val xex  = MuxCase(xExNobias, Seq(
-    (xExNobias ===  0.S) -> Mux(halfEx0 === 0.U, -exBias.S((exW+1).W), -shiftEx0.zext),
-    (xExNobias === -1.S) -> (-1.S((exW+1).W) - shiftneg.zext)
+  val xex  = MuxCase(-2.S(xExNobias.getWidth.W), Seq(
+    (xExNobias ===       0.S)                    -> Mux(from0_ex0   ===0.U, -exBias.S, -(shift_ex0.zext)),
+    (xExNobias ===      -1.S)                    -> Mux(from0_ex1   ===0.U, -exBias.S, -(shift_ex1.zext)    - 1.S),
+    ((-manW).S < xExNobias && xExNobias <= -1.S) -> Mux(from0_exmanW===0.U, -exBias.S, -(shift_exmanW.zext) - 1.S)
   ))
 
-  val zSgn = (xsgn_ === 1.U) || (xExNobias === 0.S)
+  val zzero = zzero_ || (xex === -exBias.S && xman === 0.U)
+  val zone  = zone_  || (xex === -1.S      && xman === 0.U)
 
-  val zzero = ((0.S <= xExNobias) && xman_ === 0.U) || // integer input
-              (xex === -exBias.S  && xman  === 0.U)    // converted into 0
-  val zone  = (xex === -1.S       && xman  === 0.U)    // pi/2
+  val zSgn = MuxCase(0.U(1.W), Seq(
+    (xExNobias ===       0.S && !zzero)          -> ~(xman_(manW-1)),
+    (xExNobias ===      -1.S && !zzero)          -> 1.U(1.W),
+    ((-manW).S < xExNobias && xExNobias <= -1.S) -> 0.U(1.W)
+  ))
 
-  // TODO end
+//   printf("newx = (%b|%d|%b)\n", 0.U, xex, xman)
+//   printf("zzero=  %b\n", zzero_)
+//   printf("zone =  %b\n", zone_)
 
   // --------------------------------------------------------------------------
   // linear approximation around zero
@@ -244,16 +261,15 @@ class CosPiGeneric(
 
   val zeroFlush = zzero || zone || znan
 
-  val zMan = MuxCase(zManTable, Seq(
-    isLinear  -> zManLinear,
-    zeroFlush -> Cat(znan, Fill(manW-1, 0.U(1.W)))
-  ))
-  val zEx  = MuxCase(zExTable, Seq(
-    isLinear -> zExLinear,
-    znan     -> Fill(exW, 1.U(1.W)),
-    zzero    -> Fill(exW, 0.U(1.W)),
-    zone     -> exBias.U(exW.W)
-  ))
+  val zMan = Mux(zeroFlush, Cat(znan, Fill(manW-1, 0.U(1.W))),
+             Mux(isLinear, zManLinear, zManTable))
+
+  val zEx  = Mux(znan,  Fill(exW, 1.U(1.W)),
+             Mux(zzero, Fill(exW, 0.U(1.W)),
+             Mux(zone,  exBias.U(exW.W),
+             Mux(isLinear, zExLinear, zExTable))))
+
+//   printf("z0 = (%b|%d|%b)\n", zSgn, zEx, zMan)
   val z0 = zSgn ## zEx ## zMan
   io.z   := ShiftRegister(z0, nStage)
 }
