@@ -149,16 +149,7 @@ class ACosGeneric(
     printf("man = %b\n", xman)
     printf("adr = %b\n", adr)
     printf(" d  = %b\n", d)
-    //
-    // man = 1000011101010001111101
-    // d   =         01010001111101
-    // adr = 1000011(67)
-    // constThreshold      = -23
-    // constThresholdDigit = 5
-    // man = 1000011101010001111101
-    // adr = 1000011
-    //  d  =         01010001111101
-    //
+
     val coeffWidth = (-1 to linearThreshold.toInt by -1).map(exponent => {
       val tableD = new FuncTableDouble( x => (Pi * 0.5) - acos(scalb(1.0 + x, exponent)), order )
       tableD.addRange(0.0, 1.0, 1<<adrW)
