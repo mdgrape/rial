@@ -154,12 +154,13 @@ object ATan2Sim {
     }
     // 1.m / 1.m is in (0.5, 2) range. required shift is less than 2.
     // here we already multiplied the denominator(x) by 2, so the resulting
-    // range becomes (0.25, 1). FIXME ?
+    // range becomes (0.25, 1).
     val y_over_x_man0 = one_over_x_manW1 * ((1<<manW) + y.man)
     val y_over_x_man0_clz = (1+manW+1) + (1+manW) - y_over_x_man0.toLong.toBinaryString.length
     assert(y_over_x_man0_clz <= 2)
 
-    val y_over_x_manW1= roundBySpec(RoundSpec.roundToEven, (1+manW+1) - y_over_x_man0_clz, y_over_x_man0)
+    // roundToEven?
+    val y_over_x_manW1= roundBySpec(RoundSpec.round, (1+manW+1) - y_over_x_man0_clz, y_over_x_man0)
     val y_over_x_man  = y_over_x_manW1 - (1 << manW)
     val y_over_x_ex   = y_over_x_ex0 - y_over_x_man0_clz
 //     println(f"y_over_x_ex  = ${y_over_x_ex}")
@@ -196,7 +197,7 @@ object ATan2Sim {
     assert(x_over_y_man0_clz <= 2)
 
     // with leading 1
-    val x_over_y_manW1= roundBySpec(RoundSpec.roundToEven, (1+manW+1) - x_over_y_man0_clz, x_over_y_man0)
+    val x_over_y_manW1= roundBySpec(RoundSpec.round, (1+manW+1) - x_over_y_man0_clz, x_over_y_man0)
     val x_over_y_man  = x_over_y_manW1 - (1 << manW)
     val x_over_y_ex   = x_over_y_ex0 - x_over_y_man0_clz
     val x_over_y_exBias = if(x_over_y_ex + exBias < 0) {
