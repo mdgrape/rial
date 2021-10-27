@@ -131,5 +131,5 @@ class ATan2SimTest extends FunSuite with BeforeAndAfterAllConfigMap {
   atan2Test(atan2F32ReciprocalTableI, atan2F32ATanTableI, RealSpec.Float32Spec, n, r,
     "Test Within 2^-12 < y/x < 1", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(1.0, pow(2.0, 8),_,_), 2)
   atan2Test(atan2F32ReciprocalTableI, atan2F32ATanTableI, RealSpec.Float32Spec, n, r,
-    "Test Within y/x < 2^-12", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(0.0, pow(2.0, -12),_,_), 4) // XXX rounding N times...
+    "Test Within y/x < 2^-12", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(0.0, pow(2.0, -12),_,_), 2)
 }
