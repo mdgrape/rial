@@ -41,6 +41,7 @@ object ATan2Sim {
   // we need table for 2^-8 ~ 2^8 range for FP32
   //
   def atan2SimGeneric( t_rec : FuncTableInt, ts : Seq[FuncTableIntFixedWidth], y : RealGeneric, x : RealGeneric ) : RealGeneric = {
+//     println("==================================================")
     assert(x.spec == y.spec)
 
     val exW    = x.spec.exW
@@ -162,6 +163,7 @@ object ATan2Sim {
     val y_over_x_manW1= roundBySpec(RoundSpec.round, (1+manW+1) - y_over_x_man0_clz, y_over_x_man0)
     val y_over_x_man  = y_over_x_manW1 - (1 << manW)
     val y_over_x_ex   = y_over_x_ex0 - y_over_x_man0_clz
+    val y_over_x_exBias = y_over_x_ex + exBias
 //     println(f"y_over_x_ex  = ${y_over_x_ex}")
 //     println(f"y_over_x = ${y.toDouble/x.toDouble} = ${new RealGeneric(x.spec, y_over_x_sgn, y_over_x_ex+exBias, y_over_x_man).toDouble}")
 
@@ -207,6 +209,8 @@ object ATan2Sim {
       x_over_y_ex + exBias
     }
 //     println(f"x_over_y = ${x.toDouble/y.toDouble} = ${new RealGeneric(x.spec, x_over_y_sgn, x_over_y_exBias, x_over_y_man).toDouble}")
+//     println(f"y/x = ${y_over_x_sgn}|${y_over_x_exBias}(${y_over_x_ex})|${y_over_x_man.toLong.toBinaryString}")
+//     println(f"x/y = ${x_over_y_sgn}|${x_over_y_exBias}(${x_over_y_ex})|${x_over_y_man.toLong.toBinaryString}")
 
     // ==================================================================
     // calc atan(y/x) = pi/2 - atan(x/y)
@@ -382,6 +386,7 @@ object ATan2Sim {
       (y_over_x_sgn, zex, SafeLong(zman.toLong))
     }
 
+//     println(f"sim: atanyx      = ${atanyx_sgn}|${atanyx_ex}|${(atanyx_manW1 - (1<<manW)).toLong.toBinaryString}")
 //     println(f"sim: atan(|y/x|) = ${new RealGeneric(x.spec, atanyx_sgn, atanyx_ex + exBias, atanyx_manW1 - (1<<manW)).toDouble}")
 //     println(f"ref: atan(|y/x|) = ${atan(y.toDouble / x.toDouble)}")
 
@@ -403,10 +408,8 @@ object ATan2Sim {
       // x < 0 && 0 < y, atan(y/x) < 0, atan2(y,x) =   pi - |atan(y/x)|
       // x < 0 && y < 0, atan(y/x) > 0, atan2(y,x) = -(pi - |atan(y/x)|)
       // since |atan(y/x)| < pi/2, the sign depends only on the sign of y.
-
       val zsgn = ysgn
 
-//       println(f"atanyx_ex = ${atanyx_ex}")
       assert(atanyx_ex <= 0)
 
       // pi.ex = 1
