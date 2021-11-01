@@ -58,12 +58,6 @@ object ATan2Sim {
     val yex     = yexRaw-exBias
     val yman    = y.man
 
-    val adrW      = ts(0).adrW
-    val nOrder    = ts(0).nOrder
-    val bp        = ts(0).bp
-    val extraBits = bp - manW
-    val calcW     = manW + extraBits
-
 //     println(f"x = ${x.sgn}|${x.ex}(${xex})|${xman.toLong.toBinaryString}")
 //     println(f"y = ${y.sgn}|${y.ex}(${yex})|${yman.toLong.toBinaryString}")
 //     println(f"x = ${x.toDouble}, y = ${y.toDouble}, atan2(y, x) = ${atan2(y.toDouble, x.toDouble)}")
@@ -126,8 +120,14 @@ object ATan2Sim {
     // ==================================================================
     // calc y / x and x / y
 
+    val bpRec        = t_rec.bp
+    val extraBitsRec = bpRec - manW
+    val calcWRec     = bpRec
+
     val y_over_x_sgn = xsgn ^ ysgn
     val y_over_x_ex0 = yex - xex
+
+    val x_y_same_man = xman == yman
 
 //     println(f"y_over_x_sgn = ${y_over_x_sgn}")
 //     println(f"y_over_x_ex0 = ${y_over_x_ex0}")
@@ -136,8 +136,8 @@ object ATan2Sim {
     val one_over_x_manW1 = if (t_rec.nOrder == 0) {
       val adr  = x.man
       val res0 = t_rec.interval(adr.toInt).eval(0L, 0) // in (0.5, 1]
-      if(bit(manW, res0) == 1) {
-        1 << (manW+1) // just 1
+      if(x.man == 0) {
+        1 << calcWRec // just 1
       } else {
         res0 // 2^-1 * 1.m [0.5, 1)
       }
@@ -148,36 +148,47 @@ object ATan2Sim {
       val res0 = t_rec.interval(adr.toInt).eval(d.toLong, dxbp)
 
       if(x.man == 0) {
-        1 << (manW+1) // just 1
+        1 << calcWRec // just 1
       } else {
         res0 // 2^-1 * 1.m [0.5, 1)
       }
     }
+//     println(f"1/x ref = ${(1<<manW).toDouble/((1<<manW) + x.man.toInt)}")
+//     println(f"1/x sim = ${one_over_x_manW1.toDouble / (1<<calcWRec)}")
+
     // 1.m / 1.m is in (0.5, 2) range. required shift is less than 2.
     // here we already multiplied the denominator(x) by 2, so the resulting
     // range becomes (0.25, 1).
-    val y_over_x_man0 = one_over_x_manW1 * ((1<<manW) + y.man)
-    val y_over_x_man0_clz = (1+manW+1) + (1+manW) - y_over_x_man0.toLong.toBinaryString.length
+    val y_over_x_man0 = if(x_y_same_man) { 1L<<(manW+calcWRec) } else {
+      (one_over_x_manW1 * ((1<<manW) + y.man)).toLong
+    }
+    val y_over_x_man0_clz = (calcWRec) + (1+manW) - y_over_x_man0.toLong.toBinaryString.length
     assert(y_over_x_man0_clz <= 2)
 
-    val y_over_x_manW1= roundBySpec(RoundSpec.round, (1+manW+1) - y_over_x_man0_clz, y_over_x_man0)
-    val y_over_x_man  = y_over_x_manW1 - (1 << manW)
-    val y_over_x_ex   = y_over_x_ex0 - y_over_x_man0_clz
+    val y_over_x_manW1     = roundBySpec(RoundSpec.round, calcWRec - y_over_x_man0_clz, y_over_x_man0)
+    val y_over_x_MoreThan2 = bit(manW+1, y_over_x_manW1)
+    val y_over_x_man       = if (y_over_x_MoreThan2 == 1) {
+      ((y_over_x_manW1 >> 1) + bit(0, y_over_x_manW1)) - (1 << manW)
+    } else {
+      y_over_x_manW1 - (1 << manW)
+    }
+    val y_over_x_ex     = y_over_x_ex0 - y_over_x_man0_clz + y_over_x_MoreThan2.toInt
     val y_over_x_exBias = y_over_x_ex + exBias
 //     println(f"y_over_x_ex  = ${y_over_x_ex}")
-//     println(f"y_over_x = ${y.toDouble/x.toDouble} = ${new RealGeneric(x.spec, y_over_x_sgn, y_over_x_ex+exBias, y_over_x_man).toDouble}")
+//     println(f"y_over_x = ref(${y.toDouble/x.toDouble}) = ${new RealGeneric(x.spec, y_over_x_sgn, y_over_x_ex.toInt+exBias, y_over_x_man).toDouble}")
 
     // ------------------------------------------------------------------
     // x / y
 
     val x_over_y_sgn = xsgn ^ ysgn
     val x_over_y_ex0 = xex - yex
+//     println(f"x_over_y_ex0 = ${x_over_y_ex0}")
 
     val one_over_y_manW1 = if (t_rec.nOrder == 0) {
       val adr  = y.man
       val res0 = t_rec.interval(adr.toInt).eval(0L, 0) // in (0.5, 1]
       if(bit(manW, res0) == 1) {
-        1 << (manW+1) // just 1
+        1 << calcWRec // just 1
       } else {
         res0 // 2^-1 * 1.m [0.5, 1)
       }
@@ -188,19 +199,30 @@ object ATan2Sim {
       val res0 = t_rec.interval(adr.toInt).eval(d.toLong, dxbp)
 
       if(y.man == 0) {
-        1 << (manW+1) // just 1
+        1 << calcWRec // just 1
       } else {
         res0 // 2^-1 * 1.m [0.5, 1)
       }
     }
-    val x_over_y_man0 = one_over_y_manW1 * ((1<<manW) + x.man)
-    val x_over_y_man0_clz = (1+manW+1) + (1+manW) - x_over_y_man0.toLong.toBinaryString.length
+//     println(f"1/y ref = ${(1<<manW).toDouble/((1<<manW) + y.man.toInt)}")
+//     println(f"1/y sim = ${one_over_y_manW1.toDouble / (1<<manW)}")
+
+    val x_over_y_man0 =  if(x_y_same_man) { 1L<<(manW+calcWRec) } else {
+      (one_over_y_manW1 * ((1<<manW) + x.man)).toLong
+    }
+    val x_over_y_man0_clz = (calcWRec) + (1+manW) - x_over_y_man0.toLong.toBinaryString.length
     assert(x_over_y_man0_clz <= 2)
+//     println(f"x/y man0 = ${x_over_y_man0.toLong.toBinaryString}")
 
     // with leading 1
-    val x_over_y_manW1= roundBySpec(RoundSpec.round, (1+manW+1) - x_over_y_man0_clz, x_over_y_man0)
-    val x_over_y_man  = x_over_y_manW1 - (1 << manW)
-    val x_over_y_ex   = x_over_y_ex0 - x_over_y_man0_clz
+    val x_over_y_manW1     = roundBySpec(RoundSpec.round, calcWRec - x_over_y_man0_clz, x_over_y_man0)
+    val x_over_y_MoreThan2 = bit(manW+1, x_over_y_manW1)
+    val x_over_y_man  = if (x_over_y_MoreThan2 == 1) {
+      ((x_over_y_manW1 >> 1) + bit(0, x_over_y_manW1)) - (1 << manW)
+    } else {
+      x_over_y_manW1 - (1 << manW)
+    }
+    val x_over_y_ex   = x_over_y_ex0 - x_over_y_man0_clz + x_over_y_MoreThan2.toInt
     val x_over_y_exBias = if(x_over_y_ex + exBias < 0) {
       0
     } else if ((1<<exW) <= x_over_y_ex + exBias) {
@@ -208,7 +230,8 @@ object ATan2Sim {
     } else {
       x_over_y_ex + exBias
     }
-//     println(f"x_over_y = ${x.toDouble/y.toDouble} = ${new RealGeneric(x.spec, x_over_y_sgn, x_over_y_exBias, x_over_y_man).toDouble}")
+//     println(f"x_over_y_ex = ${x_over_y_ex}")
+//     println(f"x_over_y = ref(${x.toDouble/y.toDouble}) = ${new RealGeneric(x.spec, x_over_y_sgn, x_over_y_ex.toInt + exBias, x_over_y_man).toDouble}")
 //     println(f"y/x = ${y_over_x_sgn}|${y_over_x_exBias}(${y_over_x_ex})|${y_over_x_man.toLong.toBinaryString}")
 //     println(f"x/y = ${x_over_y_sgn}|${x_over_y_exBias}(${x_over_y_ex})|${x_over_y_man.toLong.toBinaryString}")
 
@@ -216,6 +239,14 @@ object ATan2Sim {
     // calc atan(y/x) = pi/2 - atan(x/y)
 
     val linearThreshold = -math.round(math.ceil(manW / 2.0 + 1.0))
+//     println(f"constant threshold = ${manW}")
+//     println(f"linear threshold   = ${linearThreshold}")
+
+    val adrW      = ts(0).adrW
+    val nOrder    = ts(0).nOrder
+    val bp        = ts(0).bp
+    val extraBits = bp - manW
+    val calcW     = manW + extraBits
 
     val (atanyx_sgn, atanyx_ex, atanyx_manW1) = if (manW < y_over_x_ex) {
 //       println("2^23 < y_over_x. return pi/2")
@@ -231,8 +262,13 @@ object ATan2Sim {
       // if y/x.ex = -linearThreshold, x/y.ex = linearThreshold-1.
       // e.g. if x is in [2^+15, 2^+16), i.e. x.ex = 15,
       //  then 1/x is in (2^-16, 2^-15], i.e. 1/x.ex = -16.
-      //
-      assert(x_over_y_ex < linearThreshold)
+
+      // atan(1/x) = pi/2 - atan(x)
+      //           = pi/2 - x + x^3/3 + O(x^5)
+      // In this case, since exponent of pi/2 is 0, we can relax the requirement
+      // for x.
+      val linearThresholdUp = -math.ceil((manW - 4) / 3.0)
+      assert(x_over_y_ex < linearThresholdUp)
 
       val halfpi_man     = (pi_over_2.man + (1<<manW)) << 3
       val xy_man_shift   = -x_over_y_ex - 3

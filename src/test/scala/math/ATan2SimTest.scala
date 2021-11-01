@@ -119,6 +119,20 @@ class ATan2SimTest extends FunSuite with BeforeAndAfterAllConfigMap {
     }
   }
 
+  val atan2BF16ReciprocalTableI = ATan2Sim.atan2BF16ReciprocalTableI
+  val atan2BF16ATanTableI       = ATan2Sim.atan2BF16ATanTableI
+
+  atan2Test(atan2BF16ReciprocalTableI, atan2BF16ATanTableI, RealSpec.BFloat16Spec, n, r,
+    "Test Within y/x > 2^24", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, 24), pow(2.0, 128),_,_), 1)
+  atan2Test(atan2BF16ReciprocalTableI, atan2BF16ATanTableI, RealSpec.BFloat16Spec, n, r,
+    "Test Within y/x > 2^8",  generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, 8), pow(2.0, 24),_,_), 1)
+  atan2Test(atan2BF16ReciprocalTableI, atan2BF16ATanTableI, RealSpec.BFloat16Spec, n, r,
+    "Test Within 1 < y/x < 2^8", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(1.0, pow(2.0, 8),_,_), 2)
+  atan2Test(atan2BF16ReciprocalTableI, atan2BF16ATanTableI, RealSpec.BFloat16Spec, n, r,
+    "Test Within 2^-8 < y/x < 1", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(1.0, pow(2.0, 8),_,_), 2)
+  atan2Test(atan2BF16ReciprocalTableI, atan2BF16ATanTableI, RealSpec.BFloat16Spec, n, r,
+    "Test Within y/x < 2^-8", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(0.0, pow(2.0, -8),_,_), 2)
+
   val atan2F32ReciprocalTableI = ATan2Sim.atan2F32ReciprocalTableI
   val atan2F32ATanTableI       = ATan2Sim.atan2F32ATanTableI
 
@@ -132,4 +146,5 @@ class ATan2SimTest extends FunSuite with BeforeAndAfterAllConfigMap {
     "Test Within 2^-12 < y/x < 1", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(1.0, pow(2.0, 8),_,_), 2)
   atan2Test(atan2F32ReciprocalTableI, atan2F32ATanTableI, RealSpec.Float32Spec, n, r,
     "Test Within y/x < 2^-12", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(0.0, pow(2.0, -12),_,_), 2)
+
 }
