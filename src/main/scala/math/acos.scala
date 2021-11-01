@@ -57,10 +57,12 @@ class ACosGeneric(
   val (xsgn,  xex,  xman) = FloatChiselUtil.decompose(spec, io.x)
   val (xzero, xinf, xnan) = FloatChiselUtil.checkValue(spec, io.x)
   val xExNobias = xex.zext() - exBias.S((exW+1).W)
+  printf("x = %d|%d(%d)|%b\n", xsgn, xex, xExNobias, xman)
 
   val znan = xnan || xinf || (xExNobias === 0.S && xman =/= 0.U) || (0.S < xExNobias)
   val zzero = (xExNobias === 0.S && xman === 0.U) && xsgn === 0.U
   val zpi   = (xExNobias === 0.S && xman === 0.U) && xsgn === 1.U
+  assert(znan ^ zzero ^ zpi ^ (!(znan || zzero || zpi)))
 
   val zSgn = 0.U(1.W)
 
@@ -85,8 +87,8 @@ class ACosGeneric(
   // linear (pi/2 - x), pi/2 = 1.57... = 2^0 * 1.57...
 
   val constThresholdDigit = log2Up(abs(constThreshold))
-  printf(f"constThreshold      = ${constThreshold     }\n")
-  printf(f"constThresholdDigit = ${constThresholdDigit}\n")
+//   printf(f"constThreshold      = ${constThreshold     }\n")
+//   printf(f"constThresholdDigit = ${constThresholdDigit}\n")
 
   val xmanW1          = xman + (1<<manW).U((4+manW).W)
   val linearExDiff    = (~xExNobias(constThresholdDigit-1, 0)) - 2.U(constThresholdDigit.W)
@@ -112,36 +114,42 @@ class ACosGeneric(
   val zex0  = Wire(UInt(exW.W))
 
   val exAdr0 = -xExNobias-1.S
-  val exAdr = exAdr0.asUInt
-  assert(exAdr0 >= 0.S)
+  val exAdr  = Mux(exAdr0 < 0.S, 0.U, exAdr0.asUInt) // if x == 1.0, exAdr0 == -1.
 
   val calcW = manW + extraBits
   if (order<=0) { // Fixed Table
     val adr = xman(adrW-1,0)
-    val tbl = VecInit( (linearThreshold until 0 by -1).map( exponent => {
+    val tbl = VecInit( (-1 to linearThreshold.toInt by -1).map( exponent => {
       VecInit( (0L to (1L<<adrW)-1L).map(
         n => {
-          val x = scalb(1.0+n.toDouble/(1L<<adrW), exponent.toInt)
+          val x = scalb(1.0 + n.toDouble/(1L<<adrW), exponent.toInt)
           val y = round(acos(x)*(1L<<calcW))
           //println(f"$n $x $y")
-          if (n==0) {
-            0.U(calcW.W)
-          } else if (y>=(1L<<calcW)) {
-            println("WARNING: mantissa reaches to 2")
-            maskL(calcW).U(calcW.W)
-          } else {
-            y.U(calcW.W)
-          }
+          y.U((calcW+1).W)
         } ) )
       } ) )
-    // check exponent
-    val res0  = tbl(exAdr)(adr)
-    val shift = PriorityEncoder(Reverse(res0))
-    val res   = res0 << shift
-    assert(res(manW) === 1.U(1.W))
 
-    zex0  := exBias.U(exW.W) - shift
-    zman0 := res(manW-1, 0)
+    val piFixed = (math.round(Pi * (1<<calcW))).toLong.U((calcW+2).W)
+    val res00 = tbl(exAdr)(adr)
+    val res0  = Mux(xsgn === 1.U, piFixed - res00, 0.U(1.W) ## res00)
+
+    val shift0 = PriorityEncoder(Reverse(res0))
+    assert(shift0 < (calcW+1).U)
+    val log2CalcW = log2Up(calcW+1)
+    val shift = shift0(log2CalcW-1, 0)
+
+    val res   = res0 << shift
+    assert(res(calcW+1) === 1.U(1.W))
+
+    printf("adr        = %b\n", adr       )
+    printf("res0       = %b\n", res0      )
+    printf("shift      = %b\n", shift     )
+    printf("resShifted = %b\n", res(calcW, calcW-manW+1))
+
+    val resRound = res(calcW, calcW-manW+1) +& res(calcW-manW)
+
+    zex0  := (exBias+1).U(exW.W) - shift
+    zman0 := Mux(resRound(manW) === 1.U, maskL(manW).U(manW.W), resRound(manW-1, 0))
   } else {
     val adr = xman(manW-1, manW-adrW)
     val d   = Cat(~xman(manW-adrW-1), xman(manW-adrW-2,0)).asSInt
@@ -207,7 +215,13 @@ class ACosGeneric(
   val zEx  = Mux(isConstant, zExConstant,  Mux(isLinear, zExLinear,  zex0))
   val zMan = Mux(isConstant, zManConstant, Mux(isLinear, zManLinear, zman0))
 
-  val z0 = zSgn ## zEx ## zMan
+  val pi = new RealGeneric(spec, Pi)
+
+  val z0 = MuxCase(Cat(zSgn, zEx, zMan), Seq(
+    zzero -> Cat(0.U(1.W), 0.U(exW.W), 0.U(manW.W)),
+    zpi   -> Cat(0.U(1.W), pi.ex.toLong.U(exW.W), pi.man.toLong.U(manW.W)),
+    znan  -> Cat(0.U(1.W), maskL(exW).U(exW.W), 1.U(1.W) ## 0.U((manW-1).W))
+    ))
   io.z   := ShiftRegister(z0, nStage)
   //printf("x=%x z=%x\n", io.x, io.z)
 }

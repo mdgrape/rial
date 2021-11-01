@@ -91,7 +91,8 @@ class ACosTest extends FlatSpec
                 c.clock.step(1)
               }
 
-              val ref = new RealGeneric(spec, sin(Pi * xi.toDouble))
+              val ref = new RealGeneric(spec, acos(xi.toDouble))
+              println(f"test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString}) ?= ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})")
               assert(zi == z0d, f"x = (${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman}), test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString}) != ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})")
             }
             c.clock.step(1)
@@ -101,23 +102,29 @@ class ACosTest extends FlatSpec
     }
   }
 
-//   val acosBF16TableI = ACosSim.acosTableGeneration( 0, 7, 7, 7+2 )
-//   runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
-//     n, r, acosBF16TableI, "Test Within (     0, 2^-13)", generateRealWithin(0.0,pow(2.0, -13) - pow(2.0, -36),_,_))
-//   runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
-//     n, r, acosBF16TableI, "Test Within ( 2^-13, 0.5)",     generateRealWithin(pow(2.0, -13),0.5,_,_))
-//   runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
-//     n, r, acosBF16TableI, "Test Within ( 0.5, 1.0)",     generateRealWithin(0.5,1.0,_,_))
-//   runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
-//     n, r, acosBF16TableI, "Test Within ( 1.0, 2.0)",     generateRealWithin(1.0,2.0,_,_))
-//   runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
-//     n, r, acosBF16TableI, "Test Within (-1.0, 0.0)",     generateRealWithin(-1.0,0.0,_,_))
+  val acosBF16TableI = ACosSim.acosTableGeneration( 0, 7, 7, 7+2 )
 
-  val acosF32TableI  = ACosSim.acosTableGeneration( 2, 8, 23, 23+2 )
-  runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
-    n, r, acosF32TableI, "Test Within (     0, 2^-23)", generateRealWithin(0.0,pow(2.0, -23),_,_))
-  runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
-    n, r, acosF32TableI, "Test Within ( 2^-23, 2^-8)", generateRealWithin(pow(2.0, -23),pow(2.0, -8),_,_))
-  runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
-    n, r, acosF32TableI, "Test Within ( 2^-8,  0.95)",     generateRealWithin(pow(2.0, -8), 0.95,_,_))
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
+    n, r, acosBF16TableI, "Test Within (     0, 2^-13)", generateRealWithin(0.0,pow(2.0, -13),_,_))
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
+    n, r, acosBF16TableI, "Test Within ( 2^-13, 0.5)",     generateRealWithin(pow(2.0, -13),0.5,_,_))
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
+    n, r, acosBF16TableI, "Test Within ( 0.5, 1.0)",     generateRealWithin(0.5,1.0,_,_))
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
+    n, r, acosBF16TableI, "Test Within (-1.0, 0.0)",     generateRealWithin(-1.0,0.0,_,_))
+
+//   val acosF32TableI  = ACosSim.acosTableGeneration( 2, 8, 23, 23+2 )
+//
+//   runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
+//     n, r, acosF32TableI, "Test Within (-0.95,  -2^-8)", generateRealWithin(-0.95, -pow(2.0, -8),_,_))
+//   runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
+//     n, r, acosF32TableI, "Test Within (-2^-8,  -2^-23)", generateRealWithin(-pow(2.0, -8),-pow(2.0, -23),_,_))
+//   runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
+//     n, r, acosF32TableI, "Test Within (-2^-23, 0)", generateRealWithin(-pow(2.0, -23),0.0,_,_))
+//   runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
+//     n, r, acosF32TableI, "Test Within (     0, 2^-23)", generateRealWithin(0.0,pow(2.0, -23),_,_))
+//   runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
+//     n, r, acosF32TableI, "Test Within ( 2^-23, 2^-8)", generateRealWithin(pow(2.0, -23),pow(2.0, -8),_,_))
+//   runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
+//     n, r, acosF32TableI, "Test Within ( 2^-8,  0.95)",     generateRealWithin(pow(2.0, -8), 0.95,_,_))
 }
