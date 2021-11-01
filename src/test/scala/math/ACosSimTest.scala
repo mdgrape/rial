@@ -109,6 +109,21 @@ class ACosSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
     }
   }
 
+  val acosBF16TableI = ACosSim.acosTableGeneration( 0, 7, 7, 7+2)
+
+  acosTest(acosBF16TableI, RealSpec.BFloat16Spec, n, r,
+     "Test Within [-1, -2^-8]", generateRealWithin(-0.96, -pow(2.0, -8),_,_), 1)
+  acosTest(acosBF16TableI, RealSpec.BFloat16Spec, n, r,
+     "Test Within [-2^-8, 2^-23]",  generateRealWithin(-pow(2.0, -8),-pow(2.0, -23),_,_), 1)
+  acosTest(acosBF16TableI, RealSpec.BFloat16Spec, n, r,
+     "Test Within [-2^-23, 0]",  generateRealWithin(-pow(2.0, -23), 0.0,_,_), 1)
+  acosTest(acosBF16TableI, RealSpec.BFloat16Spec, n, r,
+     "Test Within [ 0,  2^-23]", generateRealWithin(0.0,pow(2.0, -23),_,_), 1)
+  acosTest(acosBF16TableI, RealSpec.BFloat16Spec, n, r,
+     "Test Within [ 2^-23,  2^-8]", generateRealWithin(pow(2.0,-23),pow(2.0, -8),_,_), 1)
+  acosTest(acosBF16TableI, RealSpec.BFloat16Spec, n, r,
+     "Test Within [ 2^-8,  0.96]",    generateRealWithin(pow(2.0, -8), 0.96,_,_), 1)
+
   val acosF32TableI = ACosSim.acosTableGeneration( 2, 8, 23, 23+2 )
 
   acosTest(acosF32TableI, RealSpec.Float32Spec, n, r,

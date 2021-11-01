@@ -95,24 +95,12 @@ object ACosSim {
 //       println(f"x < linearThreshold(${pow(2.0, linearThreshold)})")
       // Pi / 2 ~ 1.57... and x < 2^(linearThreshold). we don't need to check MoreThan2.
 
-//       val simz = new RealGeneric(x.spec, Pi * 0.5 - x.toDouble)
-//       val refz = new RealGeneric(x.spec, acos(x.toDouble))
-//       println(f"pi/2 - x = ${simz.toDouble}(${simz.sgn}|${simz.ex}|${simz.man.toLong.toBinaryString})")
-//       println(f"acos(x)  = ${refz.toDouble}(${refz.sgn}|${refz.ex}|${refz.man.toLong.toBinaryString})")
-
       val shiftOffset = 3
       val calcW       = (manW + 1) + shiftOffset
       val halfPiMan   = ((1 << manW) + halfPi.man) << shiftOffset
       val xManAligned = ((1 << manW) + x.man) >> (- ex - shiftOffset)
       val xManSigned  = if (sgn == 0) { ~(xManAligned.toLong) + 1 } else { xManAligned.toLong }
       val zMan0       = slice(0, calcW, halfPiMan + xManSigned) // rm the leading 1
-
-//       println(f"shiftOffset = ${shiftOffset}")
-//       println(f"calcW       = ${calcW      }")
-//       println(f"halfPiMan   = ${halfPiMan  .toLong.toBinaryString}")
-//       println(f"xManAligned = ${xManAligned.toLong.toBinaryString}")
-//       println(f"xManSigned  = ${xManSigned .toLong.toBinaryString}")
-//       println(f"zMan0       = ${zMan0      .toLong.toBinaryString}")
 
       if(bit(calcW, zMan0) == 1) {
         val zEx  = exBias + 1
@@ -153,22 +141,30 @@ object ACosSim {
 
       val (zEx, zman) = if (order == 0) {
         val adr   = man.toInt
-        val res0  = t.interval(adr).eval(0L, 0)
-        // fix range < (1<<bp)
-        val resClamp = if(res0 >= (1 << calcW)) {maskL(bp)} else {res0}
-        val shift    = calcW+1 - resClamp.toLong.toBinaryString.length
-        val res      = (resClamp << shift).toLong - (1 << calcW)
 
-        (-shift, res)
+        if (sgn == 1) {
+          val piFixed = (math.round(Pi * (1<<calcW))).toLong
+          val res0    = piFixed - t.interval(adr).eval(0L, 0)
+          // res0 range is [1.57, 3.14]. exponent should be 0 or 1
+
+          val shift = bit(calcW+1, res0)
+          val resShifted = res0 >> shift
+          val res = resShifted - (1<<calcW)
+
+          (shift.toInt, res)
+        } else {
+          val res0  = t.interval(adr).eval(0L, 0)
+          val shift      = calcW+1 - res0.toLong.toBinaryString.length
+          val resShifted = if(shift > 0) {res0 << shift} else {res0}
+          val res = resShifted - (1<<calcW)
+
+          (-shift.toInt, res)
+        }
 
       } else {
         val dxbp = manW - adrW - 1
         val d    = slice(0, dxbp+1, man) - (SafeLong(1)<<dxbp)
         val adr  = slice(dxbp+1, adrW, man).toInt
-
-//         println(f"man = ${man.toLong.toBinaryString}")
-//         println(f"d   = ${d  .toLong.toBinaryString}")
-//         println(f"adr = ${adr.toLong.toBinaryString}(${adr})")
 
         val halfPiFixed = math.round(Pi * 0.5 * (1<<calcW))
 
@@ -182,17 +178,9 @@ object ACosSim {
         val shift = calcW+2 - res.toLong.toBinaryString.length
         val resShifted = ((res << shift).toLong) >> 1
 
-//         println(f"calcW  = ${calcW}")
-//         println(f"res0   = ${res0.toLong.toBinaryString}")
-//         println(f"res0   = ${res0.toDouble / (1<<calcW)}, pi/2-acos(x) = ${Pi*0.5 - acos(x.toDouble)}")
-//         println(f"halfPi = ${halfPiFixed.toLong.toBinaryString}")
-//         println(f"res0-hp= ${(-res0 + halfPiFixed).toDouble / (1<<calcW)}, acos(x) = ${acos(x.toDouble)}")
-//         println(f"res    = ${res .toLong.toBinaryString}")
-//         println(f"shift  = ${shift}")
-//         println(f"resS   = ${resShifted.toLong.toBinaryString}")
-
-        (-shift+1, resShifted - (1 << calcW))
+        ((-shift+1).toInt, resShifted - (1 << calcW))
       }
+//       println(f"zex    = ${zEx}")
 //       println(f"zman   = ${zman.toLong.toBinaryString}")
 
       val zmanRound = if (extraBits>0) {(zman >> extraBits) + bit(extraBits-1, zman)} else {zman}
@@ -218,7 +206,7 @@ object ACosSim {
     val linearThreshold = math.ceil((-manW - 1) / 3.0).toInt
 
     if (order == 0 || adrW >= manW) {
-      val maxCalcWidth = (-2 to linearThreshold by -1).map(i => {
+      val maxCalcWidth = (-1 to linearThreshold by -1).map(i => {
         val tableD = new FuncTableDouble( x => acos(scalb(1.0 + x, i)), 0)
         tableD.addRange(0.0, 1.0, 1<<adrW)
         val tableI = new FuncTableInt( tableD, fracW ) // convert float table into int
