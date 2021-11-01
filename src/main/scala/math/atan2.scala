@@ -33,6 +33,7 @@ class ATan2Generic(
   val enableRangeCheck : Boolean = true,
   val enablePolynomialRounding : Boolean = false,
 ) extends Module {
+//   printf("=================================\n")
 
   val nStage = stage.total
 
@@ -102,8 +103,9 @@ class ATan2Generic(
 
   // calc 1.m/1.m \in (0.5, 2.0)
 
-  val one_over_x_manW1 = Wire(UInt((manW+1+extraBitsRec).W))
-  val one_over_y_manW1 = Wire(UInt((manW+1+extraBitsRec).W))
+  val calcWRec = manW + extraBitsRec
+  val one_over_x_manW1 = Wire(UInt((calcWRec+1).W))
+  val one_over_y_manW1 = Wire(UInt((calcWRec+1).W))
 
   if(orderRec == 0) {
     val adrX = xman
@@ -113,9 +115,9 @@ class ATan2Generic(
     val tbl = VecInit( (0L to (1L<<adrWRec)-1L).map(
       n => {
         val x = 1.0 + n.toDouble / (1L<<adrWRec)
-        val y = math.round((1.0 / x) * (1L<<manW))
-        assert(y <= (1L << manW))
-        y.U((manW+1).W)
+        val y = math.round((1.0 / x) * (1L<<calcWRec))
+        assert(y <= (1L << calcWRec))
+        y.U((calcWRec+1).W)
       }
     ) )
 
@@ -208,17 +210,29 @@ class ATan2Generic(
   val yOverXRound = Mux(yOverXLessThan1, yOverXMan0(roundBits-2), yOverXMan0(roundBits-1))
   val xOverYRound = Mux(xOverYLessThan1, xOverYMan0(roundBits-2), xOverYMan0(roundBits-1))
 
-  val yOverXManW1 = yOverXShift + yOverXRound
-  val xOverYManW1 = xOverYShift + xOverYRound
+  val yOverXManW1Round = yOverXShift +& yOverXRound
+  val xOverYManW1Round = xOverYShift +& xOverYRound
+  val yOverXMoreThan2 = yOverXManW1Round(manW+1) === 1.U
+  val xOverYMoreThan2 = xOverYManW1Round(manW+1) === 1.U
+
+  val sameMan = xman === yman
+
+  val yOverXManW1 = Mux(sameMan,         (1<<manW).U((manW+1).W),
+                    Mux(yOverXMoreThan2, yOverXManW1Round(manW+1, 1) + yOverXManW1Round(0),
+                                         yOverXManW1Round(manW, 0)))
+  val xOverYManW1 = Mux(sameMan,         (1<<manW).U((manW+1).W),
+                    Mux(xOverYMoreThan2, xOverYManW1Round(manW+1, 1) + xOverYManW1Round(0),
+                                         xOverYManW1Round(manW, 0)))
   val yOverXMan   = yOverXManW1(manW-1, 0);
   val xOverYMan   = xOverYManW1(manW-1, 0);
+
   assert(yOverXManW1.getWidth == manW+1)
   assert(xOverYManW1.getWidth == manW+1)
   assert(yOverXManW1(manW) === 1.U(1.W))
   assert(xOverYManW1(manW) === 1.U(1.W))
 
-  val yOverXEx = Mux(yOverXLessThan1, yOverXEx0 - 1.S, yOverXEx0)
-  val xOverYEx = Mux(xOverYLessThan1, xOverYEx0 - 1.S, xOverYEx0)
+  val yOverXEx = Mux(!sameMan && yOverXLessThan1 && !yOverXMoreThan2, yOverXEx0 - 1.S, yOverXEx0)
+  val xOverYEx = Mux(!sameMan && xOverYLessThan1 && !xOverYMoreThan2, xOverYEx0 - 1.S, xOverYEx0)
 
 //   printf("y/x = %d|%d|%b\n", yOverXSgn, yOverXEx, yOverXMan)
 //   printf("x/y = %d|%d|%b\n", yOverXSgn, xOverYEx, xOverYMan)
@@ -238,7 +252,7 @@ class ATan2Generic(
 
   val linearThreshold = -math.round(math.ceil(manW / 2.0 + 1.0)) // -13, if FP32
   val isYOverXLinear  = !isConstant && yOverXEx < linearThreshold.S
-  val isXOverYLinear  = !isConstant && xOverYEx < linearThreshold.S
+  val isXOverYLinear  = !isConstant && xOverYEx < linearThreshold.S // (-linearThreshold-1).S < yOverXEx
 
   // if y/x < linearThreshold, then z = y/x. if y/x is too small, z = 0.
 
@@ -287,7 +301,7 @@ class ATan2Generic(
     val adrYOverX = yOverXMan
     val adrXOverY = xOverYMan
 
-    val tbl = VecInit( (-1 to linearThreshold.toInt ).map( exponent => {
+    val tbl = VecInit( (-1 to linearThreshold.toInt by -1 ).map( exponent => {
       VecInit((0L to (1L<<adrWATan)-1L).map( n => {
         // atan(x) < x.
         val x = scalb(1.0 + n.toDouble / (1L<<adrWATan), exponent)
@@ -299,19 +313,49 @@ class ATan2Generic(
 
     val atanYOverXScaled = tbl(exAdrYOverX)(adrYOverX)
     val atanXOverYScaled = tbl(exAdrXOverY)(adrXOverY)
-    val atanYOverXScaledMoreThan1 = atanYOverXScaled(calcW) === 1.U
-    val atanXOverYScaledMoreThan1 = atanXOverYScaled(calcW) === 1.U
+    assert(calcW+1 == atanYOverXScaled.getWidth)
+    assert(calcW+1 == atanXOverYScaled.getWidth)
+    val atanYOverXShift = PriorityEncoder(Reverse(atanYOverXScaled))
+    val atanXOverYShift = PriorityEncoder(Reverse(atanXOverYScaled))
 
-    atanYOverXEx    := Mux(atanYOverXScaledMoreThan1, yOverXEx, yOverXEx - 1.S)
-    atanXOverYEx    := Mux(atanXOverYScaledMoreThan1, xOverYEx, xOverYEx - 1.S)
+    val resYOverXEx  = yOverXEx + 1.S - atanYOverXShift.zext
+    val resXOverYEx  = xOverYEx + 1.S - atanXOverYShift.zext
+    val resYOverXMan = (atanYOverXScaled << atanYOverXShift)(calcW, calcW-manW)
+    val resXOverYMan = (atanXOverYScaled << atanXOverYShift)(calcW, calcW-manW)
+    assert(resYOverXMan.getWidth == manW+1)
+    assert(resXOverYMan.getWidth == manW+1)
+    assert(resYOverXMan(manW) === 1.U)
+    assert(resXOverYMan(manW) === 1.U)
 
-    if(extraBitsATan > 0) {
-      atanYOverXManW1 := Mux(atanYOverXScaledMoreThan1, atanYOverXScaled(calcW, extraBitsATan), atanYOverXScaled(calcW-1, extraBitsATan-1))
-      atanXOverYManW1 := Mux(atanXOverYScaledMoreThan1, atanXOverYScaled(calcW, extraBitsATan), atanXOverYScaled(calcW-1, extraBitsATan-1))
+    // ------------------------------------------------------------------------
+    // atan(y/x)
+
+    atanYOverXEx    := resYOverXEx
+    atanYOverXManW1 := resYOverXMan
+
+    // ------------------------------------------------------------------------
+    // calc pi/2 - atan(x/y) = atan(y/x)
+
+
+    val halfPiMan = ((pi_over_2.man.toLong + (1L<<manW)) << 3).U((manW+1+3).W)
+
+    val resXOverYAlign0 = Wire(UInt((manW+1+3).W))
+    if(extraBitsATan >= 3) {
+        resXOverYAlign0 := (resXOverYMan >> (extraBitsATan - 3))(manW+1+3-1, 0)
     } else {
-      atanYOverXManW1 := Mux(atanYOverXScaledMoreThan1, atanYOverXScaled(calcW, 0), Cat(atanYOverXScaled(calcW-1, 0), 0.U(1.W)))
-      atanXOverYManW1 := Mux(atanXOverYScaledMoreThan1, atanXOverYScaled(calcW, 0), Cat(atanXOverYScaled(calcW-1, 0), 0.U(1.W)))
+        resXOverYAlign0 := resXOverYMan << (3 - extraBitsATan)
     }
+    val log2ManW3 = log2Up(manW+1+3)
+    val resXOverYShift = -resXOverYEx(log2ManW3-1, 0)
+    val resXOverYAligned = resXOverYAlign0 >> resXOverYShift
+
+    val halfPiMinusAtanXOverYMan = halfPiMan - resXOverYAligned
+    val halfPiMinusAtanXOverYLessThan1 = halfPiMinusAtanXOverYMan(manW+3) === 0.U(1.W)
+
+    atanXOverYEx    := Mux(halfPiMinusAtanXOverYLessThan1, -1.S((exW+1).W), 0.S((exW+1).W))
+    atanXOverYManW1 := Mux(halfPiMinusAtanXOverYLessThan1,
+      halfPiMinusAtanXOverYMan(manW+2, 2) + halfPiMinusAtanXOverYMan(1),
+      halfPiMinusAtanXOverYMan(manW+3, 3) + halfPiMinusAtanXOverYMan(2))
   } else {
 
     val dxbp = manW - adrWATan - 1
@@ -419,7 +463,7 @@ class ATan2Generic(
   val zYOverXTableEx  = zYOverXTableEx0(exW-1, 0)
   val zXOverYTableEx  = zXOverYTableEx0(exW-1, 0)
 
-  when(isYOverXTable) {assert(atanYOverXManW1(manW) === 1.U(1.W))}
+  when(isYOverXTable) {assert(atanYOverXManW1(manW) === 1.U(1.W))} // XXX
   when(isXOverYTable) {assert(atanXOverYManW1(manW) === 1.U(1.W))}
   val zYOverXTableMan = atanYOverXManW1(manW-1, 0)
   val zXOverYTableMan = atanXOverYManW1(manW-1, 0)
@@ -429,11 +473,11 @@ class ATan2Generic(
 //   printf("selecting ...\n")
 
   assert(isYOverXLinear ^ isYOverXTable ^ isXOverYTable ^ isXOverYLinear ^ isConstant ^ znan)
-//   printf("isYOverXLinear = %b, zYOverXLinearMan = %b\n", isYOverXLinear, zYOverXLinearMan)
-//   printf("isXOverYLinear = %b, zXOverYLinearMan = %b\n", isXOverYLinear, zXOverYLinearMan)
-//   printf("isYOverXTable  = %b, zYOverXTableMan  = %b\n", isYOverXTable , zYOverXTableMan )
-//   printf("isXOverYTable  = %b, zXOverYTableMan  = %b\n", isXOverYTable , zXOverYTableMan )
-//   printf("isConstant     = %b, zConstantMan     = %b\n", isConstant    , zConstantMan    )
+//   printf("isYOverXLinear = %b, zYOverXLinearEx = %b, zYOverXLinearMan = %b\n", isYOverXLinear, zYOverXLinearEx, zYOverXLinearMan)
+//   printf("isXOverYLinear = %b, zXOverYLinearEx = %b, zXOverYLinearMan = %b\n", isXOverYLinear, zXOverYLinearEx, zXOverYLinearMan)
+//   printf("isYOverXTable  = %b, zYOverXTableEx  = %b, zYOverXTableMan  = %b\n", isYOverXTable , zYOverXTableEx , zYOverXTableMan )
+//   printf("isXOverYTable  = %b, zXOverYTableEx  = %b, zXOverYTableMan  = %b\n", isXOverYTable , zXOverYTableEx , zXOverYTableMan )
+//   printf("isConstant     = %b, zConstantEx     = %b, zConstantMan     = %b\n", isConstant    , zConstantEx    , zConstantMan    )
 
   val zMan0 = MuxCase(zYOverXLinearMan, Seq(
     isYOverXTable  -> zYOverXTableMan,
@@ -454,12 +498,18 @@ class ATan2Generic(
   // calc pi - atan(y/x) if x < 0
 
   // FIXME(perf) do not add exBias before this
+  val log2ManW3  = log2Up(1+manW+3)
   val zShift0  = -(zEx0.zext() - exBias.S)
-  val zShift   = zShift0(log2ManW-1, 0)
-  val zAligned = (1.U(1.W) ## zMan0 ## 0.U(2.W)) >> zShift
+  val zShift   = zShift0(log2ManW3-1, 0)
+  val zAligned = Mux(zShift0 > (manW+1+3).S, 0.U((manW+1+3).W),
+                                            (1.U(1.W) ## zMan0 ## 0.U(2.W)) >> zShift)
   val piManW1  = (((1L<<manW) + pi.man.toLong) << 3).U((manW+1+3).W)
 
   val piMinusZMan0 = piManW1 - zAligned
+
+//   printf("piManW1      = %b(w = %d)\n", piManW1      , piManW1     .getWidth.U)
+//   printf("zAligned     = %b(w = %d)\n", zAligned     , zAligned    .getWidth.U)
+//   printf("piMinusZMan0 = %b(w = %d)\n", piMinusZMan0 , piMinusZMan0.getWidth.U)
 
   val piMinusZMan0LessThan2 = piMinusZMan0(manW+3) === 0.U(1.W)
 

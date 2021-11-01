@@ -99,6 +99,20 @@ class ATan2Test extends FlatSpec
     }
   }
 
+  val atan2BF16ReciprocalTableI = ATan2Sim.atan2BF16ReciprocalTableI
+  val atan2BF16ATanTableI       = ATan2Sim.atan2BF16ATanTableI
+
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(), n, r, atan2BF16ReciprocalTableI, atan2BF16ATanTableI,
+    "Test Within y/x > 2^24", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, 24), pow(2.0, 127),_,_))
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(), n, r, atan2BF16ReciprocalTableI, atan2BF16ATanTableI,
+    "Test Within y/x > 2^12",  generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, 12), pow(2.0, 24),_,_))
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(), n, r, atan2BF16ReciprocalTableI, atan2BF16ATanTableI,
+    "Test Within 1 < y/x < 2^12", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(1.0, pow(2.0, 8),_,_))
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(), n, r, atan2BF16ReciprocalTableI, atan2BF16ATanTableI,
+    "Test Within 2^-12 < y/x < 1", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(1.0, pow(2.0, 8),_,_))
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(), n, r, atan2BF16ReciprocalTableI, atan2BF16ATanTableI,
+    "Test Within y/x < 2^-12", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(0.0, pow(2.0, -12),_,_))
+
   val atan2F32ReciprocalTableI = ATan2Sim.atan2F32ReciprocalTableI
   val atan2F32ATanTableI       = ATan2Sim.atan2F32ATanTableI
 
