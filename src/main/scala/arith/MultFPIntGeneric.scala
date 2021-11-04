@@ -32,12 +32,11 @@ class MultFPIntGeneric(
     val y   = Input (UInt(yWidth.W))
     val z   = Output(UInt(zSpec.W.W))
   })
-  printf("x = %b\n", io.x)
 
   val (xsgn,  xex,  xman) = FloatChiselUtil.decomposeWithLeading1(xSpec, io.x)
   val (xzero, xinf, xnan) = FloatChiselUtil.checkValue(xSpec, io.x)
 
-  printf("x = %b|%b(%d)|%b\n", xsgn, xex, xex-xSpec.exBias.U, xman)
+//   printf("x = %b|%b(%d)|%b\n", xsgn, xex, xex-xSpec.exBias.U, xman)
 
   val ysgn = Wire(UInt(1.W))
   val yval = Wire(UInt(yWidth.W))
@@ -53,26 +52,24 @@ class MultFPIntGeneric(
   val yLength = (yWidth-1).U - PriorityEncoder(Reverse(yval))
   val yman    = (yval << ((yWidth-1).U - yLength))(yWidth, 0)
   val yex     = yLength
-  printf("y = %b(%d)\n", io.y, io.y)
-  printf("yWidth  = %d\n", yWidth.U)
-  printf("yLength = %d\n", yLength)
-  printf("y = %b|%b|%b\n", ysgn, yex, yman)
+//   printf("y = %b(%d)\n", io.y, io.y)
+//   printf("yWidth  = %d\n", yWidth.U)
+//   printf("yLength = %d\n", yLength)
+//   printf("y = %b|%b|%b\n", ysgn, yex, yman)
 
   val zzero = xzero.asBool || yval === 0.U
   val zinf  = xinf.asBool
   val znan  = xnan.asBool
   val zsgn0 = (xsgn ^ ysgn)
-  //printf("%x %x\n",  io.x, io.y)
-  //printf("%b %b %b\n",  zzero, zinf, znan)
 
-  printf("zzero, zinf, znan, zsgn0 = %b,%b,%b,%b\n",zzero, zinf, znan, zsgn0)
+//   printf("zzero, zinf, znan, zsgn0 = %b,%b,%b,%b\n",zzero, zinf, znan, zsgn0)
 
   //----------------------------------------------------------------------
   // Mantissa
 
   val prod      = xman * yman
 
-  printf("xman * yman = %b\n", prod)
+//   printf("xman * yman = %b\n", prod)
 
   val bp        = xSpec.manW+yWidth-1
   val roundBits = bp-zSpec.manW
@@ -113,11 +110,9 @@ class MultFPIntGeneric(
   // Final mantissa
   val zman = Mux(exZN || exInf || znan, znan ## 0.U((zSpec.manW-1).W), resMan)
   val zsgn = ( !(exZN || znan) ) && zsgn0.asBool
-  //printf("%x\n", zman)
-
   val z0 = if (zSpec.disableSign) (zex ## zman) else (zsgn ## zex ## zman)
 
-  printf("z = %b|%b(%d)|%b\n", zsgn, zex, zex-zSpec.exBias.U, zman)
+//   printf("z = %b|%b(%d)|%b\n", zsgn, zex, zex-zSpec.exBias.U, zman)
 
   io.z   := ShiftRegister(z0, nStage)
   //printf("x=%x y=%x z=%x\n", io.x, io.y, io.z)
