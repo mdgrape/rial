@@ -31,14 +31,30 @@ object ATan2Sim {
   //
   // linearThreshold : x * 2^-manW > x^3/3 (in FP32, ex <= -13)
   //
-  // atan(1/x) = pi/2 - atan(x)
-  //
   // if x > 2^manW:
   //   atan(x) = pi/2 - atan(1/x) ~ pi/2 - 2^-manW ~ pi/2
   // if x > 2^(-linearThreshold):
   //   atan(x) = pi/2 - atan(1/x) ~ pi/2 - 1/x
   //
   // we need table for 2^-8 ~ 2^8 range for FP32
+  //
+  // atan2(y, x) =
+  //    atan(|y|/|x|)      .. x>0, y>0, |x|>|y|
+  //   -atan(|y|/|x|)      .. x>0, y<0, |x|>|y|
+  //   -atan(|y|/|x|) + pi .. x<0, y>0, |x|>|y|
+  //    atan(|y|/|x|) - pi .. x<0, y<0, |x|>|y|
+  //
+  //    pi/2-atan(|x|/|y|) .. x>0, y>0, |y|>|x|
+  //   -pi/2+atan(|x|/|y|) .. x>0, y<0, |y|>|x|
+  //    pi/2+atan(|x|/|y|) .. x<0, y>0, |y|>|x|
+  //   -pi/2-atan(|x|/|y|) .. x<0, y<0, |y|>|x|
+  //
+  // = ysgn *   atan(|y|/|x|)      .. x>0, |x|>|y|
+  //   ysgn * (-atan(|y|/|x|)+pi)  .. x<0, |x|>|y|
+  //   ysgn * (pi/2-atan(|x|/|y|)) .. x>0, |x|<|y|
+  //   ysgn * (pi/2+atan(|x|/|y|)) .. x<0, |x|<|y|
+  //           ^^^^^^^^^^^^^^^^^^^
+  //           this part is always positive in all the cases
   //
   def atan2SimGeneric( t_rec : FuncTableInt, ts : Seq[FuncTableIntFixedWidth], y : RealGeneric, x : RealGeneric ) : RealGeneric = {
 //     println("==================================================")
@@ -48,24 +64,12 @@ object ATan2Sim {
     val manW   = x.spec.manW
     val exBias = x.spec.exBias
 
-    val xsgn    = x.sgn
-    val xexRaw  = x.ex
-    val xex     = xexRaw-exBias
-    val xman    = x.man
-
-    val ysgn    = y.sgn
-    val yexRaw  = y.ex
-    val yex     = yexRaw-exBias
-    val yman    = y.man
+    val xsgn   = x.sgn
+    val ysgn   = y.sgn
 
 //     println(f"x = ${x.sgn}|${x.ex}(${xex})|${xman.toLong.toBinaryString}")
 //     println(f"y = ${y.sgn}|${y.ex}(${yex})|${yman.toLong.toBinaryString}")
 //     println(f"x = ${x.toDouble}, y = ${y.toDouble}, atan2(y, x) = ${atan2(y.toDouble, x.toDouble)}")
-
-    val pi_1over4 = new RealGeneric(x.spec, Pi * 0.25)
-    val pi_over_2 = new RealGeneric(x.spec, Pi * 0.50)
-    val pi_3over4 = new RealGeneric(x.spec, Pi * 0.75)
-    val pi        = new RealGeneric(x.spec, Pi)
 
     if(x.isNaN || y.isNaN) {
       return RealGeneric.nan(x.spec)
@@ -124,30 +128,36 @@ object ATan2Sim {
     val extraBitsRec = bpRec - manW
     val calcWRec     = bpRec
 
-    val y_over_x_sgn = xsgn ^ ysgn
-    val y_over_x_ex0 = yex - xex
+    // calc y / x if |x|>|y|.
 
-    val x_y_same_man = xman == yman
+    val swapped = slice(0, x.spec.W-1, x.value) < slice(0, x.spec.W-1, y.value)
+    val xexS  = if(swapped) {y.ex } else {x.ex}
+    val yexS  = if(swapped) {x.ex } else {y.ex}
+    val xmanS = if(swapped) {y.man} else {x.man}
+    val ymanS = if(swapped) {x.man} else {y.man}
+
+    val y_over_x_ex0 = yexS - xexS
+    val x_y_same_man = xmanS == ymanS
 
 //     println(f"y_over_x_sgn = ${y_over_x_sgn}")
 //     println(f"y_over_x_ex0 = ${y_over_x_ex0}")
 
     // 1+manW+1 width (x2)
     val one_over_x_manW1 = if (t_rec.nOrder == 0) {
-      val adr  = x.man
+      val adr  = xmanS
       val res0 = t_rec.interval(adr.toInt).eval(0L, 0) // in (0.5, 1]
-      if(x.man == 0) {
+      if(xmanS == 0) {
         1 << calcWRec // just 1
       } else {
         res0 // 2^-1 * 1.m [0.5, 1)
       }
     } else {
       val dxbp = manW - t_rec.adrW - 1
-      val d    = (SafeLong(1) << dxbp) - slice(0, manW - t_rec.adrW, x.man)-1
-      val adr  = (1 << t_rec.adrW) - 1 - slice(manW - t_rec.adrW, t_rec.adrW, x.man).toInt
+      val d    = (SafeLong(1) << dxbp) - slice(0, manW - t_rec.adrW, xmanS)-1
+      val adr  = (1 << t_rec.adrW) - 1 - slice(manW - t_rec.adrW, t_rec.adrW, xmanS).toInt
       val res0 = t_rec.interval(adr.toInt).eval(d.toLong, dxbp)
 
-      if(x.man == 0) {
+      if(xmanS == 0) {
         1 << calcWRec // just 1
       } else {
         res0 // 2^-1 * 1.m [0.5, 1)
@@ -156,14 +166,11 @@ object ATan2Sim {
 //     println(f"1/x ref = ${(1<<manW).toDouble/((1<<manW) + x.man.toInt)}")
 //     println(f"1/x sim = ${one_over_x_manW1.toDouble / (1<<calcWRec)}")
 
-    // 1.m / 1.m is in (0.5, 2) range. required shift is less than 2.
-    // here we already multiplied the denominator(x) by 2, so the resulting
-    // range becomes (0.25, 1).
     val y_over_x_man0 = if(x_y_same_man) { 1L<<(manW+calcWRec) } else {
-      (one_over_x_manW1 * ((1<<manW) + y.man)).toLong
+      (one_over_x_manW1 * ((1<<manW) + ymanS)).toLong
     }
     val y_over_x_man0_clz = (calcWRec) + (1+manW) - y_over_x_man0.toLong.toBinaryString.length
-    assert(y_over_x_man0_clz <= 2)
+    assert(y_over_x_man0_clz <= 1)
 
     val y_over_x_manW1     = roundBySpec(RoundSpec.round, calcWRec - y_over_x_man0_clz, y_over_x_man0)
     val y_over_x_MoreThan2 = bit(manW+1, y_over_x_manW1)
@@ -176,64 +183,6 @@ object ATan2Sim {
     val y_over_x_exBias = y_over_x_ex + exBias
 //     println(f"y_over_x_ex  = ${y_over_x_ex}")
 //     println(f"y_over_x = ref(${y.toDouble/x.toDouble}) = ${new RealGeneric(x.spec, y_over_x_sgn, y_over_x_ex.toInt+exBias, y_over_x_man).toDouble}")
-
-    // ------------------------------------------------------------------
-    // x / y
-
-    val x_over_y_sgn = xsgn ^ ysgn
-    val x_over_y_ex0 = xex - yex
-//     println(f"x_over_y_ex0 = ${x_over_y_ex0}")
-
-    val one_over_y_manW1 = if (t_rec.nOrder == 0) {
-      val adr  = y.man
-      val res0 = t_rec.interval(adr.toInt).eval(0L, 0) // in (0.5, 1]
-      if(bit(manW, res0) == 1) {
-        1 << calcWRec // just 1
-      } else {
-        res0 // 2^-1 * 1.m [0.5, 1)
-      }
-    } else {
-      val dxbp = manW - t_rec.adrW - 1
-      val d    = (SafeLong(1) << dxbp) - slice(0, manW - t_rec.adrW, y.man)-1
-      val adr  = (1 << t_rec.adrW) - 1 - slice(manW - t_rec.adrW, t_rec.adrW, y.man).toInt
-      val res0 = t_rec.interval(adr.toInt).eval(d.toLong, dxbp)
-
-      if(y.man == 0) {
-        1 << calcWRec // just 1
-      } else {
-        res0 // 2^-1 * 1.m [0.5, 1)
-      }
-    }
-//     println(f"1/y ref = ${(1<<manW).toDouble/((1<<manW) + y.man.toInt)}")
-//     println(f"1/y sim = ${one_over_y_manW1.toDouble / (1<<manW)}")
-
-    val x_over_y_man0 =  if(x_y_same_man) { 1L<<(manW+calcWRec) } else {
-      (one_over_y_manW1 * ((1<<manW) + x.man)).toLong
-    }
-    val x_over_y_man0_clz = (calcWRec) + (1+manW) - x_over_y_man0.toLong.toBinaryString.length
-    assert(x_over_y_man0_clz <= 2)
-//     println(f"x/y man0 = ${x_over_y_man0.toLong.toBinaryString}")
-
-    // with leading 1
-    val x_over_y_manW1     = roundBySpec(RoundSpec.round, calcWRec - x_over_y_man0_clz, x_over_y_man0)
-    val x_over_y_MoreThan2 = bit(manW+1, x_over_y_manW1)
-    val x_over_y_man  = if (x_over_y_MoreThan2 == 1) {
-      ((x_over_y_manW1 >> 1) + bit(0, x_over_y_manW1)) - (1 << manW)
-    } else {
-      x_over_y_manW1 - (1 << manW)
-    }
-    val x_over_y_ex   = x_over_y_ex0 - x_over_y_man0_clz + x_over_y_MoreThan2.toInt
-    val x_over_y_exBias = if(x_over_y_ex + exBias < 0) {
-      0
-    } else if ((1<<exW) <= x_over_y_ex + exBias) {
-      maskI(exW)
-    } else {
-      x_over_y_ex + exBias
-    }
-//     println(f"x_over_y_ex = ${x_over_y_ex}")
-//     println(f"x_over_y = ref(${x.toDouble/y.toDouble}) = ${new RealGeneric(x.spec, x_over_y_sgn, x_over_y_ex.toInt + exBias, x_over_y_man).toDouble}")
-//     println(f"y/x = ${y_over_x_sgn}|${y_over_x_exBias}(${y_over_x_ex})|${y_over_x_man.toLong.toBinaryString}")
-//     println(f"x/y = ${x_over_y_sgn}|${x_over_y_exBias}(${x_over_y_ex})|${x_over_y_man.toLong.toBinaryString}")
 
     // ==================================================================
     // calc atan(y/x) = pi/2 - atan(x/y)
@@ -248,49 +197,16 @@ object ATan2Sim {
     val extraBits = bp - manW
     val calcW     = manW + extraBits
 
-    val (atanyx_sgn, atanyx_ex, atanyx_manW1) = if (manW < y_over_x_ex) {
-//       println("2^23 < y_over_x. return pi/2")
+    assert(y_over_x_ex < 0 || (y_over_x_ex == 0 && y_over_x_man == 0))
 
-      // if y/x is enough large (ex > manW), atan(y/x) ~ pi/2
-      (y_over_x_sgn, pi_over_2.ex - exBias, SafeLong(pi_over_2.man.toLong + (1L<<manW)))
-
-    } else if (-linearThreshold-1 < y_over_x_ex) { // here we can use bitwise not
-//       println(f"2^${-linearThreshold-1} < y_over_x. return pi/2 - x/y")
-
-      // if y/x is reasonably large,
-      // atan(y/x) = pi/2 - atan(1/(y/x)) ~ pi / 2 - 1/(y/x).
-      // if y/x.ex = -linearThreshold, x/y.ex = linearThreshold-1.
-      // e.g. if x is in [2^+15, 2^+16), i.e. x.ex = 15,
-      //  then 1/x is in (2^-16, 2^-15], i.e. 1/x.ex = -16.
-
-      // atan(1/x) = pi/2 - atan(x)
-      //           = pi/2 - x + x^3/3 + O(x^5)
-      // In this case, since exponent of pi/2 is 0, we can relax the requirement
-      // for x.
-      val linearThresholdUp = -math.ceil((manW - 4) / 3.0)
-      assert(x_over_y_ex < linearThresholdUp)
-
-      val halfpi_man     = (pi_over_2.man + (1<<manW)) << 3
-      val xy_man_shift   = -x_over_y_ex - 3
-      val xy_man_aligned = (x_over_y_man + (1<<manW)) >> xy_man_shift
-
-      // pi/2 > 1.57_(10) = 1.1001_(2). and here x_over_y_ex < linearThreshold,
-      // and linearThreshold ~ (manW-1)/3. Unless manW is too small, here we
-      // don't need to consider normalization. the result is already normalized.
-
-      val res0 = halfpi_man - xy_man_aligned
-      val res  = roundBySpec(RoundSpec.round, 3, res0)
-
-      (y_over_x_sgn, 0, SafeLong(res.toLong))
-
-    } else if (y_over_x_ex < linearThreshold) {
+    val (atanyx_ex, atanyx_manW1) = if (y_over_x_ex < linearThreshold) {
 //       println(f"y/x < 2^${linearThreshold}. return y/x")
 
       // if y/x is enough small (ex < linearThreshold), atan(y/x) ~ y/x
-      (y_over_x_sgn, y_over_x_ex, SafeLong(y_over_x_manW1.toLong))
+      (y_over_x_ex, SafeLong(y_over_x_manW1.toLong))
 
-    } else if (y_over_x_ex < 0) {
-//       println(f"y/x < 1. return atan(y/x) by using tables")
+    } else {
+//       println(f"y/x <= 1. return atan(y/x) by using tables")
 
       // otherwise, use table for ex is in [linearThreshold, -1].
       // in FP32, ex is in [-12, -1].
@@ -339,124 +255,67 @@ object ATan2Sim {
       }
       val zMan = if (extraBits > 0) {(zMan0 >> extraBits) + bit(extraBits-1, zMan0)} else {zMan0}
 
-      (y_over_x_sgn, zEx, SafeLong(zMan.toLong))
-
-    } else {
-//       println(f"1 < y/x. return pi/2 - atan(x/y) by using tables")
-
-      assert(0 <= y_over_x_ex && y_over_x_ex <= -linearThreshold - 1)
-      assert(linearThreshold <= x_over_y_ex && x_over_y_ex <= -1)
-
-      // use pi/2 - atan(x/y) for ex is positive.
-      //
-      // The table used i the case of ex = [-12, -1] can also be used in case of
-      // ex = [0, 11].
-
-      // -----------------------------------------------------------------------
-      // calc atan(x/y) first, by using the same table used above.
-
-      val exadr     = (-x_over_y_ex - 1).toInt
-      val t         = ts(exadr)
-
-      assert(adrW   == t.adrW)
-      assert(nOrder == t.nOrder)
-      assert(bp     == t.bp)
-
-      if(adrW >= manW && nOrder != 0) {
-        println("WARNING: table address width >= mantissa width, but polynomial order is not zero. Polynomial order is set to zero.")
-      }
-      val order = if(adrW >= manW) { 0 } else { nOrder }
-
-      val (rex, rman) = if (order == 0) {
-        val adr   = x_over_y_man.toInt
-        val res0  = t.interval(adr).eval(0L, 0)
-
-        val scaling = (-x_over_y_ex - 1).toInt
-        val shift = calcW+1 - res0.toLong.toBinaryString.length
-        val res   = res0 << shift
-
-        (-shift - scaling, SafeLong(res))
-      } else {
-        // TODO: here we use negative coefficient in x^2 term.
-
-        val dxbp = manW - adrW - 1
-        val d    = slice(0, dxbp+1, x_over_y_man) - (SafeLong(1)<<dxbp)
-        val adr  = slice(dxbp+1, adrW, x_over_y_man).toInt
-        val res0 = t.interval(adr).eval(d.toLong, dxbp)
-
-        // the result is multiplied by 2^(-ex-1).
-        // if x < 1, atan(x) = x - x^3/3 + x^5/5 + O(x^7) is less than x. So
-        // in case of x is in [2^-8, 2^-7), atan(x) < 2^-7. So we can multiply
-        // atan(x) by 2^7 = 2^(-(-8)-1) to contain more bits. By doing this, we
-        // can keep the same precision in all 2^-8 ~ 2^0 regions.
-        //   We need to correct the exponent term by this scaling term.
-
-        val scaling = (-x_over_y_ex - 1).toInt
-        val shift   = calcW+1 - res0.toLong.toBinaryString.length
-        val res     = res0 << shift // normalize
-
-        (-shift - scaling, SafeLong(res))
-      }
-
-      // -----------------------------------------------------------------------
-      // calculate atan(y/x) = pi/2 - atan(x/y). we already have atan(x/y).
-
-      // here, always |atan(x/y)| < pi/2. we can always anchor halfpi.
-      //
-      // if x in [2^-1, 1), i.e. x.ex = -1, 1/x is in (1, 2], i.e. 1/x.ex = 0.
-      val halfpi_man     = (pi_over_2.man + (1 << manW)) << 3
-      val xy_man_shift   = -rex
-      val xy_man0        = if(extraBits >= 3) {
-        rman >> (extraBits - 3)
-      } else {
-        rman << (3 - extraBits)
-      }
-      val xy_man_aligned = xy_man0 >> xy_man_shift
-
-      val zman0  = halfpi_man - xy_man_aligned
-      val zshift = if(bit(manW+3, zman0) == 0) {1} else {0}
-
-      val zex   = 0 - zshift
-      val zman  = (zman0 >> (3 - zshift)) + bit(3-zshift-1, zman0)
-
-      (y_over_x_sgn, zex, SafeLong(zman.toLong))
+      (zEx, SafeLong(zMan.toLong))
     }
-
 //     println(f"sim: atanyx      = ${atanyx_sgn}|${atanyx_ex}|${(atanyx_manW1 - (1<<manW)).toLong.toBinaryString}")
 //     println(f"sim: atan(|y/x|) = ${new RealGeneric(x.spec, atanyx_sgn, atanyx_ex + exBias, atanyx_manW1 - (1<<manW)).toDouble}")
 //     println(f"ref: atan(|y/x|) = ${atan(y.toDouble / x.toDouble)}")
 
     // ==================================================================
-    // correct x < 0 case.
-    // - if 0 < x,          then atan2(y, x) = atan(y/x).
-    // - if x < 0 && 0 < y, then atan2(y, x) = atan(y/x) + pi, atan2(y,x) < 0
-    // - if x < 0 && y < 0, then atan2(y, x) = atan(y/x) - pi, atan2(y,x) > 0
-    //
-    // -|atan(y/x)| + pi
-    //  |atan(y/x)| - pi = pi - |atan(y/x)|
+    // atan2(y, x)
+    // = ysgn *   atan(|y|/|x|)      .. x>0, |x|>|y|
+    //   ysgn * (-atan(|y|/|x|)+pi)  .. x<0, |x|>|y|
+    //   ysgn * (pi/2-atan(|x|/|y|)) .. x>0, |x|<|y|
+    //   ysgn * (pi/2+atan(|x|/|y|)) .. x<0, |x|<|y|
 
-    if(xsgn == 0) {
-//       println("x > 0. return atan(y/x)")
-      val atanyx_man = atanyx_manW1 - (1<<manW)
-      return new RealGeneric(x.spec, atanyx_sgn, atanyx_ex + exBias, atanyx_man)
+    val zsgn = ysgn
+
+    if(swapped) {
+      val halfpi = new RealGeneric(x.spec, Pi * 0.5)
+      val halfpi_manW1sft3 = (halfpi.man + (1 << manW)) << 3
+      val atan_shift       = -atanyx_ex
+      val atan_aligned     = (atanyx_manW1 << 3) >> atan_shift
+
+      if(xsgn == 0) {
+        val zman0 = halfpi_manW1sft3 - atan_aligned
+        // z is in [0.78 ~ 1.57)
+
+        val zman0LessThan1 = if(bit(manW+3, zman0) == 0) { 1 } else { 0 }
+        val zmanRound = roundBySpec(RoundSpec.round, 3-zman0LessThan1, zman0)
+        val zman = zmanRound - (1<<manW)
+        val zex  = exBias - zman0LessThan1
+
+        return new RealGeneric(x.spec, zsgn, zex, zman)
+      } else {
+        val zman0 = halfpi_manW1sft3 + atan_aligned
+        // z is in [1.57 ~ 2.35), ex is 0 or 1
+        val zman0MoreThan2 = bit(manW+1+3, zman0)
+        val zmanRound = roundBySpec(RoundSpec.round, 3+zman0MoreThan2, zman0)
+        val zman = zmanRound - (1<<manW)
+        val zex  = zman0MoreThan2 + exBias
+
+        return new RealGeneric(x.spec, zsgn, zex, zman)
+      }
     } else {
-//       println("x < 0. correct the result by +/- pi")
-      // x < 0 && 0 < y, atan(y/x) < 0, atan2(y,x) =   pi - |atan(y/x)|
-      // x < 0 && y < 0, atan(y/x) > 0, atan2(y,x) = -(pi - |atan(y/x)|)
-      // since |atan(y/x)| < pi/2, the sign depends only on the sign of y.
-      val zsgn = ysgn
+      if(xsgn == 0) {
+        // ysgn *   atan(|y|/|x|)      .. x>0, |x|>|y|
+        val atanyx_man = atanyx_manW1 - (1<<manW)
+        return new RealGeneric(x.spec, zsgn, atanyx_ex + exBias, atanyx_man)
+      } else {
+        // ysgn * (-atan(|y|/|x|)+pi)  .. x<0, |x|>|y|
 
-      assert(atanyx_ex <= 0)
+        val pi = new RealGeneric(x.spec, Pi)
 
-      // pi.ex = 1
-      val pi_manW1   = (pi.man + (1 << manW)) << 3 // pi = 2^1 * 1.57...
-      val atan_shift = -atanyx_ex
-      val atan_man   = (atanyx_manW1 << 2) >> atan_shift
-      val zman0      = pi_manW1 - atan_man // pi ~ pi/2.
-      val zman0LessThan2 = if(bit(manW+3, zman0) == 0) { 1 } else { 0 }
-      val zman = roundBySpec(RoundSpec.round, 3-zman0LessThan2, zman0)
+        // pi.ex = 1
+        val pi_manW1   = (pi.man + (1 << manW)) << 3 // pi = 2^1 * 1.57...
+        val atan_shift = -atanyx_ex
+        val atan_man   = (atanyx_manW1 << 2) >> atan_shift
+        val zman0      = pi_manW1 - atan_man // pi ~ pi/2.
+        val zman0LessThan2 = if(bit(manW+3, zman0) == 0) { 1 } else { 0 }
+        val zman = roundBySpec(RoundSpec.round, 3-zman0LessThan2, zman0)
 
-      return new RealGeneric(x.spec, zsgn, 1-zman0LessThan2 + exBias, zman - (1<<manW))
+        return new RealGeneric(x.spec, zsgn, 1-zman0LessThan2 + exBias, zman - (1<<manW))
+      }
     }
   }
 
