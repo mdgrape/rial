@@ -17,13 +17,14 @@ import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig._
 import rial.arith._
 
-// atan2(y, x), (floating, floating) input, floating output
+// atan2(y, x), (floating, floating) input, floating output.
 //
-// atan2(y, x) = atan(y/x) +/- (pi/0). we always need to calculate y/x. so we
-// require reciprocal table to calculate 1.m/1.m and also requires atan table
-// to calculate atan(y/x).
-//
-// To reduce the size of atan table, we use atan(1/x) = pi/2 - atan(x).
+// = ysgn *   atan(|y|/|x|)      .. x>0, |x|>|y|
+//   ysgn * (-atan(|y|/|x|)+pi)  .. x<0, |x|>|y|
+//   ysgn * (pi/2-atan(|x|/|y|)) .. x>0, |x|<|y|
+//   ysgn * (pi/2+atan(|x|/|y|)) .. x<0, |x|<|y|
+//           ^^^^^^^^^^^^^^^^^^^
+//           this part is always positive in all the cases
 //
 class ATan2Generic(
   val spec : RealSpec, // Input / Output floating spec
@@ -76,40 +77,36 @@ class ATan2Generic(
 //   printf("x = %d|%d(%d)|%b\n", xsgn, xex, xExNobias, xman)
 //   printf("y = %d|%d(%d)|%b\n", ysgn, yex, yExNobias, yman)
 
-  val znan = (xnan || ynan) || (xzero && yzero)
-
-  val pi_1over4 = new RealGeneric(spec, Pi * 0.25)
-  val pi_over_2 = new RealGeneric(spec, Pi * 0.50)
-  val pi_3over4 = new RealGeneric(spec, Pi * 0.75)
-  val pi        = new RealGeneric(spec, Pi)
-
-  val zzero     = ((xinf && !yinf) || (!xzero && yzero)) && (xsgn === 0.U(1.W))
-  val zpi       = ((xinf && !yinf) || (!xzero && yzero)) && (xsgn === 1.U(1.W))
-  val zhalfpi   = (!xinf && yinf) || (xzero && !yzero)
-  val z1piover4 = (xinf && yinf && (xsgn === 0.U(1.W)))
-  val z3piover4 = (xinf && yinf && (xsgn === 1.U(1.W)))
+  val znan      =  (xnan ||  ynan) || ( xzero &&  yzero)
+  val zzero     = ((xinf && !yinf) || (!xzero &&  yzero)) && (xsgn === 0.U(1.W))
+  val zpi       = ((xinf && !yinf) || (!xzero &&  yzero)) && (xsgn === 1.U(1.W))
+  val zhalfpi   = (!xinf &&  yinf) || ( xzero && !yzero)
+  val z1piover4 = ( xinf &&  yinf  && ( xsgn === 0.U(1.W)))
+  val z3piover4 = ( xinf &&  yinf  && ( xsgn === 1.U(1.W)))
   val isSpecialValue = znan || zzero || zpi || zhalfpi || z1piover4 || z3piover4
   assert(znan ^ zzero ^ zpi ^ zhalfpi ^ z1piover4 ^ z3piover4 ^ !isSpecialValue)
 
   val zSgn = ysgn
 
   // ==========================================================================
-  // calc y / x and x / y
+  // calc y / x or x / y
 //   printf("calculating y/x and x/y ...\n")
 
-  val yOverXSgn = xsgn ^ ysgn
-  val yOverXEx0 = yExNobias -& xExNobias
-  val xOverYEx0 = xExNobias -& yExNobias
+  val swapped = io.x(spec.W-2, 0) < io.y(spec.W-2, 0) // without sign bit
+  val xexS  = Mux(swapped, yExNobias, xExNobias)
+  val yexS  = Mux(swapped, xExNobias, yExNobias)
+  val xmanS = Mux(swapped, yman,      xman)
+  val ymanS = Mux(swapped, xman,      yman)
+
+  val yOverXEx0 = yexS -& xexS
 
   // calc 1.m/1.m \in (0.5, 2.0)
 
   val calcWRec = manW + extraBitsRec
   val one_over_x_manW1 = Wire(UInt((calcWRec+1).W))
-  val one_over_y_manW1 = Wire(UInt((calcWRec+1).W))
 
   if(orderRec == 0) {
-    val adrX = xman
-    val adrY = yman
+    val adrX = xmanS
 
     // 1.0 / 1.m -> (0.5, 1]
     val tbl = VecInit( (0L to (1L<<adrWRec)-1L).map(
@@ -122,14 +119,11 @@ class ATan2Generic(
     ) )
 
     one_over_x_manW1 := tbl(adrX)
-    one_over_y_manW1 := tbl(adrY)
 
   } else {
 
-    val adrX = ~xman(manW-1, manW-adrWRec)
-    val adrY = ~yman(manW-1, manW-adrWRec)
-    val dX  = Cat(xman(manW-adrWRec-1),~xman(manW-adrWRec-2,0)).asSInt
-    val dY  = Cat(yman(manW-adrWRec-1),~yman(manW-adrWRec-2,0)).asSInt
+    val adrX = ~xmanS(manW-1, manW-adrWRec)
+    val dX  = Cat(xmanS(manW-adrWRec-1),~xmanS(manW-adrWRec-2,0)).asSInt
 
     // Create 1/x table for inverted x
     val eps = pow(2.0, -manW)
@@ -139,11 +133,8 @@ class ATan2Generic(
     val (coeffTable, coeffWidth) = tableI.getVectorUnified(1)
 
     val coeffXAll = coeffTable(adrX)
-    val coeffYAll = coeffTable(adrY)
     val coeffX    = getSlices(coeffXAll, coeffWidth)
-    val coeffY    = getSlices(coeffYAll, coeffWidth)
     val coeffXS   = coeffX.map( x => x.zext ) // all positive (x is inverted)
-    val coeffYS   = coeffY.map( x => x.zext )
 
     def hornerC( c: SInt, z: SInt, dx: SInt, enableRounding: Boolean = false ) : SInt = {
       val zw   = z.getWidth
@@ -160,34 +151,23 @@ class ATan2Generic(
       res
     }
     val sX0 = polynomialEvaluationC( coeffXS, dX, enablePolynomialRounding ).asUInt
-    val sY0 = polynomialEvaluationC( coeffYS, dY, enablePolynomialRounding ).asUInt
 
     val oneOverXOvf = sX0 > (1<<bpRec).U
-    val oneOverYOvf = sY0 > (1<<bpRec).U
     val oneOverXUdf = sX0 < (1<<(bpRec-1)).U
-    val oneOverYUdf = sY0 < (1<<(bpRec-1)).U
 
-    one_over_x_manW1 := Mux(xman === 0.U, (1 << bpRec).U((bpRec + 1).W),
+    one_over_x_manW1 := Mux(xmanS === 0.U, (1 << bpRec).U((bpRec + 1).W),
       MuxCase(sX0, Seq(
         oneOverXOvf -> (1 <<  bpRec   ).U((bpRec + 1).W),
         oneOverXUdf -> (1 << (bpRec-1)).U((bpRec + 1).W)
       )))
-    one_over_y_manW1 := Mux(yman === 0.U, (1 << bpRec).U((bpRec + 1).W),
-      MuxCase(sY0, Seq(
-        oneOverYOvf -> (1 <<  bpRec   ).U((bpRec + 1).W),
-        oneOverYUdf -> (1 << (bpRec-1)).U((bpRec + 1).W)
-      )))
   }
-  val xmanW1 = 1.U(1.W) ## xman
-  val ymanW1 = 1.U(1.W) ## yman
-
+  val ymanW1     = 1.U(1.W) ## ymanS
   val yOverXMan0 = ymanW1 * one_over_x_manW1
-  val xOverYMan0 = xmanW1 * one_over_y_manW1
 
   assert(yOverXMan0.getWidth == bpRec+1+manW+1)
-  assert(xOverYMan0.getWidth == bpRec+1+manW+1)
   assert(yOverXMan0(bpRec+1+manW+1-1) === 0.U(1.W)) // < 2
-  assert(xOverYMan0(bpRec+1+manW+1-1) === 0.U(1.W))
+
+//   printf("1/x_man = %b\n", one_over_x_manW1)
 
   // max 1.m / 1.m = 1.111/1.000 < 2
   // min 1.m / 1.m = 1.000/1.111 > 0.5
@@ -199,107 +179,68 @@ class ATan2Generic(
   //  bp+1+manW+1-1
   val bpDiv           = bpRec + manW
   assert(yOverXMan0.getWidth == bpRec+1 + manW+1)
-  assert(xOverYMan0.getWidth == bpRec+1 + manW+1)
   assert(yOverXMan0(bpRec+1 + manW+1 - 1) === 0.U(1.W))
-  assert(xOverYMan0(bpRec+1 + manW+1 - 1) === 0.U(1.W))
   val yOverXLessThan1 = yOverXMan0(bpRec+1 + manW+1 - 2) === 0.U(1.W)
-  val xOverYLessThan1 = xOverYMan0(bpRec+1 + manW+1 - 2) === 0.U(1.W)
   val roundBits   = bpDiv - manW
   val yOverXShift = Mux(yOverXLessThan1, yOverXMan0(bpDiv-1, roundBits-1), yOverXMan0(bpDiv, roundBits))
-  val xOverYShift = Mux(xOverYLessThan1, xOverYMan0(bpDiv-1, roundBits-1), xOverYMan0(bpDiv, roundBits))
   val yOverXRound = Mux(yOverXLessThan1, yOverXMan0(roundBits-2), yOverXMan0(roundBits-1))
-  val xOverYRound = Mux(xOverYLessThan1, xOverYMan0(roundBits-2), xOverYMan0(roundBits-1))
 
   val yOverXManW1Round = yOverXShift +& yOverXRound
-  val xOverYManW1Round = xOverYShift +& xOverYRound
   val yOverXMoreThan2 = yOverXManW1Round(manW+1) === 1.U
-  val xOverYMoreThan2 = xOverYManW1Round(manW+1) === 1.U
 
   val sameMan = xman === yman
 
   val yOverXManW1 = Mux(sameMan,         (1<<manW).U((manW+1).W),
                     Mux(yOverXMoreThan2, yOverXManW1Round(manW+1, 1) + yOverXManW1Round(0),
                                          yOverXManW1Round(manW, 0)))
-  val xOverYManW1 = Mux(sameMan,         (1<<manW).U((manW+1).W),
-                    Mux(xOverYMoreThan2, xOverYManW1Round(manW+1, 1) + xOverYManW1Round(0),
-                                         xOverYManW1Round(manW, 0)))
   val yOverXMan   = yOverXManW1(manW-1, 0);
-  val xOverYMan   = xOverYManW1(manW-1, 0);
 
   assert(yOverXManW1.getWidth == manW+1)
-  assert(xOverYManW1.getWidth == manW+1)
   assert(yOverXManW1(manW) === 1.U(1.W))
-  assert(xOverYManW1(manW) === 1.U(1.W))
 
-  val yOverXEx = Mux(!sameMan && yOverXLessThan1 && !yOverXMoreThan2, yOverXEx0 - 1.S, yOverXEx0)
-  val xOverYEx = Mux(!sameMan && xOverYLessThan1 && !xOverYMoreThan2, xOverYEx0 - 1.S, xOverYEx0)
+  val yOverXEx = Mux(
+    !sameMan && yOverXLessThan1 && !yOverXMoreThan2, yOverXEx0 - 1.S, yOverXEx0)
 
-//   printf("y/x = %d|%d|%b\n", yOverXSgn, yOverXEx, yOverXMan)
-//   printf("x/y = %d|%d|%b\n", yOverXSgn, xOverYEx, xOverYMan)
+//   printf("y/x ManW1Round = %b\n", yOverXManW1Round)
+//   printf("y/x ManW1 = %b\n", yOverXManW1)
+//   printf("y/x Ex    = %d\n", yOverXEx)
 
-  // ==========================================================================
-  // constant (2^manW < x -> z = pi/2)
-//   printf("calculating constant case ...\n")
-
-  val isConstant = manW.S < yOverXEx
-
-  val zConstantEx  = pi_over_2.ex .toLong.U(exW.W)
-  val zConstantMan = pi_over_2.man.toLong.U(manW.W)
+//   printf("y/x = %d|%d|%b\n", ysgn ^ xsgn, yOverXEx, yOverXMan)
 
   // ==========================================================================
+  // calculate atan
+
+  // --------------------------------------------------------------------------
   // linear (x^3 / 6 < x * 2^-manW)
+
 //   printf("calculating linear case ...\n")
 
   val linearThreshold = -math.round(math.ceil(manW / 2.0 + 1.0)) // -13, if FP32
-  val isYOverXLinear  = !isConstant && yOverXEx < linearThreshold.S
-  val isXOverYLinear  = !isConstant && xOverYEx < linearThreshold.S // (-linearThreshold-1).S < yOverXEx
+  val isYOverXLinear  = yOverXEx < linearThreshold.S
 
-  // if y/x < linearThreshold, then z = y/x. if y/x is too small, z = 0.
+  val atanYOverXLinearEx    = yOverXEx    // Wire(SInt((exW+1).W))
+  val atanYOverXLinearManW1 = yOverXManW1 // Wire(UInt((manW+1).W))
+//   atanYOverXLinearEx    := 
+//   atanYOverXLinearManW1 := 
 
-  val yOverXUdf = yOverXEx < -exBias.S
-  val yOverXExBiased = (yOverXEx + exBias.S)(exW-1, 0)
-  val zYOverXLinearEx  = Mux(yOverXUdf, 0.U(exW.W),  yOverXExBiased)
-  val zYOverXLinearMan = Mux(yOverXUdf, 0.U(manW.W), yOverXMan)
-
-  // if x/y > -linearThreshold, then z = pi/2 - x/y
-
-  // always anchor pi/2, 2^0*1.57... = 2^0*1.1001...
-  // normally linearThreshold is smaller than -2, so it does not change the exponent
-
-  val log2ManW  = log2Up(manW) // = 5 (FP32)
-  val halfPiMan = 1.U(1.W) ## pi_over_2.man.toLong.U(manW.W) ## 0.U(3.W)
-
-  val xOverYLinearShift   = ~xOverYEx(log2ManW-1, 0) - 2.U
-  val xOverYLinearAligned = xOverYManW1 >> xOverYLinearShift
-  val zXOverYLinearMan0   = halfPiMan - xOverYLinearAligned
-
-  val zXOverYLinearEx  = exBias.U(exW.W)
-  val zXOverYLinearMan = zXOverYLinearMan0(manW+3-1, 3) + zXOverYLinearMan0(2)
-
-  // ==========================================================================
+  // --------------------------------------------------------------------------
   // use table (2^linearThreshold <= x < 2^-linearThreshold)
 //   printf("calculating table case ...\n")
 
   val isYOverXTable = (linearThreshold.S <= yOverXEx) && (yOverXEx < 0.S) && !isSpecialValue
-  val isXOverYTable = (linearThreshold.S <= xOverYEx) && (xOverYEx < 0.S) && !isSpecialValue
 
   val exAdrW   = log2Up(abs(linearThreshold).toInt)
   val exAdrMax = -linearThreshold - 1
   assert(exAdrMax > 0)
   val exAdrYOverX0 = (-yOverXEx - 1.S)(exAdrW-1, 0)
-  val exAdrXOverY0 = (-xOverYEx - 1.S)(exAdrW-1, 0)
-  val exAdrYOverX  = Mux(exAdrYOverX0 > exAdrMax.U, 0.U, exAdrYOverX0)
-  val exAdrXOverY  = Mux(exAdrXOverY0 > exAdrMax.U, 0.U, exAdrXOverY0)
+  val exAdrYOverX  = Mux(exAdrYOverX0 > exAdrMax.U, 0.U(exAdrW.W), exAdrYOverX0)
 
   val calcW = manW + extraBitsATan
-  val atanYOverXEx    = Wire(SInt((exW+1).W))
-  val atanXOverYEx    = Wire(SInt((exW+1).W))
-  val atanYOverXManW1 = Wire(UInt((manW+1).W))
-  val atanXOverYManW1 = Wire(UInt((manW+1).W))
+  val atanYOverXTableEx    = Wire(SInt((exW+1).W))
+  val atanYOverXTableManW1 = Wire(UInt((manW+1).W))
 
   if(orderATan == 0) {
     val adrYOverX = yOverXMan
-    val adrXOverY = xOverYMan
 
     val tbl = VecInit( (-1 to linearThreshold.toInt by -1 ).map( exponent => {
       VecInit((0L to (1L<<adrWATan)-1L).map( n => {
@@ -312,57 +253,22 @@ class ATan2Generic(
     } ) )
 
     val atanYOverXScaled = tbl(exAdrYOverX)(adrYOverX)
-    val atanXOverYScaled = tbl(exAdrXOverY)(adrXOverY)
     assert(calcW+1 == atanYOverXScaled.getWidth)
-    assert(calcW+1 == atanXOverYScaled.getWidth)
     val atanYOverXShift = PriorityEncoder(Reverse(atanYOverXScaled))
-    val atanXOverYShift = PriorityEncoder(Reverse(atanXOverYScaled))
 
     val resYOverXEx  = yOverXEx + 1.S - atanYOverXShift.zext
-    val resXOverYEx  = xOverYEx + 1.S - atanXOverYShift.zext
     val resYOverXMan = (atanYOverXScaled << atanYOverXShift)(calcW, calcW-manW)
-    val resXOverYMan = (atanXOverYScaled << atanXOverYShift)(calcW, calcW-manW)
     assert(resYOverXMan.getWidth == manW+1)
-    assert(resXOverYMan.getWidth == manW+1)
     assert(resYOverXMan(manW) === 1.U)
-    assert(resXOverYMan(manW) === 1.U)
 
-    // ------------------------------------------------------------------------
-    // atan(y/x)
+    atanYOverXTableEx    := resYOverXEx
+    atanYOverXTableManW1 := resYOverXMan
 
-    atanYOverXEx    := resYOverXEx
-    atanYOverXManW1 := resYOverXMan
-
-    // ------------------------------------------------------------------------
-    // calc pi/2 - atan(x/y) = atan(y/x)
-
-
-    val halfPiMan = ((pi_over_2.man.toLong + (1L<<manW)) << 3).U((manW+1+3).W)
-
-    val resXOverYAlign0 = Wire(UInt((manW+1+3).W))
-    if(extraBitsATan >= 3) {
-        resXOverYAlign0 := (resXOverYMan >> (extraBitsATan - 3))(manW+1+3-1, 0)
-    } else {
-        resXOverYAlign0 := resXOverYMan << (3 - extraBitsATan)
-    }
-    val log2ManW3 = log2Up(manW+1+3)
-    val resXOverYShift = -resXOverYEx(log2ManW3-1, 0)
-    val resXOverYAligned = resXOverYAlign0 >> resXOverYShift
-
-    val halfPiMinusAtanXOverYMan = halfPiMan - resXOverYAligned
-    val halfPiMinusAtanXOverYLessThan1 = halfPiMinusAtanXOverYMan(manW+3) === 0.U(1.W)
-
-    atanXOverYEx    := Mux(halfPiMinusAtanXOverYLessThan1, -1.S((exW+1).W), 0.S((exW+1).W))
-    atanXOverYManW1 := Mux(halfPiMinusAtanXOverYLessThan1,
-      halfPiMinusAtanXOverYMan(manW+2, 2) + halfPiMinusAtanXOverYMan(1),
-      halfPiMinusAtanXOverYMan(manW+3, 3) + halfPiMinusAtanXOverYMan(2))
   } else {
 
     val dxbp = manW - adrWATan - 1
     val adrYOverX = yOverXMan(manW-1, manW-adrWATan)
-    val adrXOverY = xOverYMan(manW-1, manW-adrWATan)
     val dYOverX   = Cat(~yOverXMan(manW-adrWATan-1), yOverXMan(manW-adrWATan-2,0)).asSInt
-    val dXOverY   = Cat(~xOverYMan(manW-adrWATan-1), xOverYMan(manW-adrWATan-2,0)).asSInt
 
     val coeffWidth = (-1 to linearThreshold.toInt by -1).map(exponent => {
       val tableD = new FuncTableDouble( x => scalb(atan(scalb(1.0 + x, exponent)), -exponent-1), orderATan )
@@ -381,11 +287,8 @@ class ATan2Generic(
     }))
 
     val coeffYOverXTable = coeffTables(exAdrYOverX)
-    val coeffXOverYTable = coeffTables(exAdrXOverY)
     val coeffYOverX      = getSlices(coeffYOverXTable(adrYOverX), coeffWidth)
-    val coeffXOverY      = getSlices(coeffXOverYTable(adrXOverY), coeffWidth)
     val coeffSYOverX     = coeffYOverX.map( x => x.asSInt )
-    val coeffSXOverY     = coeffXOverY.map( x => x.asSInt )
 
     def hornerC( c: SInt, z: SInt, dx: SInt, enableRounding: Boolean = false ) : SInt = {
       val zw   = z.getWidth
@@ -402,131 +305,141 @@ class ATan2Generic(
       res
     }
     val s0YOverX = polynomialEvaluationC( coeffSYOverX, dYOverX, enablePolynomialRounding ).asUInt
-    val s0XOverY = polynomialEvaluationC( coeffSXOverY, dXOverY, enablePolynomialRounding ).asUInt
 
     val log2CalcW    = log2Up(calcW)
     val s0YOverXLenS = s0YOverX.getWidth.S - PriorityEncoder(Reverse(s0YOverX)).zext()
-    val s0XOverYLenS = s0XOverY.getWidth.S - PriorityEncoder(Reverse(s0XOverY)).zext()
     val s0YOverXLen  = s0YOverXLenS(log2CalcW-1, 0)
-    val s0XOverYLen  = s0XOverYLenS(log2CalcW-1, 0)
     assert(0.S <= s0YOverXLenS)
-    assert(0.S <= s0XOverYLenS)
 
     val s0YOverXShift = (calcW+1).U(log2CalcW.W) - s0YOverXLen
-    val s0XOverYShift = (calcW+1).U(log2CalcW.W) - s0XOverYLen
     assert(0.U <= s0YOverXShift && s0YOverXShift <= calcW.U)
-    assert(0.U <= s0XOverYShift && s0XOverYShift <= calcW.U)
 
     val resYOverXEx  = yOverXEx + 1.S - s0YOverXShift.zext
-    val resXOverYEx  = xOverYEx + 1.S - s0XOverYShift.zext
     val resYOverXMan = (s0YOverX(calcW, 0) << s0YOverXShift)(calcW, 0)
-    val resXOverYMan = (s0XOverY(calcW, 0) << s0XOverYShift)(calcW, 0)
 
     // ------------------------------------------------------------------------
     // shift/round atan(y/x) and return it
 
-    atanYOverXEx := resYOverXEx
+    atanYOverXTableEx := resYOverXEx
     if(extraBitsATan > 0) {
-      atanYOverXManW1 := resYOverXMan(manW+extraBitsATan, extraBitsATan) + resYOverXMan(extraBitsATan-1)
+      atanYOverXTableManW1 := resYOverXMan(manW+extraBitsATan, extraBitsATan) + resYOverXMan(extraBitsATan-1)
     } else {
-      atanYOverXManW1 := resYOverXMan
+      atanYOverXTableManW1 := resYOverXMan
     }
-
-    // ------------------------------------------------------------------------
-    // calc pi/2 - atan(x/y) = atan(y/x)
-
-    val halfPiMan = ((pi_over_2.man.toLong + (1L<<manW)) << 3).U((manW+1+3).W)
-
-    val resXOverYAlign0 = Wire(UInt((manW+1+3).W))
-    if(extraBitsATan >= 3) {
-        resXOverYAlign0 := (resXOverYMan >> (extraBitsATan - 3))(manW+1+3-1, 0)
-    } else {
-        resXOverYAlign0 := resXOverYMan << (3 - extraBitsATan)
-    }
-    val log2ManW3 = log2Up(manW+1+3)
-    val resXOverYShift = -resXOverYEx(log2ManW3-1, 0)
-    val resXOverYAligned = resXOverYAlign0 >> resXOverYShift
-
-    val halfPiMinusAtanXOverYMan = halfPiMan - resXOverYAligned
-    val halfPiMinusAtanXOverYLessThan1 = halfPiMinusAtanXOverYMan(manW+3) === 0.U(1.W)
-
-    atanXOverYEx    := Mux(halfPiMinusAtanXOverYLessThan1, -1.S((exW+1).W), 0.S((exW+1).W))
-    atanXOverYManW1 := Mux(halfPiMinusAtanXOverYLessThan1,
-      halfPiMinusAtanXOverYMan(manW+2, 2) + halfPiMinusAtanXOverYMan(1),
-      halfPiMinusAtanXOverYMan(manW+3, 3) + halfPiMinusAtanXOverYMan(2))
   }
 
-  val zYOverXTableEx0 = atanYOverXEx + exBias.S((exW+1).W)
-  val zXOverYTableEx0 = atanXOverYEx + exBias.S((exW+1).W)
-  when(isYOverXTable) {assert(zYOverXTableEx0 > 0.S)}
-  when(isXOverYTable) {assert(zXOverYTableEx0 > 0.S)}
-  val zYOverXTableEx  = zYOverXTableEx0(exW-1, 0)
-  val zXOverYTableEx  = zXOverYTableEx0(exW-1, 0)
+  // --------------------------------------------------------------------------
+  // merge atan results
 
-  when(isYOverXTable) {assert(atanYOverXManW1(manW) === 1.U(1.W))} // XXX
-  when(isXOverYTable) {assert(atanXOverYManW1(manW) === 1.U(1.W))}
-  val zYOverXTableMan = atanYOverXManW1(manW-1, 0)
-  val zXOverYTableMan = atanXOverYManW1(manW-1, 0)
+  val pi_1over4 = new RealGeneric(spec, Pi * 0.25) // |x| === |y|
+  val atanEx    = Wire(SInt((exW+1).W))
+  val atanManW1 = Wire(UInt((manW+1).W))
+  atanEx := MuxCase((pi_1over4.ex.toLong).S((exW+1).W), Seq(
+    isYOverXLinear -> atanYOverXLinearEx,
+    isYOverXTable  -> atanYOverXTableEx
+    ))
+  atanManW1 := MuxCase((pi_1over4.man.toLong + (1L<<manW)).U((spec.manW+1).W), Seq(
+    isYOverXLinear -> atanYOverXLinearManW1,
+    isYOverXTable  -> atanYOverXTableManW1
+    ))
+  val atanMan = atanManW1(manW-1, 0)
+  val atanExBiased0 = exBias.S((exW+1).W) + atanEx
+  val atanExBiased  = Mux(atanExBiased0 < 0.S, 0.U(exW), atanExBiased0(exW-1,0))
+
+//   printf("atanYOverXLinearEx = %d\n", atanYOverXLinearEx)
+//   printf("atanYOverXTableEx  = %d\n", atanYOverXTableEx )
+//   printf("pi/4.ex            = %d\n", pi_1over4.ex.toLong.S)
 
   // ==========================================================================
   // select correct one
+  // = ysgn *   atan(|y|/|x|)      .. x>0, |x|>|y|
+  //   ysgn * (-atan(|y|/|x|)+pi)  .. x<0, |x|>|y|
+  //   ysgn * (pi/2-atan(|x|/|y|)) .. x>0, |x|<|y|
+  //   ysgn * (pi/2+atan(|x|/|y|)) .. x<0, |x|<|y|
 //   printf("selecting ...\n")
 
-  assert(isYOverXLinear ^ isYOverXTable ^ isXOverYTable ^ isXOverYLinear ^ isConstant ^ znan)
+  val pi_over_2 = new RealGeneric(spec, Pi * 0.50)
+  val pi_3over4 = new RealGeneric(spec, Pi * 0.75)
+  val pi        = new RealGeneric(spec, Pi)
+
+  assert(isYOverXLinear ^ isYOverXTable ^ znan)
 //   printf("isYOverXLinear = %b, zYOverXLinearEx = %b, zYOverXLinearMan = %b\n", isYOverXLinear, zYOverXLinearEx, zYOverXLinearMan)
-//   printf("isXOverYLinear = %b, zXOverYLinearEx = %b, zXOverYLinearMan = %b\n", isXOverYLinear, zXOverYLinearEx, zXOverYLinearMan)
 //   printf("isYOverXTable  = %b, zYOverXTableEx  = %b, zYOverXTableMan  = %b\n", isYOverXTable , zYOverXTableEx , zYOverXTableMan )
-//   printf("isXOverYTable  = %b, zXOverYTableEx  = %b, zXOverYTableMan  = %b\n", isXOverYTable , zXOverYTableEx , zXOverYTableMan )
-//   printf("isConstant     = %b, zConstantEx     = %b, zConstantMan     = %b\n", isConstant    , zConstantEx    , zConstantMan    )
 
-  val zMan0 = MuxCase(zYOverXLinearMan, Seq(
-    isYOverXTable  -> zYOverXTableMan,
-    isXOverYTable  -> zXOverYTableMan,
-    isXOverYLinear -> zXOverYLinearMan,
-    isConstant     -> zConstantMan
-    ))
-  val zEx0 = MuxCase(zYOverXLinearEx, Seq(
-    isYOverXTable  -> zYOverXTableEx,
-    isXOverYTable  -> zXOverYTableEx,
-    isXOverYLinear -> zXOverYLinearEx,
-    isConstant     -> zConstantEx
-    ))
-//   printf("zEx0             = %d\n", zEx0   )
-//   printf("zMan0            = %b\n", zMan0  )
+  // --------------------------------------------------------------------------
+  // calc pi - atan
 
-  // ---------------------------------------------------------------------
-  // calc pi - atan(y/x) if x < 0
+  val log2ManW3     = log2Up(1+manW+3)
+  val atanShift0Pi  = -atanEx
+  val atanShiftPi   = atanShift0Pi(log2ManW3-1, 0)
+  val atanAlignedPi = Mux(atanShift0Pi > (manW+1+3).S, 0.U((manW+1+3).W),
+                          (0.U(1.W) ## atanManW1 ## 0.U(2.W)) >> atanShiftPi)
+  val piManW1       = (((1L<<manW) + pi.man.toLong) << 3).U((manW+1+3).W)
 
-  // FIXME(perf) do not add exBias before this
-  val log2ManW3  = log2Up(1+manW+3)
-  val zShift0  = -(zEx0.zext() - exBias.S)
-  val zShift   = zShift0(log2ManW3-1, 0)
-  val zAligned = Mux(zShift0 > (manW+1+3).S, 0.U((manW+1+3).W),
-                                            (1.U(1.W) ## zMan0 ## 0.U(2.W)) >> zShift)
-  val piManW1  = (((1L<<manW) + pi.man.toLong) << 3).U((manW+1+3).W)
-
-  val piMinusZMan0 = piManW1 - zAligned
+  val piMinusATanMan0 = piManW1 - atanAlignedPi
 
 //   printf("piManW1      = %b(w = %d)\n", piManW1      , piManW1     .getWidth.U)
 //   printf("zAligned     = %b(w = %d)\n", zAligned     , zAligned    .getWidth.U)
 //   printf("piMinusZMan0 = %b(w = %d)\n", piMinusZMan0 , piMinusZMan0.getWidth.U)
 
-  val piMinusZMan0LessThan2 = piMinusZMan0(manW+3) === 0.U(1.W)
+  val piMinusATanMan0LessThan2 = piMinusATanMan0(manW+3) === 0.U(1.W)
 
-  val piMinusZMan =
-    Mux(piMinusZMan0LessThan2, piMinusZMan0(manW+1+3-3, 2), piMinusZMan0(manW+1+3-2, 3)) +
-    Mux(piMinusZMan0LessThan2, piMinusZMan0(1), piMinusZMan0(2))
-  val piMinusZEx  = (1 + exBias).U(exW.W) - Mux(piMinusZMan0LessThan2, 1.U(1.W), 0.U(1.W))
+  val piMinusATanMan = Mux(piMinusATanMan0LessThan2,
+    piMinusATanMan0(manW+1+3-3, 2) + piMinusATanMan0(1),
+    piMinusATanMan0(manW+1+3-2, 3) + piMinusATanMan0(2))
+  // roundmorethan2?
+  val piMinusATanEx  = exBias.U(exW.W) + (!piMinusATanMan0LessThan2).asUInt
 
-//   printf("piMinusZMan      = %b(w = %d)\n", piMinusZMan , piMinusZMan.getWidth.U)
-//   printf("piMinusZEx       = %b(w = %d)\n", piMinusZEx  , piMinusZEx .getWidth.U)
+  // --------------------------------------------------------------------------
+  // calc pi/2 +/- atan
+  val atanShift0HalfPi  = -atanEx
+  val atanShiftHalfPi   = atanShift0HalfPi(log2ManW3-1, 0)
+  val atanAlignedHalfPi = Mux(atanShift0HalfPi > (manW+1+3).S, 0.U((manW+1+3).W),
+                              (atanManW1 ## 0.U(3.W)) >> atanShiftHalfPi)
+  val halfPiManW1       = (((1L<<manW) + pi_over_2.man.toLong) << 3).U((manW+1+3).W)
+
+//   printf("halfPiManW1 = %b\n", halfPiManW1)
+//   printf("atanAligned = %b\n", atanAlignedHalfPi)
+//   printf("atanEx      = %b\n", atanEx)
+//   printf("atanManW1   = %b\n", atanManW1)
+
+  val halfPiMinusATanMan0 = halfPiManW1 - atanAlignedHalfPi
+  val halfPiMinusATanMan0LessThan1 = halfPiMinusATanMan0(manW+3) === 0.U
+  val halfPiMinusATanManRound = Mux(halfPiMinusATanMan0LessThan1,
+    halfPiMinusATanMan0(manW+1+3-2, 2) +& halfPiMinusATanMan0(1),
+    halfPiMinusATanMan0(manW+1+3-1, 3) +& halfPiMinusATanMan0(2))
+  val halfPiMinusATanManRoundMoreThan2 = halfPiMinusATanManRound(manW+1)
+  val halfPiMinusATanEx  = exBias.U(exW.W) - halfPiMinusATanMan0LessThan1.asUInt + halfPiMinusATanManRoundMoreThan2.asUInt
+  val halfPiMinusATanMan = halfPiMinusATanManRound(manW-1, 0)
+//   printf("halfPiMinusATanMan = %b\n", halfPiMinusATanMan)
+
+  val halfPiPlusATanMan0  = halfPiManW1 +& atanAlignedHalfPi
+  val halfPiPlusATanMan0MoreThan2 = halfPiPlusATanMan0(manW+4) === 1.U
+  val halfPiPlusATanManRound = Mux(halfPiPlusATanMan0MoreThan2,
+    halfPiPlusATanMan0(manW+1+3,   4) +& halfPiPlusATanMan0(3),
+    halfPiPlusATanMan0(manW+1+3-1, 3) +& halfPiPlusATanMan0(2))
+  val halfPiPlusATanManRoundMoreThan2 = halfPiPlusATanManRound(manW+1)
+  val halfPiPlusATanEx   = exBias.U(exW.W) + halfPiPlusATanMan0MoreThan2.asUInt + halfPiPlusATanManRoundMoreThan2.asUInt
+  val halfPiPlusATanMan  = halfPiPlusATanManRound(manW-1, 0)
+
+  // --------------------------------------------------------------------------
+
+//   printf("     atan = %d|%b\n", atanExBiased.zext  - exBias.S, atanMan        )
+//   printf("pi  -atan = %d|%b\n", piMinusATanEx.zext - exBias.S, piMinusATanMan )
+//   printf("pi/2-atan = %d|%b\n", halfPiMinusATanEx.zext - exBias.S, halfPiMinusATanMan)
+//   printf("pi/2+atan = %d|%b\n", halfPiPlusATanEx.zext  - exBias.S, halfPiPlusATanMan)
+  val zMan = Mux(swapped,
+    Mux(xsgn === 1.U, halfPiPlusATanMan, halfPiMinusATanMan),
+    Mux(xsgn === 1.U, piMinusATanMan,    atanMan)
+    )
+  val zEx  = Mux(swapped,
+    Mux(xsgn === 1.U, halfPiPlusATanEx, halfPiMinusATanEx),
+    Mux(xsgn === 1.U, piMinusATanEx,    atanExBiased)
+    )
 
   // ---------------------------------------------------------------------
   // construct z
 
-  val zMan = Mux(xsgn === 0.U(1.W), zMan0, piMinusZMan)
-  val zEx  = Mux(xsgn === 0.U(1.W), zEx0,  piMinusZEx)
-//   printf("xsgn             = %b(w = %d)\n", xsgn , xsgn.getWidth.U )
 //   printf("zEx              = %d(w = %d)\n", zEx  , zEx .getWidth.U )
 //   printf("zMan             = %b(w = %d)\n", zMan , zMan.getWidth.U )
 
