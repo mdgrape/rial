@@ -139,7 +139,6 @@ object ATan2Sim {
     val y_over_x_ex0 = yexS - xexS
     val x_y_same_man = xmanS == ymanS
 
-//     println(f"y_over_x_sgn = ${y_over_x_sgn}")
 //     println(f"y_over_x_ex0 = ${y_over_x_ex0}")
 
     // 1+manW+1 width (x2)
@@ -163,7 +162,7 @@ object ATan2Sim {
         res0 // 2^-1 * 1.m [0.5, 1)
       }
     }
-//     println(f"1/x ref = ${(1<<manW).toDouble/((1<<manW) + x.man.toInt)}")
+//     println(f"1/x ref = ${(1<<manW).toDouble/((1<<manW) + xmanS.toInt)}")
 //     println(f"1/x sim = ${one_over_x_manW1.toDouble / (1<<calcWRec)}")
 
     val y_over_x_man0 = if(x_y_same_man) { 1L<<(manW+calcWRec) } else {
@@ -172,17 +171,20 @@ object ATan2Sim {
     val y_over_x_man0_clz = (calcWRec) + (1+manW) - y_over_x_man0.toLong.toBinaryString.length
     assert(y_over_x_man0_clz <= 1)
 
-    val y_over_x_manW1     = roundBySpec(RoundSpec.round, calcWRec - y_over_x_man0_clz, y_over_x_man0)
-    val y_over_x_MoreThan2 = bit(manW+1, y_over_x_manW1)
-    val y_over_x_man       = if (y_over_x_MoreThan2 == 1) {
-      ((y_over_x_manW1 >> 1) + bit(0, y_over_x_manW1)) - (1 << manW)
+    val y_over_x_round = roundBySpec(RoundSpec.round, calcWRec - y_over_x_man0_clz, y_over_x_man0)
+    val y_over_x_round_MoreThan2 = bit(manW+1, y_over_x_round)
+    val y_over_x_manW1 = if (y_over_x_round_MoreThan2 == 1) {
+      ((y_over_x_round >> 1) + bit(0, y_over_x_round))
     } else {
-      y_over_x_manW1 - (1 << manW)
+      y_over_x_round
     }
-    val y_over_x_ex     = y_over_x_ex0 - y_over_x_man0_clz + y_over_x_MoreThan2.toInt
+    val y_over_x_man    = y_over_x_manW1 - (1 << manW)
+    val y_over_x_ex     = y_over_x_ex0 - y_over_x_man0_clz + y_over_x_round_MoreThan2.toInt
     val y_over_x_exBias = y_over_x_ex + exBias
 //     println(f"y_over_x_ex  = ${y_over_x_ex}")
-//     println(f"y_over_x = ref(${y.toDouble/x.toDouble}) = ${new RealGeneric(x.spec, y_over_x_sgn, y_over_x_ex.toInt+exBias, y_over_x_man).toDouble}")
+//     println(f"y_over_x = ref(${if(swapped){x.toDouble / y.toDouble} else {y.toDouble/x.toDouble}}) = ${new RealGeneric(x.spec, ysgn ^ xsgn, y_over_x_ex.toInt+exBias, y_over_x_man).toDouble}")
+//     println(f"y/x ManW1 = ${y_over_x_manW1.toLong.toBinaryString}")
+//     println(f"y/x ex    = ${y_over_x_ex}")
 
     // ==================================================================
     // calc atan(y/x) = pi/2 - atan(x/y)
@@ -270,6 +272,8 @@ object ATan2Sim {
 
     val zsgn = ysgn
 
+//     println(f"atanyx_ex = ${atanyx_ex}")
+//     println(f"atanyx_manW1 = ${atanyx_manW1.toLong.toBinaryString}")
     if(swapped) {
       val halfpi = new RealGeneric(x.spec, Pi * 0.5)
       val halfpi_manW1sft3 = (halfpi.man + (1 << manW)) << 3
@@ -277,6 +281,7 @@ object ATan2Sim {
       val atan_aligned     = (atanyx_manW1 << 3) >> atan_shift
 
       if(xsgn == 0) {
+        //  ysgn * (pi/2-atan(|x|/|y|)) .. x>0, |x|<|y|
         val zman0 = halfpi_manW1sft3 - atan_aligned
         // z is in [0.78 ~ 1.57)
 
