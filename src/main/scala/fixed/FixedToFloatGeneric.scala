@@ -33,8 +33,6 @@ class FixedToFloatGeneric(
     val z = Output(UInt(zSpec.W.W))
   })
 
-  println("===================================================")
-
   val xzero = ~io.x.orR
   val zSgn  = Wire(UInt(1.W))
   val xabs  = Wire(UInt(xSpec.W.W))
@@ -45,13 +43,9 @@ class FixedToFloatGeneric(
     zSgn := 0.U(1.W)
     xabs := io.x
   }
-  printf("io.x = %b\n", io.x)
-  printf("xabs = %b\n", xabs)
 
   val xclz = PriorityEncoder(Reverse(xabs))
   val xShifted = (xabs << xclz)(xSpec.W-1, 0)
-  printf("xclz = %d\n", xclz)
-  printf("xsft = %b\n", xShifted)
 
   val zexInc = Wire(UInt(1.W))
   val zman0 = Wire(UInt(zSpec.manW.W))
