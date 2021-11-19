@@ -56,7 +56,7 @@ object SqrtSim {
     if (x.isNaN)      return RealGeneric.nan (x.spec)
     if (x.isZero)     return RealGeneric.zero(x.spec)
     if (x.isInfinite) return RealGeneric.inf (x.spec, sgn)
-    if (sgn == 1)     return RealGeneric.nan (x.spec)
+    if (sgn == 1)     return RealGeneric.zero(x.spec)
 
     val zSgn = 0
     val zEx  = (ex >> 1) + exBias

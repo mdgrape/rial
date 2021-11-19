@@ -18,6 +18,8 @@ import rial.arith.RealSpec
 import rial.arith.FloatChiselUtil
 
 // sqrt(x): floating => floating
+// - if x < 0, returns 0.
+//
 // x = 2^e * 1.m
 // sqrt(x) = 2^( e   /2) * sqrt(1.m)           ... e % 2 == 0
 //         = 2^((e-1)/2) * sqrt(1.m) * sqrt(2) ... e % 2 == 1
@@ -63,9 +65,9 @@ class SqrtGeneric(
 
   // sqrt never becomes inf nor underflows. 100 -> 10, 1/100 -> 1/10.
   // sqrt(-0) is not NaN, it is zero.
-  val znan  = xnan || (xneg && !xzero)
+  val znan  = xnan
   val zinf  = xinf
-  val zzero = xzero
+  val zzero = xzero || xneg
 
   val xExNobias = xex - exBias.U
   val zex0 = xExNobias(exW-1) ## xExNobias(exW-1, 1) // arith right shift

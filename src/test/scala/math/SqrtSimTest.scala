@@ -98,7 +98,7 @@ class SqrtSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
         } else if (x.isNaN) {
           assert(zi.isNaN)
         } else if (x.sgn == 1 && !x.isZero) {
-          assert(zi.isNaN)
+          assert(zi.isZero)
         } else {
           if (erri.abs>=2.0) {
             println(f"Error more than 2 LSB : ${x.toDouble}%14.7e : $z0%14.7e ${zi.toDouble}%14.7e $errf%14.7e $erri%f")
