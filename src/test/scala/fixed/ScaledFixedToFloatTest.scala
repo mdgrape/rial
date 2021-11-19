@@ -90,17 +90,31 @@ class ScaledFixedToFloatTest extends FlatSpec
       }
   }
 
-  it should f"Converter signed Q24 to Float with pipereg 0" in {
+  it should f"Scale signed Q24 by large Float with pipereg 0" in {
     convTest( new FixedSpec(32, 24, true, true), RealSpec.Float32Spec, RealSpec.Float32Spec,
       RoundSpec.roundToEven, n, PipelineStageConfig.none(), pow(2.0, 32-24-1), pow(2.0, 128.0))
   }
-//   it should f"Converter signed Q30 to Float with pipereg 0" in {
-//     convTest( new FixedSpec(32, 30, true, true), RealSpec.Float32Spec, RealSpec.Float32Spec,
-//       RoundSpec.roundToEven, n, PipelineStageConfig.none(), pow(2.0, 32-30-1), pow(2.0, 128.0))
-//   }
-//   it should f"Converter signed Q16 to Float with pipereg 0" in {
-//     convTest( new FixedSpec(32, 16, true, true), RealSpec.Float32Spec, RealSpec.Float32Spec,
-//       RoundSpec.roundToEven, n, PipelineStageConfig.none(), pow(2.0, 32-16-1), pow(2.0, 128.0))
-//   }
+  it should f"Scale signed Q24 by comparable Float with pipereg 0" in {
+    convTest( new FixedSpec(32, 24, true, true), RealSpec.Float32Spec, RealSpec.Float32Spec,
+      RoundSpec.roundToEven, n, PipelineStageConfig.none(), pow(2.0, 32-24-1), pow(2.0, 7.0))
+  }
+
+  it should f"Scale signed Q30 by large Float with pipereg 0" in {
+    convTest( new FixedSpec(32, 30, true, true), RealSpec.Float32Spec, RealSpec.Float32Spec,
+      RoundSpec.roundToEven, n, PipelineStageConfig.none(), pow(2.0, 32-30-1), pow(2.0, 128.0))
+  }
+  it should f"Scale signed Q30 by comparable Float with pipereg 0" in {
+    convTest( new FixedSpec(32, 30, true, true), RealSpec.Float32Spec, RealSpec.Float32Spec,
+      RoundSpec.roundToEven, n, PipelineStageConfig.none(), pow(2.0, 32-30-1), pow(2.0, 7.0))
+  }
+
+  it should f"Scale signed Q16 by large Float with pipereg 0" in {
+    convTest( new FixedSpec(32, 16, true, true), RealSpec.Float32Spec, RealSpec.Float32Spec,
+      RoundSpec.roundToEven, n, PipelineStageConfig.none(), pow(2.0, 32-16-1), pow(2.0, 128.0))
+  }
+  it should f"Scale signed Q16 to comparable Float with pipereg 0" in {
+    convTest( new FixedSpec(32, 16, true, true), RealSpec.Float32Spec, RealSpec.Float32Spec,
+      RoundSpec.roundToEven, n, PipelineStageConfig.none(), pow(2.0, 32-16-1), pow(2.0, 7.0))
+  }
 }
 
