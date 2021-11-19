@@ -65,14 +65,10 @@ object ACosSim {
       return RealGeneric.nan(x.spec)
     }
     if(0 <= ex) { // 1 <= |x|
-      if (ex == 0 && man == 0) { // |x| == 1
-        if (sgn == 0) {
-          return new RealGeneric(x.spec, 0.0)
-        } else {
-          return new RealGeneric(x.spec, Pi)
-        }
+      if (sgn == 0) {
+        return new RealGeneric(x.spec, 0.0)
       } else {
-        return RealGeneric.nan(x.spec)
+        return new RealGeneric(x.spec, Pi)
       }
     }
 

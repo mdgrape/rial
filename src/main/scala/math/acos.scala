@@ -18,6 +18,8 @@ import rial.util.PipelineStageConfig._
 import rial.arith._
 
 // acos(x), floating input, floating output
+// - if 1 < x,  return 0
+//      x < -1, return pi
 
 class ACosGeneric(
   val spec : RealSpec, // Input / Output floating spec
@@ -59,9 +61,11 @@ class ACosGeneric(
   val xExNobias = xex.zext() - exBias.S((exW+1).W)
   printf("x = %d|%d(%d)|%b\n", xsgn, xex, xExNobias, xman)
 
-  val znan = xnan || xinf || (xExNobias === 0.S && xman =/= 0.U) || (0.S < xExNobias)
-  val zzero = (xExNobias === 0.S && xman === 0.U) && xsgn === 0.U
-  val zpi   = (xExNobias === 0.S && xman === 0.U) && xsgn === 1.U
+  val xMoreThan1 = 0.S <= xExNobias // if(1 <= |x|), return 0 or pi
+
+  val znan = xnan
+  val zzero = xMoreThan1 && xsgn === 0.U
+  val zpi   = xMoreThan1 && xsgn === 1.U
   assert(znan ^ zzero ^ zpi ^ (!(znan || zzero || zpi)))
 
   val zSgn = 0.U(1.W)
