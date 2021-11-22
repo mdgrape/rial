@@ -79,8 +79,6 @@ class SinPiGeneric(
   //            | -1  ex=0
   //            -2
 
-  val zSgn = (xsgn_ === 1.U) || (xExNobias === 0.S)
-
   // --------------------------------------------------------------------------
   // convert everything into [0, 0.5) (ex = [-inf to -2])
 
@@ -97,16 +95,18 @@ class SinPiGeneric(
     (xExNobias ===  0.S) -> ((halfEx0 << shiftEx0) - (1 << manW).U),
     (xExNobias === -1.S) -> ((halfneg << shiftneg) - (1 << manW).U)
   ))
-  val xex  = MuxCase(xExNobias, Seq(
-    (xExNobias ===  0.S) -> Mux(halfEx0 === 0.U, -exBias.S((exW+1).W), -shiftEx0.zext),
-    (xExNobias === -1.S) -> (-1.S((exW+1).W) - shiftneg.zext)
-  ))
+  val xex  = Mux(xExNobias === -1.S, (-1.S((exW+1).W) - shiftneg.zext),
+             Mux(xExNobias ===  0.S, Mux(halfEx0 === 0.U, -exBias.S((exW+1).W), -shiftEx0.zext),
+                                     xExNobias))
 //   printf("circ xex  = %b(%d)\n", xex,  xex)
 //   printf("circ xman = %b(%d)\n", xman, xman)
 
   val zzero = ((0.S <= xExNobias) && xman_ === 0.U) || // integer input
               (xex === -exBias.S  && xman  === 0.U)    // converted into 0
   val zone  = (xex === -1.S       && xman  === 0.U)    // pi/2
+
+  // RealGeneric does not allow -0
+  val zSgn = !zzero && ((xsgn_ === 1.U) || (xExNobias === 0.S))
 
   // --------------------------------------------------------------------------
   // linear approximation around zero
@@ -161,28 +161,22 @@ class SinPiGeneric(
       VecInit((0L to (1L << adrW)).map(
         n => {
           val x = n.toDouble / (1L<<adrW)
-          val y = round(math.sin(Pi * scalb(1.0 + x, exponent)) * (1L<<bp))
-          if (y >= (1L<<bp)) {
-            println(f"WARNING: mantissa reaches to 2 with n = ${n.toBinaryString}/${(1L<<manW).toBinaryString}(x = ${x})")
-            Fill(bp, 1.U(1.W))
-          } else {
-            y.U(bp.W)
-          }
+          val y = round(scalb(math.sin(Pi * scalb(1.0 + x, exponent)), -exponent-3) * (1L<<bp))
+          assert(y < (1L<<bp))
+          y.U(bp.W)
         }))
       })
     )
     val zres0 = tbl(exAdr)(adr)
-    val shift = PriorityEncoder(Reverse(zres0)) + 1.U
-    val zres  = (zres0 << shift) - (1 << bp).U
+    val zresLessThanHalf = zres0(manW-1) === 0.U
+    val zex0 = Mux(zresLessThanHalf, xex + (1+exBias).S, xex + (2+exBias).S)
+    val zex  = Mux(zex0 < 0.S, 0.U(exW), zex0(exW-1, 0))
 
-    val zman = if (extraBits >= 1) {
-      val zmanRound = zres(bp-1, bp-manW) +& zres(bp-manW-1)
-      Mux(zmanRound(manW), Fill(manW, 1.U(1.W)), zmanRound)
-    } else {
-      zres
-    }
+    val zman = Mux(zresLessThanHalf,
+                  Cat(zres0, 0.U(2.W))(manW-1, 0) - (1<<manW).U,
+                  Cat(zres0, 0.U(1.W))(manW-1, 0) - (1<<manW).U)
 
-    zExTable  := exBias.U - shift
+    zExTable  := zex
     zManTable := zman
   } else { // second order table
     val adr = ~xman(manW-1, manW-adrW)
@@ -242,16 +236,12 @@ class SinPiGeneric(
 
   val zeroFlush = zzero || zone || znan
 
-  val zMan = MuxCase(zManTable, Seq(
-    isLinear  -> zManLinear,
-    zeroFlush -> Cat(znan, Fill(manW-1, 0.U(1.W)))
-  ))
-  val zEx  = MuxCase(zExTable, Seq(
-    isLinear -> zExLinear,
-    znan     -> Fill(exW, 1.U(1.W)),
-    zzero    -> Fill(exW, 0.U(1.W)),
-    zone     -> exBias.U(exW.W)
-  ))
+  val zMan = Mux(zeroFlush, Cat(znan, Fill(manW-1, 0.U(1.W))),
+             Mux(isLinear,  zManLinear, zManTable))
+  val zEx  = Mux(znan,  Fill(exW, 1.U(1.W)),
+             Mux(zzero, Fill(exW, 0.U(1.W)),
+             Mux(zone,  exBias.U(exW.W),
+             Mux(isLinear, zExLinear, zExTable))))
   val z0 = zSgn ## zEx ## zMan
   io.z   := ShiftRegister(z0, nStage)
 }
