@@ -101,8 +101,8 @@ class SinPiTest extends FlatSpec
     }
   }
 
-  val sinPiBF16TableI = SinPiSim.sinPiTableGeneration( 0, 7, 7, 7+2 )
-  val sinPiF32TableI  = SinPiSim.sinPiTableGeneration( 2, 8, 23, 23+6 )
+  val sinPiBF16TableI = SinPiSim.sinPiTableGeneration( 0, 7, 7, 7 )
+  val sinPiF32TableI  = SinPiSim.sinPiTableGeneration( 2, 8, 23, 23+2 )
 
   runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
     n, r, sinPiBF16TableI, "Test Within (     0, 2^-13)", generateRealWithin(0.0,pow(2.0, -13) - pow(2.0, -36),_,_))
