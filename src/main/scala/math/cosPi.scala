@@ -180,39 +180,33 @@ class CosPiGeneric(
       VecInit((0L to (1L << adrW)).map(
         n => {
           val x = n.toDouble / (1L<<adrW)
-          val y = round(math.sin(Pi * scalb(1.0 + x, exponent)) * (1L<<bp))
-          if (y >= (1L<<bp)) {
-            println(f"WARNING: mantissa reaches to 2 with n = ${n.toBinaryString}/${(1L<<manW).toBinaryString}(x = ${x})")
-            Fill(bp, 1.U(1.W))
-          } else {
-            y.U(bp.W)
-          }
+          val y = round(scalb(math.sin(Pi * scalb(1.0 + x, exponent)), -exponent-3) * (1L<<bp))
+          assert(y < (1L<<bp))
+          y.U(bp.W)
         }))
       })
     )
     val zres0 = tbl(exAdr)(adr)
-    val shift = PriorityEncoder(Reverse(zres0)) + 1.U
-    val zres  = (zres0 << shift) - (1 << bp).U
+    val zresLessThanHalf = zres0(manW-1) === 0.U
+    val zex0 = Mux(zresLessThanHalf, xex + (1+exBias).S, xex + (2+exBias).S)
+    val zex  = Mux(zex0 < 0.S, 0.U(exW), zex0(exW-1, 0))
 
-    val zman = if (extraBits >= 1) {
-      val zmanRound = zres(bp-1, bp-manW) +& zres(bp-manW-1)
-      Mux(zmanRound(manW), Fill(manW, 1.U(1.W)), zmanRound)
-    } else {
-      zres
-    }
+    val zman = Mux(zresLessThanHalf,
+                  Cat(zres0, 0.U(2.W))(manW-1, 0) - (1<<manW).U,
+                  Cat(zres0, 0.U(1.W))(manW-1, 0) - (1<<manW).U)
 
-    zExTable  := exBias.U - shift
+    zExTable  := zex
     zManTable := zman
-  } else { // second order table
-    val adr = ~xman(manW-1, manW-adrW)
-    val d   = Cat(xman(manW-adrW-1),~xman(manW-adrW-2,0)).asSInt
 
-    val eps = pow(2.0, -manW)
+  } else { // second order table
+    val adr = xman(manW-1, manW-adrW)
+    val d   = Cat(~xman(manW-adrW-1),xman(manW-adrW-2,0)).asSInt
+
     val coeffWidth = (-2 to linearThreshold by -1).map(exponent => {
-      val tableD = new FuncTableDouble( x => 1.0 - sin(Pi * scalb(2.0 - (x+eps), exponent)), order)
+      val tableD = new FuncTableDouble( x => scalb(sin(Pi * scalb(1.0+x, exponent)), -exponent-3), order)
       tableD.addRange(0.0, 1.0, 1<<adrW)
       val tableI = new FuncTableInt( tableD, bp ) // convert float table into int
-      val w = tableI.getCBitWidth(/*sign mode = */1)
+      val w = tableI.getCBitWidth(/*sign mode = */0)
       println(f"//  width : "+w.mkString("", ", ", ""))
       w
     }).reduce( (lhs, rhs) => {
@@ -221,15 +215,15 @@ class CosPiGeneric(
     println(f"//  maxwidth : "+coeffWidth.mkString("", ", ", ""))
 
     val coeffTables = VecInit((-2 to linearThreshold by -1).map(exponent => {
-      val tableD = new FuncTableDouble( x => 1.0 - sin(Pi * scalb(2.0 - (x+eps), exponent)), order)
+      val tableD = new FuncTableDouble( x => scalb(sin(Pi * scalb(1.0+x, exponent)), -exponent-3), order)
       tableD.addRange(0.0, 1.0, 1<<adrW)
       val tableI = new FuncTableInt( tableD, bp ) // convert float table into int
-      tableI.getVectorWithWidth(coeffWidth, /*sign mode = */1)
+      tableI.getVectorWithWidth(coeffWidth, /*sign mode = */0)
     }))
     val coeffTable = coeffTables(exAdr)
 
     val coeff  = getSlices(coeffTable(adr), coeffWidth)
-    val coeffS = coeff.map( x => x.zext )
+    val coeffS = coeff.map( x => x.asSInt )
 
     def hornerC( c: SInt, z: SInt, dx: SInt, enableRounding: Boolean = false ) : SInt = {
       val zw   = z.getWidth
@@ -248,13 +242,13 @@ class CosPiGeneric(
     }
 
     val res0  = polynomialEvaluationC( coeffS,  d, enablePolynomialRounding ).asUInt
-    val res   = ((1 << bp).U - res0)(bp-1, 0)
-    val shift = PriorityEncoder(Reverse(res)) + 1.U
-    val s0    = (res << shift) - (1 << bp).U
-    val zman  = dropLSB(extraBits, s0) +& s0(extraBits-1)
-
-    zExTable  := exBias.U - shift
-    zManTable := Mux(zman(manW) === 1.U, Fill(manW, 1.U(1.W)), zman) // check overflow
+    val resLessThanHalf = res0(bp-1) === 0.U
+    val zex0 = Mux(resLessThanHalf, xex + (exBias + 1).S, xex + (exBias + 2).S)
+    val zex  = Mux(zex0 < 0.S, 0.U(exW), zex0(exW-1, 0))
+    val zman0 = Mux(resLessThanHalf, Cat(res0, 0.U(2.W))(bp-1, 0), Cat(res0, 0.U(1.W))(bp-1, 0))
+    val zman  = zman0(bp-1, bp-manW) + zman0(bp-manW-1)
+    zExTable  := zex
+    zManTable := zman
   }
 //   printf("zExTable  = %b(%d)\n", zExTable , zExTable)
 //   printf("zManTable = %b(%d)\n", zManTable, zManTable)
@@ -278,6 +272,6 @@ class CosPiFP32(
   nStage: PipelineStageConfig = new PipelineStageConfig,
   enableRangeCheck : Boolean = true,
   enablePolynomialRounding : Boolean = false)
-  extends CosPiGeneric(RealSpec.Float32Spec, 2, 8, 6, nStage,
+  extends CosPiGeneric(RealSpec.Float32Spec, 2, 8, 2, nStage,
                       enableRangeCheck, enablePolynomialRounding) {
 }

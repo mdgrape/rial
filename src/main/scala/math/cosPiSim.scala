@@ -171,26 +171,21 @@ object CosPiSim {
 
       val (zEx, zman) = if (order == 0) {
         val adr   = xman.toInt
-        val res00 = t.interval(adr).eval(0L, 0)
-        // fix range < (1<<bp)
-        val res0  = if(res00 >= (1 << calcW)) {maskL(bp)} else {res00}
-        val shift = calcW+1 - res0.toLong.toBinaryString.length
-        val res   = (res0 << shift).toLong - (1 << calcW)
+        val res0  = t.interval(adr).eval(0L, 0)
+        val lessThanHalf = if(bit(calcW-1, res0) == 0) { 1 } else { 0 }
+        val ex    = xex+2-lessThanHalf
+        val res   = (res0 << (1+lessThanHalf)).toLong - (1 << calcW)
 
-        (-shift, res)
+        (ex.toInt, res)
 
       } else {
         val dxbp = manW-adrW-1
-        val d   = (SafeLong(1)<<dxbp) - slice(0, manW-adrW, xman) - 1
-        val adr = maskI(adrW)-slice(manW-adrW, adrW, xman).toInt
+        val d    = slice(0, manW-adrW, xman) - (SafeLong(1)<<dxbp)
+        val adr  = slice(manW-adrW, adrW, xman).toInt
 
-        val res00= t.interval(adr).eval(d.toLong, dxbp)
-        val res0 =  if(res00 >= (1 << calcW)) {maskL(bp)} else {res00}
-        val res  = (1 << calcW) - res0
-
-        val shift = calcW+1 - res.toLong.toBinaryString.length
-
-        (-shift, (res << shift).toLong - (1 << calcW))
+        val res = t.interval(adr).eval(d.toLong, dxbp)
+        val lessThanHalf = if(bit(calcW-1, res) == 0) { 1 } else { 0 }
+        ((xex+2-lessThanHalf).toInt, (res << (1+lessThanHalf)).toLong - (1L<<calcW))
       }
       val zmanRound = if (extraBits>0) {(zman>>extraBits) + bit(extraBits-1, zman)} else {zman}
 
@@ -213,7 +208,7 @@ object CosPiSim {
 
     if (order == 0 || adrW >= manW) {
       val maxCalcWidth = (-2 to linearThreshold by -1).map(exponent => {
-        val tableD = new FuncTableDouble( x => sin(Pi * scalb(1.0 + x, exponent)), 0)
+        val tableD = new FuncTableDouble( x => scalb(sin(Pi * scalb(1.0 + x, exponent)), -exponent-3), 0 )
         tableD.addRange(0.0, 1.0, 1<<adrW)
         val tableI = new FuncTableInt( tableD, fracW ) // convert float table into int
         tableI.calcWidth
@@ -222,14 +217,13 @@ object CosPiSim {
       })
 
       (-2 to linearThreshold by -1).map( i => {
-        val tableD = new FuncTableDouble( x => sin(Pi * scalb(1.0 + x, i)), 0)
+        val tableD = new FuncTableDouble( x => scalb(sin(Pi * scalb(1.0 + x, i)), -i-3), 0)
         tableD.addRange(0.0, 1.0, 1<<manW)
         new FuncTableIntFixedWidth( tableD, fracW, maxCalcWidth )
       })
     } else {
-      val eps = pow(2.0, -manW)
       val maxCalcWidth = (-2 to linearThreshold by -1).map(exponent => {
-        val tableD = new FuncTableDouble( x => 1.0 - sin(Pi * scalb(2.0 - (x+eps), exponent)), order)
+        val tableD = new FuncTableDouble( x => scalb(sin(Pi * scalb(1.0+x, exponent)), -exponent-3), order )
         tableD.addRange(0.0, 1.0, 1<<adrW)
         val tableI = new FuncTableInt( tableD, fracW ) // convert float table into int
         tableI.calcWidth
@@ -238,16 +232,16 @@ object CosPiSim {
       })
 
       (-2 to linearThreshold by -1).map( i => {
-        val tableD = new FuncTableDouble( x => 1.0 - sin(Pi * scalb(2.0 - (x+eps), i)), order )
+        val tableD = new FuncTableDouble( x => scalb(sin(Pi * scalb(1.0+x, i)), -i-3), order )
         tableD.addRange(0.0, 1.0, 1<<adrW)
         new FuncTableIntFixedWidth( tableD, fracW, maxCalcWidth )
       })
     }
   }
 
-  val cosPiF32TableI = CosPiSim.cosPiTableGeneration( 2, 8, 23, 23+5 )
+  val cosPiF32TableI = CosPiSim.cosPiTableGeneration( 2, 8, 23, 23+2 )
   val cosPiF32Sim = cosPiSimGeneric(cosPiF32TableI, _ )
 
-  val cosPiBF16TableI = CosPiSim.cosPiTableGeneration( 0, 7, 7, 7+2 )
+  val cosPiBF16TableI = CosPiSim.cosPiTableGeneration( 0, 7, 7, 7 )
   val cosPiBF16Sim = cosPiSimGeneric(cosPiBF16TableI, _ )
 }

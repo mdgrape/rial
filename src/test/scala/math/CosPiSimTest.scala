@@ -97,7 +97,7 @@ class CosPiSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
           else if (erri<= -1.0) {
             err1lsbNeg+=1
           }
-          assert(erri.abs <= tolerance.toDouble || (zd - z0).abs < pow(2.0, -spec.manW))
+          assert(erri.abs <= pow(2.0, tolerance) || errf.abs <= pow(2.0, -spec.manW)) // XXX: fixed-point accuracy
 
           if (maxError < erri.abs) {
             maxError = erri.abs
@@ -112,22 +112,21 @@ class CosPiSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
     }
   }
 
-  val cosPiF32TableI = CosPiSim.cosPiTableGeneration( 2, 8, 23, 23+5 )
+  val cosPiF32TableI = CosPiSim.cosPiTableGeneration( 2, 8, 23, 23+2 )
 
   cosPiTest(cosPiF32TableI, RealSpec.Float32Spec, n, r,
      "Test Within [-1, 0]", generateRealWithin(-1.0, 0.0,_,_), 2)
-
   cosPiTest(cosPiF32TableI, RealSpec.Float32Spec, n, r,
     "Test Within [0, 0.5]", generateRealWithin(0.0, 0.5-pow(2.0, -23),_,_), 2)
   cosPiTest(cosPiF32TableI, RealSpec.Float32Spec, n, r,
-    "Test Within [0.5-2^-9, 0.5]", generateRealWithin(0.5 - pow(2.0, -9), 0.5-pow(2.0, -23),_,_), 1)
+    "Test Within [0.5-2^-9, 0.5]", generateRealWithin(0.5 - pow(2.0, -9), 0.5-pow(2.0, -23),_,_), 2)
   cosPiTest(cosPiF32TableI, RealSpec.Float32Spec, n, r,
-    "Test Within [0.5-2^-5, 0.5]", generateRealWithin(0.5 - pow(2.0, -5), 0.5-pow(2.0, -23),_,_), 1)
+    "Test Within [0.5-2^-5, 0.5]", generateRealWithin(0.5 - pow(2.0, -5), 0.5-pow(2.0, -23),_,_), 2)
 
   cosPiTest(cosPiF32TableI, RealSpec.Float32Spec, n, r,
-    "Test Within [2^-1, 1]", generateRealWithin(0.5, 1.0,_,_), 1)
+    "Test Within [2^-1, 1]", generateRealWithin(0.5, 1.0,_,_), 2)
   cosPiTest(cosPiF32TableI, RealSpec.Float32Spec, n, r,
-    "Test Within [1, 2]", generateRealWithin(1.0, 2.0,_,_), 1)
+    "Test Within [1, 2]", generateRealWithin(1.0, 2.0,_,_), 2)
 
 //   val cosPiBF16TableI = CosPiSim.cosPiTableGeneration(0, 7, 7, 7 ) // [1,2) + [2,4) + 1.0
 //
