@@ -58,6 +58,10 @@ class SqrtSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
   def sqrtTest(t: FuncTableInt, spec : RealSpec, n : Int, r : Random,
     generatorStr : String, generator : ( (RealSpec, Random) => RealGeneric) ) = {
     test(s"sqrt(x), format ${spec.toStringShort}, ${generatorStr}") {
+      var maxError   = 0.0
+      var xatMaxError = 0.0
+      var zatMaxError = 0.0
+
       var err1lsbPos = 0
       var err1lsbNeg = 0
       for(i <- 1 to n) {
@@ -83,9 +87,6 @@ class SqrtSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
           val zrefexp = slice(spec.manW, spec.exW, z0r.value)
           val zrefman = z0r.value & maskSL(spec.manW)
 
-//           val zref = new RealGeneric(spec, zrefsgn, zrefexp.toInt, zrefman.toInt)
-//           val zrefd = zref.toDouble
-
           println(f"gen = ${x0}")
           println(f"ref = ${z0}, ref^2 = ${z0*z0}")
           println(f"sim = ${zd}, sim^2 = ${zd*zd}")
@@ -104,10 +105,18 @@ class SqrtSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
             println(f"Error more than 2 LSB : ${x.toDouble}%14.7e : $z0%14.7e ${zi.toDouble}%14.7e $errf%14.7e $erri%f")
           } else if (erri>=1.0) err1lsbPos+=1
           else if (erri<= -1.0) err1lsbNeg+=1
-          assert(erri.abs<=1)
+//           assert(erri.abs<=1)
+          assert(erri.abs<=3)
+
+          if (maxError < erri.abs) {
+            maxError = erri.abs
+            xatMaxError = x0
+            zatMaxError = zd
+          }
         }
         //println(f"$x%14.7e : $z0%14.7e $z%14.7e $errf%14.7e $erri%d")
       }
+      println(f"N=$n%d : the largest error is ${maxError.toInt}%d where the value is ${zatMaxError} != ${math.sqrt(xatMaxError)} diff = ${zatMaxError - math.sqrt(xatMaxError)}")
       println(f"N=$n%d : 1LSB errors positive $err1lsbPos%d / negative $err1lsbNeg%d")
     }
   }
