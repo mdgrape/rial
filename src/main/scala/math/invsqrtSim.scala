@@ -36,17 +36,13 @@ object InvSqrtSim {
     val exRaw  = x.ex
     val sgn    = x.sgn
     val ex     = exRaw-exBias
-    val man    = if (bit(0, ex) == 1) {
-      (x.man << 1) + (1 << x.spec.manW)
-    } else {
-      x.man
-    }
-    val emanW = manW + 2
+    val manW1  = x.man + (1<<x.spec.manW)
+    val man    = if (bit(0, ex) == 1) { manW1 >> 1 } else { manW1 >> 2 }
 
-    if (x.isNaN)      return RealGeneric.nan(x.spec)
-    if (x.isZero)     return RealGeneric.inf(x.spec, sgn)
-    if (x.isInfinite) return RealGeneric.zero(x.spec)
-    if (sgn == 1)     return RealGeneric.nan(x.spec)
+    if (x.isNaN)      {return RealGeneric.nan(x.spec)}
+    if (x.isZero)     {return RealGeneric.inf(x.spec, sgn)}
+    if (x.isInfinite) {return RealGeneric.zero(x.spec)}
+    if (sgn == 1)     {return RealGeneric.inf(x.spec, sgn)}
 
     val zSgn = 0
     val zEx  = exBias - (ex >> 1) - 1
@@ -66,37 +62,23 @@ object InvSqrtSim {
         println("WARNING: table address width < mantissa width, for polynomial order is zero. address width set to mantissa width.")
       }
       val adr = man.toInt
-      t.interval(adr).eval(0L, 0) - (1 << calcW)
+      t.interval(adr).eval(0L, 0)
     } else {
-      //      +- address part
-      //      |        +- fraction part (from 00..0 to 11..1): dxbp
-      //   .--+--. .---+---.
-      // 1.xxxxxxx|xxxxxxxxx00
-      //   <--------------->  : manW
-      //   <----->            : adrW
-      //           <------->  : manW - adrW
-      //                    <>: extraBits
-      //           <--------->: calcW
-
-      // To make all the coefficients positive (to reduce complexity of multiplier),
-      // we convert invsqrt(x) to sqrt(-x).
-
-      val dxbp = emanW-adrW-1
-      // we subtract 1 to convert 0 -> 1111(-1), not 0 -> 0
-      val d   = (SafeLong(1)<<dxbp) - slice(0, emanW-adrW, man) - 1
-      val adr = maskI(adrW)-slice(emanW-adrW, adrW, man).toInt
-
-      t.interval(adr).eval(d.toLong, dxbp) - (1 << calcW)
+      val dxbp = manW-adrW-1
+      val d    = slice(0, manW-adrW, man) - (SafeLong(1)<<dxbp)
+      val adr  = slice(manW-adrW, adrW, man).toInt
+      val res  = t.interval(adr).eval(d.toLong, dxbp)
+      res.toLong
     }
     // Simple rounding
     val zmanRound = if (extraBits>0) { (zman>>extraBits) + bit(extraBits-1, zman)} else zman
     //println(f"zman=${zman}%h")
 
     val z = if (zman<0) {
-      println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=$x%h")
+      println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=${x.toDouble}")
       0L
     } else if (zmanRound >= (1L<<manW)) {
-      println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=$x%h")
+      println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=${x.toDouble}")
       maskL(manW)
     } else {
       zmanRound
@@ -105,16 +87,9 @@ object InvSqrtSim {
   }
 
   def invsqrtTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int ) = {
-    if (order == 0) {
-      val tableD = new FuncTableDouble( x => 2.0 / sqrt(1.0+x*4), order )
-      tableD.addRange(0.0, 1.0, 1<<(manW+2))
-      new FuncTableInt( tableD, fracW )
-    } else {
-      val eps=pow(2.0,-(manW+2))
-      val tableD = new FuncTableDouble( x => 2.0 / sqrt(4.0-(x+eps)*4.0 + 1.0), order )
-      tableD.addRange(0.0, 1.0, 1<<adrW)
-      new FuncTableInt( tableD, fracW )
-    }
+    val tableD = new FuncTableDouble( x => if(x<0.25) {0} else {2.0/sqrt(x*4) - 1.0}, order )
+    tableD.addRange(0.0, 1.0, 1<<adrW)
+    new FuncTableInt( tableD, fracW )
   }
 
   val invsqrtF32TableI = InvSqrtSim.invsqrtTableGeneration( 2, 8, 23, 23+2 )
