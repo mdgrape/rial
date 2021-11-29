@@ -48,6 +48,12 @@ class InvSqrtTest extends FlatSpec
     val x = new RealGeneric(spec, rD)
     new RealGeneric (spec, (x.value & (maskSL(spec.exW+1)<<spec.manW)) + SafeLong(BigInt(spec.manW, r)))
   }
+  def generateReal1to4( spec: RealSpec, r : Random ) = {
+    val rD : Double = (r.nextDouble()*3.0)+1.0
+    val x = new RealGeneric(spec, rD)
+    new RealGeneric (spec, (x.value & (maskSL(spec.exW+1)<<spec.manW)) + SafeLong(BigInt(spec.manW, r)))
+  }
+
 
   def generateRealFull ( spec: RealSpec, r : Random ) = {
     new RealGeneric (spec, SafeLong(BigInt(spec.W, r)))
@@ -65,7 +71,7 @@ class InvSqrtTest extends FlatSpec
     val pipeconfig = stage.getString
     val reference  = InvSqrtSim.invsqrtSimGeneric( table, _ )
     it should f"1/sqrt(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
-      test( new InvSqrtGeneric(spec, table.nOrder, table.adrW, table.bp-spec.manW, stage, false, false)) { c =>
+      test( new InvSqrtGeneric(spec, table.nOrder, table.adrW-1, table.bp-spec.manW, stage, false, false)) { c =>
         {
           val nstage = c.getStage
           val q  = new Queue[(BigInt,BigInt)]
@@ -110,13 +116,16 @@ class InvSqrtTest extends FlatSpec
   }
 
   val invsqrtBF16TableI = InvSqrtSim.invsqrtTableGeneration( 0, 7, 7, 7 )
-  val invsqrtF32TableI = InvSqrtSim.invsqrtTableGeneration( 2, 8, 23, 23+2 )
-
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(), n, r, invsqrtBF16TableI,
+    "Test Within (1,4)",generateReal1to4(_,_))
   runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(), n, r, invsqrtBF16TableI,
     "Test Within (-128,128)",generateRealWithin(128.0,_,_))
   runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(), n, r, invsqrtBF16TableI,
     "Test All range",generateRealFull(_,_) )
 
+  val invsqrtF32TableI = InvSqrtSim.invsqrtTableGeneration( 2, 8, 23, 23+2 )
+  runtest(RealSpec.Float32Spec, PipelineStageConfig.none(), n, r, invsqrtF32TableI,
+    "Test Within (1,4)",generateReal1to4(_,_))
   runtest(RealSpec.Float32Spec, PipelineStageConfig.none(), n, r, invsqrtF32TableI,
     "Test Within (-128,128)",generateRealWithin(128.0,_,_))
   runtest(RealSpec.Float32Spec, PipelineStageConfig.none(), n, r, invsqrtF32TableI,

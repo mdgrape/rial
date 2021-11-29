@@ -73,39 +73,34 @@ class InvSqrtGeneric(
   // 2^ExMin --invsqrt-> 2^-ExMin/2, does not overflow
   // 2^ExMax --invsqrt-> 2^-ExMax/2, does not underflow
 
-  val znan  = xnan || (xneg && !xzero)
-  val zinf  = xzero
+  val znan  = xnan
+  val zinf  = xzero || (xneg && !xzero)
   val zzero = xinf
 
   val xExNobias = xex - exBias.U
   val xExHalf   = xExNobias(exW-1) ## xExNobias(exW-1, 1) // arith right shift
   val zEx0      = ~xExHalf // -(xex>>1)-1 = ~(xex>>1)+1-1 = ~(xex>>1)
   val zEx  = Mux(zinf || znan, maskU(exW), Mux(zzero, 0.U(exW.W), zEx0 + exBias.U))
-  val zSgn = Mux(xzero || (xinf && !xnan), xsgn, 0.U(1.W))
-  // Note that xinf === true.B even if x is nan. to avoid it (the simulator does
-  // not care about the sign of NaN), we need to check !nan here.
+  val zSgn = Mux(xnan, 0.U(1.W),
+             Mux(xzero || (xinf && !xnan) || xneg, xsgn, 0.U(1.W)))
 
   // --------------------------------------------------------------------------
   // mantissa calculation
-  //
-  // ex==even: 1.xxxx..x: [1, 2) -> 0.xxxx..x: [0, 1) ->    0 .xxxx..x: [0, 1)
-  // ex==odd: 1x.xxx..x0: [2, 4) -> x.xxx..x0: [0, 2) -> (1+x).xxx..x0: [1, 3)
 
-  val man_even = 0.U(2.W) ## xman(manW-1, 0)
-  val man_odd  = Mux(xman(manW-1)===1.U, 2.U(2.W), 1.U(2.W)) ## xman(manW-2, 0) ## 0.U(1.W)
-  val man = Mux(xExNobias(0) === 1.U(1.W), man_odd, man_even)
-  val emanW = manW + 2
-  // in tests, since this class is constructed from generated table in sqrtSim,
-  // adrW is already extended.
+  val man = io.x(manW, 0) // include LSB of x.ex
 
   val z0 = Wire(UInt(spec.W.W))
 
   if (order<=0) { // generate fixed-sized table. no calculation needed.
-    val adr = man(emanW-1, emanW-adrW) // take MSBs as an address
+    val adr = man
 
-    val tbl = VecInit( (0L to 3L<<(adrW-2)).map(
+    val tbl = VecInit( (0L to 1L<<(adrW+1)).map(
       n => {
-        val x = 1.0 + (n.toDouble / (1L<<adrW))*4.0
+        val x = if (n < (1L<<adrW)) {
+          (n.toDouble / (1L<<(adrW+1))) * 4.0 + 2.0 // 0.0~0.499 -> 2.0~3.999
+        } else {
+          (n.toDouble / (1L<<(adrW+1))) * 2.0       // 0.5~0.999 -> 1.0~1.999
+        }
         val y = round((2.0 / math.sqrt(x)-1.0) * (1L<<manW))
         if (y >= (1L<<manW)) {
           println("WARNING: mantissa reaches to 2")
@@ -122,25 +117,21 @@ class InvSqrtGeneric(
     z0 := zSgn ## zEx ## Mux(zeroFlush, znan ## 0.U((manW-1).W), zman)
   } else {
     // Fractional part by Polynomial
-    val adr = ~man(emanW-1, emanW-adrW)
-    val d   = Cat(man(emanW-adrW-1),~man(emanW-adrW-2,0)).asSInt
-//     printf("xman = %b(%d)\n", xman, xman)
-//     printf("d    = %b(%d)\n", d, d)
-//     printf("adr  = %b(%d)\n", adr, adr)
+    val adr = man((manW+1)-1, (manW+1)-(adrW+1))
+    val d   = Cat(~man((manW+1)-(adrW+1)-1), man((manW+1)-(adrW+1)-2,0)).asSInt
 
-    // TODO: make table a bit smaller. since the mantissa takes only [0, 3) range,
-    //       coefficients for [3, 4) is redundant.
-    val eps = pow(2.0, -emanW)
-    val tableD = new FuncTableDouble( x => 2.0 / sqrt(4.0-(x+eps)*4.0 + 1.0), order )
-    tableD.addRange(0.0, 1.0, 1<<adrW) // gen table, dividing the range [0,1]
+    val tableD = new FuncTableDouble(
+      x => if(x<0.5) { (2.0/sqrt(x*4.0+2.0))-1.0 } else { (2.0/sqrt(x*2.0))-1.0 }, order )
+    tableD.addRange(0.0, 1.0, 1<<(adrW+1)) // gen table, dividing the range [0,1]
     val tableI = new FuncTableInt( tableD, bp ) // convert float table
-    val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/1)
+
+    val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/0)
     // signMode=0 : always include sign bit
     // signMode=1 : 2's complement and no sign bit (if possible)
     // signMode=2 : absolute and no sign bit (if possible)
 
     val coeff  = getSlices(coeffTable(adr), coeffWidth)
-    val coeffS = coeff.map( x => x.zext )
+    val coeffS = coeff.map( x => x.asSInt )
 
     def hornerC( c: SInt, z: SInt, dx: SInt, enableRounding: Boolean = false ) : SInt = {
       val zw   = z.getWidth
@@ -180,9 +171,8 @@ class InvSqrtGeneric(
 //     printf("s0  : %b(%d), width=%d\n", s0,    s0, s0.getWidth.U)
 
     val zman  = dropLSB(extraBits, s0) + s0(extraBits-1)
-    val polynomialOvf = zman.head(2) === 1.U
-    val polynomialUdf = zman.head(1) === 1.U
-    val zeroFlush = zinf || zzero || polynomialUdf || znan
+    val polynomialOvf = zman(manW)
+    val zeroFlush = zinf || zzero || znan
     val zman_checkovf = Mux(polynomialOvf, Fill(manW,1.U(1.W)), zman(manW-1,0))
 
 //     printf("zman: %b(%d), width=%d\n", zman , zman , zman .getWidth.U)
