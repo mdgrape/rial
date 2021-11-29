@@ -24,7 +24,7 @@ object SqrtSim {
 
   // [1, 4) -> [1, 2)
   def sqrtSimGeneric( t : FuncTableInt, x: RealGeneric ) : RealGeneric = {
-    val adrW   = t.adrW
+    val adrW   = t.adrW // XXX this is already +1-ed. see sqrtTableGeneration
     val nOrder = t.nOrder
     val bp     = t.bp
 
@@ -36,10 +36,9 @@ object SqrtSim {
     val exRaw  = x.ex
     val sgn    = x.sgn
     val ex     = exRaw-exBias
-    val manW1  = x.man + (1<<x.spec.manW)
-    val man    = if (bit(0, ex) == 1) { manW1 >> 1 } else { manW1 >> 2 }
+    val man    = slice(0, manW+1, x.value) // even -> x.man, odd -> x.manW1
 
-//     println(f"x    = ${sgn}|${x.ex}(${ex})|${x.man.toLong.toBinaryString}")
+//     println(f"x    = ${x.toDouble}(${sgn}|${x.ex}(${ex})|${x.man.toLong.toBinaryString})")
 //     println(f"xman = ${man.toLong.toBinaryString}")
 
     if (x.isNaN)      {return RealGeneric.nan (x.spec)}
@@ -67,11 +66,10 @@ object SqrtSim {
       val adr = man.toInt
       t.interval(adr).eval(0L, 0)
     } else {
-      val dxbp = manW-adrW-1
-      val d    = slice(0, manW-adrW, man) - (SafeLong(1)<<dxbp)
-      val adr  = slice(manW-adrW, adrW, man).toInt
+      val dxbp = (manW+1)-adrW-1
+      val d    = slice(0, (manW+1)-adrW, man) - (SafeLong(1)<<dxbp)
+      val adr  = slice((manW+1)-adrW, adrW, man).toInt
       val res  = t.interval(adr).eval(d.toLong, dxbp)
-
       res.toLong
     }
     // Simple rounding
@@ -93,15 +91,16 @@ object SqrtSim {
   }
 
   def sqrtTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int ) = {
-    if (order == 0) {
-      val tableD = new FuncTableDouble( x => sqrt(x*4.0) - 1.0, order )
-      tableD.addRange(0.0, 1.0, 1<<manW)
-      new FuncTableInt( tableD, fracW )
-    } else {
-      val tableD = new FuncTableDouble( x => sqrt(x*4.0) - 1.0, order )
-      tableD.addRange(0.0, 1.0, 1<<adrW)
-      new FuncTableInt( tableD, fracW )
-    }
+    // to distinguish ex=odd and ex=even cases, we use the LSB of exbit at the
+    // top of the table address.
+    //
+    // XXX: assuming exBias is odd. That means that, in case of exNobias == 0,
+    //      the MSB is 1.
+    val tableD = new FuncTableDouble(
+      x => if(x<0.5) { sqrt(x*4.0+2.0)-1.0 } else { sqrt(x*2.0)-1.0 }, order )
+
+    tableD.addRange(0.0, 1.0, 1<<(adrW+1)) // this makes resulting table adrW+1
+    new FuncTableInt( tableD, fracW )
   }
 
   val sqrtF32TableI = SqrtSim.sqrtTableGeneration( 2, 8, 23, 23+2 )

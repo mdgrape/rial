@@ -26,18 +26,16 @@ class SqrtSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
   var n = 10000
 
   override def beforeAll(configMap: ConfigMap) = {
-    n = configMap.getOptional[String]("n").getOrElse("1000").toInt
+    n = configMap.getOptional[String]("n").getOrElse("10000").toInt
     println(s"ncycle=$n")
   }
 
   val r = new Random(123456789)
 
-  var c = 0
   def generateReal1to4( spec: RealSpec, r : Random) = {
-    val ex  = if (c > (n/2)) {spec.exBias + 1} else {spec.exBias}
-    val man = round(c.toDouble * maskL(spec.manW))
-    c += 1
-    new RealGeneric (spec, 0, ex, man)
+    val rD : Double = r.nextDouble()*3.0+1.0
+    val x = new RealGeneric(spec, rD)
+    new RealGeneric (spec, (x.value & (maskSL(spec.exW+1)<<spec.manW)) + SafeLong(BigInt(spec.manW, r)))
   }
 
   def generateRealWithin( p : Double, spec: RealSpec, r : Random ) = {
@@ -105,8 +103,7 @@ class SqrtSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
             println(f"Error more than 2 LSB : ${x.toDouble}%14.7e : $z0%14.7e ${zi.toDouble}%14.7e $errf%14.7e $erri%f")
           } else if (erri>=1.0) err1lsbPos+=1
           else if (erri<= -1.0) err1lsbNeg+=1
-//           assert(erri.abs<=1)
-          assert(erri.abs<=3)
+          assert(erri.abs<=1)
 
           if (maxError < erri.abs) {
             maxError = erri.abs

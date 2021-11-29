@@ -36,8 +36,7 @@ object InvSqrtSim {
     val exRaw  = x.ex
     val sgn    = x.sgn
     val ex     = exRaw-exBias
-    val manW1  = x.man + (1<<x.spec.manW)
-    val man    = if (bit(0, ex) == 1) { manW1 >> 1 } else { manW1 >> 2 }
+    val man    = slice(0, manW+1, x.value) // even -> x.man, odd -> x.manW1
 
     if (x.isNaN)      {return RealGeneric.nan(x.spec)}
     if (x.isZero)     {return RealGeneric.inf(x.spec, sgn)}
@@ -64,9 +63,9 @@ object InvSqrtSim {
       val adr = man.toInt
       t.interval(adr).eval(0L, 0)
     } else {
-      val dxbp = manW-adrW-1
-      val d    = slice(0, manW-adrW, man) - (SafeLong(1)<<dxbp)
-      val adr  = slice(manW-adrW, adrW, man).toInt
+      val dxbp = (manW+1)-adrW-1
+      val d    = slice(0, (manW+1)-adrW, man) - (SafeLong(1)<<dxbp)
+      val adr  = slice((manW+1)-adrW, adrW, man).toInt
       val res  = t.interval(adr).eval(d.toLong, dxbp)
       res.toLong
     }
@@ -87,8 +86,16 @@ object InvSqrtSim {
   }
 
   def invsqrtTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int ) = {
-    val tableD = new FuncTableDouble( x => if(x<0.25) {0} else {2.0/sqrt(x*4) - 1.0}, order )
-    tableD.addRange(0.0, 1.0, 1<<adrW)
+    // to distinguish ex=odd and ex=even cases, we use the LSB of exbit at the
+    // top of the table address.
+    //
+    // XXX: assuming exBias is odd. That means that, in case of exNobias == 0,
+    //      the MSB is 1.
+
+    val tableD = new FuncTableDouble(
+      x => if(x<0.5) { (2.0/sqrt(x*4.0+2.0))-1.0 } else { (2.0/sqrt(x*2.0))-1.0 }, order )
+
+    tableD.addRange(0.0, 1.0, 1<<(adrW+1)) // this makes resulting table adrW+1
     new FuncTableInt( tableD, fracW )
   }
 

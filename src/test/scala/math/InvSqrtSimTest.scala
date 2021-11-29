@@ -120,14 +120,14 @@ class InvSqrtSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
   val invsqrtF32TableI  = InvSqrtSim.invsqrtTableGeneration( 2, 8, 23, 23+2 )
 
   invsqrtTest(invsqrtF32TableI, RealSpec.Float32Spec, n, r,
-    "Test Within (-128,128)",generateRealWithin(128.0,_,_), 4)
+    "Test Within (-128,128)",generateRealWithin(128.0,_,_), 1)
   invsqrtTest(invsqrtF32TableI, RealSpec.Float32Spec, n, r,
-    "Test All range",generateRealFull(_,_), 4 )
+    "Test All range",generateRealFull(_,_), 1 )
 
   val invsqrtBF16TableI  = InvSqrtSim.invsqrtTableGeneration( 0, 7, 7, 7 )
 
   invsqrtTest(invsqrtBF16TableI, RealSpec.BFloat16Spec, n, r,
-    "Test Within (-128,128)",generateRealWithin(128.0,_,_), 4)
+    "Test Within (-128,128)",generateRealWithin(128.0,_,_), 1)
   invsqrtTest(invsqrtBF16TableI, RealSpec.BFloat16Spec, n, r,
-    "Test All range",generateRealFull(_,_), 4 )
+    "Test All range",generateRealFull(_,_), 1 )
 }
