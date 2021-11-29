@@ -65,7 +65,7 @@ class SqrtTest extends FlatSpec
     val pipeconfig = stage.getString
     val reference  = SqrtSim.sqrtSimGeneric( table, _ )
     it should f"sqrt(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
-      test( new SqrtGeneric(spec, table.nOrder, table.adrW, table.bp-spec.manW, stage, false, false)) { c =>
+      test( new SqrtGeneric(spec, table.nOrder, table.adrW-1/*XXX: address bits are extended using LSB of ex*/, table.bp-spec.manW, stage, false, false)) { c =>
         {
           val nstage = c.getStage
           val q  = new Queue[(BigInt,BigInt)]
@@ -96,7 +96,7 @@ class SqrtTest extends FlatSpec
                 c.clock.step(1)
               }
 
-              assert(zi == z0d, f"x = (${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman}), test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman}) != ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman})")
+              assert(zi == z0d, f"x = (${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman.toLong.toBinaryString}), test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString}) != ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})")
             }
             c.clock.step(1)
           }
@@ -106,18 +106,15 @@ class SqrtTest extends FlatSpec
   }
 
   val sqrtBF16TableI = SqrtSim.sqrtTableGeneration( 0, 7, 7, 7 )
-  val sqrtF32TableI  = SqrtSim.sqrtTableGeneration( 2, 8, 23, 23+2 )
-
-  // OK
   runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
     n, r, sqrtBF16TableI, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
   runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
     n, r, sqrtBF16TableI, "Test All range",generateRealFull(_,_) )
 
+  val sqrtF32TableI  = SqrtSim.sqrtTableGeneration( 2, 8, 23, 23+2 )
   runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
     n, r, sqrtF32TableI, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
   runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
     n, r, sqrtF32TableI, "Test All range",generateRealFull(_,_) )
-
 }
 
