@@ -169,10 +169,9 @@ class CosPiGeneric(
 
   val exAdrW = log2UpL(tableExRange)
   val exOfs = -xex - 2.S
-  val exAdr = MuxCase(exOfs.asUInt()(exAdrW-1, 0), Seq(
-    (exOfs < 0.S           ) -> 0.U(exAdrW.W),
-    (exOfs > tableExRange.S) -> 0.U(exAdrW.W)
-  ))
+
+  val exAdr = Mux((exOfs < 0.S) || (exOfs > tableExRange.S),
+                  0.U(exAdrW.W), exOfs.asUInt()(exAdrW-1, 0))
   if (order<=0) {
     val adr = xman(adrW-1, 0)
 
