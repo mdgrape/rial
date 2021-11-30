@@ -109,9 +109,9 @@ class SqrtGeneric(
     val d   = Cat(~man((manW+1)-(adrW+1)-1), man((manW+1)-(adrW+1)-2,0)).asSInt
     assert(adr.getWidth == adrW+1)
     assert(d  .getWidth == manW-adrW)
-    printf("man = %b(%d)\n", man, man)
-    printf("adr = %b(%d)\n", adr, adr)
-    printf("dx = %b(%d)\n", d, d)
+//     printf("man = %b(%d)\n", man, man)
+//     printf("adr = %b(%d)\n", adr, adr)
+//     printf("dx = %b(%d)\n", d, d)
 
     val tableD = new FuncTableDouble(
       x => if(x<0.5) { sqrt(x*4.0+2.0)-1.0 } else { sqrt(x*2.0)-1.0 }, order )
