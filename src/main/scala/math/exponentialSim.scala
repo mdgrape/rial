@@ -106,7 +106,7 @@ object ExponentialSim {
     new RealGeneric(x.spec, 0, zEx, SafeLong(z))
   }
 
-  def pow2TableGeneration(order: Int, adrW: Int, manW: Int, fracW: Int): Int = {
+  def pow2TableGeneration(order: Int, adrW: Int, manW: Int, fracW: Int) = {
     val tableD = new FuncTableDouble( x => pow(2.0, x)-1.0, order )
     tableD.addRange(0.0, 1.0, 1<<pow2F32AdrW)
     new FuncTableInt( tableD, fracW )
