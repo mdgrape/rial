@@ -9,6 +9,8 @@ import scala.language.reflectiveCalls
 import scala.math._
 import java.lang.Math.scalb
 
+import chisel3.util.log2Up
+
 import spire.math.SafeLong
 import spire.math.Numeric
 import spire.implicits._
@@ -189,7 +191,7 @@ object ATan2Sim {
     // ==================================================================
     // calc atan(y/x) = pi/2 - atan(x/y)
 
-    val linearThreshold = -math.round(math.ceil(manW / 2.0 + 1.0))
+    val linearThreshold = calcLinearThreshold(manW)
 //     println(f"constant threshold = ${manW}")
 //     println(f"linear threshold   = ${linearThreshold}")
 
@@ -335,8 +337,18 @@ object ATan2Sim {
     new FuncTableInt( tableD, fracW )
   }
 
+  def calcLinearThreshold(manW: Int): Int = {
+    -math.round(math.ceil(manW / 2.0 + 1.0)).toInt
+  }
+
+  // number of tables depending on the exponent and linearThreshold
+  def calcExAdrW(spec: RealSpec): Int = {
+    val linearThreshold = calcLinearThreshold(spec.manW)
+    log2Up(abs(linearThreshold)+1)
+  }
+
   def atanTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int ) = {
-    val linearThreshold = -math.round(math.ceil(manW / 2.0 + 1.0)).toInt
+    val linearThreshold = calcLinearThreshold(manW)
 
     val nOrder = if (adrW >= manW) { 0 } else { order }
 

@@ -9,6 +9,8 @@ import scala.language.reflectiveCalls
 import scala.math._
 import java.lang.Math.scalb
 
+import chisel3.util.log2Up
+
 import spire.math.SafeLong
 import spire.math.Numeric
 import spire.implicits._
@@ -204,7 +206,7 @@ object ACosSim {
 
   // number of tables depending on the exponent and linearThreshold
   def calcExAdrW(spec: RealSpec): Int = {
-    val linearThreshold = calcLinearThreshold(manW)
+    val linearThreshold = calcLinearThreshold(spec.manW)
     // from -1 to linearThreshold (-8 in FP32), 126 to 119 if biased.
     // 0b01111110 to 0b01110111, 4 bits required
     log2Up(abs(linearThreshold)+1)

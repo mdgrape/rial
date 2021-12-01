@@ -9,6 +9,8 @@ import scala.language.reflectiveCalls
 import scala.math._
 import java.lang.Math.scalb
 
+import chisel3.util.log2Up
+
 import spire.math.SafeLong
 import spire.math.Numeric
 import spire.implicits._
@@ -123,7 +125,7 @@ object CosPiSim {
 
     // {xex, xman} is in [0, 1/2].
 
-    val linearThreshold = (-math.ceil((manW + 1) / 2)).toLong // -12, if FP32
+    val linearThreshold = calcLinearThreshold(manW)
     val coef1 = new RealGeneric(x.spec, Pi)
 
     if (xex == -exBias && xman == 0) { // sin(0) = 0
@@ -203,8 +205,18 @@ object CosPiSim {
     }
   }
 
+  def calcLinearThreshold(manW: Int): Int = {
+    (-math.ceil((manW + 1) / 2)).toInt // -12, if FP32
+  }
+
+  // number of tables depending on the exponent and linearThreshold
+  def calcExAdrW(spec: RealSpec): Int = {
+    val linearThreshold = calcLinearThreshold(spec.manW)
+    log2Up(abs(linearThreshold)+1)
+  }
+
   def cosPiTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int ) = {
-    val linearThreshold = (-math.ceil((manW + 1) / 2)).toInt // -12, if FP32
+    val linearThreshold = calcLinearThreshold(manW)
 
     if (order == 0 || adrW >= manW) {
       val maxCalcWidth = (-2 to linearThreshold by -1).map(exponent => {
