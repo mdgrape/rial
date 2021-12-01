@@ -77,7 +77,7 @@ object ACosSim {
     // here ex < 0.
 
     val constThreshold  = -manW                   // -23, if FP32
-    val linearThreshold =  math.ceil((-manW - 1) / 3.0) //  -7
+    val linearThreshold = calcLinearThreshold(manW) // 8
     val halfPi = new RealGeneric(x.spec, Pi * 0.5)
 
 //     println(f"constant threshold = ${constThreshold}")
@@ -198,8 +198,20 @@ object ACosSim {
     }
   }
 
+  def calcLinearThreshold(manW: Int): Int = {
+    math.ceil((-manW - 1) / 3.0).toInt // (-23 - 1) / 3.0 = 8
+  }
+
+  // number of tables depending on the exponent and linearThreshold
+  def calcExAdrW(spec: RealSpec): Int = {
+    val linearThreshold = calcLinearThreshold(manW)
+    // from -1 to linearThreshold (-8 in FP32), 126 to 119 if biased.
+    // 0b01111110 to 0b01110111, 4 bits required
+    log2Up(abs(linearThreshold)+1)
+  }
+
   def acosTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int ) = {
-    val linearThreshold = math.ceil((-manW - 1) / 3.0).toInt
+    val linearThreshold = calcLinearThreshold(manW)
 
     if (order == 0 || adrW >= manW) {
       val maxCalcWidth = (-1 to linearThreshold by -1).map(i => {
