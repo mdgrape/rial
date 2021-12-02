@@ -14,7 +14,7 @@ class TableCoeffInput( val cbit: Seq[Int] ) extends Bundle {
   val cs = Input(MixedVec(cbit.map(w => UInt(w.W))))
 }
 
-class TableEval(
+class PolynomialEval(
   val spec:           RealSpec,
   val adrW:           Int,
   val extraBits:      Int,
