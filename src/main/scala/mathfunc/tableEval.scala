@@ -10,7 +10,7 @@ import scala.math._
 import chisel3._
 import chisel3.util._
 
-class TableCoeffIO( val cbit: Seq[Int] ) extends Bundle {
+class TableCoeffInput( val cbit: Seq[Int] ) extends Bundle {
   val cs = Input(MixedVec(cbit.map(w => UInt(w.W))))
 }
 
@@ -32,7 +32,7 @@ class TableEval(
   val order = cbit.length
 
   val io = IO(new Bundle {
-    val coeffs = new TableCoeffIO(cbit)
+    val coeffs = new TableCoeffInput(cbit)
     val dx     = UInt(dxW.W)
     val result = Output(UInt(fracW.W))
   })
