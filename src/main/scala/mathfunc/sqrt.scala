@@ -17,6 +17,7 @@ import rial.util.PipelineStageConfig._
 import rial.arith.RealSpec
 import rial.arith.FloatChiselUtil
 
+import rial.math.SqrtSim
 import rial.mathfunc._
 
 // -------------------------------------------------------------------------
@@ -72,6 +73,7 @@ class SqrtTableCoeff(
 
   val manW  = spec.manW
   val calcW = manW + extraBits
+  val order = if(adrW == manW) {0} else {nOrder}
 
   val io = IO(new Bundle {
     val adr = Input  (UInt((1+adrW).W))
@@ -99,11 +101,11 @@ class SqrtTableCoeff(
     assert(maxCbit(0) == calcW)
 
     val c0 = tbl(io.adr(adrW, 0)) // here we use LSB of ex
-    io.cs(0) := c0                // width should be the same, manW + extraBits
+    io.cs.cs(0) := c0             // width should be the same, manW + extraBits
 
   } else {
     val tableI = SqrtSim.sqrtTableGeneration( nOrder, adrW, manW, calcW )
-    val cbits  = tableI.cbit
+    val cbit   = tableI.cbit
 
     val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/0)
     val coeff  = getSlices(coeffTable(io.adr), coeffWidth)
@@ -112,7 +114,7 @@ class SqrtTableCoeff(
       val diffWidth = maxCbit(i) - cbit(i)
       val ci  = coeff(i)
       val msb = ci(cbit(i)-1)
-      io.cs(i) := Cat(Fill(diffWidth, msb), ci) // sign extension
+      io.cs.cs(i) := Cat(Fill(diffWidth, msb), ci) // sign extension
     }
   }
 }

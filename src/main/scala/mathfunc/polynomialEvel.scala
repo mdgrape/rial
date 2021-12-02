@@ -10,12 +10,19 @@ import scala.math._
 import chisel3._
 import chisel3.util._
 
+import rial.arith.RealSpec
+import rial.util._
+import rial.util.RialChiselUtil._
+import rial.util.ScalaUtil._
+import rial.util.PipelineStageConfig._
+
 class TableCoeffInput( val cbit: Seq[Int] ) extends Bundle {
   val cs = Input(MixedVec(cbit.map(w => UInt(w.W))))
 }
 
 class PolynomialEval(
   val spec:           RealSpec,
+  val nOrder:         Int,
   val adrW:           Int,
   val extraBits:      Int,
   val cbit:           Seq[Int],
@@ -41,7 +48,7 @@ class PolynomialEval(
 
   if(order == 0) {
 
-    res := coeffs(0)
+    res := io.coeffs.cs(0)
 
   } else {
 
@@ -56,9 +63,12 @@ class PolynomialEval(
       sum
     }
 
-    res := io.coeffs.init.foldRight(io.coeffs.last)(
-      (c,z) => hornerC( c.asSInt, z, io.dx.asSInt )
+    val coeffS = io.coeffs.cs.map( x => x.asSInt )
+
+    val resS = coeffS.init.foldRight(coeffS.last)(
+      (c,z) => hornerC( c, z, io.dx.asSInt )
     )
+    res := resS.asUInt
   }
   io.result := ShiftRegister(res, nStage)
 }
