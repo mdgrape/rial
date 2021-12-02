@@ -3,7 +3,7 @@
 // square root function
 // Copyright (C) Toru Niina RIKEN BDR 2021
 //
-package rial.math
+package rial.mathfunc
 
 import scala.language.reflectiveCalls
 import scala.math._
@@ -16,6 +16,8 @@ import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig._
 import rial.arith.RealSpec
 import rial.arith.FloatChiselUtil
+
+import rial.mathfunc._
 
 // sqrt(x): floating => floating
 // - if x < 0, returns 0.
@@ -40,8 +42,13 @@ class SqrtPreProcess(
 }
 
 class SqrtTableCoeff(
-  val spec : RealSpec, // Input / Output floating spec
-  val nOrder: Int, val adrW : Int, val extraBits : Int, // Polynomial spec
+
+  val spec : RealSpec,
+  val nOrder: Int, val adrW : Int, val extraBits : Int,
+
+  val maxAdrW : Int,      // max address width among all math funcs
+  val maxCbit : Seq[Int], // max coeff width among all math funcs
+
   val stage : PipelineStageConfig,
   val enableRangeCheck : Boolean = true,
   val enablePolynomialRounding : Boolean = false,
@@ -50,25 +57,48 @@ class SqrtTableCoeff(
   val manW  = spec.manW
   val calcW = manW + extraBits
 
-  val tableI = SqrtSim.sqrtTableGeneration( nOrder, adrW, manW, calcW )
-  val cbits  = tableI.cbit
-
-  // TODO: in case of order == 0, the width and table generation strategy are
-  //       different from order == 2.
-
   val io = IO(new Bundle {
     val adr = Input (UInt((1+adrW).W))
-    val c0  = Output(UInt(cbits(0).W)) // TODO: order == 0 ?
-    val c1  = Output(UInt(cbits(1).W)) // TODO
-    val c2  = Output(UInt(cbits(2).W)) // TODO
+    val cs  = Flipped(new TableCoeffIO(maxCbit))
   })
 
-  val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/0)
-  val coeff  = getSlices(coeffTable(io.adr), coeffWidth)
+  if(order == 0) {
+    val tbl = VecInit( (0L to 1L<<(adrW+1)).map(
+      n => {
+        val x = if (n < (1L<<adrW)) {
+          (n.toDouble / (1L<<(adrW+1))) * 4.0 + 2.0 // 0.0~0.499 -> 2.0~3.999
+        } else {
+          (n.toDouble / (1L<<(adrW+1))) * 2.0       // 0.5~0.999 -> 1.0~1.999
+        }
+        val y = round((math.sqrt(x)-1.0) * (1L<<manW))
+        if (y >= (1L<<manW)) {
+          maskL(manW).U(manW.W)
+        } else if (y <= 0.0) {
+          0.U(manW.W)
+        } else {
+          y.U(manW.W)
+        }
+      })
+    )
+    assert(maxCbit(0) == calcW)
 
-  io.c0 := coeff(0)
-  io.c1 := coeff(1)
-  io.c2 := coeff(2)
+    val c0 = tbl(io.adr(adrW, 0)) // here we use LSB of ex
+    io.cs(0) := c0                // width should be the same, manW + extraBits
+
+  } else {
+    val tableI = SqrtSim.sqrtTableGeneration( nOrder, adrW, manW, calcW )
+    val cbits  = tableI.cbit
+
+    val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/0)
+    val coeff  = getSlices(coeffTable(io.adr), coeffWidth)
+
+    for (i <- 0 until nOrder) {
+      val diffWidth = maxCbit(i) - cbit(i)
+      val ci  = coeff(i)
+      val msb = ci(cbit(i)-1)
+      io.cs(i) := Cat(Fill(diffWidth, msb), ci) // sign extension
+    }
+  }
 }
 
 // No pathway other than table interpolation. just calculate ex and sgn.
