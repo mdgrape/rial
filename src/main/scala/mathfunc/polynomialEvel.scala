@@ -50,11 +50,11 @@ class PolynomialEval(
 
   val io = IO(new Bundle {
     val coeffs = new TableCoeffInput(cbit)
-    val dx     = UInt(dxW.W)
+    val dx     = Input(UInt(dxW.W))
     val result = Output(UInt(fracW.W))
   })
 
-  val res = UInt(fracW.W)
+  val res = Wire(UInt(fracW.W))
 
   if(order == 0) {
 
