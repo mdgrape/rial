@@ -83,11 +83,13 @@ class MathFunctions(
 
   val polynomialEval = Module(new PolynomialEval(spec, nOrder, adrW, extraBits, maxCbit, stage, enablePolynomialRounding))
 
+  val nullTab = Module(new NullTableCoeff(maxCbit))
+
   polynomialEval.io.dx     := MuxCase(0.U, Seq(
     (io.sel === SelectFunc.selectSqrt) -> sqrtPre.io.dx
   ))
-  polynomialEval.io.coeffs <> MuxCase(0.U, Seq(
-    (io.sel === SelectFunc.selectSqrt) -> sqrtTab.io.cs
+  polynomialEval.io.coeffs.cs := MuxCase(nullTab.io.coeffs.cs, Seq(
+    (io.sel === SelectFunc.selectSqrt) -> sqrtTab.io.cs.cs
   ))
 
   //                                         we are here
