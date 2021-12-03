@@ -113,14 +113,14 @@ class MathFuncSqrtTest extends FlatSpec
     }
   }
 
-//   runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
-//     n, r, sqrtBF16TableI, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-//   runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
-//     n, r, sqrtBF16TableI, "Test All range",generateRealFull(_,_) )
+//   runtest(RealSpec.BFloat16Spec, 0, 7, 0, PipelineStageConfig.none(),
+//     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+//   runtest(RealSpec.BFloat16Spec, 0, 7, 0, PipelineStageConfig.none(),
+//     n, r, "Test All range",generateRealFull(_,_) )
 
   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(),
     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-//   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(),
-//     n, r, "Test All range",generateRealFull(_,_) )
+  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(),
+    n, r, "Test All range",generateRealFull(_,_) )
 }
 
