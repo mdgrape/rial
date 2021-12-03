@@ -110,7 +110,7 @@ class SqrtTableCoeff(
     val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/0)
     val coeff  = getSlices(coeffTable(io.adr), coeffWidth)
 
-    for (i <- 0 until nOrder) {
+    for (i <- 0 to nOrder) {
       val diffWidth = maxCbit(i) - cbit(i)
       val ci  = coeff(i)
       val msb = ci(cbit(i)-1)
