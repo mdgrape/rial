@@ -30,12 +30,20 @@ class MathFunctions(
   val enablePolynomialRounding : Boolean = false,
 ) extends Module {
 
+  val nStage = stage.total
+  def getStage() = nStage
+
   val exW    = spec.exW
   val manW   = spec.manW
   val exBias = spec.exBias
 
-  val maxAdrW = adrW + 4        // TODO automatically calculate this from spec
-  val maxCbit = Seq(27, 21, 20) // TODO ditto
+  val maxAdrW  = adrW + 4        // TODO automatically calculate this from spec
+  val maxCbit  = Seq(27, 21, 20) // TODO ditto
+  val maxCalcW = Seq(27, 22, 20) // TODO ditto
+
+  def getMaxAdrW()  = maxAdrW
+  def getMaxCbit()  = maxCbit
+  def getMaxCalcW() = maxCalcW
 
   val io = IO(new Bundle {
     val sel = Input(UInt(SelectFunc.selectFuncW.W))
