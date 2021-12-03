@@ -54,7 +54,7 @@ class CosPiTest extends FlatSpec
   }
 
   private def runtest ( spec : RealSpec, stage : PipelineStageConfig,
-    n : Int, r : Random, table : Seq[FuncTableIntFixedWidth],
+    n : Int, r : Random, table : Seq[FuncTableInt],
     generatorStr : String, generator : ( (RealSpec, Random) => RealGeneric) ) = {
     val total = stage.total
     val pipeconfig = stage.getString

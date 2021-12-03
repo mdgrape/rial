@@ -50,7 +50,7 @@ class ATan2Test extends FlatSpec
   }
 
   private def runtest ( spec : RealSpec, stage : PipelineStageConfig,
-    n : Int, r : Random, tableRec : FuncTableInt, tableATan : Seq[FuncTableIntFixedWidth],
+    n : Int, r : Random, tableRec : FuncTableInt, tableATan : Seq[FuncTableInt],
     generatorStr : String,
     generatorX      : ( (RealSpec, Random) => RealGeneric),
     generatorYoverX : ( (RealSpec, Random) => RealGeneric)

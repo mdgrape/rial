@@ -43,7 +43,7 @@ class CosPiSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
     java.lang.Math.scalb(err, -x.exNorm+x.spec.manW)
   }
 
-  def cosPiTest(t: Seq[FuncTableIntFixedWidth], spec : RealSpec, n : Int, r : Random,
+  def cosPiTest(t: Seq[FuncTableInt], spec : RealSpec, n : Int, r : Random,
     generatorStr : String, generator : ( (RealSpec, Random) => RealGeneric),
     tolerance : Int) = {
     test(s"cosPi(x), format ${spec.toStringShort}, ${generatorStr}") {

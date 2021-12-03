@@ -43,7 +43,7 @@ class ATan2SimTest extends FunSuite with BeforeAndAfterAllConfigMap {
     java.lang.Math.scalb(err, -x.exNorm+x.spec.manW)
   }
 
-  def atan2Test(t_rec : FuncTableInt, ts : Seq[FuncTableIntFixedWidth], spec : RealSpec, n : Int, r : Random,
+  def atan2Test(t_rec : FuncTableInt, ts : Seq[FuncTableInt], spec : RealSpec, n : Int, r : Random,
     generatorStr    : String,
     generatorX      : ( (RealSpec, Random) => RealGeneric),
     generatorYoverX : ( (RealSpec, Random) => RealGeneric),

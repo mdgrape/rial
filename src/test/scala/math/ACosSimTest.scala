@@ -43,7 +43,7 @@ class ACosSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
     java.lang.Math.scalb(err, -x.exNorm+x.spec.manW)
   }
 
-  def acosTest(t: Seq[FuncTableIntFixedWidth], spec : RealSpec, n : Int, r : Random,
+  def acosTest(t: Seq[FuncTableInt], spec : RealSpec, n : Int, r : Random,
     generatorStr : String, generator : ( (RealSpec, Random) => RealGeneric),
     tolerance : Int ) = {
     test(s"acos(x), format ${spec.toStringShort}, ${generatorStr}") {
