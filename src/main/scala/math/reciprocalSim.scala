@@ -84,7 +84,10 @@ object ReciprocalSim {
   }
 
   // fracW include extra bits added during calc.
-  def reciprocalTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int ) = {
+  def reciprocalTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int,
+      calcWidthSetting: Option[Seq[Int]] = None,
+      cbitSetting: Option[Seq[Int]] = None
+    ) = {
     val tableD = if (order==0) {
       new FuncTableDouble( x => 2.0/(1.0+x)-1.0, order )
     } else {
@@ -92,7 +95,7 @@ object ReciprocalSim {
       new FuncTableDouble( x => 2.0/(2.0-(x+eps))-1.0, order )
     }
     tableD.addRange(0.0, 1.0, 1<<adrW)
-    new FuncTableInt( tableD, fracW )
+    new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting  )
   }
 
   val reciprocalF32TableI = ReciprocalSim.reciprocalTableGeneration( 2, 8, 23, 23+2 )

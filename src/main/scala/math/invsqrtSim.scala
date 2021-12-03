@@ -85,7 +85,10 @@ object InvSqrtSim {
     new RealGeneric(x.spec, zSgn, zEx, SafeLong(z))
   }
 
-  def invsqrtTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int ) = {
+  def invsqrtTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int,
+      calcWidthSetting: Option[Seq[Int]] = None,
+      cbitSetting: Option[Seq[Int]] = None
+    ) = {
     // to distinguish ex=odd and ex=even cases, we use the LSB of exbit at the
     // top of the table address.
     //
@@ -96,7 +99,7 @@ object InvSqrtSim {
       x => if(x<0.5) { (2.0/sqrt(x*4.0+2.0))-1.0 } else { (2.0/sqrt(x*2.0))-1.0 }, order )
 
     tableD.addRange(0.0, 1.0, 1<<(adrW+1)) // this makes resulting table adrW+1
-    new FuncTableInt( tableD, fracW )
+    new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
   }
 
   val invsqrtF32TableI = InvSqrtSim.invsqrtTableGeneration( 2, 8, 23, 23+2 )

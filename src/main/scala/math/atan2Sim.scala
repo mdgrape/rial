@@ -58,7 +58,7 @@ object ATan2Sim {
   //           ^^^^^^^^^^^^^^^^^^^
   //           this part is always positive in all the cases
   //
-  def atan2SimGeneric( t_rec : FuncTableInt, ts : Seq[FuncTableIntFixedWidth], y : RealGeneric, x : RealGeneric ) : RealGeneric = {
+  def atan2SimGeneric( t_rec : FuncTableInt, ts : Seq[FuncTableInt], y : RealGeneric, x : RealGeneric ) : RealGeneric = {
 //     println("==================================================")
     assert(x.spec == y.spec)
 
@@ -326,7 +326,10 @@ object ATan2Sim {
     }
   }
 
-  def reciprocalTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int ) = {
+  def reciprocalTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int,
+      calcWidthSetting: Option[Seq[Int]] = None,
+      cbitSetting: Option[Seq[Int]] = None
+    ) = {
     val tableD = if (order==0) {
       new FuncTableDouble( x => 1.0/(1.0+x), order )
     } else {
@@ -334,7 +337,7 @@ object ATan2Sim {
       new FuncTableDouble( x => 1.0/(2.0 - (x+eps)), order )
     }
     tableD.addRange(0.0, 1.0, 1<<adrW)
-    new FuncTableInt( tableD, fracW )
+    new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
   }
 
   def calcLinearThreshold(manW: Int): Int = {
@@ -347,7 +350,10 @@ object ATan2Sim {
     log2Up(abs(linearThreshold)+1)
   }
 
-  def atanTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int ) = {
+  def atanTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int,
+      calcWidthSetting: Option[Seq[Int]] = None,
+      cbitSetting: Option[Seq[Int]] = None
+    ) = {
     val linearThreshold = calcLinearThreshold(manW)
 
     val nOrder = if (adrW >= manW) { 0 } else { order }
@@ -355,7 +361,7 @@ object ATan2Sim {
     val maxCalcWidth = (-1 to linearThreshold by -1).map(ex => {
         val tableD = new FuncTableDouble( x => scalb(atan(scalb(1.0 + x, ex)), -ex-1), nOrder)
         tableD.addRange(0.0, 1.0, 1<<adrW)
-        val tableI = new FuncTableInt( tableD, fracW ) // convert float table into int
+        val tableI = new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
         tableI.calcWidth
       }).reduce( (lhs, rhs) => {
         lhs.zip(rhs).map( x => max(x._1, x._2))
@@ -364,7 +370,7 @@ object ATan2Sim {
     (-1 to linearThreshold by -1).map( ex => {
       val tableD = new FuncTableDouble( x => scalb(atan(scalb(1.0 + x, ex)), -ex-1), nOrder)
       tableD.addRange(0.0, 1.0, 1<<adrW)
-      new FuncTableIntFixedWidth( tableD, fracW, maxCalcWidth )
+      new FuncTableInt( tableD, fracW, Some(maxCalcWidth), cbitSetting )
     })
   }
 

@@ -41,7 +41,7 @@ object ACosSim {
   //
   // Note: acos(-x) = pi - acos(x)
   //
-  def acosSimGeneric( ts : Seq[FuncTableIntFixedWidth], x: RealGeneric ) : RealGeneric = {
+  def acosSimGeneric( ts : Seq[FuncTableInt], x: RealGeneric ) : RealGeneric = {
     val adrW   = ts(0).adrW
     val nOrder = ts(0).nOrder
     val bp     = ts(0).bp
@@ -212,14 +212,17 @@ object ACosSim {
     log2Up(abs(linearThreshold)+1)
   }
 
-  def acosTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int ) = {
+  def acosTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int,
+      calcWidthSetting: Option[Seq[Int]] = None,
+      cbitSetting: Option[Seq[Int]] = None
+    ) = {
     val linearThreshold = calcLinearThreshold(manW)
 
     if (order == 0 || adrW >= manW) {
       val maxCalcWidth = (-1 to linearThreshold by -1).map(i => {
         val tableD = new FuncTableDouble( x => acos(scalb(1.0 + x, i)), 0)
         tableD.addRange(0.0, 1.0, 1<<adrW)
-        val tableI = new FuncTableInt( tableD, fracW ) // convert float table into int
+        val tableI = new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
         tableI.calcWidth
       }).reduce( (lhs, rhs) => {
         lhs.zip(rhs).map( x => max(x._1, x._2))
@@ -228,13 +231,13 @@ object ACosSim {
       (-1 to linearThreshold by -1).map( i => {
         val tableD = new FuncTableDouble( x => acos(scalb(1.0 + x, i)), 0)
         tableD.addRange(0.0, 1.0, 1<<manW)
-        new FuncTableIntFixedWidth( tableD, fracW, maxCalcWidth )
+        new FuncTableInt( tableD, fracW, Some(maxCalcWidth), cbitSetting )
       })
     } else {
       val maxCalcWidth = (-1 to linearThreshold by -1).map(i => {
         val tableD = new FuncTableDouble( x => (Pi * 0.5) - acos(scalb(1.0 + x, i)), order )
         tableD.addRange(0.0, 1.0, 1<<adrW)
-        val tableI = new FuncTableInt( tableD, fracW ) // convert float table into int
+        val tableI = new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
         tableI.calcWidth
       }).reduce( (lhs, rhs) => {
         lhs.zip(rhs).map( x => max(x._1, x._2))
@@ -244,7 +247,7 @@ object ACosSim {
       (-1 to linearThreshold by -1).map( i => {
         val tableD = new FuncTableDouble( x => (Pi * 0.5) - acos(scalb(1.0 + x, i)), order )
         tableD.addRange(0.0, 1.0, 1<<adrW)
-        new FuncTableIntFixedWidth( tableD, fracW, maxCalcWidth )
+        new FuncTableInt( tableD, fracW, Some(maxCalcWidth), cbitSetting )
       })
     }
   }
