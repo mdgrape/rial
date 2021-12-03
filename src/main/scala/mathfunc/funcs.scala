@@ -37,6 +37,8 @@ class MathFunctions(
   val manW   = spec.manW
   val exBias = spec.exBias
 
+  val order = if(adrW == manW) {0} else {nOrder}
+
   val maxAdrW  = adrW + 4        // TODO automatically calculate this from spec
   val maxCbit  = Seq(27, 21, 20) // TODO ditto
   val maxCalcW = Seq(27, 22, 20) // TODO ditto
@@ -62,10 +64,10 @@ class MathFunctions(
   //            |
   //   we are here
 
-  val sqrtPre   = Module(new SqrtPreProcess (spec, nOrder, adrW, extraBits,                   stage, enableRangeCheck, enablePolynomialRounding))
-  val sqrtTab   = Module(new SqrtTableCoeff (spec, nOrder, adrW, extraBits, maxAdrW, maxCbit, stage, enableRangeCheck, enablePolynomialRounding))
-  val sqrtOther = Module(new SqrtOtherPath  (spec, nOrder, adrW, extraBits,                   stage, enableRangeCheck, enablePolynomialRounding))
-  val sqrtPost  = Module(new SqrtPostProcess(spec, nOrder, adrW, extraBits,                   stage, enableRangeCheck, enablePolynomialRounding))
+  val sqrtPre   = Module(new SqrtPreProcess (spec, order, adrW, extraBits,                   stage, enableRangeCheck, enablePolynomialRounding))
+  val sqrtTab   = Module(new SqrtTableCoeff (spec, order, adrW, extraBits, maxAdrW, maxCbit, stage, enableRangeCheck, enablePolynomialRounding))
+  val sqrtOther = Module(new SqrtOtherPath  (spec, order, adrW, extraBits,                   stage, enableRangeCheck, enablePolynomialRounding))
+  val sqrtPost  = Module(new SqrtPostProcess(spec, order, adrW, extraBits,                   stage, enableRangeCheck, enablePolynomialRounding))
 
   sqrtPre.io.x   := io.x
   sqrtTab.io.adr := sqrtPre.io.adr
@@ -81,7 +83,7 @@ class MathFunctions(
   //           '--| non-table path (e.g. taylor)   |-'
   //              '--------------------------------'
 
-  val polynomialEval = Module(new PolynomialEval(spec, nOrder, adrW, extraBits, maxCbit, stage, enablePolynomialRounding))
+  val polynomialEval = Module(new PolynomialEval(spec, order, adrW, extraBits, maxCbit, stage, enablePolynomialRounding))
 
   val nullTab = Module(new NullTableCoeff(maxCbit))
 

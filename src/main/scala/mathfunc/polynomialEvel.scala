@@ -46,7 +46,7 @@ class PolynomialEval(
   val dxW   = manW - adrW
   val fracW = manW + extraBits
 
-  val order = cbit.length
+  val order = if(adrW == manW) {0} else {nOrder}
 
   val io = IO(new Bundle {
     val coeffs = new TableCoeffInput(cbit)

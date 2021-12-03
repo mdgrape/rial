@@ -40,6 +40,8 @@ class SqrtPreProcess(
 
   val manW = spec.manW
 
+  val order = if(adrW == manW) {0} else {nOrder}
+
   val io = IO(new Bundle {
     val x   = Input (UInt(spec.W.W))
     val adr = Output(UInt((1+adrW).W))
@@ -200,11 +202,13 @@ class SqrtPostProcess(
   val nStage = stage.total
   def getStage() = nStage
 
+  val order = if(manW == adrW) {0} else {nOrder}
+
   val io = IO(new Bundle {
     // ex and some flags
     val zother = Flipped(new SqrtNonTableOutput(spec))
     // table interpolation results
-    val zres   = Input(UInt((spec.manW + extraBits).W))
+    val zres   = Input(UInt((manW + extraBits).W))
     // output
     val z      = Output(UInt(spec.W.W))
   })
