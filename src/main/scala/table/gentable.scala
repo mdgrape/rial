@@ -488,32 +488,46 @@ trait FuncTable {
   }
 }
 
-class FuncTableInt (t: FuncTableDouble, val bp: Int) extends FuncTable {
+class FuncTableInt (t: FuncTableDouble, val bp: Int,
+    // if provided, use this as calcWidth and cbit, respectively.
+    calcWidthSetting: Option[Seq[Int]] = None,
+    cbitSetting: Option[Seq[Int]] = None
+  ) extends FuncTable {
+
+//   println(s"bp        : $bp")
+
   val nOrder = t.nOrder
   val sign = t.checkSign
   // Coefficient max
   val minMax = t.minMax
-  println("minMax    : "+minMax.mkString("", ", ",""))
   val absMax = minMax.map( x => max( abs(x._1), abs(x._2) ) )
+  println("minMax    : "+minMax.mkString("", ", ",""))
   println("absMax    : "+absMax.mkString("", ", ",""))
 
-  // Here, we always include sign bit, so plus 1.
-  val cbit   = absMax.map(x => round(scalb(x, bp)).toLong.toBinaryString.length()+1)
-  //println(s"bp        : $bp")
+  val cbit   = cbitSetting match {
+    case Some(cb) => cb
+    case None     => absMax.map {
+      // Here, we always include sign bit, so plus 1.
+      x => round(scalb(x, bp)).toLong.toBinaryString.length()+1
+    }
+  }
   println("Cbits     : "+cbit.mkString("", ", ",""))
 
   // Calculate max
   val minMaxCalc = t.getMinMaxAll
-  println("minMaxCalc: "+minMaxCalc.mkString("", ", ",""))
   val absMaxCalc = minMaxCalc.map( x => max( abs(x._1), abs(x._2) ) )
+  println("minMaxCalc: "+minMaxCalc.mkString("", ", ",""))
   println("absMaxCalc: "+absMaxCalc.mkString("", ", ",""))
-  val calcWidth = absMaxCalc.map(x => round(scalb(x, bp)).toLong.toBinaryString.length()+1)
-  println("CalcWidth : "+calcWidth.mkString("", ", ",""))
-  println(f"ResRange  : ${minMaxCalc.head._1} ~ ${minMaxCalc.head._2}")
 
-  //for ( j <- 0 to t.interval.size-1 ) {
-  //interval += new FuncTableIntervalInt(t.interval(j), false, calcWidth, bp)
-  //}
+  val calcWidth = calcWidthSetting match {
+    case Some(cW) => cW
+    case None     => absMaxCalc.map {
+      x => round(scalb(x, bp)).toLong.toBinaryString.length()+1
+    }
+  }
+  println("CalcWidth : "+calcWidth.mkString("", ", ",""))
+
+  println(f"ResRange  : ${minMaxCalc.head._1} ~ ${minMaxCalc.head._2}")
 
   val interval = t.interval.map( x => new FuncTableIntervalInt( x, false, calcWidth, bp ) )
 
@@ -532,34 +546,6 @@ class FuncTableInt (t: FuncTableDouble, val bp: Int) extends FuncTable {
     }
   }
 }
-
-class FuncTableIntFixedWidth(t: FuncTableDouble, val bp: Int, val calcWidth : Seq[Int]) extends FuncTable {
-  val nOrder = t.nOrder
-  val sign = t.checkSign
-  // Coefficient max
-  val minMax = t.minMax
-  println("minMax    : "+minMax.mkString("", ", ",""))
-  val absMax = minMax.map( x => max( abs(x._1), abs(x._2) ) )
-  println("absMax    : "+absMax.mkString("", ", ",""))
-  // Here, we always include sign bit, so plus 1.
-  val cbit   = absMax.map(x => round(scalb(x, bp)).toLong.toBinaryString.length()+1)
-
-  val interval = t.interval.map( x => new FuncTableIntervalInt( x, false, calcWidth, bp ) )
-
-  def checkWidthAll( dxBp : Int ) = {
-    (t.nOrder to 1 by -1).toSeq.map(
-      n => interval.foldLeft(0)( (w, iv) => max(w, iv.checkWidth(dxBp, n)) )
-    )
-  }
-
-  def eval(x : Double, dxBp : Int) = {
-    interval.find( t => t.inRange(x) ) match {
-      case Some(iv) => iv.evalD(x, dxBp, true)
-      case None     => { println(f"${this.getClass.getName}.eval: Range Error"); 0.0 }
-    }
-  }
-}
-
 
 // Currently, always add sign bits
 // cbitGiven must include sign bits
