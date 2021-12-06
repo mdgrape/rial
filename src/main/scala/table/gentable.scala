@@ -501,8 +501,8 @@ class FuncTableInt (t: FuncTableDouble, val bp: Int,
   // Coefficient max
   val minMax = t.minMax
   val absMax = minMax.map( x => max( abs(x._1), abs(x._2) ) )
-  println("minMax    : "+minMax.mkString("", ", ",""))
-  println("absMax    : "+absMax.mkString("", ", ",""))
+//   println("minMax    : "+minMax.mkString("", ", ",""))
+//   println("absMax    : "+absMax.mkString("", ", ",""))
 
   val cbit   = cbitSetting match {
     case Some(cb) => cb
@@ -511,13 +511,13 @@ class FuncTableInt (t: FuncTableDouble, val bp: Int,
       x => round(scalb(x, bp)).toLong.toBinaryString.length()+1
     }
   }
-  println("Cbits     : "+cbit.mkString("", ", ",""))
+//   println("Cbits     : "+cbit.mkString("", ", ",""))
 
   // Calculate max
   val minMaxCalc = t.getMinMaxAll
   val absMaxCalc = minMaxCalc.map( x => max( abs(x._1), abs(x._2) ) )
-  println("minMaxCalc: "+minMaxCalc.mkString("", ", ",""))
-  println("absMaxCalc: "+absMaxCalc.mkString("", ", ",""))
+//   println("minMaxCalc: "+minMaxCalc.mkString("", ", ",""))
+//   println("absMaxCalc: "+absMaxCalc.mkString("", ", ",""))
 
   val calcWidth = calcWidthSetting match {
     case Some(cW) => cW
@@ -525,9 +525,8 @@ class FuncTableInt (t: FuncTableDouble, val bp: Int,
       x => round(scalb(x, bp)).toLong.toBinaryString.length()+1
     }
   }
-  println("CalcWidth : "+calcWidth.mkString("", ", ",""))
-
-  println(f"ResRange  : ${minMaxCalc.head._1} ~ ${minMaxCalc.head._2}")
+//   println("CalcWidth : "+calcWidth.mkString("", ", ",""))
+//   println(f"ResRange  : ${minMaxCalc.head._1} ~ ${minMaxCalc.head._2}")
 
   val interval = t.interval.map( x => new FuncTableIntervalInt( x, false, calcWidth, bp ) )
 
