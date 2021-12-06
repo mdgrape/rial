@@ -235,37 +235,22 @@ object CosPiSim {
     ) = {
     val linearThreshold = calcLinearThreshold(manW)
 
-    if (order == 0 || adrW >= manW) {
-      val maxCalcWidth = (-2 to linearThreshold by -1).map(exponent => {
-        val tableD = new FuncTableDouble( x => scalb(sin(Pi * scalb(1.0 + x, exponent)), -exponent-3), 0 )
-        tableD.addRange(0.0, 1.0, 1<<adrW)
-        val tableI = new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
-        tableI.calcWidth
-      }).reduce( (lhs, rhs) => {
-        lhs.zip(rhs).map( x => max(x._1, x._2))
-      })
+    if(adrW >= manW) {assert(order == 0)}
 
-      (-2 to linearThreshold by -1).map( i => {
-        val tableD = new FuncTableDouble( x => scalb(sin(Pi * scalb(1.0 + x, i)), -i-3), 0)
-        tableD.addRange(0.0, 1.0, 1<<manW)
-        new FuncTableInt( tableD, fracW, Some(maxCalcWidth), cbitSetting )
-      })
-    } else {
-      val maxCalcWidth = (-2 to linearThreshold by -1).map(exponent => {
-        val tableD = new FuncTableDouble( x => scalb(sin(Pi * scalb(1.0+x, exponent)), -exponent-3), order )
-        tableD.addRange(0.0, 1.0, 1<<adrW)
-        val tableI = new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
-        tableI.calcWidth
-      }).reduce( (lhs, rhs) => {
-        lhs.zip(rhs).map( x => max(x._1, x._2))
-      })
+    val maxCalcWidth = (-2 to linearThreshold by -1).map(exponent => {
+      val tableD = new FuncTableDouble( x => scalb(sin(Pi * scalb(1.0+x, exponent)), -exponent-3), order )
+      tableD.addRange(0.0, 1.0, 1<<adrW)
+      val tableI = new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
+      tableI.calcWidth
+    }).reduce( (lhs, rhs) => {
+      lhs.zip(rhs).map( x => max(x._1, x._2))
+    })
 
-      (-2 to linearThreshold by -1).map( i => {
-        val tableD = new FuncTableDouble( x => scalb(sin(Pi * scalb(1.0+x, i)), -i-3), order )
-        tableD.addRange(0.0, 1.0, 1<<adrW)
-        new FuncTableInt( tableD, fracW, Some(maxCalcWidth), cbitSetting )
-      })
-    }
+    (-2 to linearThreshold by -1).map( i => {
+      val tableD = new FuncTableDouble( x => scalb(sin(Pi * scalb(1.0+x, i)), -i-3), order )
+      tableD.addRange(0.0, 1.0, 1<<adrW)
+      new FuncTableInt( tableD, fracW, Some(maxCalcWidth), cbitSetting )
+    })
   }
 
   val cosPiF32TableI = CosPiSim.cosPiTableGeneration( 2, 8, 23, 23+2 )
