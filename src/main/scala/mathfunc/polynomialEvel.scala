@@ -20,16 +20,6 @@ class TableCoeffInput( val cbit: Seq[Int] ) extends Bundle {
   val cs = Input(MixedVec(cbit.map{w => UInt(w.W)}))
 }
 
-class NullTableCoeff( val cbit: Seq[Int] ) extends Module {
-  val io = IO(new Bundle {
-    val coeffs = Flipped(new TableCoeffInput(cbit))
-  })
-
-  for(i <- 0 until cbit.length) {
-    io.coeffs.cs(i) := 0.U(cbit(i).W)
-  }
-}
-
 class PolynomialEval(
   val spec:           RealSpec,
   val nOrder:         Int,
