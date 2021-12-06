@@ -41,10 +41,10 @@ object SqrtSim {
 //     println(f"x    = ${x.toDouble}(${sgn}|${x.ex}(${ex})|${x.man.toLong.toBinaryString})")
 //     println(f"xman = ${man.toLong.toBinaryString}")
 
-    if (x.isNaN)      {return RealGeneric.nan (x.spec)}
-    if (x.isZero)     {return RealGeneric.zero(x.spec)}
-    if (x.isInfinite) {return RealGeneric.inf (x.spec, sgn)}
-    if (sgn == 1)     {return RealGeneric.zero(x.spec)} // not NaN, for usability
+    if (x.isNaN)  {return RealGeneric.nan (x.spec)}
+    if (x.isZero) {return RealGeneric.zero(x.spec)}
+    if (x.isInfinite && sgn == 0) {return RealGeneric.inf (x.spec, sgn)}
+    if (sgn == 1) {return RealGeneric.zero(x.spec)} // not NaN, for usability
 
     val zSgn = 0
     val zEx  = (ex >> 1) + exBias
