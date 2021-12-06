@@ -206,13 +206,27 @@ object CosPiSim {
   }
 
   def calcLinearThreshold(manW: Int): Int = {
-    (-math.ceil((manW + 1) / 2)).toInt // -12, if FP32
+    // -13 for FP32
+    math.floor(log2D(  6.0 * math.pow(2, -manW) / (Pi * Pi)) * 0.5).toInt - 1
+  }
+  def calcCubicThreshold(manW: Int): Int = {
+    // -7 for FP32
+    math.floor(log2D(120.0 * math.pow(2, -manW) / math.pow(Pi, 4)) * 0.25).toInt - 1
   }
 
   // number of tables depending on the exponent and linearThreshold
-  def calcExAdrW(spec: RealSpec): Int = {
-    val linearThreshold = calcLinearThreshold(spec.manW)
-    log2Up(abs(linearThreshold)+1)
+  def calcExAdrW(spec: RealSpec, allowCubicInterpolation: Boolean = false): Int = {
+    // .--- table interp ---. .--------- cubic approx ---------.  .-- linear approx --.
+    // -2 ~ cubicThreshold+1, cubicThreshold ~ linearThreshold+1, linearThreshold, -inf
+    if (allowCubicInterpolation) {
+      val cubicThreshold = calcLinearThreshold(spec.manW)
+      val nTables = -cubicThreshold - 2 // = -2 - (cubicThreshold+1) + 1
+      log2Up(nTables)
+    } else {
+      val linearThreshold = calcLinearThreshold(spec.manW)
+      val nTables = -linearThreshold - 2 // = -2 - (linearThreshold+1) + 1
+      log2Up(abs(linearThreshold)+1)
+    }
   }
 
   def cosPiTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int,
