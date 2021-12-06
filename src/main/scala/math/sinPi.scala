@@ -106,7 +106,7 @@ class SinPiGeneric(
   val zone  = (xex === -1.S       && xman  === 0.U)    // pi/2
 
   // RealGeneric does not allow -0
-  val zSgn = !zzero && ((xsgn_ === 1.U) || (xExNobias === 0.S))
+  val zSgn = (!zzero && !znan) && ((xsgn_ === 1.U) || (xExNobias === 0.S))
 
   // --------------------------------------------------------------------------
   // linear approximation around zero

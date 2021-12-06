@@ -233,7 +233,7 @@ class SinPiOtherPath(
               (yex === 0.U          && yman === 0.U)
   val zone  = (yex === (exBias-1).U && yman === 0.U)
 
-  val zSgn  = !zzero && ((xsgn === 1.U) || (xex === exBias.U))
+  val zSgn  = (!zzero && !znan) && ((xsgn === 1.U) || (xex === exBias.U))
 
   // --------------------------------------------------------------------------
   // linear approximation around zero
