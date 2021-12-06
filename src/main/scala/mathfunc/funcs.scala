@@ -30,6 +30,7 @@ class MathFunctions(
   val enablePolynomialRounding : Boolean = false,
 ) extends Module {
 
+  // TODO: stage config
   val nStage = stage.total
   def getStage() = nStage
 

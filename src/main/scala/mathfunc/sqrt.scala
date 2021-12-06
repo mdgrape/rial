@@ -38,6 +38,8 @@ class SqrtPreProcess(
   val enablePolynomialRounding : Boolean = false,
 ) extends Module {
 
+  val nStage = stage.total
+
   val manW = spec.manW
 
   val order = if(adrW == manW) {0} else {nOrder}
@@ -48,8 +50,11 @@ class SqrtPreProcess(
     val dx  = Output(UInt((manW-adrW).W))
   })
 
-  io.adr := io.x(manW, manW-adrW) // include LSB of x.ex
-  io.dx  := Cat(~io.x(manW-adrW-1), io.x(manW-adrW-2,0))
+  val adr0 = io.x(manW, manW-adrW) // include LSB of x.ex
+  val dx0  = Cat(~io.x(manW-adrW-1), io.x(manW-adrW-2,0))
+
+  io.adr := ShiftRegister(adr0, nStage)
+  io.dx  := ShiftRegister(dx0 , nStage)
 }
 
 // -------------------------------------------------------------------------
@@ -76,6 +81,7 @@ class SqrtTableCoeff(
   val manW  = spec.manW
   val calcW = manW + extraBits
   val order = if(adrW == manW) {0} else {nOrder}
+  val nStage = stage.total
 
   val io = IO(new Bundle {
     val adr = Input  (UInt((1+adrW).W))
@@ -102,8 +108,8 @@ class SqrtTableCoeff(
     )
     assert(maxCbit(0) == calcW)
 
-    val c0 = tbl(io.adr(adrW, 0)) // here we use LSB of ex
-    io.cs.cs(0) := c0             // width should be the same, manW + extraBits
+    val c0 = tbl(io.adr(adrW, 0))            // here we use LSB of ex
+    io.cs.cs(0) := ShiftRegister(c0, nStage) // width should be manW + extraBits
 
   } else {
     val tableI = SqrtSim.sqrtTableGeneration( nOrder, adrW, manW, calcW )
@@ -112,12 +118,14 @@ class SqrtTableCoeff(
     val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/0)
     val coeff  = getSlices(coeffTable(io.adr), coeffWidth)
 
+    val coeffs = Wire(new TableCoeffInput(maxCbit))
     for (i <- 0 to nOrder) {
       val diffWidth = maxCbit(i) - cbit(i)
       val ci  = coeff(i)
       val msb = ci(cbit(i)-1)
-      io.cs.cs(i) := Cat(Fill(diffWidth, msb), ci) // sign extension
+      coeffs.cs(i) := Cat(Fill(diffWidth, msb), ci) // sign extension
     }
+    io.cs := ShiftRegister(coeffs, nStage)
   }
 }
 
@@ -147,6 +155,8 @@ class SqrtOtherPath(
   val enablePolynomialRounding : Boolean = false,
 ) extends Module {
 
+  val nStage = stage.total
+
   val exW    = spec.exW
   val manW   = spec.manW
   val exBias = spec.exBias
@@ -165,17 +175,21 @@ class SqrtOtherPath(
   val zinf  = xinf
   val zzero = xzero || xneg
 
-  io.zother.znan  := znan
-  io.zother.zinf  := zinf
-  io.zother.zzero := zzero
+  io.zother.znan  := ShiftRegister(znan,  nStage)
+  io.zother.zinf  := ShiftRegister(zinf,  nStage)
+  io.zother.zzero := ShiftRegister(zzero, nStage)
 
-  val xExNobias = xex - exBias.U
-  val zex0 = xExNobias(exW-1) ## xExNobias(exW-1, 1) // arith right shift
+  val xExNobias  = xex - exBias.U
+  val zExShifted = xExNobias(exW-1) ## xExNobias(exW-1, 1) // arith right shift
 
-  io.zother.zex  := Mux(zinf || znan, maskU(exW),
-                    Mux(zzero,        0.U(exW.W),
-                                      zex0 + exBias.U))
-  io.zother.zsgn := 0.U(1.W) // always positive.
+  val zex = Mux(zinf || znan, maskU(exW),
+            Mux(zzero,        0.U(exW.W),
+                              zExShifted + exBias.U))
+
+  val zsgn = 0.U(1.W)
+
+  io.zother.zex  := ShiftRegister(zex , nStage)
+  io.zother.zsgn := ShiftRegister(zsgn, nStage) // always positive.
 }
 
 // -------------------------------------------------------------------------
