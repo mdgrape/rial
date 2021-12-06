@@ -68,6 +68,9 @@ class PolynomialEval(
     val resS = coeffS.init.foldRight(coeffS.last)(
       (c,z) => hornerC( c, z, io.dx.asSInt )
     )
+
+    // Since some of the math funcs use the extraBits as a part of mantissa
+    // to normalize the result, we cannot round it here.
     res := resS.asUInt
   }
   io.result := ShiftRegister(res, nStage)
