@@ -81,8 +81,7 @@ class InvSqrtGeneric(
   val xExHalf   = xExNobias(exW-1) ## xExNobias(exW-1, 1) // arith right shift
   val zEx0      = ~xExHalf // -(xex>>1)-1 = ~(xex>>1)+1-1 = ~(xex>>1)
   val zEx  = Mux(zinf || znan, maskU(exW), Mux(zzero, 0.U(exW.W), zEx0 + exBias.U))
-  val zSgn = Mux(xnan, 0.U(1.W),
-             Mux(xzero || (xinf && !xnan) || xneg, xsgn, 0.U(1.W)))
+  val zSgn = 0.U(1.W)
 
   // --------------------------------------------------------------------------
   // mantissa calculation

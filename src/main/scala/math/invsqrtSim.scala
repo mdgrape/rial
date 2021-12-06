@@ -39,9 +39,9 @@ object InvSqrtSim {
     val man    = slice(0, manW+1, x.value) // even -> x.man, odd -> x.manW1
 
     if (x.isNaN)      {return RealGeneric.nan(x.spec)}
-    if (x.isZero)     {return RealGeneric.inf(x.spec, sgn)}
+    if (x.isZero)     {return RealGeneric.inf(x.spec, 0)}
     if (x.isInfinite) {return RealGeneric.zero(x.spec)}
-    if (sgn == 1)     {return RealGeneric.inf(x.spec, sgn)}
+    if (sgn == 1)     {return RealGeneric.inf(x.spec, 0)} // sqrt(-x) = 0 in sqrt
 
     val zSgn = 0
     val zEx  = exBias - (ex >> 1) - 1
