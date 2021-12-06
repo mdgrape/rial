@@ -19,7 +19,16 @@ import rial.mathfunc._
 
 object SelectFunc {
   val selectFuncW = 4
-  val selectSqrt  = 1.U(selectFuncW.W)
+  val selectNone       = 0.U(selectFuncW.W)
+  val selectSqrt       = 1.U(selectFuncW.W)
+  val selectInvSqrt    = 2.U(selectFuncW.W)
+  val selectReciprocal = 3.U(selectFuncW.W)
+  val selectSinPi      = 4.U(selectFuncW.W)
+  val selectCosPi      = 5.U(selectFuncW.W)
+  val selectACos       = 6.U(selectFuncW.W)
+  val selectATan2      = 7.U(selectFuncW.W)
+  val selectExp        = 8.U(selectFuncW.W)
+  val selectLog        = 9.U(selectFuncW.W)
 }
 
 class MathFunctions(
