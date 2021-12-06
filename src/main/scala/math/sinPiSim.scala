@@ -204,17 +204,17 @@ object SinPiSim {
 
   // sin(pi x) = pi x - pi^3 x^3 / 3! + pi^5 x^5 / 5! + O(x^7)
   def calcLinearThreshold(manW: Int): Int = {
-    // -13 for FP32
+    // -12 for FP32
     // pi * x * 2^-manW > (pi * x)^3 / 3!
-    math.floor(log2D(  6.0 * math.pow(2, -manW) / (Pi * Pi)) * 0.5).toInt - 1
+    math.floor(log2D(  6.0 * math.pow(2, -manW) / (Pi * Pi)) * 0.5).toInt
   }
   def calcCubicThreshold(manW: Int): Int = {
-    // -7 for FP32
+    // -6 for FP32
     //     pi * x * 2^-manW   > (pi * x)^5 / 5!
     // <=> 5! * 2^-manW       > (pi * x)^4
     // <=> 5! * 2^-manW /pi^4 > x^4
     // <=> log2(5! * 2^-manW / pi^4) / 4 > log2(x)
-    math.floor(log2D(120.0 * math.pow(2, -manW) / math.pow(Pi, 4)) * 0.25).toInt - 1
+    math.floor(log2D(120.0 * math.pow(2, -manW) / math.pow(Pi, 4)) * 0.25).toInt
   }
 
   // number of tables depending on the exponent and linearThreshold

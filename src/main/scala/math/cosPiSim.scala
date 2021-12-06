@@ -206,12 +206,12 @@ object CosPiSim {
   }
 
   def calcLinearThreshold(manW: Int): Int = {
-    // -13 for FP32
-    math.floor(log2D(  6.0 * math.pow(2, -manW) / (Pi * Pi)) * 0.5).toInt - 1
+    // -12 for FP32
+    math.floor(log2D(  6.0 * math.pow(2, -manW) / (Pi * Pi)) * 0.5).toInt
   }
   def calcCubicThreshold(manW: Int): Int = {
-    // -7 for FP32
-    math.floor(log2D(120.0 * math.pow(2, -manW) / math.pow(Pi, 4)) * 0.25).toInt - 1
+    // -6 for FP32
+    math.floor(log2D(120.0 * math.pow(2, -manW) / math.pow(Pi, 4)) * 0.25).toInt
   }
 
   // number of tables depending on the exponent and linearThreshold

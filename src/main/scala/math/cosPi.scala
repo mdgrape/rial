@@ -130,7 +130,7 @@ class CosPiGeneric(
   // --------------------------------------------------------------------------
   // linear approximation around zero
 
-  val linearThreshold = (-math.ceil((manW + 1) / 2)).toInt // -12, if FP32
+  val linearThreshold = CosPiSim.calcLinearThreshold(spec.manW)
   val tableExRange    = -2 - linearThreshold + 1
   val pi = new RealGeneric(spec, Pi)
 
