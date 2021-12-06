@@ -85,10 +85,9 @@ class SinPiPreProcess(
 
   // shifts never exceeds manW. we can assume exBias-1-shift > 0.
   val yex  = MuxCase(xex, Seq(
-      (xex === (exBias+0).U) -> Mux(halfEx0 === 0.U, 0.U(exW.W), exBias.U-shiftEx0),
+      (xex === (exBias  ).U) -> Mux(halfEx0 === 0.U, 0.U(exW.W), exBias.U-shiftEx0),
       (xex === (exBias-1).U) -> ((exBias-1).U - shiftneg)
     ))
-  assert(yex <= (exBias-2).U)
 
   val exOfs = (exBias-2).U - yex
   val exAdr = exOfs.asUInt()(exAdrW-1, 0)
@@ -96,13 +95,10 @@ class SinPiPreProcess(
   val adr0 = Cat(exAdr, yman(manW-1, manW-adrW)) // concat exAdr + man
   val dr0  = Cat(~yman(manW-adrW-1), yman(manW-adrW-2,0))
 
-  val xConverted = new SinPiPreProcessOutput(spec)
-  xConverted.xConvertedEx  := yman
-  xConverted.xConvertedMan := yex
-
-  io.adr        := ShiftRegister(adr0, nStage)
-  io.dx         := ShiftRegister(dr0,  nStage)
-  io.xConverted := ShiftRegister(xConverted, nStage)
+  io.adr   := ShiftRegister(adr0,  nStage)
+  io.dx    := ShiftRegister(dr0,   nStage)
+  io.xConverted.xConvertedEx  := ShiftRegister(yex,  nStage)
+  io.xConverted.xConvertedMan := ShiftRegister(yman, nStage)
 }
 
 // -------------------------------------------------------------------------
@@ -221,15 +217,15 @@ class SinPiOtherPath(
 
   val io = IO(new Bundle {
     val x          = Input(UInt(spec.W.W))
-    val xconverted = Flipped(new SinPiPreProcessOutput(spec))
+    val xConverted = Flipped(new SinPiPreProcessOutput(spec))
     val zother     = new SinPiNonTableOutput(spec)
   })
 
   val (xsgn,  xex,  xman) = FloatChiselUtil.decompose(spec, io.x)
   val (xzero, xinf, xnan) = FloatChiselUtil.checkValue(spec, io.x)
 
-  val yex  = io.xconverted.xConvertedEx
-  val yman = io.xconverted.xConvertedMan
+  val yex  = io.xConverted.xConvertedEx
+  val yman = io.xConverted.xConvertedMan
 
   val out_of_bounds = ((exBias+1).U <= xex) && (xman =/= 0.U) // 2 < |x|
   val znan  = xnan || xinf || out_of_bounds
