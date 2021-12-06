@@ -30,6 +30,10 @@ object ScalaUtil {
     s
   }
 
+  def log2D( x: Double ): Double = {
+    log(x) / log(2.0)
+  }
+
   def log2UpD( x: Double ) = {
     if (x % 1.0 == 0.0) {
       log2Up(x.toInt)
