@@ -139,11 +139,10 @@ class SqrtTableCoeff(
 // -------------------------------------------------------------------------
 
 class SqrtNonTableOutput(val spec: RealSpec) extends Bundle {
-  val zex   = Output(UInt(spec.exW.W))
   val zsgn  = Output(UInt(1.W))
-  val znan  = Output(Bool())
-  val zinf  = Output(Bool())
-  val zzero = Output(Bool())
+  val zex   = Output(UInt(spec.exW.W))
+  val zman  = Output(UInt(spec.manW.W))
+  val zIsNonTable = Output(Bool())
 }
 
 // No pathway other than table interpolation. just calculate ex and sgn.
@@ -175,9 +174,10 @@ class SqrtOtherPath(
   val zinf  = xinf
   val zzero = xzero || xneg
 
-  io.zother.znan  := ShiftRegister(znan,  nStage)
-  io.zother.zinf  := ShiftRegister(zinf,  nStage)
-  io.zother.zzero := ShiftRegister(zzero, nStage)
+  val zMan  = Cat(znan, 0.U((manW-1).W)) // in case of znan, zinf, or zzero
+  val zIsNonTable = znan || zinf || zzero
+  io.zother.zIsNonTable := ShiftRegister(zIsNonTable, nStage)
+  io.zother.zman        := ShiftRegister(zMan,        nStage)
 
   val xExNobias  = xex - exBias.U
   val zExShifted = xExNobias(exW-1) ## xExNobias(exW-1, 1) // arith right shift
@@ -185,7 +185,6 @@ class SqrtOtherPath(
   val zex = Mux(zinf || znan, maskU(exW),
             Mux(zzero,        0.U(exW.W),
                               zExShifted + exBias.U))
-
   val zsgn = 0.U(1.W)
 
   io.zother.zex  := ShiftRegister(zex , nStage)
@@ -227,18 +226,15 @@ class SqrtPostProcess(
     val z      = Output(UInt(spec.W.W))
   })
 
-  val zinf  = io.zother.zinf
-  val znan  = io.zother.znan
-  val zzero = io.zother.zzero
-
   val zsgn = io.zother.zsgn
   val zex  = io.zother.zex
+  val zmanNonTable = io.zother.zman
+  val zIsNonTable  = io.zother.zIsNonTable
 
   val zman0 = dropLSB(extraBits, io.zres) +& io.zres(extraBits-1)
   val polynomialOvf = zman0(manW)
-  val zeroFlush     = zinf || zzero || znan
-  val zman          = Mux(zeroFlush,     Cat(znan, 0.U((manW-1).W)),
-                      Mux(polynomialOvf, Fill(manW,1.U(1.W)), zman0(manW-1,0)))
+  val zmanRounded   = Mux(polynomialOvf, Fill(manW, 1.U(1.W)), zman0(manW-1,0))
+  val zman          = Mux(zIsNonTable, zmanNonTable, zmanRounded)
 
   val z0 = Cat(zsgn, zex, zman)
 
