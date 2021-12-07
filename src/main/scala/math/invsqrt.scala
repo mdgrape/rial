@@ -74,7 +74,7 @@ class InvSqrtGeneric(
   // 2^ExMax --invsqrt-> 2^-ExMax/2, does not underflow
 
   val znan  = xnan
-  val zinf  = xzero || (xneg && !xzero)
+  val zinf  = xzero || xneg
   val zzero = xinf
 
   val xExNobias = xex - exBias.U
