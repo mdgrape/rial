@@ -108,16 +108,16 @@ class MathFuncSinPiTest extends FlatSpec
     }
   }
 
-//   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
-//     "Test Within (    -1, 0)",     generateRealWithin(-1.0,0.0,_,_))
-//   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
-//     "Test Within (     0, 2^-13)", generateRealWithin(0.0,pow(2.0, -13) - pow(2.0, -36),_,_))
-//   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
-//     "Test Within ( 2^-13, 0.5)",   generateRealWithin(pow(2.0, -13),0.5,_,_))
-//   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
-//     "Test Within (0.5, 1.0)",      generateRealWithin(0.5,1.0,_,_))
-//   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
-//     "Test Within (1.0, 2.0)",      generateRealWithin(1.0,2.0,_,_))
+  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
+    "Test Within (    -1, 0)",     generateRealWithin(-1.0,0.0,_,_))
+  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
+    "Test Within (     0, 2^-13)", generateRealWithin(0.0,pow(2.0, -13) - pow(2.0, -36),_,_))
+  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
+    "Test Within ( 2^-13, 0.5)",   generateRealWithin(pow(2.0, -13),0.5,_,_))
+  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
+    "Test Within (0.5, 1.0)",      generateRealWithin(0.5,1.0,_,_))
+  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
+    "Test Within (1.0, 2.0)",      generateRealWithin(1.0,2.0,_,_))
   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
     "Test Out of range (2.0, inf)", generateRealWithin(2.0, 1e34,_,_))
   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
