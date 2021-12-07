@@ -20,27 +20,37 @@ class TableCoeffInput( val cbit: Seq[Int] ) extends Bundle {
   val cs = Input(MixedVec(cbit.map{w => UInt(w.W)}))
 }
 
+class PolynomialSpec (
+      spec            : RealSpec,
+  val nOrder          : Int,
+  val adrW            : Int,
+  val extraBits       : Int,
+  val enableRangeCheck: Boolean = true,
+  val enableRounding  : Boolean = false
+) {
+  val manW = spec.manW
+  def order : Int = {if(adrW == manW) {0} else {nOrder}}
+  def fracW : Int = {manW + extraBits}
+  def dxW   : Int = {manW - adrW}
+}
+
 class PolynomialEval(
   val spec:           RealSpec,
-  val nOrder:         Int,
-  val adrW:           Int,
-  val extraBits:      Int,
+  val polySpec:       PolynomialSpec,
   val cbit:           Seq[Int],
   val stage:          PipelineStageConfig,
-  val enableRounding: Boolean = false
 ) extends Module {
 
   val nStage = stage.total
 
   val manW  = spec.manW
-  val dxW   = manW - adrW
-  val fracW = manW + extraBits
-
-  val order = if(adrW == manW) {0} else {nOrder}
+  val dxW   = polySpec.dxW
+  val fracW = polySpec.fracW
+  val order = polySpec.order
 
   val io = IO(new Bundle {
     val coeffs = new TableCoeffInput(cbit)
-    val dx     = Input(UInt(dxW.W))
+    val dx     = Input (UInt(dxW.W))
     val result = Output(UInt(fracW.W))
   })
 

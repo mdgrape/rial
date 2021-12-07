@@ -39,11 +39,9 @@ class SinPiPreProcessOutput(val spec: RealSpec) extends Bundle {
 }
 
 class SinPiPreProcess(
-  val spec : RealSpec, // Input / Output floating spec
-  val nOrder: Int, val adrW : Int, val extraBits : Int, // Polynomial spec
-  val stage : PipelineStageConfig,
-  val enableRangeCheck : Boolean = true,
-  val enablePolynomialRounding : Boolean = false,
+  val spec     : RealSpec, // Input / Output floating spec
+  val polySpec : PolynomialSpec,
+  val stage    : PipelineStageConfig
 ) extends Module {
 
   val nStage = stage.total
@@ -53,10 +51,15 @@ class SinPiPreProcess(
   val exBias = spec.exBias
   val exAdrW = SinPiSim.calcExAdrW(spec)
 
+  val adrW      = polySpec.adrW
+  val fracW     = polySpec.fracW
+  val dxW       = polySpec.dxW
+  val order     = polySpec.order
+
   val io = IO(new Bundle {
     val x   = Input (UInt(spec.W.W))
     val adr = Output(UInt((exAdrW+adrW).W))
-    val dx  = Output(UInt((manW-adrW).W))
+    val dx  = Output(UInt(dxW.W))
     val xConverted = new SinPiPreProcessOutput(spec)
   })
 
@@ -110,22 +113,20 @@ class SinPiPreProcess(
 // -------------------------------------------------------------------------
 
 class SinPiTableCoeff(
-
-  val spec : RealSpec,
-  val nOrder: Int, val adrW : Int, val extraBits : Int,
-
-  val maxAdrW : Int,      // max address width among all math funcs
-  val maxCbit : Seq[Int], // max coeff width among all math funcs
-
-  val stage : PipelineStageConfig,
-  val enableRangeCheck : Boolean = true,
-  val enablePolynomialRounding : Boolean = false,
+  val spec     : RealSpec,
+  val polySpec : PolynomialSpec,
+  val maxAdrW  : Int,      // max address width among all math funcs
+  val maxCbit  : Seq[Int], // max coeff width among all math funcs
+  val stage    : PipelineStageConfig
 ) extends Module {
 
   val manW   = spec.manW
-  val calcW  = manW + extraBits
-  val order  = if(adrW == manW) {0} else {nOrder}
   val nStage = stage.total
+
+  val adrW      = polySpec.adrW
+  val fracW     = polySpec.fracW
+  val dxW       = polySpec.dxW
+  val order     = polySpec.order
 
   val linearThreshold = SinPiSim.calcLinearThreshold(manW)
 
@@ -143,26 +144,26 @@ class SinPiTableCoeff(
       VecInit((0L to (1L << adrW)).map(
         n => {
           val x = n.toDouble / (1L<<adrW)
-          val y = round(scalb(math.sin(Pi * scalb(1.0 + x, exponent)), -exponent-3) * (1L<<calcW))
-          assert(y < (1L<<calcW))
-          y.U(calcW.W)
+          val y = round(scalb(math.sin(Pi * scalb(1.0 + x, exponent)), -exponent-3) * (1L<<fracW))
+          assert(y < (1L<<fracW))
+          y.U(fracW.W)
         }))
       })
     )
 
-    assert(maxCbit(0) == calcW)
+    assert(maxCbit(0) == fracW)
 
     val c0 = tbl(exAdr)(manAdr)
     io.cs.cs(0) := ShiftRegister(c0, nStage) // width should be manW + extraBits
 
   } else {
 
-    val cbit = SinPiSim.sinPiTableGeneration( nOrder, adrW, manW, calcW )
+    val cbit = SinPiSim.sinPiTableGeneration( order, adrW, manW, fracW )
       .map( t => {t.getCBitWidth(/*sign mode = */0)} )
       .reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
 
     val tableIs = VecInit(
-      SinPiSim.sinPiTableGeneration( nOrder, adrW, manW, calcW ).map(t => {
+      SinPiSim.sinPiTableGeneration( order, adrW, manW, fracW ).map(t => {
         t.getVectorWithWidth(cbit, /*sign mode = */ 0)
       })
     )
@@ -171,7 +172,7 @@ class SinPiTableCoeff(
     val coeff = getSlices(tableI(manAdr), cbit)
 
     val coeffs = Wire(new TableCoeffInput(maxCbit))
-    for (i <- 0 to nOrder) {
+    for (i <- 0 to order) {
       val diffWidth = maxCbit(i) - cbit(i)
       val ci  = coeff(i)
       val msb = ci(cbit(i)-1)
@@ -202,11 +203,9 @@ class SinPiNonTableOutput(val spec: RealSpec) extends Bundle {
 }
 
 class SinPiOtherPath(
-  val spec : RealSpec, // Input / Output floating spec
-  val nOrder: Int, val adrW : Int, val extraBits : Int, // Polynomial spec
-  val stage : PipelineStageConfig,
-  val enableRangeCheck : Boolean = true,
-  val enablePolynomialRounding : Boolean = false,
+  val spec     : RealSpec, // Input / Output floating spec
+  val polySpec : PolynomialSpec,
+  val stage    : PipelineStageConfig
 ) extends Module {
 
   val nStage = stage.total
@@ -214,6 +213,11 @@ class SinPiOtherPath(
   val exW    = spec.exW
   val manW   = spec.manW
   val exBias = spec.exBias
+
+  val adrW      = polySpec.adrW
+  val fracW     = polySpec.fracW
+  val dxW       = polySpec.dxW
+  val order     = polySpec.order
 
   val io = IO(new Bundle {
     val x          = Input(UInt(spec.W.W))
@@ -296,11 +300,9 @@ class SinPiOtherPath(
 // -------------------------------------------------------------------------
 
 class SinPiPostProcess(
-  val spec : RealSpec, // Input / Output floating spec
-  val nOrder: Int, val adrW : Int, val extraBits : Int, // Polynomial spec
-  val stage : PipelineStageConfig,
-  val enableRangeCheck : Boolean = true,
-  val enablePolynomialRounding : Boolean = false,
+  val spec     : RealSpec, // Input / Output floating spec
+  val polySpec : PolynomialSpec,
+  val stage    : PipelineStageConfig
 ) extends Module {
 
   val nStage = stage.total
@@ -310,22 +312,25 @@ class SinPiPostProcess(
   val manW   = spec.manW
   val exBias = spec.exBias
 
-  val bp = manW + extraBits
+  val adrW      = polySpec.adrW
+  val fracW     = polySpec.fracW
+  val dxW       = polySpec.dxW
+  val order     = polySpec.order
 
   val io = IO(new Bundle {
     val zother = Flipped(new SinPiNonTableOutput(spec))
-    val zres   = Input(UInt((manW+extraBits).W))
+    val zres   = Input(UInt(fracW.W))
     val z      = Output(UInt(spec.W.W))
   })
 
-  val resLessThanHalf = io.zres(bp-1) === 0.U
+  val resLessThanHalf = io.zres(fracW-1) === 0.U
 
   val zEx0Table  = Mux(resLessThanHalf, io.zother.zex + 1.U, io.zother.zex + 2.U)
   val zExTable   = zEx0Table(exW-1, 0)
 
-  val zMan0Table = Mux(resLessThanHalf, Cat(io.zres, 0.U(2.W))(bp-1, 0),
-                                        Cat(io.zres, 0.U(1.W))(bp-1, 0))
-  val zManTable  = zMan0Table(bp-1, bp-manW) + zMan0Table(bp-manW-1)
+  val zMan0Table = Mux(resLessThanHalf, Cat(io.zres, 0.U(2.W))(fracW-1, 0),
+                                        Cat(io.zres, 0.U(1.W))(fracW-1, 0))
+  val zManTable  = zMan0Table(fracW-1, fracW-manW) + zMan0Table(fracW-manW-1)
 
   val zSgn = io.zother.zsgn
   val zEx  = Mux(io.zother.zIsNonTable, io.zother.zex,  zExTable)

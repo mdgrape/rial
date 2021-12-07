@@ -43,11 +43,14 @@ class MathFunctions(
   val nStage = stage.total
   def getStage() = nStage
 
+  val polySpec = new PolynomialSpec(spec, nOrder, adrW, extraBits,
+    enableRangeCheck, enablePolynomialRounding)
+
   val exW    = spec.exW
   val manW   = spec.manW
   val exBias = spec.exBias
 
-  val order = if(adrW == manW) {0} else {nOrder}
+  val order = polySpec.order
 
   val maxAdrW  = adrW + 4        // TODO automatically calculate this from spec
   val maxCbit  = Seq(27, 21, 20) // TODO ditto
@@ -74,19 +77,19 @@ class MathFunctions(
   //            |
   //   we are here
 
-  val sqrtPre   = Module(new SqrtPreProcess (spec, order, adrW, extraBits,                   stage, enableRangeCheck, enablePolynomialRounding))
-  val sqrtTab   = Module(new SqrtTableCoeff (spec, order, adrW, extraBits, maxAdrW, maxCbit, stage, enableRangeCheck, enablePolynomialRounding))
-  val sqrtOther = Module(new SqrtOtherPath  (spec, order, adrW, extraBits,                   stage, enableRangeCheck, enablePolynomialRounding))
-  val sqrtPost  = Module(new SqrtPostProcess(spec, order, adrW, extraBits,                   stage, enableRangeCheck, enablePolynomialRounding))
+  val sqrtPre   = Module(new SqrtPreProcess (spec, polySpec, stage))
+  val sqrtTab   = Module(new SqrtTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
+  val sqrtOther = Module(new SqrtOtherPath  (spec, polySpec, stage))
+  val sqrtPost  = Module(new SqrtPostProcess(spec, polySpec, stage))
 
   sqrtPre.io.x   := io.x
   sqrtTab.io.adr := sqrtPre.io.adr
   sqrtOther.io.x := io.x
 
-  val sinPiPre   = Module(new SinPiPreProcess (spec, order, adrW, extraBits,                   stage, enableRangeCheck, enablePolynomialRounding))
-  val sinPiTab   = Module(new SinPiTableCoeff (spec, order, adrW, extraBits, maxAdrW, maxCbit, stage, enableRangeCheck, enablePolynomialRounding))
-  val sinPiOther = Module(new SinPiOtherPath  (spec, order, adrW, extraBits,                   stage, enableRangeCheck, enablePolynomialRounding))
-  val sinPiPost  = Module(new SinPiPostProcess(spec, order, adrW, extraBits,                   stage, enableRangeCheck, enablePolynomialRounding))
+  val sinPiPre   = Module(new SinPiPreProcess (spec, polySpec, stage))
+  val sinPiTab   = Module(new SinPiTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
+  val sinPiOther = Module(new SinPiOtherPath  (spec, polySpec, stage))
+  val sinPiPost  = Module(new SinPiPostProcess(spec, polySpec, stage))
 
   sinPiPre.io.x            := io.x
   sinPiTab.io.adr          := sinPiPre.io.adr
@@ -103,7 +106,7 @@ class MathFunctions(
   //           '--| non-table path (e.g. taylor)   |-'
   //              '--------------------------------'
 
-  val polynomialEval = Module(new PolynomialEval(spec, order, adrW, extraBits, maxCbit, stage, enablePolynomialRounding))
+  val polynomialEval = Module(new PolynomialEval(spec, polySpec, maxCbit, stage))
 
   val nullTab = 0.U.asTypeOf(new TableCoeffInput(maxCbit))
 

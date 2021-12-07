@@ -20,6 +20,15 @@ import rial.arith.FloatChiselUtil
 import rial.math.SqrtSim
 import rial.mathfunc._
 
+// An implementation of sqrt using (normally 2nd-order) polynomial interpolation
+// Since FP is composed of exponent and mantissa, the result of sqrt will be
+//     sqrt(2^ex * 1.m) = 2^(ex/2) * sqrt(1.m) .
+// The fractional part of exponent appears when ex is an odd number, so
+//     sqrt(2^ex * 1.m) = 2^(floor(ex/2)) * sqrt(1.m)   if ex is even
+//                        2^(floor(ex/2)) * sqrt(2*1.m) otherwise.
+// It requires 2 different tables for sqrt(1.m) and sqrt(2*1.m).
+// To distinguish them, we use LSB of ex to detect whether ex is even or odd.
+
 // -------------------------------------------------------------------------
 //  _ __  _ __ ___ _ __  _ __ ___   ___ ___  ___ ___
 // | '_ \| '__/ _ \ '_ \| '__/ _ \ / __/ _ \/ __/ __|
@@ -31,27 +40,28 @@ import rial.mathfunc._
 // sqrt(x): floating => floating
 // - if x < 0, returns 0.
 class SqrtPreProcess(
-  val spec : RealSpec, // Input / Output floating spec
-  val nOrder: Int, val adrW : Int, val extraBits : Int, // Polynomial spec
-  val stage : PipelineStageConfig,
-  val enableRangeCheck : Boolean = true,
-  val enablePolynomialRounding : Boolean = false,
+  val spec     : RealSpec,
+  val polySpec : PolynomialSpec,
+  val stage    : PipelineStageConfig,
 ) extends Module {
 
   val nStage = stage.total
 
   val manW = spec.manW
 
-  val order = if(adrW == manW) {0} else {nOrder}
+  val adrW      = polySpec.adrW
+  val fracW     = polySpec.fracW
+  val dxW       = polySpec.dxW
+  val order     = polySpec.order
 
   val io = IO(new Bundle {
     val x   = Input (UInt(spec.W.W))
-    val adr = Output(UInt((1+adrW).W))
-    val dx  = Output(UInt((manW-adrW).W))
+    val adr = Output(UInt((1+adrW).W)) // we use LSB of x.ex
+    val dx  = Output(UInt(dxW.W))
   })
 
-  val adr0 = io.x(manW, manW-adrW) // include LSB of x.ex
-  val dx0  = Cat(~io.x(manW-adrW-1), io.x(manW-adrW-2,0))
+  val adr0 = io.x(manW, dxW)
+  val dx0  = Cat(~io.x(dxW-1), io.x(dxW-2, 0))
 
   io.adr := ShiftRegister(adr0, nStage)
   io.dx  := ShiftRegister(dx0 , nStage)
@@ -66,21 +76,17 @@ class SqrtPreProcess(
 // -------------------------------------------------------------------------
 
 class SqrtTableCoeff(
-
-  val spec : RealSpec,
-  val nOrder: Int, val adrW : Int, val extraBits : Int,
-
-  val maxAdrW : Int,      // max address width among all math funcs
-  val maxCbit : Seq[Int], // max coeff width among all math funcs
-
-  val stage : PipelineStageConfig,
-  val enableRangeCheck : Boolean = true,
-  val enablePolynomialRounding : Boolean = false,
+  val spec     : RealSpec,
+  val polySpec : PolynomialSpec,
+  val maxAdrW  : Int,      // max address width among all math funcs
+  val maxCbit  : Seq[Int], // max coeff width among all math funcs
+  val stage    : PipelineStageConfig,
 ) extends Module {
 
-  val manW  = spec.manW
-  val calcW = manW + extraBits
-  val order = if(adrW == manW) {0} else {nOrder}
+  val manW   = spec.manW
+  val adrW   = polySpec.adrW
+  val fracW  = polySpec.fracW
+  val order  = polySpec.order
   val nStage = stage.total
 
   val io = IO(new Bundle {
@@ -106,20 +112,20 @@ class SqrtTableCoeff(
         }
       })
     )
-    assert(maxCbit(0) == calcW)
+    assert(maxCbit(0) == fracW)
 
     val c0 = tbl(io.adr(adrW, 0))            // here we use LSB of ex
     io.cs.cs(0) := ShiftRegister(c0, nStage) // width should be manW + extraBits
 
   } else {
-    val tableI = SqrtSim.sqrtTableGeneration( nOrder, adrW, manW, calcW )
+    val tableI = SqrtSim.sqrtTableGeneration( order, adrW, manW, fracW )
     val cbit   = tableI.cbit
 
     val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/0)
     val coeff  = getSlices(coeffTable(io.adr), coeffWidth)
 
     val coeffs = Wire(new TableCoeffInput(maxCbit))
-    for (i <- 0 to nOrder) {
+    for (i <- 0 to order) {
       val diffWidth = maxCbit(i) - cbit(i)
       val ci  = coeff(i)
       val msb = ci(cbit(i)-1)
@@ -147,11 +153,9 @@ class SqrtNonTableOutput(val spec: RealSpec) extends Bundle {
 
 // No pathway other than table interpolation. just calculate ex and sgn.
 class SqrtOtherPath(
-  val spec : RealSpec, // Input / Output floating spec
-  val nOrder: Int, val adrW : Int, val extraBits : Int, // Polynomial spec
-  val stage : PipelineStageConfig,
-  val enableRangeCheck : Boolean = true,
-  val enablePolynomialRounding : Boolean = false,
+  val spec     : RealSpec, // Input / Output floating spec
+  val polySpec : PolynomialSpec,
+  val stage    : PipelineStageConfig,
 ) extends Module {
 
   val nStage = stage.total
@@ -201,11 +205,9 @@ class SqrtOtherPath(
 // -------------------------------------------------------------------------
 
 class SqrtPostProcess(
-  val spec : RealSpec, // Input / Output floating spec
-  val nOrder: Int, val adrW : Int, val extraBits : Int, // Polynomial spec
-  val stage : PipelineStageConfig,
-  val enableRangeCheck : Boolean = true,
-  val enablePolynomialRounding : Boolean = false,
+  val spec     : RealSpec, // Input / Output floating spec
+  val polySpec : PolynomialSpec,
+  val stage    : PipelineStageConfig,
 ) extends Module {
 
   val exW    = spec.exW
@@ -215,13 +217,16 @@ class SqrtPostProcess(
   val nStage = stage.total
   def getStage() = nStage
 
-  val order = if(manW == adrW) {0} else {nOrder}
+  val adrW   = polySpec.adrW
+  val fracW  = polySpec.fracW
+  val order  = polySpec.order
+  val extraBits = polySpec.extraBits
 
   val io = IO(new Bundle {
     // ex and some flags
     val zother = Flipped(new SqrtNonTableOutput(spec))
     // table interpolation results
-    val zres   = Input(UInt((manW + extraBits).W))
+    val zres   = Input(UInt(fracW.W))
     // output
     val z      = Output(UInt(spec.W.W))
   })
