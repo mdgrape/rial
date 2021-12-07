@@ -98,10 +98,20 @@ class MathFunctions(
   val sinPiOther = Module(new SinPiOtherPath  (spec, polySpec, stage))
   val sinPiPost  = Module(new SinPiPostProcess(spec, polySpec, stage))
 
+  val cosPiPre   = Module(new CosPiPreProcess (spec, polySpec, stage))
+  val cosPiOther = Module(new CosPiOtherPath  (spec, polySpec, stage))
+
   sinPiPre.io.x            := io.x
-  sinPiTab.io.adr          := sinPiPre.io.adr
-  sinPiOther.io.x          := io.x
+  cosPiPre.io.x            := io.x
+
+  sinPiTab.io.adr          := Mux(io.sel === SelectFunc.selectSinPi,
+                                  sinPiPre.io.adr, cosPiPre.io.adr)
+
   sinPiOther.io.xConverted := sinPiPre.io.xConverted
+  cosPiOther.io.xConverted := cosPiPre.io.xConverted
+
+  sinPiOther.io.x          := io.x
+  cosPiOther.io.x          := io.x
 
   //                      we are here
   //                               |
@@ -120,12 +130,14 @@ class MathFunctions(
   polynomialEval.io.dx     := MuxCase(0.U, Seq(
     (io.sel === SelectFunc.selectSqrt)    -> sqrtPre .io.dx,
     (io.sel === SelectFunc.selectInvSqrt) -> sqrtPre .io.dx, // same as sqrt
-    (io.sel === SelectFunc.selectSinPi)   -> sinPiPre.io.dx
+    (io.sel === SelectFunc.selectSinPi)   -> sinPiPre.io.dx,
+    (io.sel === SelectFunc.selectCosPi)   -> cosPiPre.io.dx
   ))
   polynomialEval.io.coeffs.cs <> MuxCase(nullTab.cs, Seq(
     (io.sel === SelectFunc.selectSqrt)    -> sqrtTab   .io.cs.cs,
     (io.sel === SelectFunc.selectInvSqrt) -> invsqrtTab.io.cs.cs,
-    (io.sel === SelectFunc.selectSinPi)   -> sinPiTab  .io.cs.cs
+    (io.sel === SelectFunc.selectSinPi)   -> sinPiTab  .io.cs.cs,
+    (io.sel === SelectFunc.selectCosPi)   -> sinPiTab  .io.cs.cs // same as sinPi
   ))
 
   //                                         we are here
@@ -143,13 +155,15 @@ class MathFunctions(
   invsqrtPost.io.zother <> invsqrtOther.io.zother
   invsqrtPost.io.zres   := polynomialEval.io.result
 
-  sinPiPost.io.zother <> sinPiOther.io.zother
+  sinPiPost.io.zother := Mux(io.sel === SelectFunc.selectSinPi,
+    sinPiOther.io.zother, cosPiOther.io.zother)
   sinPiPost.io.zres   := polynomialEval.io.result
 
   val z0 = MuxCase(0.U, Seq(
     (io.sel === SelectFunc.selectSqrt)    -> sqrtPost.io.z,
     (io.sel === SelectFunc.selectInvSqrt) -> invsqrtPost.io.z,
-    (io.sel === SelectFunc.selectSinPi)   -> sinPiPost.io.z
+    (io.sel === SelectFunc.selectSinPi)   -> sinPiPost.io.z,
+    (io.sel === SelectFunc.selectCosPi)   -> sinPiPost.io.z // same as sinPi
   ))
 
   io.z := ShiftRegister(z0, stage.total)
