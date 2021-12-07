@@ -1,0 +1,244 @@
+//% @file reciprocal.scala
+//
+// Reciprocal function
+// Copyright (C) Toru Niina RIKEN BDR 2020
+//
+package rial.mathfunc
+
+import scala.language.reflectiveCalls
+import scala.math._
+import chisel3._
+import chisel3.util._
+import rial.table._
+import rial.util._
+import rial.util.RialChiselUtil._
+import rial.util.ScalaUtil._
+import rial.util.PipelineStageConfig._
+import rial.arith.RealSpec
+import rial.arith.FloatChiselUtil
+
+import rial.math.ReciprocalSim
+import rial.mathfunc._
+
+// 1/x, floating input, floating output
+// x   = 2^e * 1.m
+// 1/x = 2^(-e-1) * 2/1.m
+
+// -------------------------------------------------------------------------
+//  _ __  _ __ ___ _ __  _ __ ___   ___ ___  ___ ___
+// | '_ \| '__/ _ \ '_ \| '__/ _ \ / __/ _ \/ __/ __|
+// | |_) | | |  __/ |_) | | | (_) | (_|  __/\__ \__ \
+// | .__/|_|  \___| .__/|_|  \___/ \___\___||___/___/
+// |_|            |_|
+// -------------------------------------------------------------------------
+
+class ReciprocalPreProcess(
+  val spec     : RealSpec,
+  val polySpec : PolynomialSpec,
+  val stage    : PipelineStageConfig,
+) extends Module {
+
+  val nStage = stage.total
+
+  val manW = spec.manW
+
+  val adrW      = polySpec.adrW
+  val fracW     = polySpec.fracW
+  val dxW       = polySpec.dxW
+  val order     = polySpec.order
+
+  val io = IO(new Bundle {
+    val x   = Input (UInt(spec.W.W))
+    val adr = Output(UInt(adrW.W))
+    val dx  = Output(UInt(dxW.W))
+  })
+
+  // invert x to make all the polynomial coefficients positive
+  val adr0 = ~io.x(manW-1, dxW)
+  val dx0  = Cat(io.x(dxW-1), ~io.x(dxW-2, 0))
+
+  io.adr := ShiftRegister(adr0, nStage)
+  io.dx  := ShiftRegister(dx0 , nStage)
+}
+
+// -------------------------------------------------------------------------
+//  _        _     _                        __  __
+// | |_ __ _| |__ | | ___    ___ ___   ___ / _|/ _|
+// | __/ _` | '_ \| |/ _ \  / __/ _ \ / _ \ |_| |_
+// | || (_| | |_) | |  __/ | (_| (_) |  __/  _|  _|
+//  \__\__,_|_.__/|_|\___|  \___\___/ \___|_| |_|
+// -------------------------------------------------------------------------
+
+class ReciprocalTableCoeff(
+  val spec     : RealSpec,
+  val polySpec : PolynomialSpec,
+  val maxAdrW  : Int,      // max address width among all math funcs
+  val maxCbit  : Seq[Int], // max coeff width among all math funcs
+  val stage    : PipelineStageConfig,
+) extends Module {
+
+  val manW   = spec.manW
+  val adrW   = polySpec.adrW
+  val fracW  = polySpec.fracW
+  val order  = polySpec.order
+  val nStage = stage.total
+
+  val io = IO(new Bundle {
+    val adr = Input(UInt(adrW.W))
+    val cs  = Flipped(new TableCoeffInput(maxCbit))
+  })
+
+  if(order == 0) {
+    val tbl = VecInit( (0L to (1L<<adrW)-1L).map(
+      n => {
+        val x = 1.0+n.toDouble/(1L<<adrW)
+        val y = round((2.0/x-1.0)*(1L<<manW))
+        //println(f"$n $x $y")
+        if (n==0) {
+          0.U(manW.W)
+        } else if (y>=(1L<<manW)) {
+          println("WARNING: mantissa reaches to 2")
+          maskL(manW).U(manW.W)
+        } else {
+          y.U(manW.W)
+        }
+      }
+    ) )
+
+    assert(maxCbit(0) == fracW)
+
+    val c0 = tbl(~io.adr) // address is inverted in preprocess
+    io.cs.cs(0) := ShiftRegister(c0, nStage)
+
+  } else {
+    val tableI = ReciprocalSim.reciprocalTableGeneration( order, adrW, manW, fracW )
+    val cbit   = tableI.cbit
+
+    val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/0)
+    val coeff  = getSlices(coeffTable(io.adr), coeffWidth)
+
+    val coeffs = Wire(new TableCoeffInput(maxCbit))
+    for (i <- 0 to order) {
+      val diffWidth = maxCbit(i) - cbit(i)
+      val ci  = coeff(i)
+      val msb = ci(cbit(i)-1)
+      coeffs.cs(i) := Cat(Fill(diffWidth, msb), ci) // sign extension
+    }
+    io.cs := ShiftRegister(coeffs, nStage)
+  }
+}
+
+// -------------------------------------------------------------------------
+//                        _        _     _                    _   _
+//  _ __   ___  _ __     | |_ __ _| |__ | | ___   _ __   __ _| |_| |__
+// | '_ \ / _ \| '_ \ ___| __/ _` | '_ \| |/ _ \ | '_ \ / _` | __| '_ \
+// | | | | (_) | | | |___| || (_| | |_) | |  __/ | |_) | (_| | |_| | | |
+// |_| |_|\___/|_| |_|    \__\__,_|_.__/|_|\___| | .__/ \__,_|\__|_| |_|
+//                                               |_|
+// -------------------------------------------------------------------------
+
+class ReciprocalNonTableOutput(val spec: RealSpec) extends Bundle {
+  val zsgn  = Output(UInt(1.W))
+  val zex   = Output(UInt(spec.exW.W))
+  val zman  = Output(UInt(spec.manW.W))
+  val zIsNonTable = Output(Bool())
+}
+
+// No pathway other than table interpolation. just calculate ex and sgn.
+class ReciprocalOtherPath(
+  val spec     : RealSpec, // Input / Output floating spec
+  val polySpec : PolynomialSpec,
+  val stage    : PipelineStageConfig,
+) extends Module {
+
+  val nStage = stage.total
+
+  val exW    = spec.exW
+  val manW   = spec.manW
+  val exBias = spec.exBias
+
+  val io = IO(new Bundle {
+    val x      = Input(UInt(spec.W.W))
+    val zother = new SqrtNonTableOutput(spec)
+  })
+
+  val (xsgn,  xex,  xman) = FloatChiselUtil.decompose(spec, io.x)
+  val (xzero, xinf, xnan) = FloatChiselUtil.checkValue(spec, io.x)
+
+  val xmanNonZero = xman.orR.asUInt
+  val zex0        = (exBias<<1).U((exW+1).W) - xex - xmanNonZero
+  val zexMSB      = zex0(exW)
+  // add 1 bit to check carry
+
+  // check overflow/underflow
+  // 1/x = 2^(-e-1) * 2/1.m
+  val invExMax = -spec.exMin - 1
+  val invExMin = -spec.exMax - 1
+  val (zinf, zzero) = if(spec.exMax < invExMax) { // check overflow
+    (zexMSB || xzero, xinf || zex0 === 0.U)
+  } else if (invExMin < spec.exMin) { // check underflow
+    (xzero, zexMSB || xinf || zex0 === 0.U)
+  } else { // nothing happens.
+    (xzero, xinf || zex0 === 0.U)
+  }
+  val znan  = xnan
+
+  val zsgn = Mux(znan || zzero || zinf, 0.U, xsgn) // TODO sign
+  val zex  = Mux(znan || zinf, maskU(exW),
+             Mux(zzero, 0.U(exW.W), zex0(exW-1,0)))
+  val zman = Cat(znan, 0.U((manW-1).W))
+  val zIsNonTable = znan || zinf || zzero
+
+  io.zother.zIsNonTable := ShiftRegister(zIsNonTable, nStage)
+  io.zother.zsgn := ShiftRegister(zsgn, nStage)
+  io.zother.zex  := ShiftRegister(zex , nStage)
+  io.zother.zman := ShiftRegister(zman, nStage)
+}
+
+// -------------------------------------------------------------------------
+//                  _
+//  _ __   ___  ___| |_ _ __  _ __ ___   ___ ___  ___ ___
+// | '_ \ / _ \/ __| __| '_ \| '__/ _ \ / __/ _ \/ __/ __|
+// | |_) | (_) \__ \ |_| |_) | | | (_) | (_|  __/\__ \__ \
+// | .__/ \___/|___/\__| .__/|_|  \___/ \___\___||___/___/
+// |_|                 |_|
+// -------------------------------------------------------------------------
+
+class ReciprocalPostProcess(
+  val spec     : RealSpec, // Input / Output floating spec
+  val polySpec : PolynomialSpec,
+  val stage    : PipelineStageConfig,
+) extends Module {
+
+  val exW    = spec.exW
+  val manW   = spec.manW
+  val exBias = spec.exBias
+
+  val nStage = stage.total
+  def getStage() = nStage
+
+  val adrW   = polySpec.adrW
+  val fracW  = polySpec.fracW
+  val order  = polySpec.order
+  val extraBits = polySpec.extraBits
+
+  val io = IO(new Bundle {
+    val zother = Flipped(new SqrtNonTableOutput(spec))
+    val zres   = Input(UInt(fracW.W))
+    val z      = Output(UInt(spec.W.W))
+  })
+
+  val zsgn = io.zother.zsgn
+  val zex  = io.zother.zex
+  val zmanNonTable = io.zother.zman
+  val zIsNonTable  = io.zother.zIsNonTable
+
+  val zman0 = dropLSB(extraBits, io.zres) +& io.zres(extraBits-1)
+  val polynomialOvf = zman0(manW)
+  val zmanRounded   = Mux(polynomialOvf, Fill(manW, 1.U(1.W)), zman0(manW-1,0))
+  val zman          = Mux(zIsNonTable, zmanNonTable, zmanRounded)
+
+  val z0 = Cat(zsgn, zex, zman)
+
+  io.z   := ShiftRegister(z0, nStage)
+}
