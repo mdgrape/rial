@@ -58,7 +58,7 @@ class SinPiTest extends FlatSpec
     generatorStr : String, generator : ( (RealSpec, Random) => RealGeneric) ) = {
     val total = stage.total
     val pipeconfig = stage.getString
-    val reference  = SinPiSim.sinPiSimGeneric( table, _ )
+    val reference  = SinPiSim.sinPiSimGeneric( table, _, false )
     it should f"sinPi(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
       test( new SinPiGeneric(spec, table(0).nOrder, table(0).adrW, table(0).bp-spec.manW, stage, false, false)) { c =>
         {

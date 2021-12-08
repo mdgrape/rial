@@ -67,7 +67,7 @@ class MathFuncSinPiTest extends FlatSpec
           val maxCbit    = c.getMaxCbit
           val maxCalcW   = c.getMaxCalcW
           val nstage     = c.getStage
-          val reference  = SinPiSim.sinPiSimGeneric( SinPiSim.sinPiTableGeneration( nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit) ), _ )
+          val reference  = SinPiSim.sinPiSimGeneric( SinPiSim.sinPiTableGeneration( nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit) ), _, false )
 
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
