@@ -96,12 +96,13 @@ class CosPiPreProcess(
   val exAdr = exOfs.asUInt()(exAdrW-1, 0)
 
   val adr0 = Cat(exAdr, yman(manW-1, manW-adrW)) // concat exAdr + man
-  val dr0  = Cat(~yman(manW-adrW-1), yman(manW-adrW-2,0))
-
   io.adr   := ShiftRegister(adr0,  nStage)
+
   if(order != 0) {
-    io.dx.get := ShiftRegister(dr0, nStage)
+    val dx0  = Cat(~yman(manW-adrW-1), yman(manW-adrW-2,0))
+    io.dx.get := ShiftRegister(dx0, nStage)
   }
+
   io.xConverted.xConvertedEx  := ShiftRegister(yex,  nStage)
   io.xConverted.xConvertedMan := ShiftRegister(yman, nStage)
 }

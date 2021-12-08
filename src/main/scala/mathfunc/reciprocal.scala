@@ -55,10 +55,10 @@ class ReciprocalPreProcess(
 
   // invert x to make all the polynomial coefficients positive
   val adr0 = ~io.x(manW-1, dxW)
-  val dx0  = Cat(io.x(dxW-1), ~io.x(dxW-2, 0))
-
   io.adr := ShiftRegister(adr0, nStage)
+
   if(order != 0) {
+    val dx0  = Cat(io.x(dxW-1), ~io.x(dxW-2, 0))
     io.dx.get := ShiftRegister(dx0, nStage)
   }
 }
