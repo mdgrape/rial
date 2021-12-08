@@ -1,7 +1,6 @@
 //% @file sinPiSim.scala
 //
-// Simulator for sinPi function
-// Copyright (C) Toru Niina RIKEN BDR 2021
+// Simulator for sinPi function Copyright (C) Toru Niina RIKEN BDR 2021
 //
 package rial.math
 
@@ -24,34 +23,16 @@ import rial.arith.RealGeneric
 import rial.arith.Rounding._
 import rial.arith._
 
-// This only considers x is in [-2, 2), scaled by pi
-// sin(pix): floating -> floating
-//
-// sin(pix) = pix - pi^3/3! x^3 + pi^5/5! x^5 - ...
-//          < pix - 5.168 x^3   + 2.551 x^5
-//          < pix - 8 x^3       + 4 x^5
-//
-// pi^3/3! x^3 < pix * 2^-23
-// pi^2/3! x^2 < 2 x^2 < 2^-23
-//         x^2 < 2^-24
-//         x   < 2^-12
-//
-// pi^5x^5/5! < pix * 2^-23
-// pi^4/5! x^4 < 2^-23
-// pi^4/5! x^4 < x^4 < 2^-23
-//               x   < 2^-6
-//
-// if x < 2^-12 : sin(pix) = pix
-// if x < 2^-5 : 4x^3 < 2^-23, sin(pix) = pix - 8x^3
-// otherwise   : interpolation
-//
-// generic:
-// ex*3 + 3 < -manW <=> ex < -ceil((manW + 3) / 3)
-// ex*5 + 2 < -manW <=> ex < -ceil((manW + 2) / 5)
-//
+// This only considers x is in [-1, 2), scaled by pi
+// sin(pi*x): floating -> floating
+
 object SinPiSim {
 
-  def sinPiSimGeneric( ts : Seq[FuncTableInt], x: RealGeneric ) : RealGeneric = {
+  def sinPiSimGeneric(
+    ts: Seq[FuncTableInt],
+    x:  RealGeneric,
+    useCubicTerm: Boolean = false
+  ) : RealGeneric = {
 
     val expW = x.spec.exW
     val manW = x.spec.manW
@@ -122,7 +103,8 @@ object SinPiSim {
 
     // {xex, xman} is in [0, 1/2].
 
-    val linearThreshold = calcLinearThreshold(manW).toLong
+    val linearThreshold = calcLinearThreshold(manW).toLong // -12
+    val cubicThreshold  = calcCubicThreshold(manW).toLong  // -6
     val pi = new RealGeneric(x.spec, Pi)
 
     if (xex == -exBias && xman == 0) { // sin(0) = 0
@@ -132,6 +114,59 @@ object SinPiSim {
     } else if (xex == -1 && xman == 0) { // sin(pi/2) = 1
 
       return new RealGeneric(x.spec, zSgn, exBias, 0)
+
+    } else if (useCubicTerm && linearThreshold < xex && xex < cubicThreshold) {
+      //
+      // sin(pi*x) = pi*x - pi^3 * x^3 / 3!
+      //           = pi*x * (1 - pi^2 * x^2 / 6)
+      //
+      val coef1 = pi
+      val coef3 = new RealGeneric(x.spec, Pi * Pi / 6.0)
+      assert(xex < cubicThreshold)
+
+      // TODO
+      // pi^2 / 6 ~ 1.5, and x < cubicThreshold, we can reduce the width of term2
+
+      val xmanW1  = xman + (1<<manW)
+      val xsqMan0 = (xmanW1 * xmanW1)
+      val (xsqMan, xsqEx)  = if(bit(manW + manW + 1, xsqMan0) == 1L) {
+        ((xsqMan0 >> (manW+1)) + bit(manW, xsqMan0), xex + xex + 1)
+      } else {
+        ((xsqMan0 >>  manW) + bit(manW-1, xsqMan0), xex + xex)
+      }
+      assert(xsqEx < cubicThreshold * 2)
+
+      val term2Prod = coef3.manW1 * xsqMan
+      val (term2Man, term2Ex) = if(bit(manW+manW+1, term2Prod) == 1L) {
+        ((term2Prod >> (manW+1)) + bit(manW, term2Prod), xsqEx + coef3.exNorm + 1)
+      } else {
+        ((term2Prod >>  manW) + bit(manW-1, term2Prod),  xsqEx + coef3.exNorm)
+      }
+      assert(term2Ex <= cubicThreshold*2)
+
+      val term2Shifted = term2Man >> (abs(term2Ex)-1).toInt
+      val term2SubMan0 = (1 << (manW+1)) - term2Shifted
+      val (term2SubMan, term2SubEx) = if(term2Shifted == 0) {
+        ((1L<<manW), 0)
+      } else {
+        (term2SubMan0.toLong, -1)
+      }
+
+      val pixMan0 = pi.manW1.toLong * (xman + (1<<manW)).toLong
+      val (pixMan, pixEx) = if(bit(manW+manW+1, pixMan0) == 1L) {
+        ((pixMan0 >> (manW+1)) + bit(manW, pixMan0), pi.ex - exBias + xex + 1)
+      } else {
+        ((pixMan0 >> manW) + bit(manW-1, pixMan0), pi.ex - exBias + xex)
+      }
+
+      val cubicApproxMan0 = term2SubMan * pixMan
+      val (cubicApproxMan, cubicApproxEx) = if(bit(manW+manW+1, cubicApproxMan0) == 1L) {
+        ((cubicApproxMan0 >> (manW+1)) + bit(manW, cubicApproxMan0), pixEx + term2SubEx + 1)
+      } else {
+        ((cubicApproxMan0 >> manW) + bit(manW-1, cubicApproxMan0),   pixEx + term2SubEx)
+      }
+
+      return new RealGeneric(x.spec, zSgn, cubicApproxEx.toInt + x.spec.exBias, cubicApproxMan)
 
     } else if (xex < linearThreshold) { // sin(pix) = pix
 
@@ -257,8 +292,8 @@ object SinPiSim {
   }
 
   val sinPiF32TableI = SinPiSim.sinPiTableGeneration( 2, 8, 23, 23+2 )
-  val sinPiF32Sim = sinPiSimGeneric(sinPiF32TableI, _ )
+  val sinPiF32Sim = sinPiSimGeneric(sinPiF32TableI, _, false )
 
   val sinPiBF16TableI = SinPiSim.sinPiTableGeneration( 0, 7, 7, 7 )
-  val sinPiBF16Sim = sinPiSimGeneric(sinPiBF16TableI, _ )
+  val sinPiBF16Sim = sinPiSimGeneric(sinPiBF16TableI, _, false )
 }
