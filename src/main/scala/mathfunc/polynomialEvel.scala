@@ -50,7 +50,7 @@ class PolynomialEval(
 
   val io = IO(new Bundle {
     val coeffs = new TableCoeffInput(cbit)
-    val dx     = Input (UInt(dxW.W))
+    val dx     = if (order != 0) { Some(Input(UInt(dxW.W))) } else { None }
     val result = Output(UInt(fracW.W))
   })
 
@@ -61,6 +61,8 @@ class PolynomialEval(
     res := io.coeffs.cs(0)
 
   } else {
+
+    val dxS = io.dx.get.asSInt
 
     def hornerC( c: SInt, z: SInt, dx: SInt ) : SInt = {
       val zw   = z.getWidth
@@ -76,7 +78,7 @@ class PolynomialEval(
     val coeffS = io.coeffs.cs.map( x => x.asSInt )
 
     val resS = coeffS.init.foldRight(coeffS.last)(
-      (c,z) => hornerC( c, z, io.dx.asSInt )
+      (c,z) => hornerC( c, z, dxS )
     )
 
     // Since some of the math funcs use the extraBits as a part of mantissa

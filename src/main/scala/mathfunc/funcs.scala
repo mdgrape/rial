@@ -136,13 +136,15 @@ class MathFunctions(
 
   val nullTab = 0.U.asTypeOf(new TableCoeffInput(maxCbit))
 
-  polynomialEval.io.dx     := MuxCase(0.U, Seq(
-    (io.sel === SelectFunc.selectSqrt)       -> sqrtPre .io.dx,
-    (io.sel === SelectFunc.selectInvSqrt)    -> sqrtPre .io.dx, // same as sqrt
-    (io.sel === SelectFunc.selectReciprocal) -> recPre  .io.dx,
-    (io.sel === SelectFunc.selectSinPi)      -> sinPiPre.io.dx,
-    (io.sel === SelectFunc.selectCosPi)      -> cosPiPre.io.dx
-  ))
+  if(order != 0) {
+    polynomialEval.io.dx.get := MuxCase(0.U, Seq(
+      (io.sel === SelectFunc.selectSqrt)       -> sqrtPre .io.dx,
+      (io.sel === SelectFunc.selectInvSqrt)    -> sqrtPre .io.dx, // same as sqrt
+      (io.sel === SelectFunc.selectReciprocal) -> recPre  .io.dx,
+      (io.sel === SelectFunc.selectSinPi)      -> sinPiPre.io.dx,
+      (io.sel === SelectFunc.selectCosPi)      -> cosPiPre.io.dx
+    ))
+  }
   polynomialEval.io.coeffs.cs <> MuxCase(nullTab.cs, Seq(
     (io.sel === SelectFunc.selectSqrt)       -> sqrtTab   .io.cs.cs,
     (io.sel === SelectFunc.selectInvSqrt)    -> invsqrtTab.io.cs.cs,
