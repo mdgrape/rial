@@ -50,7 +50,7 @@ class ReciprocalPreProcess(
   val io = IO(new Bundle {
     val x   = Input (UInt(spec.W.W))
     val adr = Output(UInt(adrW.W))
-    val dx  = Output(UInt(dxW.W))
+    val dx  = if (order != 0) { Some(Output(UInt(dxW.W))) } else { None }
   })
 
   // invert x to make all the polynomial coefficients positive
@@ -58,7 +58,9 @@ class ReciprocalPreProcess(
   val dx0  = Cat(io.x(dxW-1), ~io.x(dxW-2, 0))
 
   io.adr := ShiftRegister(adr0, nStage)
-  io.dx  := ShiftRegister(dx0 , nStage)
+  if(order != 0) {
+    io.dx.get := ShiftRegister(dx0, nStage)
+  }
 }
 
 // -------------------------------------------------------------------------

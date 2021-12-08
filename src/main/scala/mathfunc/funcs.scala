@@ -138,11 +138,11 @@ class MathFunctions(
 
   if(order != 0) {
     polynomialEval.io.dx.get := MuxCase(0.U, Seq(
-      (io.sel === SelectFunc.selectSqrt)       -> sqrtPre .io.dx,
-      (io.sel === SelectFunc.selectInvSqrt)    -> sqrtPre .io.dx, // same as sqrt
-      (io.sel === SelectFunc.selectReciprocal) -> recPre  .io.dx,
-      (io.sel === SelectFunc.selectSinPi)      -> sinPiPre.io.dx,
-      (io.sel === SelectFunc.selectCosPi)      -> cosPiPre.io.dx
+      (io.sel === SelectFunc.selectSqrt)       -> sqrtPre .io.dx.get,
+      (io.sel === SelectFunc.selectInvSqrt)    -> sqrtPre .io.dx.get, // same as sqrt
+      (io.sel === SelectFunc.selectReciprocal) -> recPre  .io.dx.get,
+      (io.sel === SelectFunc.selectSinPi)      -> sinPiPre.io.dx.get,
+      (io.sel === SelectFunc.selectCosPi)      -> cosPiPre.io.dx.get
     ))
   }
   polynomialEval.io.coeffs.cs <> MuxCase(nullTab.cs, Seq(

@@ -54,7 +54,7 @@ class CosPiPreProcess(
   val io = IO(new Bundle {
     val x   = Input (UInt(spec.W.W))
     val adr = Output(UInt((exAdrW+adrW).W))
-    val dx  = Output(UInt(dxW.W))
+    val dx  = if(order != 0) { Some(Output(UInt(dxW.W))) } else { None }
     val xConverted = new SinPiPreProcessOutput(spec)
   })
 
@@ -99,7 +99,9 @@ class CosPiPreProcess(
   val dr0  = Cat(~yman(manW-adrW-1), yman(manW-adrW-2,0))
 
   io.adr   := ShiftRegister(adr0,  nStage)
-  io.dx    := ShiftRegister(dr0,   nStage)
+  if(order != 0) {
+    io.dx.get := ShiftRegister(dr0, nStage)
+  }
   io.xConverted.xConvertedEx  := ShiftRegister(yex,  nStage)
   io.xConverted.xConvertedMan := ShiftRegister(yman, nStage)
 }
