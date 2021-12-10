@@ -122,6 +122,15 @@ class MathFunctions(
   sinPiOther.io.x          := io.x
   cosPiOther.io.x          := io.x
 
+  val acosPre   = Module(new ACosPreProcess (spec, polySpec, stage))
+  val acosTab   = Module(new ACosTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
+  val acosOther = Module(new ACosOtherPath  (spec, polySpec, stage))
+  val acosPost  = Module(new ACosPostProcess(spec, polySpec, stage))
+
+  acosPre.io.x   := io.x
+  acosTab.io.adr := acosPre.io.adr
+  acosOther.io.x := io.x
+
   //                      we are here
   //                               |
   // .-------. +=================+ v .-------------.
@@ -142,7 +151,8 @@ class MathFunctions(
       (io.sel === SelectFunc.selectInvSqrt)    -> sqrtPre .io.dx.get, // same as sqrt
       (io.sel === SelectFunc.selectReciprocal) -> recPre  .io.dx.get,
       (io.sel === SelectFunc.selectSinPi)      -> sinPiPre.io.dx.get,
-      (io.sel === SelectFunc.selectCosPi)      -> cosPiPre.io.dx.get
+      (io.sel === SelectFunc.selectCosPi)      -> cosPiPre.io.dx.get,
+      (io.sel === SelectFunc.selectACos)       -> acosPre .io.dx.get
     ))
   }
   polynomialEval.io.coeffs.cs <> MuxCase(nullTab.cs, Seq(
@@ -150,7 +160,8 @@ class MathFunctions(
     (io.sel === SelectFunc.selectInvSqrt)    -> invsqrtTab.io.cs.cs,
     (io.sel === SelectFunc.selectReciprocal) -> recTab    .io.cs.cs,
     (io.sel === SelectFunc.selectSinPi)      -> sinPiTab  .io.cs.cs,
-    (io.sel === SelectFunc.selectCosPi)      -> sinPiTab  .io.cs.cs // same as sinPi
+    (io.sel === SelectFunc.selectCosPi)      -> sinPiTab  .io.cs.cs,// same as sinPi
+    (io.sel === SelectFunc.selectACos)       -> acosTab   .io.cs.cs
   ))
 
   //                                         we are here
@@ -175,12 +186,16 @@ class MathFunctions(
     sinPiOther.io.zother, cosPiOther.io.zother)
   sinPiPost.io.zres   := polynomialEval.io.result
 
+  acosPost.io.zother <> acosOther.io.zother
+  acosPost.io.zres   := polynomialEval.io.result
+
   val z0 = MuxCase(0.U, Seq(
     (io.sel === SelectFunc.selectSqrt)       -> sqrtPost.io.z,
     (io.sel === SelectFunc.selectInvSqrt)    -> invsqrtPost.io.z,
     (io.sel === SelectFunc.selectReciprocal) -> recPost.io.z,
     (io.sel === SelectFunc.selectSinPi)      -> sinPiPost.io.z,
-    (io.sel === SelectFunc.selectCosPi)      -> sinPiPost.io.z // same as sinPi
+    (io.sel === SelectFunc.selectCosPi)      -> sinPiPost.io.z, // same as sinPi
+    (io.sel === SelectFunc.selectACos)       -> acosPost.io.z
   ))
 
   io.z := ShiftRegister(z0, stage.total)
