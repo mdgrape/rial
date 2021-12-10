@@ -163,7 +163,7 @@ class ACosGeneric(
     printf(" d  = %b\n", d)
 
     val coeffWidth = (-1 to linearThreshold.toInt by -1).map(exponent => {
-      val tableD = new FuncTableDouble( x => (Pi * 0.5) - acos(scalb(1.0 + x, exponent)), order )
+      val tableD = new FuncTableDouble( x => ((Pi * 0.5) - acos(scalb(1.0 + x, exponent)))*0.5, order )
       tableD.addRange(0.0, 1.0, 1<<adrW)
       val tableI = new FuncTableInt( tableD, bp ) // convert float table into int
       val w = tableI.getCBitWidth(/*sign mode = */1)
@@ -173,7 +173,7 @@ class ACosGeneric(
       lhs.zip(rhs).map( x => max(x._1, x._2))
     })
     val coeffTables = VecInit((-1 to linearThreshold.toInt by -1).map(exponent => {
-      val tableD = new FuncTableDouble( x => (Pi * 0.5) - acos(scalb(1.0 + x, exponent)), order )
+      val tableD = new FuncTableDouble( x => ((Pi * 0.5) - acos(scalb(1.0 + x, exponent)))*0.5, order )
       tableD.addRange(0.0, 1.0, 1<<adrW)
       val tableI = new FuncTableInt( tableD, bp ) // convert float table into int
       tableI.getVectorWithWidth(coeffWidth, /*sign mode = */1)
@@ -201,7 +201,7 @@ class ACosGeneric(
     val halfPiFixed = math.round(Pi * 0.5 * (1 << calcW)).U((calcW+1).W)
 
     val res0S = polynomialEvaluationC( coeffS, d, enablePolynomialRounding ).asUInt
-    val res0  = Mux(res0S(res0S.getWidth-1), 0.U((res0S.getWidth-1).W), res0S(res0S.getWidth-2, 0))
+    val res0  = Cat(res0S(calcW-1, 0), 0.U(1.W)) // shift << 1
     val res   = halfPiFixed + Mux(xsgn === 1.U(1.W), res0, ~res0 + 1.U)
     val shift = (calcW+2).U - (res.getWidth.U - PriorityEncoder(Reverse(res)))
     val resShifted = (res << shift)(calcW+1, 1) - (1<<calcW).U
