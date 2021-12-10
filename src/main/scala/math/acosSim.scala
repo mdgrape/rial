@@ -159,7 +159,8 @@ object ACosSim {
           (-shift.toInt, res)
         }
 
-      } else {
+      } else { // non-zero order
+
         val dxbp = manW - adrW - 1
         val d    = slice(0, dxbp+1, man) - (SafeLong(1)<<dxbp)
         val adr  = slice(dxbp+1, adrW, man).toInt
@@ -167,7 +168,7 @@ object ACosSim {
         val halfPiFixed = math.round(Pi * 0.5 * (1<<calcW))
 
         // pi/2 - acos(x)
-        val res0 = t.interval(adr).eval(d.toLong, dxbp)
+        val res0 = t.interval(adr).eval(d.toLong, dxbp) << 1
         val res  = if (sgn == 1) {
           halfPiFixed + res0
         } else {
@@ -235,7 +236,7 @@ object ACosSim {
       })
     } else {
       val maxCalcWidth = (-1 to linearThreshold by -1).map(i => {
-        val tableD = new FuncTableDouble( x => (Pi * 0.5) - acos(scalb(1.0 + x, i)), order )
+        val tableD = new FuncTableDouble( x => ((Pi * 0.5) - acos(scalb(1.0 + x, i))) * 0.5, order )
         tableD.addRange(0.0, 1.0, 1<<adrW)
         val tableI = new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
         tableI.calcWidth
@@ -245,7 +246,7 @@ object ACosSim {
 
       // ex == -1 corresponds to the range [0.5, 1).
       (-1 to linearThreshold by -1).map( i => {
-        val tableD = new FuncTableDouble( x => (Pi * 0.5) - acos(scalb(1.0 + x, i)), order )
+        val tableD = new FuncTableDouble( x => ((Pi * 0.5) - acos(scalb(1.0 + x, i))) * 0.5, order )
         tableD.addRange(0.0, 1.0, 1<<adrW)
         new FuncTableInt( tableD, fracW, Some(maxCalcWidth), cbitSetting )
       })

@@ -127,7 +127,7 @@ class ACosSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
   val acosF32TableI = ACosSim.acosTableGeneration( 2, 8, 23, 23+2 )
 
   acosTest(acosF32TableI, RealSpec.Float32Spec, n, r,
-     "Test Within [-1, -2^-8]", generateRealWithin(-0.96, -pow(2.0, -8),_,_), 1)
+     "Test Within [-0.96, -2^-8]", generateRealWithin(-0.96, -pow(2.0, -8),_,_), 2)
   acosTest(acosF32TableI, RealSpec.Float32Spec, n, r,
      "Test Within [-2^-8, 2^-23]",  generateRealWithin(-pow(2.0, -8),-pow(2.0, -23),_,_), 1)
   acosTest(acosF32TableI, RealSpec.Float32Spec, n, r,
@@ -137,6 +137,6 @@ class ACosSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
   acosTest(acosF32TableI, RealSpec.Float32Spec, n, r,
      "Test Within [ 2^-23,  2^-8]", generateRealWithin(pow(2.0,-23),pow(2.0, -8),_,_), 1)
   acosTest(acosF32TableI, RealSpec.Float32Spec, n, r,
-     "Test Within [ 2^-8,  0.96]",    generateRealWithin(pow(2.0, -8), 0.96,_,_), 1)
+     "Test Within [ 2^-8,  0.96]",    generateRealWithin(pow(2.0, -8), 0.96,_,_), 2)
   // XXX currently the errors in the range in 0.96 ~ 1.0 are too big
 }
