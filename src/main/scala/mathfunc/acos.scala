@@ -63,7 +63,6 @@ class ACosPreProcess(
   if(order != 0) {
     val dx0  = Cat(~xman(dxW-1), xman(dxW-2, 0))
     io.dx.get := ShiftRegister(dx0, nStage)
-    printf("circ: dx0 = %b\n", dx0)
   }
 }
 
@@ -127,39 +126,6 @@ class ACosTableCoeff(
     )
     val tableI = tableIs(exAdr)
     val coeff = getSlices(tableI(adr), cbit)
-
-//     val maxCalcWidth = (-1 to linearThreshold by -1).map(i => {
-//       val tableD = new FuncTableDouble( x => if(x < cos(Pi*0.5-1.0)) {
-//         (Pi * 0.5) - acos(scalb(1.0 + x, i))
-//       } else {
-//         (Pi * 0.5 - 1.0) - acos(scalb(1.0 + x, i))
-//       }, order)
-//       tableD.addRange(0.0, 1.0, 1<<adrW)
-//       val tableI = new FuncTableInt( tableD, fracW, None, None )
-//       tableI.calcWidth
-//     }).reduce( (lhs, rhs) => {
-//       lhs.zip(rhs).map( x => max(x._1, x._2))
-//     })
-//     val tables = (-1 to linearThreshold by -1).map( i => {
-//       val tableD = new FuncTableDouble( x => if(x < cos(Pi*0.5-1.0)) {
-//         (Pi * 0.5) - acos(scalb(1.0 + x, i))
-//       } else {
-//         (Pi * 0.5 - 1.0) - acos(scalb(1.0 + x, i))
-//       }, order)
-//       tableD.addRange(0.0, 1.0, 1<<adrW)
-//       new FuncTableInt( tableD, fracW, Some(maxCalcWidth), None )
-//     })
-//
-//     val cbit = ACosSim.acosTableGeneration( order, adrW, manW, fracW )
-//       .map( t => {t.getCBitWidth(/*sign mode = */1)} )
-//       .reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
-//     val tableIs = VecInit(
-//       ACosSim.acosTableGeneration( order, adrW, manW, fracW ).map(t => {
-//         t.getVectorWithWidth(cbit, /*sign mode = */ 1)
-//       })
-//     )
-//     val tableI = tableIs(exAdr)
-//     val coeff = getSlices(tableI(adr), cbit)
 
     val coeffs = Wire(new TableCoeffInput(maxCbit))
     for (i <- 0 to order) {
@@ -316,8 +282,6 @@ class ACosPostProcess(
     val z      = Output(UInt(spec.W.W))
   })
 
-  printf("circ: zres = %b\n", io.zres)
-
   val zIsNonTable  = io.zother.zIsNonTable
   val zsgn         = io.zother.zsgn
   val zexNonTable  = io.zother.zex
@@ -327,22 +291,13 @@ class ACosPostProcess(
   val halfPiFixed = math.round(Pi * 0.5 * (1 << fracW)).U((fracW+1).W)
 
   val res0  = Cat(io.zres, 0.U(1.W))
-  printf("circ: res0S      = %b\n", io.zres)
-  printf("circ: res0       = %b\n", res0)
-
   val res   = halfPiFixed + Mux(xsgn === 1.U(1.W), Cat(0.U(1.W), res0), Cat(1.U(1.W), ~res0 + 1.U))
-  printf("circ: halfPiFixed= %b\n", halfPiFixed)
-  printf("circ: res        = %b\n", res     )
 
   val shift = (fracW+2).U - (res.getWidth.U - PriorityEncoder(Reverse(res)))
   val resShifted = (res << shift)(fracW+1, 1) - (1<<fracW).U
-  printf("circ: shift      = %b\n", shift     )
-  printf("circ: resShifted = %b\n", resShifted)
 
   val zexTable  = (exBias+1).U(exW.W) - shift
   val zmanTable = (resShifted >> extraBits) + resShifted(extraBits-1)
-  printf("circ: zexTable  = %b\n", zexTable)
-  printf("circ: zmanRound = %b\n", zmanTable)
 
   val zex  = Mux(zIsNonTable, zexNonTable,  zexTable(exW-1, 0))
   val zman = Mux(zIsNonTable, zmanNonTable, zmanTable(manW-1, 0))
