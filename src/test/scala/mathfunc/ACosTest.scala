@@ -78,7 +78,7 @@ class MathFuncACosTest extends FlatSpec
             val xi = generator(spec,r)
             val z0r= reference(xi)
             q += ((xi.value.toBigInt,z0r.value.toBigInt))
-            c.io.sel.poke(SelectFunc.selectACos)
+            c.io.sel.poke(SelectFunc.ACos)
             c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
             c.io.y.poke(0.U(spec.W.W))
             val zi = c.io.z.peek.litValue.toBigInt
