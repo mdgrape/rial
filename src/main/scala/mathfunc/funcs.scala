@@ -18,17 +18,18 @@ import rial.arith.FloatChiselUtil
 import rial.mathfunc._
 
 object SelectFunc {
-  val W          = 4
-  val None       = 0.U(W.W)
-  val Sqrt       = 1.U(W.W)
-  val InvSqrt    = 2.U(W.W)
-  val Reciprocal = 3.U(W.W)
-  val SinPi      = 4.U(W.W)
-  val CosPi      = 5.U(W.W)
-  val ACos       = 6.U(W.W)
-  val ATan2      = 7.U(W.W)
-  val Exp        = 8.U(W.W)
-  val Log        = 9.U(W.W)
+  val W          =  4
+  val None       =  0.U(W.W)
+  val Sqrt       =  1.U(W.W)
+  val InvSqrt    =  2.U(W.W)
+  val Reciprocal =  3.U(W.W)
+  val SinPi      =  4.U(W.W)
+  val CosPi      =  5.U(W.W)
+  val ACos       =  6.U(W.W)
+  val ATan2Pre   =  7.U(W.W)
+  val ATan2Post  =  8.U(W.W)
+  val Exp        =  9.U(W.W)
+  val Log        = 10.U(W.W)
 }
 
 class MathFunctions(
@@ -38,6 +39,8 @@ class MathFunctions(
   val enableRangeCheck : Boolean = true,
   val enablePolynomialRounding : Boolean = false,
 ) extends Module {
+
+  assert(!spec.disableSign)
 
   // TODO: stage config
   val nStage = stage.total
@@ -66,6 +69,17 @@ class MathFunctions(
     val y = Input (UInt(spec.W.W))
     val z = Output(UInt(spec.W.W))
   })
+
+  val yIsLarger = io.x(spec.W-2, 0) < io.y(spec.W-2, 0) // without sign bit
+
+  val atan2FlagReg = RegInit(0.U.asTypeOf(new ATan2Flags()))
+  when(io.sel === SelectFunc.ATan2Pre) {
+    atan2FlagReg.status := Cat(io.x(spec.W-1), yIsLarger)
+    atan2FlagReg.ysgn   :=     io.y(spec.W-1)
+  }
+  when(io.sel === SelectFunc.ATan2Post) {
+    atan2FlagReg := 0.U.asTypeOf(new ATan2Flags())
+  }
 
   // .-------. .-----------------.   .-------------.
   // |       |-'  .------------. '---| polynomial  |   .---------.
@@ -98,9 +112,12 @@ class MathFunctions(
   val recOther = Module(new ReciprocalOtherPath  (spec, polySpec, stage))
   val recPost  = Module(new ReciprocalPostProcess(spec, polySpec, stage))
 
-  recPre.io.x   := io.x
+  // atan2 uses reciprocal to calculate min(x,y)/max(x,y).
+
+  val recX = Mux(io.sel === SelectFunc.ATan2Pre && yIsLarger, io.y, io.x)
+  recPre.io.x   := recX
   recTab.io.adr := recPre.io.adr
-  recOther.io.x := io.x
+  recOther.io.x := recX
 
   val sinPiPre   = Module(new SinPiPreProcess (spec, polySpec, stage))
   val sinPiTab   = Module(new SinPiTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
