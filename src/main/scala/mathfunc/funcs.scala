@@ -70,6 +70,9 @@ class MathFunctions(
     val z = Output(UInt(spec.W.W))
   })
 
+  // ------------------------------------------------------------------------
+  // atan related status register
+
   val yIsLarger = io.x(spec.W-2, 0) < io.y(spec.W-2, 0) // without sign bit
 
   val atan2FlagReg = RegInit(0.U.asTypeOf(new ATan2Flags()))
