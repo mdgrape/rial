@@ -63,7 +63,7 @@ class SinPiPreProcess(
     val xConverted = new SinPiPreProcessOutput(spec)
   })
 
-  val (xsgn, xex, xman) = FloatChiselUtil.decompose(spec,  io.x)
+  val (xsgn, xex, xman) = FloatChiselUtil.decompose(spec, io.x)
 
   // --------------------------------------------------------------------------
   // convert everything into [0, 0.5) (ex = [-inf to -2])
@@ -223,24 +223,21 @@ class SinPiOtherPath(
   val order     = polySpec.order
 
   val io = IO(new Bundle {
-    val x          = Input(UInt(spec.W.W))
+    val x          = Flipped(new DecomposedRealOutput(spec))
     val xConverted = Flipped(new SinPiPreProcessOutput(spec))
     val zother     = new SinPiNonTableOutput(spec)
   })
 
-  val (xsgn,  xex,  xman) = FloatChiselUtil.decompose(spec, io.x)
-  val (xzero, xinf, xnan) = FloatChiselUtil.checkValue(spec, io.x)
-
   val yex  = io.xConverted.xConvertedEx
   val yman = io.xConverted.xConvertedMan
 
-  val out_of_bounds = ((exBias+1).U <= xex) && (xman =/= 0.U) // 2 < |x|
-  val znan  = xnan || xinf || out_of_bounds
-  val zzero = ((exBias.U <= xex)    && xman === 0.U) ||
-              (yex === 0.U          && yman === 0.U)
-  val zone  = (yex === (exBias-1).U && yman === 0.U)
+  val out_of_bounds = ((exBias+1).U <= io.x.ex) && (io.x.man =/= 0.U) // 2 < |x|
+  val znan  = io.x.nan || io.x.inf || out_of_bounds
+  val zzero = ((exBias.U <= io.x.ex) && io.x.man === 0.U) ||
+              (yex === 0.U           && yman === 0.U)
+  val zone  = (yex === (exBias-1).U  && yman === 0.U)
 
-  val zSgn  = (!zzero && !znan) && ((xsgn === 1.U) || (xex === exBias.U))
+  val zSgn  = (!zzero && !znan) && ((io.x.sgn === 1.U) || (io.x.ex === exBias.U))
 
   // --------------------------------------------------------------------------
   // linear approximation around zero

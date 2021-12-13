@@ -167,25 +167,22 @@ class SqrtOtherPath(
   val exBias = spec.exBias
 
   val io = IO(new Bundle {
-    val x      = Input(UInt(spec.W.W))
+    val x      = Flipped(new DecomposedRealOutput(spec))
     val zother = new SqrtNonTableOutput(spec)
   })
 
-  val (xsgn,  xex,  xman) = FloatChiselUtil.decompose(spec, io.x)
-  val (xzero, xinf, xnan) = FloatChiselUtil.checkValue(spec, io.x)
+  val xneg = if(spec.disableSign) {false.B} else {io.x.sgn === 1.U(1.W)}
 
-  val xneg = if(spec.disableSign) {false.B} else {xsgn === 1.U(1.W)}
-
-  val znan  = xnan
-  val zinf  = xinf
-  val zzero = xzero || xneg
+  val znan  = io.x.nan
+  val zinf  = io.x.inf
+  val zzero = io.x.zero || xneg
 
   val zMan  = Cat(znan, 0.U((manW-1).W)) // in case of znan, zinf, or zzero
   val zIsNonTable = znan || zinf || zzero
   io.zother.zIsNonTable := ShiftRegister(zIsNonTable, nStage)
   io.zother.zman        := ShiftRegister(zMan,        nStage)
 
-  val xExNobias  = xex - exBias.U
+  val xExNobias  = io.x.ex - exBias.U
   val zExShifted = xExNobias(exW-1) ## xExNobias(exW-1, 1) // arith right shift
 
   val zex = Mux(zinf || znan, maskU(exW),

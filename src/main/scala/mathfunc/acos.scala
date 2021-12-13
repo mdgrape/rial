@@ -172,24 +172,21 @@ class ACosOtherPath(
   val exBias = spec.exBias
 
   val io = IO(new Bundle {
-    val x      = Input(UInt(spec.W.W))
+    val x      = Flipped(new DecomposedRealOutput(spec))
     val zother = new ACosNonTableOutput(spec)
   })
 
-  val (xsgn,  xex,  xman) = FloatChiselUtil.decompose(spec, io.x)
-  val (xzero, xinf, xnan) = FloatChiselUtil.checkValue(spec, io.x)
+  val xMoreThan1 = exBias.U <= io.x.ex
 
-  val xMoreThan1 = exBias.U <= xex
-
-  val znan = xnan
-  val zzero = xMoreThan1 && xsgn === 0.U
-  val zpi   = xMoreThan1 && xsgn === 1.U
+  val znan = io.x.nan
+  val zzero = xMoreThan1 && io.x.sgn === 0.U
+  val zpi   = xMoreThan1 && io.x.sgn === 1.U
 
   // --------------------------------------------------------------------------
   // constant
 
   val constThreshold = -manW
-  val isConstant     = xex < (exBias + constThreshold).U
+  val isConstant     = io.x.ex < (exBias + constThreshold).U
 
   val halfpi       = new RealGeneric(spec, Pi * 0.5)
   val zexConstant  = halfpi.ex .U(exW.W)
@@ -199,14 +196,14 @@ class ACosOtherPath(
   // linear
 
   val linearThreshold = ACosSim.calcLinearThreshold(manW)
-  val isLinear        = xex < (exBias + linearThreshold).U
+  val isLinear        = io.x.ex < (exBias + linearThreshold).U
 
-  val xExNobias = xex.zext - exBias.S
+  val xExNobias = io.x.ex.zext - exBias.S
 
   val constThresholdDigit = log2Up(abs(constThreshold))
-  val xmanW1          = xman + (1<<manW).U((4+manW).W)
+  val xmanW1          = io.x.man + (1<<manW).U((4+manW).W)
   val linearExDiff    = (~xExNobias(constThresholdDigit-1, 0)) - 2.U(constThresholdDigit.W)
-  val linearXAligned  = Mux(xsgn === 1.U, (xmanW1 >> linearExDiff), ~(xmanW1 >> linearExDiff) + 1.U)
+  val linearXAligned  = Mux(io.x.sgn === 1.U, (xmanW1 >> linearExDiff), ~(xmanW1 >> linearExDiff) + 1.U)
   val linearManDiff   = (((1<<manW) + halfpi.man.toLong) << 3).U((manW+1+3).W) + linearXAligned
   // since pi/2 = 1.1001... and xEx < linearThreshold, mandiff always larger than 1 and never be larger than 2.
 
@@ -243,7 +240,7 @@ class ACosOtherPath(
   io.zother.zman        := ShiftRegister(zman, nStage)
   io.zother.zex         := ShiftRegister(zex , nStage)
   io.zother.zsgn        := ShiftRegister(zsgn, nStage)
-  io.zother.xsgn        := ShiftRegister(xsgn, nStage)
+  io.zother.xsgn        := ShiftRegister(io.x.sgn, nStage)
 }
 
 // -------------------------------------------------------------------------

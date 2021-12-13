@@ -32,6 +32,29 @@ object SelectFunc {
   val Log        = 10.U(W.W)
 }
 
+class DecomposedRealOutput(val spec: RealSpec) extends Bundle {
+  val sgn  = Output(UInt(1.W))
+  val ex   = Output(UInt(spec.exW.W))
+  val man  = Output(UInt(spec.manW.W))
+  val zero = Output(Bool())
+  val inf  = Output(Bool())
+  val nan  = Output(Bool())
+}
+class DecomposeReal(val spec: RealSpec) extends Module {
+  val io = IO(new Bundle {
+    val real   = Input(UInt(spec.W.W))
+    val decomp = new DecomposedRealOutput(spec)
+  })
+  val (sgn,  ex,  man) = FloatChiselUtil.decompose (spec, io.real)
+  val (zero, inf, nan) = FloatChiselUtil.checkValue(spec, io.real)
+  io.decomp.sgn  := sgn
+  io.decomp.ex   := ex
+  io.decomp.man  := man
+  io.decomp.zero := zero
+  io.decomp.inf  := inf
+  io.decomp.nan  := nan
+}
+
 class MathFunctions(
   val spec : RealSpec, // Input / Output floating spec
   val nOrder: Int, val adrW : Int, val extraBits : Int, // Polynomial spec
@@ -70,6 +93,11 @@ class MathFunctions(
     val z = Output(UInt(spec.W.W))
   })
 
+  val xdecomp = Module(new DecomposeReal(spec))
+  val ydecomp = Module(new DecomposeReal(spec))
+  xdecomp.io.real := io.x
+  ydecomp.io.real := io.y
+
   // ------------------------------------------------------------------------
   // atan related status register
 
@@ -101,14 +129,14 @@ class MathFunctions(
 
   sqrtPre.io.x   := io.x
   sqrtTab.io.adr := sqrtPre.io.adr
-  sqrtOther.io.x := io.x
+  sqrtOther.io.x := xdecomp.io.decomp
 
   val invsqrtTab   = Module(new InvSqrtTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
   val invsqrtOther = Module(new InvSqrtOtherPath  (spec, polySpec, stage))
   val invsqrtPost  = Module(new InvSqrtPostProcess(spec, polySpec, stage))
 
   invsqrtTab.io.adr := sqrtPre.io.adr
-  invsqrtOther.io.x := io.x
+  invsqrtOther.io.x := xdecomp.io.decomp
 
   val recPre   = Module(new ReciprocalPreProcess (spec, polySpec, stage))
   val recTab   = Module(new ReciprocalTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
@@ -117,10 +145,10 @@ class MathFunctions(
 
   // atan2 uses reciprocal to calculate min(x,y)/max(x,y).
 
-  val recX = Mux(io.sel === SelectFunc.ATan2Pre && yIsLarger, io.y, io.x)
-  recPre.io.x   := recX
+  val recUseY = io.sel === SelectFunc.ATan2Pre && yIsLarger
+  recPre.io.x   := Mux(recUseY, io.y, io.x)
   recTab.io.adr := recPre.io.adr
-  recOther.io.x := recX
+  recOther.io.x := Mux(recUseY, ydecomp.io.decomp, xdecomp.io.decomp)
 
   val sinPiPre   = Module(new SinPiPreProcess (spec, polySpec, stage))
   val sinPiTab   = Module(new SinPiTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
@@ -139,8 +167,8 @@ class MathFunctions(
   sinPiOther.io.xConverted := sinPiPre.io.xConverted
   cosPiOther.io.xConverted := cosPiPre.io.xConverted
 
-  sinPiOther.io.x          := io.x
-  cosPiOther.io.x          := io.x
+  sinPiOther.io.x          := xdecomp.io.decomp
+  cosPiOther.io.x          := xdecomp.io.decomp
 
   val acosPre   = Module(new ACosPreProcess (spec, polySpec, stage))
   val acosTab   = Module(new ACosTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
@@ -149,7 +177,7 @@ class MathFunctions(
 
   acosPre.io.x   := io.x
   acosTab.io.adr := acosPre.io.adr
-  acosOther.io.x := io.x
+  acosOther.io.x := xdecomp.io.decomp
 
   //                      we are here
   //                               |

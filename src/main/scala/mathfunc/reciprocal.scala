@@ -160,15 +160,12 @@ class ReciprocalOtherPath(
   val exBias = spec.exBias
 
   val io = IO(new Bundle {
-    val x      = Input(UInt(spec.W.W))
+    val x      = Flipped(new DecomposedRealOutput(spec))
     val zother = new ReciprocalNonTableOutput(spec)
   })
 
-  val (xsgn,  xex,  xman) = FloatChiselUtil.decompose(spec, io.x)
-  val (xzero, xinf, xnan) = FloatChiselUtil.checkValue(spec, io.x)
-
-  val xmanNonZero = xman.orR.asUInt
-  val zex0        = (exBias<<1).U((exW+1).W) - xex - xmanNonZero
+  val xmanNonZero = io.x.man.orR.asUInt
+  val zex0        = (exBias<<1).U((exW+1).W) - io.x.ex - xmanNonZero
   val zexMSB      = zex0(exW)
   // add 1 bit to check carry
 
@@ -177,15 +174,15 @@ class ReciprocalOtherPath(
   val invExMax = -spec.exMin - 1
   val invExMin = -spec.exMax - 1
   val (zinf, zzero) = if(spec.exMax < invExMax) { // check overflow
-    (zexMSB || xzero, xinf || zex0 === 0.U)
+    (zexMSB || io.x.zero, io.x.inf || zex0 === 0.U)
   } else if (invExMin < spec.exMin) { // check underflow
-    (xzero, zexMSB || xinf || zex0 === 0.U)
+    (io.x.zero, zexMSB || io.x.inf || zex0 === 0.U)
   } else { // nothing happens.
-    (xzero, xinf || zex0 === 0.U)
+    (io.x.zero, io.x.inf || zex0 === 0.U)
   }
-  val znan  = xnan
+  val znan  = io.x.nan
 
-  val zsgn = Mux(znan || zzero || zinf, 0.U, xsgn) // TODO sign
+  val zsgn = Mux(znan || zzero || zinf, 0.U, io.x.sgn) // TODO sign
   val zex  = Mux(znan || zinf, maskU(exW),
              Mux(zzero, 0.U(exW.W), zex0(exW-1,0)))
   val zman = Cat(znan, 0.U((manW-1).W))
