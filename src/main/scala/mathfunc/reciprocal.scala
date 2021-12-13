@@ -161,7 +161,7 @@ class ReciprocalOtherPath(
 
   val io = IO(new Bundle {
     val x      = Input(UInt(spec.W.W))
-    val zother = new SqrtNonTableOutput(spec)
+    val zother = new ReciprocalNonTableOutput(spec)
   })
 
   val (xsgn,  xex,  xman) = FloatChiselUtil.decompose(spec, io.x)
@@ -225,7 +225,7 @@ class ReciprocalPostProcess(
   val extraBits = polySpec.extraBits
 
   val io = IO(new Bundle {
-    val zother = Flipped(new SqrtNonTableOutput(spec))
+    val zother = Flipped(new ReciprocalNonTableOutput(spec))
     val zres   = Input(UInt(fracW.W))
     val z      = Output(UInt(spec.W.W))
   })
