@@ -18,18 +18,18 @@ import rial.arith.FloatChiselUtil
 import rial.mathfunc._
 
 object SelectFunc {
-  val W          =  4
-  val None       =  0.U(W.W)
-  val Sqrt       =  1.U(W.W)
-  val InvSqrt    =  2.U(W.W)
-  val Reciprocal =  3.U(W.W)
-  val SinPi      =  4.U(W.W)
-  val CosPi      =  5.U(W.W)
-  val ACos       =  6.U(W.W)
-  val ATan2Pre   =  7.U(W.W)
-  val ATan2Post  =  8.U(W.W)
-  val Exp        =  9.U(W.W)
-  val Log        = 10.U(W.W)
+  val W           =  4
+  val None        =  0.U(W.W)
+  val Sqrt        =  1.U(W.W)
+  val InvSqrt     =  2.U(W.W)
+  val Reciprocal  =  3.U(W.W)
+  val SinPi       =  4.U(W.W)
+  val CosPi       =  5.U(W.W)
+  val ACos        =  6.U(W.W)
+  val ATan2Stage1 =  7.U(W.W)
+  val ATan2Stage2 =  8.U(W.W)
+  val Exp         =  9.U(W.W)
+  val Log         = 10.U(W.W)
 }
 
 class DecomposedRealOutput(val spec: RealSpec) extends Bundle {
@@ -98,19 +98,7 @@ class MathFunctions(
   xdecomp.io.real := io.x
   ydecomp.io.real := io.y
 
-  // ------------------------------------------------------------------------
-  // atan related status register
-
   val yIsLarger = io.x(spec.W-2, 0) < io.y(spec.W-2, 0) // without sign bit
-
-  val atan2FlagReg = RegInit(0.U.asTypeOf(new ATan2Flags()))
-  when(io.sel === SelectFunc.ATan2Pre) {
-    atan2FlagReg.status := Cat(io.x(spec.W-1), yIsLarger)
-    atan2FlagReg.ysgn   :=     io.y(spec.W-1)
-  }
-  when(io.sel === SelectFunc.ATan2Post) {
-    atan2FlagReg := 0.U.asTypeOf(new ATan2Flags())
-  }
 
   // .-------. .-----------------.   .-------------.
   // |       |-'  .------------. '---| polynomial  |   .---------.
@@ -120,7 +108,7 @@ class MathFunctions(
   //           +==|(x) non-table path (e.g. taylor)|-'
   //            ^ '--------------------------------'
   //            |
-  //   we are here
+  // now we are here
 
   val sqrtPre   = Module(new SqrtPreProcess (spec, polySpec, stage))
   val sqrtTab   = Module(new SqrtTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
@@ -143,9 +131,8 @@ class MathFunctions(
   val recOther = Module(new ReciprocalOtherPath  (spec, polySpec, stage))
   val recPost  = Module(new ReciprocalPostProcess(spec, polySpec, stage))
 
-  // atan2 uses reciprocal to calculate min(x,y)/max(x,y).
-
-  val recUseY = io.sel === SelectFunc.ATan2Pre && yIsLarger
+  // atan2 uses reciprocal 1/max(x,y) to calculate min(x,y)/max(x,y).
+  val recUseY = (io.sel === SelectFunc.ATan2Stage1) && yIsLarger
   recPre.io.x   := Mux(recUseY, io.y, io.x)
   recTab.io.adr := recPre.io.adr
   recOther.io.x := Mux(recUseY, ydecomp.io.decomp, xdecomp.io.decomp)
@@ -179,7 +166,28 @@ class MathFunctions(
   acosTab.io.adr := acosPre.io.adr
   acosOther.io.x := xdecomp.io.decomp
 
-  //                      we are here
+  val atan2PreOther = Module(new ATan2Stage1OtherPath(spec, polySpec, stage))
+  atan2PreOther.io.x := xdecomp.io.decomp
+  atan2PreOther.io.y := ydecomp.io.decomp
+  atan2PreOther.io.yIsLarger := yIsLarger
+
+  // ------------------------------------------------------------------------
+  // atan related status register
+
+  val atan2FlagReg = RegInit(0.U.asTypeOf(new ATan2Flags()))
+  when(io.sel === SelectFunc.ATan2Stage1) {
+    atan2FlagReg.status := Cat(io.x(spec.W-1), yIsLarger)
+    atan2FlagReg.ysgn   :=     io.y(spec.W-1)
+
+    // check special values ... TODO: need to consider the delay in sel and other
+    atan2FlagReg.special := atan2PreOther.io.special
+  }
+  when(io.sel === SelectFunc.ATan2Stage2) {
+    atan2FlagReg := 0.U.asTypeOf(new ATan2Flags())
+  }
+
+  // ------------------------------------------------------------------------
+  //                  now we are here
   //                               |
   // .-------. +=================+ v .-------------.
   // |       |=+  .------------. +===|(dx) poly    |   .---------.
