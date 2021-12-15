@@ -72,11 +72,17 @@ object ATan2Stage1Sim {
       }
     }
 
+    val yOverXEx0 = minxy.ex + exBias - 1 - maxxy.ex
+    val yOverXEx  = if(yOverXEx0 < 0) {0} else {yOverXEx0}
+
     // ------------------------------------------------------------------------
     // atan2 stage1 postprocess (minxy * rec(maxxy))
 
     val denomW1 = (1<<fracW) + recMan
     val numerW1 = (1<<manW) + minxy.man
+
+//     println(f"sim: denomW1 = ${denomW1.toLong.toBinaryString}")
+//     println(f"sim: numerW1 = ${numerW1.toLong.toBinaryString}")
 
     val zProd = denomW1 * numerW1
     val bp    = fracW + manW
@@ -85,11 +91,14 @@ object ATan2Stage1Sim {
     val roundBits = bp - manW + zProdMoreThan2
     val zProdRounded = roundBySpec(RoundSpec.roundToEven, roundBits, zProd)
     val zProdMoreThan2AfterRound = bit(manW+1, zProdRounded)
-    val zMan = zProdRounded >> zProdMoreThan2AfterRound
+    val zMan0 = zProdRounded >> zProdMoreThan2AfterRound
 
     val zSgn = 0
-    val zEx0 = minxy.ex - maxxy.ex - 1 + exBias + zProdMoreThan2 + zProdMoreThan2AfterRound
+    val zEx0 = yOverXEx + zProdMoreThan2 + zProdMoreThan2AfterRound
+//     val zEx0 = minxy.ex - maxxy.ex - 1 + exBias + zProdMoreThan2 + zProdMoreThan2AfterRound
     val zEx = if(zEx0 < 0) {0} else if((1<<exW) <= zEx0) {maskI(exW)} else {zEx0}
+
+    val zMan = if(zEx == 0) {0L} else {zMan0.toLong}
 
     new RealGeneric(x.spec, zSgn, zEx, zMan)
   }
