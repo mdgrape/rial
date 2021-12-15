@@ -135,7 +135,7 @@ class MathFunctions(
   val recUseY = (io.sel === SelectFunc.ATan2Stage1) && yIsLarger
   recPre.io.x   := Mux(recUseY, io.y, io.x)
   recTab.io.adr := recPre.io.adr
-  recOther.io.x := Mux(recUseY, ydecomp.io.decomp, xdecomp.io.decomp)
+  recOther.io.x := xdecomp.io.decomp
 
   val sinPiPre   = Module(new SinPiPreProcess (spec, polySpec, stage))
   val sinPiTab   = Module(new SinPiTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
@@ -166,10 +166,11 @@ class MathFunctions(
   acosTab.io.adr := acosPre.io.adr
   acosOther.io.x := xdecomp.io.decomp
 
-  val atan2PreOther = Module(new ATan2Stage1OtherPath(spec, polySpec, stage))
-  atan2PreOther.io.x := xdecomp.io.decomp
-  atan2PreOther.io.y := ydecomp.io.decomp
-  atan2PreOther.io.yIsLarger := yIsLarger
+  val atan2Stage1Other = Module(new ATan2Stage1OtherPath  (spec, polySpec, stage))
+  val atan2Stage1Post  = Module(new ATan2Stage1PostProcess(spec, polySpec, stage))
+  atan2Stage1Other.io.x := xdecomp.io.decomp
+  atan2Stage1Other.io.y := ydecomp.io.decomp
+  atan2Stage1Other.io.yIsLarger := yIsLarger
 
   // ------------------------------------------------------------------------
   // atan related status register
@@ -180,7 +181,7 @@ class MathFunctions(
     atan2FlagReg.ysgn   :=     io.y(spec.W-1)
 
     // check special values ... TODO: need to consider the delay in sel and other
-    atan2FlagReg.special := atan2PreOther.io.special
+    atan2FlagReg.special := atan2Stage1Other.io.special
   }
   when(io.sel === SelectFunc.ATan2Stage2) {
     atan2FlagReg := 0.U.asTypeOf(new ATan2Flags())
@@ -203,21 +204,23 @@ class MathFunctions(
 
   if(order != 0) {
     polynomialEval.io.dx.get := MuxCase(0.U, Seq(
-      (io.sel === SelectFunc.Sqrt)       -> sqrtPre .io.dx.get,
-      (io.sel === SelectFunc.InvSqrt)    -> sqrtPre .io.dx.get, // same as sqrt
-      (io.sel === SelectFunc.Reciprocal) -> recPre  .io.dx.get,
-      (io.sel === SelectFunc.SinPi)      -> sinPiPre.io.dx.get,
-      (io.sel === SelectFunc.CosPi)      -> cosPiPre.io.dx.get,
-      (io.sel === SelectFunc.ACos)       -> acosPre .io.dx.get
+      (io.sel === SelectFunc.Sqrt)        -> sqrtPre .io.dx.get,
+      (io.sel === SelectFunc.InvSqrt)     -> sqrtPre .io.dx.get, // same as sqrt
+      (io.sel === SelectFunc.Reciprocal)  -> recPre  .io.dx.get,
+      (io.sel === SelectFunc.SinPi)       -> sinPiPre.io.dx.get,
+      (io.sel === SelectFunc.CosPi)       -> cosPiPre.io.dx.get,
+      (io.sel === SelectFunc.ACos)        -> acosPre .io.dx.get,
+      (io.sel === SelectFunc.ATan2Stage1) -> recPre  .io.dx.get  // atan2 stage1 calc x/y
     ))
   }
   polynomialEval.io.coeffs.cs <> MuxCase(nullTab.cs, Seq(
-    (io.sel === SelectFunc.Sqrt)       -> sqrtTab   .io.cs.cs,
-    (io.sel === SelectFunc.InvSqrt)    -> invsqrtTab.io.cs.cs,
-    (io.sel === SelectFunc.Reciprocal) -> recTab    .io.cs.cs,
-    (io.sel === SelectFunc.SinPi)      -> sinPiTab  .io.cs.cs,
-    (io.sel === SelectFunc.CosPi)      -> sinPiTab  .io.cs.cs,// same as sinPi
-    (io.sel === SelectFunc.ACos)       -> acosTab   .io.cs.cs
+    (io.sel === SelectFunc.Sqrt)        -> sqrtTab   .io.cs.cs,
+    (io.sel === SelectFunc.InvSqrt)     -> invsqrtTab.io.cs.cs,
+    (io.sel === SelectFunc.Reciprocal)  -> recTab    .io.cs.cs,
+    (io.sel === SelectFunc.SinPi)       -> sinPiTab  .io.cs.cs,
+    (io.sel === SelectFunc.CosPi)       -> sinPiTab  .io.cs.cs,// same as sinPi
+    (io.sel === SelectFunc.ACos)        -> acosTab   .io.cs.cs,
+    (io.sel === SelectFunc.ATan2Stage1) -> recTab    .io.cs.cs // atan2 stage1 calc x/y
   ))
 
   //                                         we are here
@@ -245,13 +248,18 @@ class MathFunctions(
   acosPost.io.zother <> acosOther.io.zother
   acosPost.io.zres   := polynomialEval.io.result
 
+  atan2Stage1Post.io.zother <> atan2Stage1Other.io.zother
+  atan2Stage1Post.io.zres   := polynomialEval.io.result
+  atan2Stage1Post.io.minxy  := Mux(yIsLarger, xdecomp.io.decomp, ydecomp.io.decomp)
+
   val z0 = MuxCase(0.U, Seq(
-    (io.sel === SelectFunc.Sqrt)       -> sqrtPost.io.z,
-    (io.sel === SelectFunc.InvSqrt)    -> invsqrtPost.io.z,
-    (io.sel === SelectFunc.Reciprocal) -> recPost.io.z,
-    (io.sel === SelectFunc.SinPi)      -> sinPiPost.io.z,
-    (io.sel === SelectFunc.CosPi)      -> sinPiPost.io.z, // same as sinPi
-    (io.sel === SelectFunc.ACos)       -> acosPost.io.z
+    (io.sel === SelectFunc.Sqrt)        -> sqrtPost.io.z,
+    (io.sel === SelectFunc.InvSqrt)     -> invsqrtPost.io.z,
+    (io.sel === SelectFunc.Reciprocal)  -> recPost.io.z,
+    (io.sel === SelectFunc.SinPi)       -> sinPiPost.io.z,
+    (io.sel === SelectFunc.CosPi)       -> sinPiPost.io.z, // same as sinPi
+    (io.sel === SelectFunc.ACos)        -> acosPost.io.z,
+    (io.sel === SelectFunc.ATan2Stage1) -> atan2Stage1Post.io.z
   ))
 
   io.z := ShiftRegister(z0, stage.total)
