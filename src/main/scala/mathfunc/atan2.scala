@@ -116,6 +116,9 @@ class ATan2Stage1OtherPath(
     z3piover4 -> ATan2SpecialValue.z3QuarterPi
   ))
   val maxXYMan0 = Mux(io.yIsLarger, (!io.y.man.orR.asBool), (!io.x.man.orR.asBool))
+//   printf("x.man = %b\n", io.x.man)
+//   printf("y.man = %b\n", io.y.man)
+//   printf("x < y = %b\n", io.yIsLarger)
 
   io.special := ShiftRegister(special, nStage)
   io.zother.maxXYMan0 := ShiftRegister(maxXYMan0, nStage)
@@ -194,11 +197,16 @@ class ATan2Stage1PostProcess(
   })
 
   val zsgn      = 0.U(1.W)
-  val zex       = io.zother.zex
+  val zex0      = io.zother.zex
   val maxXYMan0 = io.zother.maxXYMan0
 
-  val denomW1 = Cat(1.U(1.W), Mux(maxXYMan0, io.zres, 0.U))
+//   printf("cir: zres = %b\n", io.zres)
+
+  val denomW1 = Cat(1.U(1.W), Mux(maxXYMan0, 0.U, io.zres))
   val numerW1 = Cat(1.U(1.W), io.minxy.man)
+
+//   printf("cir: denomW1 = %b\n", denomW1)
+//   printf("cir: numerW1 = %b\n", numerW1)
 
   val zProd     = denomW1 * numerW1
   val bp        = fracW + manW
@@ -207,12 +215,16 @@ class ATan2Stage1PostProcess(
   val zProdSticky    = zProd(roundBits-2, 0).orR | (zProdMoreThan2 & zProd(roundBits-1))
   val zProdRound     = Mux(zProdMoreThan2, zProd(roundBits),       zProd(roundBits-1))
   val zProdShifted   = Mux(zProdMoreThan2, zProd(bp, roundBits+1), zProd(bp-1, roundBits))
+  assert(zProdShifted.getWidth == manW)
   val zProdLSB       = zProdShifted(0)
   val zProdInc       = FloatChiselUtil.roundIncBySpec(RoundSpec.roundToEven,
     zProdLSB, zProdRound, zProdSticky)
   val zProdRounded   = zProdShifted +& zProdInc
-  val zProdMoreThan2AfterRound = zProdRound(manW)
-  val zman = zProdRounded(manW-1, 0)
+  assert(zProdRounded.getWidth == manW+1)
+  val zProdMoreThan2AfterRound = zProdRounded(manW)
+
+  val zex = zex0 + zProdMoreThan2 + zProdMoreThan2AfterRound
+  val zman = Mux(~zex.orR, 0.U(manW.W), zProdRounded(manW-1, 0))
 
   val z0 = Cat(zsgn, zex, zman)
 
