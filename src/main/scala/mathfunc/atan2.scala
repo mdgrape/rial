@@ -20,6 +20,10 @@ import rial.arith._
 import rial.math.ATan2Sim
 import rial.mathfunc._
 
+// ATan2 Stage1 calculates min(x,y)/max(x,y).
+//       Stage2 calculates atan(min(x,y)/max(x,y)) +/- constant.
+// Some flags are needed to be saved.
+
 object ATan2Status {
   val W = 2
   val xIsPosIsLarger  = 0.U(W.W) // ysgn *   atan(|y|/|x|)      .. x>0, |x|>|y|
@@ -50,8 +54,46 @@ class ATan2Flags extends Bundle {
 // | .__/|_|  \___| .__/|_|  \___/ \___\___||___/___/
 // |_|            |_|
 // -------------------------------------------------------------------------
+//
+// Stage1 re-uses the reciprocal table. we don't need to implement it for atan2.
+//
+class ATan2Stage2PreProcess(
+  val spec     : RealSpec, // Input / Output floating spec
+  val polySpec : PolynomialSpec,
+  val stage    : PipelineStageConfig
+) extends Module {
 
-// TODO: post preprocess
+  val nStage = stage.total
+
+  val exW    = spec.exW
+  val manW   = spec.manW
+  val exBias = spec.exBias
+
+  val adrW   = polySpec.adrW
+  val fracW  = polySpec.fracW
+  val dxW    = polySpec.dxW
+  val order  = polySpec.order
+  val exAdrW = ATan2Sim.calcExAdrW(spec)
+
+  val io = IO(new Bundle {
+    val x   = Input (UInt(spec.W.W))
+    val adr = Output(UInt((exAdrW+adrW).W))
+    val dx  = if(order != 0) { Some(Output(UInt(dxW.W))) } else { None }
+  })
+
+  val (xsgn, xex, xman) = FloatChiselUtil.decompose(spec, io.x)
+
+  val exAdr0 = (exBias - 1).U(exW.W) - xex
+  val exAdr  = exAdr0(exAdrW-1, 0)
+
+  val adr0 = Cat(exAdr, xman(manW-1, dxW))
+  io.adr := ShiftRegister(adr0, nStage)
+
+  if(order != 0) {
+    val dx0  = Cat(~xman(manW-adrW-1), xman(manW-adrW-2,0))
+    io.dx.get := ShiftRegister(dx0, nStage)
+  }
+}
 
 // -------------------------------------------------------------------------
 //  _        _     _                        __  __
@@ -60,15 +102,85 @@ class ATan2Flags extends Bundle {
 // | || (_| | |_) | |  __/ | (_| (_) |  __/  _|  _|
 //  \__\__,_|_.__/|_|\___|  \___\___/ \___|_| |_|
 // -------------------------------------------------------------------------
+//
+// Stage1 re-use the reciprocal table. we don't need to implement it for atan2.
+//
+class ATan2Stage2TableCoeff(
+  val spec     : RealSpec,
+  val polySpec : PolynomialSpec,
+  val maxAdrW  : Int,      // max address width among all math funcs
+  val maxCbit  : Seq[Int], // max coeff width among all math funcs
+  val stage    : PipelineStageConfig,
+) extends Module {
 
-// TODO
+  val manW   = spec.manW
+  val adrW   = polySpec.adrW
+  val fracW  = polySpec.fracW
+  val order  = polySpec.order
+  val exAdrW = ATan2Sim.calcExAdrW(spec)
+  val nStage = stage.total
+
+  val io = IO(new Bundle {
+    val adr = Input  (UInt((exAdrW+adrW).W))
+    val cs  = Flipped(new TableCoeffInput(maxCbit))
+  })
+
+  val exAdr = io.adr(exAdrW + adrW - 1, adrW)
+  val adr   = io.adr(adrW - 1, 0)
+
+  val linearThreshold = ATan2Sim.calcLinearThreshold(manW)
+
+  if(order == 0) {
+
+    val tbl = VecInit( (-1 to linearThreshold.toInt by -1 ).map( exponent => {
+      VecInit((0L to (1L<<adrW)-1L).map( n => {
+        // atan(x) < x.
+        val x = scalb(1.0 + n.toDouble / (1L<<adrW), exponent.toInt)
+        val y = math.round(scalb(atan(x), -exponent-1) * (1L<<fracW))
+        assert(y < (1L << fracW))
+        y.U((fracW+1).W)
+      } ) )
+    } ) )
+
+    assert(maxCbit(0) == fracW)
+
+    val c0 = tbl(exAdr)(adr)
+    io.cs.cs(0) := ShiftRegister(c0, nStage)
+
+  } else {
+
+    val cbit = ATan2Sim.atanTableGeneration( order, adrW, manW, fracW )
+      .map( t => {t.getCBitWidth(/*sign mode = */0)} )
+      .reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
+
+    val tableIs = VecInit(
+      ATan2Sim.atanTableGeneration( order, adrW, manW, fracW ).map(t => {
+        t.getVectorWithWidth(cbit, /*sign mode = */ 0)
+      })
+    )
+    val tableI = tableIs(exAdr)
+    val coeff = getSlices(tableI(adr), cbit)
+
+    val coeffs = Wire(new TableCoeffInput(maxCbit))
+    for (i <- 0 to order) {
+      val diffWidth = maxCbit(i) - cbit(i)
+      val ci  = if(diffWidth != 0) {
+        Cat(0.U(diffWidth.W), coeff(i))
+      } else {
+        coeff(i) // no need to extend; this is the largest value in all the tables
+      }
+      coeffs.cs(i) := ci
+    }
+    io.cs := ShiftRegister(coeffs, nStage)
+  }
+}
 
 // -------------------------------------------------------------------------
-//                        _        _     _                    _   _
-//  _ __   ___  _ __     | |_ __ _| |__ | | ___   _ __   __ _| |_| |__
-// | '_ \ / _ \| '_ \ ___| __/ _` | '_ \| |/ _ \ | '_ \ / _` | __| '_ \
-// | | | | (_) | | | |___| || (_| | |_) | |  __/ | |_) | (_| | |_| | | |
-// |_| |_|\___/|_| |_|    \__\__,_|_.__/|_|\___| | .__/ \__,_|\__|_| |_|
+//                        _        _     _                    _   _       _
+//  _ __   ___  _ __     | |_ __ _| |__ | | ___   _ __   __ _| |_| |__   / |
+// | '_ \ / _ \| '_ \ ___| __/ _` | '_ \| |/ _ \ | '_ \ / _` | __| '_ \  | |
+// | | | | (_) | | | |___| || (_| | |_) | |  __/ | |_) | (_| | |_| | | | | |
+// |_| |_|\___/|_| |_|    \__\__,_|_.__/|_|\___| | .__/ \__,_|\__|_| |_| |_|
 //                                               |_|
 // -------------------------------------------------------------------------
 
@@ -164,6 +276,17 @@ class ATan2Stage1OtherPath(
   io.zother.zex := ShiftRegister(zex0, nStage)
 }
 
+// -----------------------------------------------------------------------------
+//                        _        _     _                    _   _       ____
+//  _ __   ___  _ __     | |_ __ _| |__ | | ___   _ __   __ _| |_| |__   |___ \
+// | '_ \ / _ \| '_ \ ___| __/ _` | '_ \| |/ _ \ | '_ \ / _` | __| '_ \    __) |
+// | | | | (_) | | | |___| || (_| | |_) | |  __/ | |_) | (_| | |_| | | |  / __/
+// |_| |_|\___/|_| |_|    \__\__,_|_.__/|_|\___| | .__/ \__,_|\__|_| |_| |_____|
+//                                               |_|
+// -----------------------------------------------------------------------------
+
+// TODO
+
 // -------------------------------------------------------------------------
 //                  _
 //  _ __   ___  ___| |_ _ __  _ __ ___   ___ ___  ___ ___
@@ -247,4 +370,13 @@ class ATan2Stage1PostProcess(
   io.z := ShiftRegister(z0, nStage)
 }
 
-// Post: takes status flags, returns corrected result
+// -------------------------------------------------------------------------
+//                  _                                       ____
+//  _ __   ___  ___| |_ _ __  _ __ ___   ___ ___  ___ ___  |___ \
+// | '_ \ / _ \/ __| __| '_ \| '__/ _ \ / __/ _ \/ __/ __|   __) |
+// | |_) | (_) \__ \ |_| |_) | | | (_) | (_|  __/\__ \__ \  / __/
+// | .__/ \___/|___/\__| .__/|_|  \___/ \___\___||___/___/ |_____|
+// |_|                 |_|
+// -------------------------------------------------------------------------
+
+// TODO: takes status flags, returns corrected result
