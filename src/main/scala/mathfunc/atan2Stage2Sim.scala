@@ -63,6 +63,13 @@ object ATan2Stage2Sim {
       return new RealGeneric(x.spec, ysgnUnit * Pi * 0.75)
     }
 
+    // the result of stage1 might becomes zero or something like that.
+    // We need to check it again.
+
+    if(x.ex == 0) { // min(x,y)/max(x,y) == 0 means, x == 0 and y != 0.
+      return new RealGeneric(x.spec, ysgnUnit * Pi * 0.5)
+    }
+
     // ------------------------------------------------------------------------
     // atan table
     val linearThreshold = ATan2Sim.calcLinearThreshold(manW)
@@ -113,8 +120,10 @@ object ATan2Stage2Sim {
         zMan0
       }
 
-      (zEx0, zMan.toLong)
+      (zEx0+exBias, zMan.toLong)
     }
+
+    println(f"atan(x) = ${new RealGeneric(x.spec, ysgn, atanEx, atanManW1 - (1<<manW)).toDouble} == ${atan(x.toDouble)}")
 
     // z correction by:
     //   ysgn *   atan(|y|/|x|)      .. x>0, |x|>|y|
@@ -124,6 +133,10 @@ object ATan2Stage2Sim {
 
     val zsgn = ysgn
 
+    println(f"status  = ${status}")
+    println(f"atanEx  = ${atanEx }(${atanEx - exBias})")
+    println(f"atanMan = ${atanManW1.toBinaryString}")
+
     if (status == 0) {//   ysgn *   atan(|y|/|x|)      .. x>0, |x|>|y|
 
       return new RealGeneric(x.spec, zsgn, atanEx, atanManW1 - (1<<manW))
@@ -132,7 +145,7 @@ object ATan2Stage2Sim {
 
       val halfpi = new RealGeneric(x.spec, Pi * 0.5)
       val halfpi_manW1sft3 = (halfpi.man + (1 << manW)) << 3
-      val atan_shift       = -atanEx
+      val atan_shift       = -(atanEx - exBias)
       val atan_aligned     = (atanManW1 << 3) >> atan_shift
 
       //  ysgn * (pi/2-atan(|x|/|y|)) .. x>0, |x|<|y|
@@ -152,7 +165,7 @@ object ATan2Stage2Sim {
 
       // pi.ex = 1
       val pi_manW1   = (pi.man + (1 << manW)) << 3 // pi = 2^1 * 1.57...
-      val atan_shift = -atanEx
+      val atan_shift = -(atanEx-exBias)
       val atan_man   = (atanManW1 << 2) >> atan_shift
       val zman0      = pi_manW1 - atan_man // pi ~ pi/2.
       val zman0LessThan2 = if(bit(manW+3, zman0) == 0) { 1 } else { 0 }
@@ -165,7 +178,7 @@ object ATan2Stage2Sim {
 
       val halfpi = new RealGeneric(x.spec, Pi * 0.5)
       val halfpi_manW1sft3 = (halfpi.man + (1 << manW)) << 3
-      val atan_shift       = -atanEx
+      val atan_shift       = -(atanEx-exBias)
       val atan_aligned     = (atanManW1 << 3) >> atan_shift
 
       val zman0 = halfpi_manW1sft3 + atan_aligned
