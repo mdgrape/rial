@@ -290,6 +290,7 @@ class ATan2Stage2NonTableOutput(val spec: RealSpec) extends Bundle {
   val zex         = Output(UInt(spec.exW.W))
   val zman        = Output(UInt(spec.manW.W))
   val zIsNonTable = Output(Bool())
+  val correctionNeeded = Output(Bool())
 }
 
 class ATan2Stage2OtherPath(
@@ -310,8 +311,18 @@ class ATan2Stage2OtherPath(
     val zother  = new ATan2Stage1NonTableOutput(spec)
   })
 
-  val xzero = !io.x.ex.orR // min(x,y) / max(x,y) == 0
-  io.zother.zIsNonTable := xzero || (io.flags =/= ATan2SpecialValue.zNormal)
+  val linearThreshold = (ATan2Sim.calcLinearThreshold(manW) + exBias)
+  val isLinear = io.x.ex < linearThreshold.U(exW.W)
+
+  val zex0 = io.x.ex - (exBias - 1).U(exW.W) // later we need to correct it
+
+  val defaultEx  = Mux(xzero,    halfpi.ex.U(exW),
+                   Mux(isLinear, io.x.ex, zex0))
+  val defaultMan = Mux(xzero,    halfpi.ex.U(exW), io.x.man)
+  // non-linear mantissa is calculated by table.
+
+  io.zother.zIsNonTable := xzero || isLinear || (io.flags =/= ATan2SpecialValue.zNormal)
+  io.zother.correctionNeeded := isLinear || io.flags === ATan2SpecialValue.zNormal
 
   val pi         = new RealGeneric(spec, Pi)
   val halfPi     = new RealGeneric(spec, Pi * 0.5)
@@ -319,7 +330,7 @@ class ATan2Stage2OtherPath(
   val quarter3Pi = new RealGeneric(spec, Pi * 0.75)
 
   io.zother.zsgn := io.flags.ysgn
-  io.zother.zex  := MuxCase(0.U(exW), Seq(
+  io.zother.zex  := MuxCase(defaultEx, Seq(
     (io.flags.special === ATan2SpecialValue.zNaN)        -> Fill(exW, 1.U(1.W)),
     (io.flags.special === ATan2SpecialValue.zZero)       -> 0.U(exW.W),
     (io.flags.special === ATan2SpecialValue.zPi)         -> pi.ex.U(exW.W),
@@ -327,7 +338,7 @@ class ATan2Stage2OtherPath(
     (io.flags.special === ATan2SpecialValue.zQuarterPi)  -> quarterPi.ex.U(exW.W),
     (io.flags.special === ATan2SpecialValue.z3QuarterPi) -> quarter3Pi.ex.U(exW.W)
     ))
-  io.zother.zman := MuxCase(0.U(exW), Seq(
+  io.zother.zman := MuxCase(defaultMan, Seq(
     (io.flags.special === ATan2SpecialValue.zNaN)        -> Fill(manW, 1.U(1.W)),
     (io.flags.special === ATan2SpecialValue.zZero)       -> 0.U(manW.W),
     (io.flags.special === ATan2SpecialValue.zPi)         -> pi.man.U(manW.W),
