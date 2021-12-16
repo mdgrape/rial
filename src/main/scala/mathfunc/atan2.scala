@@ -285,7 +285,57 @@ class ATan2Stage1OtherPath(
 //                                               |_|
 // -----------------------------------------------------------------------------
 
-// TODO
+class ATan2Stage2NonTableOutput(val spec: RealSpec) extends Bundle {
+  val zsgn        = Output(UInt(1.W))
+  val zex         = Output(UInt(spec.exW.W))
+  val zman        = Output(UInt(spec.manW.W))
+  val zIsNonTable = Output(Bool())
+}
+
+class ATan2Stage2OtherPath(
+  val spec     : RealSpec, // Input / Output floating spec
+  val polySpec : PolynomialSpec,
+  val stage    : PipelineStageConfig,
+) extends Module {
+
+  val nStage = stage.total
+
+  val exW    = spec.exW
+  val manW   = spec.manW
+  val exBias = spec.exBias
+
+  val io = IO(new Bundle {
+    val flags   = Input(new ATan2Flags())
+    val x       = Flipped(new DecomposedRealOutput(spec))
+    val zother  = new ATan2Stage1NonTableOutput(spec)
+  })
+
+  val xzero = !io.x.ex.orR // min(x,y) / max(x,y) == 0
+  io.zother.zIsNonTable := xzero || (io.flags =/= ATan2SpecialValue.zNormal)
+
+  val pi         = new RealGeneric(spec, Pi)
+  val halfPi     = new RealGeneric(spec, Pi * 0.5)
+  val quarterPi  = new RealGeneric(spec, Pi * 0.25)
+  val quarter3Pi = new RealGeneric(spec, Pi * 0.75)
+
+  io.zother.zsgn := io.flags.ysgn
+  io.zother.zex  := MuxCase(0.U(exW), Seq(
+    (io.flags.special === ATan2SpecialValue.zNaN)        -> Fill(exW, 1.U(1.W)),
+    (io.flags.special === ATan2SpecialValue.zZero)       -> 0.U(exW.W),
+    (io.flags.special === ATan2SpecialValue.zPi)         -> pi.ex.U(exW.W),
+    (io.flags.special === ATan2SpecialValue.zHalfPi)     -> halfPi.ex.U(exW.W),
+    (io.flags.special === ATan2SpecialValue.zQuarterPi)  -> quarterPi.ex.U(exW.W),
+    (io.flags.special === ATan2SpecialValue.z3QuarterPi) -> quarter3Pi.ex.U(exW.W)
+    ))
+  io.zother.zman := MuxCase(0.U(exW), Seq(
+    (io.flags.special === ATan2SpecialValue.zNaN)        -> Fill(manW, 1.U(1.W)),
+    (io.flags.special === ATan2SpecialValue.zZero)       -> 0.U(manW.W),
+    (io.flags.special === ATan2SpecialValue.zPi)         -> pi.man.U(manW.W),
+    (io.flags.special === ATan2SpecialValue.zHalfPi)     -> halfPi.man.U(manW.W),
+    (io.flags.special === ATan2SpecialValue.zQuarterPi)  -> quarterPi.man.U(manW.W),
+    (io.flags.special === ATan2SpecialValue.z3QuarterPi) -> quarter3Pi.man.U(manW.W)
+    ))
+}
 
 // -------------------------------------------------------------------------
 //                  _
@@ -378,5 +428,34 @@ class ATan2Stage1PostProcess(
 // | .__/ \___/|___/\__| .__/|_|  \___/ \___\___||___/___/ |_____|
 // |_|                 |_|
 // -------------------------------------------------------------------------
+//
+// Stage2: takes status flags, returns corrected result
+//
 
-// TODO: takes status flags, returns corrected result
+class ATan2Stage1PostProcess(
+  val spec     : RealSpec, // Input / Output floating spec
+  val polySpec : PolynomialSpec,
+  val stage    : PipelineStageConfig,
+) extends Module {
+
+  val exW    = spec.exW
+  val manW   = spec.manW
+  val exBias = spec.exBias
+
+  val nStage = stage.total
+  def getStage() = nStage
+
+  val adrW   = polySpec.adrW
+  val fracW  = polySpec.fracW
+  val order  = polySpec.order
+  val extraBits = polySpec.extraBits
+
+  val io = IO(new Bundle {
+    val zother = Flipped(new ATan2Stage1NonTableOutput(spec))
+    val zres   = Input(UInt(fracW.W))
+    val flags  = Input(new ATan2Flags())
+    val z      = Output(UInt(spec.W.W))
+  })
+
+// TODO
+}

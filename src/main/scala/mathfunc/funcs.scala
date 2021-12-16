@@ -172,20 +172,28 @@ class MathFunctions(
   atan2Stage1Other.io.y := ydecomp.io.decomp
   atan2Stage1Other.io.yIsLarger := yIsLarger
 
+  val atan2Stage2Pre   = Module(new ATan2Stage2PreProcess (spec, polySpec, stage))
+  val atan2Stage2Tab   = Module(new ATan2Stage2TableCoeff (spec, polySpec, stage))
+  val atan2Stage2Other = Module(new ATan2Stage2OtherPath  (spec, polySpec, stage))
+  val atan2Stage2Post  = Module(new ATan2Stage2PostProcess(spec, polySpec, stage))
+  atan2Stage2Pre.io.x   := io.x
+  atan2Stage2Tab.io.adr := sqrtPre.io.adr
+  atan2Stage2Other.io.x := xdecomp.io.decomp
+
   // ------------------------------------------------------------------------
   // atan related status register
 
   val atan2FlagReg = RegInit(0.U.asTypeOf(new ATan2Flags()))
   when(io.sel === SelectFunc.ATan2Stage1) {
-    atan2FlagReg.status := Cat(io.x(spec.W-1), yIsLarger)
-    atan2FlagReg.ysgn   :=     io.y(spec.W-1)
-
     // check special values ... TODO: need to consider the delay in sel and other
+    atan2FlagReg.status  := Cat(io.x(spec.W-1), yIsLarger)
     atan2FlagReg.special := atan2Stage1Other.io.special
+    atan2FlagReg.ysgn    :=     io.y(spec.W-1)
   }
   when(io.sel === SelectFunc.ATan2Stage2) {
     atan2FlagReg := 0.U.asTypeOf(new ATan2Flags())
   }
+  atan2Stage2Other.io.flags := atan2FlagReg
 
   // ------------------------------------------------------------------------
   //                  now we are here
@@ -211,6 +219,7 @@ class MathFunctions(
       (io.sel === SelectFunc.CosPi)       -> cosPiPre.io.dx.get,
       (io.sel === SelectFunc.ACos)        -> acosPre .io.dx.get,
       (io.sel === SelectFunc.ATan2Stage1) -> recPre  .io.dx.get  // atan2 stage1 calc x/y
+      (io.sel === SelectFunc.ATan2Stage2) -> atan2Stage2Pre.io.dx.get
     ))
   }
   polynomialEval.io.coeffs.cs <> MuxCase(nullTab.cs, Seq(
@@ -221,6 +230,7 @@ class MathFunctions(
     (io.sel === SelectFunc.CosPi)       -> sinPiTab  .io.cs.cs,// same as sinPi
     (io.sel === SelectFunc.ACos)        -> acosTab   .io.cs.cs,
     (io.sel === SelectFunc.ATan2Stage1) -> recTab    .io.cs.cs // atan2 stage1 calc x/y
+    (io.sel === SelectFunc.ATan2Stage2) -> atan2Stage2Tab.io.cs.cs
   ))
 
   //                                         we are here
@@ -251,6 +261,10 @@ class MathFunctions(
   atan2Stage1Post.io.zother <> atan2Stage1Other.io.zother
   atan2Stage1Post.io.zres   := polynomialEval.io.result
   atan2Stage1Post.io.minxy  := Mux(yIsLarger, xdecomp.io.decomp, ydecomp.io.decomp)
+
+  atan2Stage2Post.io.zother <> atan2Stage2Other.io.zother
+  atan2Stage2Post.io.zres   := polynomialEval.io.result
+  atan2Stage2Post.io.flags  := atan2FlagReg // TODO keep the value
 
   val z0 = MuxCase(0.U, Seq(
     (io.sel === SelectFunc.Sqrt)        -> sqrtPost.io.z,
