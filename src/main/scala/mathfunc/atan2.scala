@@ -39,8 +39,8 @@ object ATan2SpecialValue {
 }
 class ATan2Flags extends Bundle {
   val status  = UInt(ATan2Status.W.W)
-  val ysgn    = UInt(1.W)
   val special = UInt(ATan2SpecialValue.W.W)
+  val ysgn    = UInt(1.W)
 }
 
 // -------------------------------------------------------------------------

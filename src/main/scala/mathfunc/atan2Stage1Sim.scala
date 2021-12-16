@@ -27,7 +27,7 @@ import rial.arith._
 object ATan2Stage1Sim {
 
   def atan2Stage1SimGeneric( t_rec : FuncTableInt, y : RealGeneric, x : RealGeneric ):
-    (RealGeneric, Int, Int) = { // (z, ATan2Status, ATan2SpecialValue)
+    (RealGeneric, Int, Int, Int) = { // (z, ATan2Status, ATan2SpecialValue, ysgn)
 
 //     println("==================================================")
     assert(x.spec == y.spec)
@@ -128,6 +128,6 @@ object ATan2Stage1Sim {
 
     val zMan = if(zEx == 0 || xySameMan) {0L} else {zMan0.toLong}
 
-    (new RealGeneric(x.spec, zSgn, zEx, zMan), atan2Status, atan2SpecialValue)
+    (new RealGeneric(x.spec, zSgn, zEx, zMan), atan2Status, atan2SpecialValue, ysgn)
   }
 }
