@@ -101,7 +101,7 @@ object ATan2Stage1Sim {
 
     val xySameMan = x.man == y.man
     val yOverXEx  = minxy.ex + exBias - 1 - maxxy.ex
-    println(f"sim: yOverXEx = ${yOverXEx.toLong.toBinaryString}")
+//     println(f"sim: yOverXEx = ${yOverXEx.toLong.toBinaryString}")
 
     // ------------------------------------------------------------------------
     // atan2 stage1 postprocess (minxy * rec(maxxy))
@@ -109,8 +109,8 @@ object ATan2Stage1Sim {
     val denomW1 = (1<<fracW) + recMan
     val numerW1 = (1<<manW) + minxy.man
 
-    println(f"sim: denomW1 = ${denomW1.toLong.toBinaryString}")
-    println(f"sim: numerW1 = ${numerW1.toLong.toBinaryString}")
+//     println(f"sim: denomW1 = ${denomW1.toLong.toBinaryString}")
+//     println(f"sim: numerW1 = ${numerW1.toLong.toBinaryString}")
 
     val zProd = denomW1 * numerW1
     val bp    = fracW + manW

@@ -205,14 +205,14 @@ class ATan2Stage1PostProcess(
   val maxXYMan0 = io.zother.maxXYMan0
   val xySameMan = io.zother.xySameMan
 
-  printf("cir: zex0 = %b\n", zex0)
-  printf("cir: zres = %b\n", io.zres)
+//   printf("cir: zex0 = %b\n", zex0)
+//   printf("cir: zres = %b\n", io.zres)
 
   val denomW1 = Cat(1.U(1.W), Mux(maxXYMan0, 0.U, io.zres))
   val numerW1 = Cat(1.U(1.W), io.minxy.man)
 
-  printf("cir: denomW1 = %b\n", denomW1)
-  printf("cir: numerW1 = %b\n", numerW1)
+//   printf("cir: denomW1 = %b\n", denomW1)
+//   printf("cir: numerW1 = %b\n", numerW1)
 
   val zProd     = denomW1 * numerW1
   val bp        = fracW + manW
