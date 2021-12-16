@@ -26,7 +26,9 @@ import rial.arith._
 
 object ATan2Stage1Sim {
 
-  def atan2Stage1SimGeneric( t_rec : FuncTableInt, y : RealGeneric, x : RealGeneric ) : RealGeneric = {
+  def atan2Stage1SimGeneric( t_rec : FuncTableInt, y : RealGeneric, x : RealGeneric ):
+    (RealGeneric, Int, Int) = { // (z, ATan2Status, ATan2SpecialValue)
+
 //     println("==================================================")
     assert(x.spec == y.spec)
 
@@ -46,9 +48,34 @@ object ATan2Stage1Sim {
 
     val yIsLarger = slice(0, x.spec.W-1, x.value) < slice(0, x.spec.W-1, y.value)
 
+    val xnan  = x.isNaN
+    val xinf  = x.isInfinite
+    val xzero = x.isZero
+
+    val ynan  = y.isNaN
+    val yinf  = y.isInfinite
+    val yzero = y.isZero
+
+    val xpos = x.sgn == 0
+    val xneg = x.sgn == 1
+    val znan      =  (xnan ||  ynan) || ( xzero &&  yzero)
+    val zzero     = ((xinf && !yinf) || (!xzero &&  yzero)) && xpos
+    val zpi       = ((xinf && !yinf) || (!xzero &&  yzero)) && xneg
+    val zhalfpi   = (!xinf &&  yinf) || ( xzero && !yzero)
+    val z1piover4 =  (xinf &&  yinf) &&  xpos
+    val z3piover4 =  (xinf &&  yinf) &&  xneg
+
+    val atan2Status       = x.sgn * 2 + (if(yIsLarger) {1} else {0})
+    val atan2SpecialValue = if (znan)      { 1 }
+                       else if (zzero)     { 2 }
+                       else if (zpi)       { 3 }
+                       else if (zhalfpi)   { 4 }
+                       else if (z1piover4) { 5 }
+                       else if (z3piover4) { 6 }
+                       else                { 0 }
+
     val minxy = if (yIsLarger) { x } else { y }
     val maxxy = if (yIsLarger) { y } else { x }
-
 
     // ------------------------------------------------------------------------
     // reciprocal table
@@ -100,6 +127,6 @@ object ATan2Stage1Sim {
 
     val zMan = if(zEx == 0) {0L} else {zMan0.toLong}
 
-    new RealGeneric(x.spec, zSgn, zEx, zMan)
+    (new RealGeneric(x.spec, zSgn, zEx, zMan), atan2Status, atan2SpecialValue)
   }
 }

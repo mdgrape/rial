@@ -82,7 +82,7 @@ class MathFuncATan2Stage1Test extends FlatSpec
             println("-----------------------------")
             val xi = generatorX(spec,r)
             val yi = generatorYoverX(spec,r)
-            val z0r= reference(xi, yi)
+            val z0r= reference(xi, yi)._1
             q += ((xi.value.toBigInt, yi.value.toBigInt, z0r.value.toBigInt))
             c.io.sel.poke(SelectFunc.ATan2Stage1)
             c.io.x.poke(xi.value.toBigInt.U(spec.W.W))

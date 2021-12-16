@@ -66,7 +66,7 @@ class MathFuncATan2Stage1SimTest extends FunSuite with BeforeAndAfterAllConfigMa
 
         val z0   = min(y0, x0) / max(y0, x0)
         val z0r  = new RealGeneric(spec, z0)
-        val zi   = ATan2Stage1Sim.atan2Stage1SimGeneric( t_rec, y, x )
+        val zi   = ATan2Stage1Sim.atan2Stage1SimGeneric( t_rec, y, x )._1
         val zd   = zi.toDouble
         val errf = zd - z0r.toDouble
         val erri = errorLSB(zi, z0r.toDouble)
