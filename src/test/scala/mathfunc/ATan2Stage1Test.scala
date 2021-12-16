@@ -140,9 +140,9 @@ class MathFuncATan2Stage1Test extends FlatSpec
 //     n, r, "Test All range",generateRealFull(_,_) )
 
   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r, "Test Within 2^24  < y/x < inf",   generateRealWithin(pow(2.0,  24), pow(2.0, 128),_,_))
-//   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r, "Test Within 2^12  < y/x < 2^24",  generateRealWithin(pow(2.0,  12), pow(2.0,  24),_,_))
-//   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r, "Test Within 1     < y/x < 2^12",  generateRealWithin(pow(2.0,   0), pow(2.0,  12),_,_))
-//   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r, "Test Within 2^-12 < y/x < 1",     generateRealWithin(pow(2.0, -12), pow(2.0,   0),_,_))
-//   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r, "Test Within 0     < y/x < 2^-12", generateRealWithin(         0.0 , pow(2.0, -12),_,_))
+  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r, "Test Within 2^12  < y/x < 2^24",  generateRealWithin(pow(2.0,  12), pow(2.0,  24),_,_))
+  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r, "Test Within 1     < y/x < 2^12",  generateRealWithin(pow(2.0,   0), pow(2.0,  12),_,_))
+  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r, "Test Within 2^-12 < y/x < 1",     generateRealWithin(pow(2.0, -12), pow(2.0,   0),_,_))
+  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r, "Test Within 0     < y/x < 2^-12", generateRealWithin(         0.0 , pow(2.0, -12),_,_))
 }
 
