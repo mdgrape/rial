@@ -88,7 +88,7 @@ class MathFuncATan2Stage2SimTest extends FunSuite with BeforeAndAfterAllConfigMa
 
           println(f"test: x   = ${x0}")
           println(f"test: y   = ${y0}")
-          println(f"test: y/x = ${y0/x0}")
+          println(f"test: y/x = ${min(x0, y0)/max(x0,y0)}")
           println(f"test: ref = ${z0}")
           println(f"test: sim = ${zd}")
           println(f"test: test(${ztestsgn}|${ztestexp}(${ztestexp - spec.exBias})|${ztestman.toLong.toBinaryString}(${ztestman.toLong}%x)) != ref(${zrefsgn}|${zrefexp}(${zrefexp - spec.exBias})|${zrefman.toLong.toBinaryString}(${zrefman.toLong}%x))")
@@ -126,14 +126,14 @@ class MathFuncATan2Stage2SimTest extends FunSuite with BeforeAndAfterAllConfigMa
   val atan2F32ATanTableI       = ATan2Sim.atan2F32ATanTableI
 
   atan2Test(atan2F32ReciprocalTableI, atan2F32ATanTableI, RealSpec.Float32Spec, n, r,
-    "Test Within y/x > 2^24", generateRealWithin(0.0, 1.0,_,_), generateRealWithin(pow(2.0, 24), pow(2.0, 128),_,_), 1)
+    "Test Within y/x > 2^24", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, 24), pow(2.0, 128),_,_), 1)
   atan2Test(atan2F32ReciprocalTableI, atan2F32ATanTableI, RealSpec.Float32Spec, n, r,
-    "Test Within y/x > 2^12",  generateRealWithin(0.0, 1.0,_,_), generateRealWithin(pow(2.0, 12), pow(2.0, 24),_,_), 1)
+    "Test Within y/x > 2^12",  generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, 12), pow(2.0, 24),_,_), 2)
   atan2Test(atan2F32ReciprocalTableI, atan2F32ATanTableI, RealSpec.Float32Spec, n, r,
-    "Test Within 1 < y/x < 2^12", generateRealWithin(0.0, 1.0,_,_), generateRealWithin(1.0, pow(2.0, 8),_,_), 2)
+    "Test Within 1 < y/x < 2^12", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(1.0, pow(2.0, 8),_,_), 2)
   atan2Test(atan2F32ReciprocalTableI, atan2F32ATanTableI, RealSpec.Float32Spec, n, r,
-    "Test Within 2^-12 < y/x < 1", generateRealWithin(0.0, 1.0,_,_), generateRealWithin(pow(2.0, -12), 1.0,_,_), 2)
+    "Test Within 2^-12 < y/x < 1", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, -12), 1.0,_,_), 2)
   atan2Test(atan2F32ReciprocalTableI, atan2F32ATanTableI, RealSpec.Float32Spec, n, r,
-    "Test Within y/x < 2^-12", generateRealWithin(0.0, 1.0,_,_), generateRealWithin(0.0, pow(2.0, -12),_,_), 2)
+    "Test Within y/x < 2^-12", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(0.0, pow(2.0, -12),_,_), 2)
 
 }
