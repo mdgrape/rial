@@ -75,6 +75,7 @@ class ATan2Flags extends Bundle {
 class ATan2Stage1NonTableOutput(val spec: RealSpec) extends Bundle {
   val zex       = Output(UInt(spec.exW.W)) // sign of min(x,y)/max(x,y)
   val maxXYMan0 = Output(Bool())           // max(x,y).man === 0.U
+  val xySameMan = Output(Bool())
 }
 
 class ATan2Stage1OtherPath(
@@ -120,8 +121,11 @@ class ATan2Stage1OtherPath(
 //   printf("y.man = %b\n", io.y.man)
 //   printf("x < y = %b\n", io.yIsLarger)
 
+  val xySameMan = io.x.man === io.y.man
+
   io.special := ShiftRegister(special, nStage)
   io.zother.maxXYMan0 := ShiftRegister(maxXYMan0, nStage)
+  io.zother.xySameMan := ShiftRegister(xySameMan, nStage)
 
   // --------------------------------------------------------------------------
   // When 1/max(x,y) becomes a special value, the atan2 will also become a
@@ -145,19 +149,19 @@ class ATan2Stage1OtherPath(
 
   val xexBiased = Mux(io.yIsLarger, io.y.ex, io.x.ex) // if y>x, swap x and y
   val yexBiased = Mux(io.yIsLarger, io.x.ex, io.y.ex)
-  val yOverXEx0 = Wire(UInt(exW.W))
-  // since y < x, yOverXEx0 is always negative, so we don't need to check overflow
-  val canUnderflow = (spec.exMin - spec.exMax + exBias < 0)
-  if (canUnderflow) {
-    val exDiff = yexBiased +& (exBias-1).U - xexBiased
-    yOverXEx0 := Mux(exDiff(exW), 0.U(exW.W), exDiff(exW-1, 0))
-  } else {
-    yOverXEx0 := yexBiased - xexBiased + (exBias-1).U
-  }
+  val zex0 = Wire(UInt(exW.W))
+
+  // Since y < x, ex is always smaller than exBias. In normal cases, exBias is
+  // around a half of 2^exW-1, so we have almost a half of the space of the
+  // output port, UInt(exW.W). We re-interpret it as a signed integer to keep
+  // information. If we round the negative value to zero, the postprocess
+  // might consider the result is a small but non-zero value, though actually
+  // that is less than the minimum.
+  zex0 := yexBiased - xexBiased + (exBias-1).U(exW.W)
 
   // exponent of min(x,y)/max(x,y). we will later correct +/- 1 by checking
   // the mantissa of min(x,y) and max(x,y)
-  io.zother.zex := ShiftRegister(yOverXEx0, nStage)
+  io.zother.zex := ShiftRegister(zex0, nStage)
 }
 
 // -------------------------------------------------------------------------
@@ -199,14 +203,16 @@ class ATan2Stage1PostProcess(
   val zsgn      = 0.U(1.W)
   val zex0      = io.zother.zex
   val maxXYMan0 = io.zother.maxXYMan0
+  val xySameMan = io.zother.xySameMan
 
-//   printf("cir: zres = %b\n", io.zres)
+  printf("cir: zex0 = %b\n", zex0)
+  printf("cir: zres = %b\n", io.zres)
 
   val denomW1 = Cat(1.U(1.W), Mux(maxXYMan0, 0.U, io.zres))
   val numerW1 = Cat(1.U(1.W), io.minxy.man)
 
-//   printf("cir: denomW1 = %b\n", denomW1)
-//   printf("cir: numerW1 = %b\n", numerW1)
+  printf("cir: denomW1 = %b\n", denomW1)
+  printf("cir: numerW1 = %b\n", numerW1)
 
   val zProd     = denomW1 * numerW1
   val bp        = fracW + manW
@@ -223,8 +229,18 @@ class ATan2Stage1PostProcess(
   assert(zProdRounded.getWidth == manW+1)
   val zProdMoreThan2AfterRound = zProdRounded(manW)
 
-  val zex = zex0 + zProdMoreThan2 + zProdMoreThan2AfterRound
-  val zman = Mux(~zex.orR, 0.U(manW.W), zProdRounded(manW-1, 0))
+  val zex = Wire(UInt(exW.W))
+
+  // the result of OtherPath might cause underflow.
+  val zex0Inc = zex0 + zProdMoreThan2 + zProdMoreThan2AfterRound + xySameMan.asUInt
+  val canUnderflow = (spec.exMin - spec.exMax + exBias < 0)
+  if (canUnderflow) {
+    zex := Mux(zex0Inc(exW-1), 0.U, zex0Inc)
+  } else {
+    zex := zex0Inc
+  }
+
+  val zman = Mux(~zex.orR || xySameMan, 0.U(manW.W), zProdRounded(manW-1, 0))
 
   val z0 = Cat(zsgn, zex, zman)
 
