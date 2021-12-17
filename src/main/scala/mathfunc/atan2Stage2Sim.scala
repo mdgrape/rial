@@ -63,18 +63,13 @@ object ATan2Stage2Sim {
       return new RealGeneric(x.spec, ysgnUnit * Pi * 0.75)
     }
 
-    // the result of stage1 might becomes zero or something like that.
-    // We need to check it again.
-
-    if(x.ex == 0) { // min(x,y)/max(x,y) == 0 means, x == 0 and y != 0.
-      return new RealGeneric(x.spec, ysgnUnit * Pi * 0.5)
-    }
-
     // ------------------------------------------------------------------------
     // atan table
     val linearThreshold = ATan2Sim.calcLinearThreshold(manW)
 
-    val (atanEx, atanManW1) = if(x.ex - exBias < linearThreshold) {
+    val (atanEx, atanManW1) = if(x.ex == 0) {
+      (x.ex, 0L)
+    } else if(x.ex - exBias < linearThreshold) {
       // linear approx
       (x.ex, x.manW1.toLong)
     } else {
