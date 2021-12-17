@@ -75,7 +75,7 @@ class MathFuncATan2Stage1Test extends FlatSpec
             ReciprocalSim.reciprocalTableGeneration( nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit) ),
             _, _)
 
-          val generatorX = generateRealWithin(0.0, 1.0, _, _)
+          val generatorX = generateRealWithin(-1.0, 1.0, _, _)
 
           val q  = new Queue[(BigInt,BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
