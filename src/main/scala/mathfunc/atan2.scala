@@ -55,8 +55,56 @@ class ATan2Flags extends Bundle {
 // |_|            |_|
 // -------------------------------------------------------------------------
 //
-// Stage1 re-uses the reciprocal table. we don't need to implement it for atan2.
+// Stage1 preprocess only checks the special cases.
+// Stage1 calculates min(x,y)/max(x,y), so ReciprocalPreProcess is re-used.
 //
+class ATan2Stage1PreProcess(
+  val spec     : RealSpec, // Input / Output floating spec
+  val polySpec : PolynomialSpec,
+  val stage    : PipelineStageConfig
+) extends Module {
+
+  val nStage = stage.total
+
+  val exW    = spec.exW
+  val manW   = spec.manW
+  val exBias = spec.exBias
+
+  val adrW   = polySpec.adrW
+  val fracW  = polySpec.fracW
+  val dxW    = polySpec.dxW
+  val order  = polySpec.order
+  val exAdrW = ATan2Sim.calcExAdrW(spec)
+
+  val io = IO(new Bundle {
+    val x       = Input (new DecomposedRealOutput(spec))
+    val y       = Input (new DecomposedRealOutput(spec))
+    val special = Output(UInt(ATan2SpecialValue.W.W))
+  })
+
+  val xpos      = io.x.sgn === 0.U
+  val xneg      = io.x.sgn === 1.U
+  val znan      =  (io.x.nan ||  io.y.nan) || ( io.x.zero &&  io.y.zero)
+  val zzero     = ((io.x.inf && !io.y.inf) || (!io.x.zero &&  io.y.zero)) && xpos
+  val zpi       = ((io.x.inf && !io.y.inf) || (!io.x.zero &&  io.y.zero)) && xneg
+  val zhalfpi   = (!io.x.inf &&  io.y.inf) || ( io.x.zero && !io.y.zero)
+  val z1piover4 =  (io.x.inf &&  io.y.inf) &&  xpos
+  val z3piover4 =  (io.x.inf &&  io.y.inf) &&  xneg
+
+  val special = MuxCase(ATan2SpecialValue.zNormal, Seq(
+    znan      -> ATan2SpecialValue.zNaN,
+    zzero     -> ATan2SpecialValue.zZero,
+    zpi       -> ATan2SpecialValue.zPi,
+    zhalfpi   -> ATan2SpecialValue.zHalfPi,
+    z1piover4 -> ATan2SpecialValue.zQuarterPi,
+    z3piover4 -> ATan2SpecialValue.z3QuarterPi
+  ))
+
+  io.special := ShiftRegister(special, nStage)
+}
+
+// Stage2 calculates atan(x), so we need to extract the address value
+
 class ATan2Stage2PreProcess(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
@@ -207,27 +255,9 @@ class ATan2Stage1OtherPath(
     val x       = Flipped(new DecomposedRealOutput(spec))
     val y       = Flipped(new DecomposedRealOutput(spec))
 
-    val special = Output(UInt(ATan2SpecialValue.W.W))
     val zother  = new ATan2Stage1NonTableOutput(spec)
   })
 
-  val xpos = io.x.sgn === 0.U
-  val xneg = io.x.sgn === 1.U
-  val znan      =  (io.x.nan ||  io.y.nan) || ( io.x.zero &&  io.y.zero)
-  val zzero     = ((io.x.inf && !io.y.inf) || (!io.x.zero &&  io.y.zero)) && xpos
-  val zpi       = ((io.x.inf && !io.y.inf) || (!io.x.zero &&  io.y.zero)) && xneg
-  val zhalfpi   = (!io.x.inf &&  io.y.inf) || ( io.x.zero && !io.y.zero)
-  val z1piover4 =  (io.x.inf &&  io.y.inf) &&  xpos
-  val z3piover4 =  (io.x.inf &&  io.y.inf) &&  xneg
-
-  val special = MuxCase(ATan2SpecialValue.zNormal, Seq(
-    znan      -> ATan2SpecialValue.zNaN,
-    zzero     -> ATan2SpecialValue.zZero,
-    zpi       -> ATan2SpecialValue.zPi,
-    zhalfpi   -> ATan2SpecialValue.zHalfPi,
-    z1piover4 -> ATan2SpecialValue.zQuarterPi,
-    z3piover4 -> ATan2SpecialValue.z3QuarterPi
-  ))
   val maxXYMan0 = Mux(io.yIsLarger, (!io.y.man.orR.asBool), (!io.x.man.orR.asBool))
 //   printf("x.man = %b\n", io.x.man)
 //   printf("y.man = %b\n", io.y.man)
@@ -235,18 +265,12 @@ class ATan2Stage1OtherPath(
 
   val xySameMan = io.x.man === io.y.man
 
-  io.special := ShiftRegister(special, nStage)
   io.zother.maxXYMan0 := ShiftRegister(maxXYMan0, nStage)
   io.zother.xySameMan := ShiftRegister(xySameMan, nStage)
 
   // --------------------------------------------------------------------------
-  // When 1/max(x,y) becomes a special value, the atan2 will also become a
-  // special value like:
-  // - 1/max(x,y) == nan -> atan2(y,x) == nan
-  // - 1/max(x,y) == inf -> atan2(y,x) == nan      (because x == y == 0)
-  // - 1/max(x,y) == zero-> atan2(y,x) == +/- pi/2 (because max(x,y) == inf)
-  // So here we don't need to check if 1/max(x,y) is a special value because
-  // io.special covers all the cases.
+  // Here we don't need to check if 1/max(x,y) is a special value because
+  // Stage1PreProcess.io.special covers all the cases.
 
   // 1/x = 2^(-e-1) * 2/1.m
   // ex = -(x.ex - exBias) - 1 + exBias
@@ -308,26 +332,27 @@ class ATan2Stage2OtherPath(
   val io = IO(new Bundle {
     val flags   = Input(new ATan2Flags())
     val x       = Flipped(new DecomposedRealOutput(spec))
-    val zother  = new ATan2Stage1NonTableOutput(spec)
+    val zother  = new ATan2Stage2NonTableOutput(spec)
   })
+
+  val pi         = new RealGeneric(spec, Pi)
+  val halfPi     = new RealGeneric(spec, Pi * 0.5)
+  val quarterPi  = new RealGeneric(spec, Pi * 0.25)
+  val quarter3Pi = new RealGeneric(spec, Pi * 0.75)
 
   val linearThreshold = (ATan2Sim.calcLinearThreshold(manW) + exBias)
   val isLinear = io.x.ex < linearThreshold.U(exW.W)
 
   val zex0 = io.x.ex - (exBias - 1).U(exW.W) // later we need to correct it
 
-  val defaultEx  = Mux(xzero,    halfpi.ex.U(exW),
-                   Mux(isLinear, io.x.ex, zex0))
-  val defaultMan = Mux(xzero,    halfpi.ex.U(exW), io.x.man)
+  val xzero = !io.x.ex.orR
+
+  val defaultEx  = Mux(isLinear, io.x.ex, zex0) // isLinear includes xzero.
+  val defaultMan = Mux(xzero,    0.U(exW), io.x.man) // we need to re-set man if x is zero
   // non-linear mantissa is calculated by table.
 
-  io.zother.zIsNonTable := xzero || isLinear || (io.flags =/= ATan2SpecialValue.zNormal)
-  io.zother.correctionNeeded := isLinear || io.flags === ATan2SpecialValue.zNormal
-
-  val pi         = new RealGeneric(spec, Pi)
-  val halfPi     = new RealGeneric(spec, Pi * 0.5)
-  val quarterPi  = new RealGeneric(spec, Pi * 0.25)
-  val quarter3Pi = new RealGeneric(spec, Pi * 0.75)
+  io.zother.zIsNonTable      := isLinear || (io.flags.special =/= ATan2SpecialValue.zNormal)
+  io.zother.correctionNeeded := isLinear || (io.flags.special === ATan2SpecialValue.zNormal)
 
   io.zother.zsgn := io.flags.ysgn
   io.zother.zex  := MuxCase(defaultEx, Seq(
@@ -341,10 +366,10 @@ class ATan2Stage2OtherPath(
   io.zother.zman := MuxCase(defaultMan, Seq(
     (io.flags.special === ATan2SpecialValue.zNaN)        -> Fill(manW, 1.U(1.W)),
     (io.flags.special === ATan2SpecialValue.zZero)       -> 0.U(manW.W),
-    (io.flags.special === ATan2SpecialValue.zPi)         -> pi.man.U(manW.W),
-    (io.flags.special === ATan2SpecialValue.zHalfPi)     -> halfPi.man.U(manW.W),
-    (io.flags.special === ATan2SpecialValue.zQuarterPi)  -> quarterPi.man.U(manW.W),
-    (io.flags.special === ATan2SpecialValue.z3QuarterPi) -> quarter3Pi.man.U(manW.W)
+    (io.flags.special === ATan2SpecialValue.zPi)         -> pi.man.toLong.U(manW.W),
+    (io.flags.special === ATan2SpecialValue.zHalfPi)     -> halfPi.man.toLong.U(manW.W),
+    (io.flags.special === ATan2SpecialValue.zQuarterPi)  -> quarterPi.man.toLong.U(manW.W),
+    (io.flags.special === ATan2SpecialValue.z3QuarterPi) -> quarter3Pi.man.toLong.U(manW.W)
     ))
 }
 
