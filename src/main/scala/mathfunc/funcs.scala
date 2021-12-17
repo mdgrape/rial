@@ -166,8 +166,15 @@ class MathFunctions(
   acosTab.io.adr := acosPre.io.adr
   acosOther.io.x := xdecomp.io.decomp
 
+  val atan2Stage1Pre   = Module(new ATan2Stage1PreProcess (spec, polySpec, stage))
   val atan2Stage1Other = Module(new ATan2Stage1OtherPath  (spec, polySpec, stage))
   val atan2Stage1Post  = Module(new ATan2Stage1PostProcess(spec, polySpec, stage))
+
+  // atan2Stage1Pre checks if x and y are special values.
+  // for calculation, reciprocal is re-used.
+  atan2Stage1Pre.io.x := xdecomp.io.decomp
+  atan2Stage1Pre.io.y := ydecomp.io.decomp
+
   atan2Stage1Other.io.x := xdecomp.io.decomp
   atan2Stage1Other.io.y := ydecomp.io.decomp
   atan2Stage1Other.io.yIsLarger := yIsLarger
@@ -185,13 +192,10 @@ class MathFunctions(
 
   val atan2FlagReg = RegInit(0.U.asTypeOf(new ATan2Flags()))
   when(io.sel === SelectFunc.ATan2Stage1) {
-    // check special values ... TODO: need to consider the delay in sel and other
+    // check special values ... TODO: need to consider the delay in sel and atan2Stage1PreProcess
     atan2FlagReg.status  := Cat(io.x(spec.W-1), yIsLarger)
-    atan2FlagReg.special := atan2Stage1Other.io.special
+    atan2FlagReg.special := atan2Stage1Pre.io.special
     atan2FlagReg.ysgn    :=     io.y(spec.W-1)
-  }
-  when(io.sel === SelectFunc.ATan2Stage2) {
-    atan2FlagReg := 0.U.asTypeOf(new ATan2Flags())
   }
   atan2Stage2Other.io.flags := atan2FlagReg
 
