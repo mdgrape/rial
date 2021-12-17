@@ -190,7 +190,7 @@ class MathFunctions(
   // ------------------------------------------------------------------------
   // atan related status register
 
-  val atan2FlagReg = RegInit(0.U.asTypeOf(new ATan2Flags()))
+  val atan2FlagReg = Reg(new ATan2Flags())
   when(io.sel === SelectFunc.ATan2Stage1) {
     // check special values ... TODO: need to consider the delay in sel and atan2Stage1PreProcess
     atan2FlagReg.status  := Cat(io.x(spec.W-1), yIsLarger)
@@ -277,7 +277,8 @@ class MathFunctions(
     (io.sel === SelectFunc.SinPi)       -> sinPiPost.io.z,
     (io.sel === SelectFunc.CosPi)       -> sinPiPost.io.z, // same as sinPi
     (io.sel === SelectFunc.ACos)        -> acosPost.io.z,
-    (io.sel === SelectFunc.ATan2Stage1) -> atan2Stage1Post.io.z
+    (io.sel === SelectFunc.ATan2Stage1) -> atan2Stage1Post.io.z,
+    (io.sel === SelectFunc.ATan2Stage2) -> atan2Stage2Post.io.z
   ))
 
   io.z := ShiftRegister(z0, stage.total)
