@@ -468,7 +468,7 @@ class ATan2Stage1PostProcess(
 // Stage2: takes status flags, returns corrected result
 //
 
-class ATan2Stage1PostProcess(
+class ATan2Stage2PostProcess(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -487,11 +487,133 @@ class ATan2Stage1PostProcess(
   val extraBits = polySpec.extraBits
 
   val io = IO(new Bundle {
-    val zother = Flipped(new ATan2Stage1NonTableOutput(spec))
+    val zother = Flipped(new ATan2Stage2NonTableOutput(spec))
     val zres   = Input(UInt(fracW.W))
-    val flags  = Input(new ATan2Flags())
+    val flags  = Input(new ATan2Flags()) // need status (|x|<|y|, xsgn)
     val z      = Output(UInt(spec.W.W))
   })
 
-// TODO
+  val zSgn = io.zother.zsgn
+
+  val zresRounded = io.zres(fracW-1, fracW-manW) +& io.zres(fracW-manW-1)
+
+  val atanEx  = io.zother.zex
+  val atanMan = Mux(io.zother.zIsNonTable, Cat(1.U(1.W), io.zother.zman), zresRounded)
+
+
+  // ==========================================================================
+  // select correction by:
+  //   ysgn *   atan(|y|/|x|)      .. x>0, |x|>|y| : xpos, xlarger
+  //   ysgn * (-atan(|y|/|x|)+pi)  .. x<0, |x|>|y| : xneg, xlarger
+  //   ysgn * (pi/2-atan(|x|/|y|)) .. x>0, |x|<|y| : xpos, xsmaller
+  //   ysgn * (pi/2+atan(|x|/|y|)) .. x<0, |x|<|y| : xneg, xsmaller
+  //          ^^^^^^^^^^^^^^^^^^^
+  //          this part is always positive
+
+  val pi         = new RealGeneric(spec, Pi)
+  val halfPi     = new RealGeneric(spec, Pi * 0.5)
+
+  //        1 +  manW   + 3
+  //         .----------.
+  // pi   = 1x.xxxxxx...x000
+  // pi/2 = 01.xxxxxx...xx00
+  // atan = 01.xxxxxx...xx00 (before shift)
+  //           '---------'
+  //        2 +  manW   +  2
+
+  val piManW1        = Cat(1.U(1.W), pi.man.toLong.U(manW),     0.U(3.W))
+  val halfPiManW1    = Cat(1.U(2.W), halfPi.man.toLong.U(manW), 0.U(2.W))
+  val atanManW1      = Cat(1.U(2.W), atanMan,                   0.U(2.W))
+
+  // --------------------------------------------------
+  // align atan mantissa first
+
+  val log2ManW3   = log2Up(1+manW+3)
+  val atanShift0  = exBias.U(exW.W) - atanEx
+  val atanShift   = atanShift0(log2ManW3-1, 0)
+  val atanAligned = Mux(atanShift > (manW+1+3).U(log2ManW3.W), 0.U((manW+1+3).W),
+                        atanManW1 >> atanShift)
+
+  // -------------------------------------------------------------------
+  //   ysgn *   atan(|y|/|x|)      .. x>0, |x|>|y| : xpos, xlarger
+
+  // nothing is needed.
+  val zExPL  = atanEx
+  val zManPL = atanMan
+
+  // -------------------------------------------------------------------
+  //   ysgn * (-atan(|y|/|x|)+pi)  .. x<0, |x|>|y| : xneg, xlarger
+  //
+  // atan(x) is in [0, pi/4)
+  // pi - atan(x) is in (3pi/4, pi] ~ (2.35.., 3.14..], ex is always 1
+
+  val piMinusATanMan0 = piManW1 - atanAligned
+  assert(piMinusATanMan0((1+manW+3)-1) === 1.U(1.W)) // MSB == 1
+
+  val zExNL  = (exBias+1).U(exW.W)
+  val zManNL = piMinusATanMan0((1+manW+3)-2, 3) + piMinusATanMan0(2)
+
+  // -------------------------------------------------------------------
+  //   ysgn * (pi/2-atan(|x|/|y|)) .. x>0, |x|<|y| : xpos, xsmaller
+  //
+  // atan(x) is in [0, pi/4)
+  // pi/2 - atan(x) is in (pi/4, pi/2] ~ (0.78.., 1.57..], ex is -1 or 0
+
+  val halfPiMinusATanMan0 = halfPiManW1 - atanAligned
+  val halfPiMinusATanMan0MoreThan1 = halfPiMinusATanMan0((1+manW+3)-2) // === 1?
+
+  val zExPS  = (exBias-1).U(exW.W) + halfPiMinusATanMan0MoreThan1
+  val zManPS = Mux(halfPiMinusATanMan0MoreThan1,
+      halfPiMinusATanMan0((1+manW+3)-3, 2) + halfPiMinusATanMan0(1),
+      halfPiMinusATanMan0((1+manW+3)-4, 1) + halfPiMinusATanMan0(0)
+    )
+
+  // -------------------------------------------------------------------
+  //   ysgn * (pi/2+atan(|x|/|y|)) .. x<0, |x|<|y| : xneg, xsmaller
+  //
+  // atan(x) is in [0, pi/4)
+  // pi/2 + atan(x) is in (pi/2, 3pi/4] ~ (1.57.., 2.35..], ex is 0 or 1
+
+  val halfPiPlusATanMan0 = halfPiManW1 + atanAligned
+  val halfPiPlusATanMan0MoreThan2 = halfPiMinusATanMan0((1+manW+3)-1) // === 1?
+
+  val zExNS  = exBias.U(exW.W) + halfPiPlusATanMan0MoreThan2
+  val zManNS = Mux(halfPiPlusATanMan0MoreThan2,
+      halfPiPlusATanMan0((1+manW+3)-2, 3) + halfPiPlusATanMan0(2),
+      halfPiPlusATanMan0((1+manW+3)-3, 2) + halfPiPlusATanMan0(1)
+    )
+
+  // -------------------------------------------------------------------
+
+  val zEx = MuxCase(0.U(exW.W), Seq(
+      (io.flags.status === ATan2Status.xIsPosIsLarger ) -> zExPL,
+      (io.flags.status === ATan2Status.xIsNegIsLarger ) -> zExNL,
+      (io.flags.status === ATan2Status.xIsPosIsSmaller) -> zExPS,
+      (io.flags.status === ATan2Status.xIsNegIsSmaller) -> zExNS
+    ))
+  val zMan = MuxCase(0.U(manW.W), Seq(
+      (io.flags.status === ATan2Status.xIsPosIsLarger ) -> zManPL,
+      (io.flags.status === ATan2Status.xIsNegIsLarger ) -> zManNL,
+      (io.flags.status === ATan2Status.xIsPosIsSmaller) -> zManPS,
+      (io.flags.status === ATan2Status.xIsNegIsSmaller) -> zManNS
+    ))
+
+  // -------------------------------------------
+  // select special cases
+
+  val nan        = RealGeneric.nan(spec)
+  val zero       = new RealGeneric(spec, 0)
+  val quarterPi  = new RealGeneric(spec, Pi * 0.25)
+  val quarter3Pi = new RealGeneric(spec, Pi * 0.75)
+
+  val special = io.flags.special
+  val z0 = MuxCase(Cat(zSgn, zEx, zMan), Seq(
+      (special === ATan2SpecialValue.zNaN       ) -> Cat(zSgn, nan       .ex.U(exW.W), nan       .man.toLong.U(manW.W)),
+      (special === ATan2SpecialValue.zZero      ) -> Cat(zSgn, zero      .ex.U(exW.W), zero      .man.toLong.U(manW.W)),
+      (special === ATan2SpecialValue.zPi        ) -> Cat(zSgn, pi        .ex.U(exW.W), pi        .man.toLong.U(manW.W)),
+      (special === ATan2SpecialValue.zHalfPi    ) -> Cat(zSgn, halfPi    .ex.U(exW.W), halfPi    .man.toLong.U(manW.W)),
+      (special === ATan2SpecialValue.zQuarterPi ) -> Cat(zSgn, quarterPi .ex.U(exW.W), quarterPi .man.toLong.U(manW.W)),
+      (special === ATan2SpecialValue.z3QuarterPi) -> Cat(zSgn, quarter3Pi.ex.U(exW.W), quarter3Pi.man.toLong.U(manW.W))
+    ))
+  io.z := ShiftRegister(z0, nStage)
 }
