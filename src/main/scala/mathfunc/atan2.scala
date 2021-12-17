@@ -548,8 +548,6 @@ class ATan2Stage2PostProcess(
   // pi - atan(x) is in (3pi/4, pi] ~ (2.35.., 3.14..], ex is always 1
 
   val piMinusATanMan0 = piManW1 - atanAligned
-  assert(piMinusATanMan0((1+manW+3)-1) === 1.U(1.W)) // MSB == 1
-
   val zExNL  = (exBias+1).U(exW.W)
   val zManNL = piMinusATanMan0((1+manW+3)-2, 3) + piMinusATanMan0(2)
 
