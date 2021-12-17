@@ -173,7 +173,7 @@ class MathFunctions(
   atan2Stage1Other.io.yIsLarger := yIsLarger
 
   val atan2Stage2Pre   = Module(new ATan2Stage2PreProcess (spec, polySpec, stage))
-  val atan2Stage2Tab   = Module(new ATan2Stage2TableCoeff (spec, polySpec, stage))
+  val atan2Stage2Tab   = Module(new ATan2Stage2TableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
   val atan2Stage2Other = Module(new ATan2Stage2OtherPath  (spec, polySpec, stage))
   val atan2Stage2Post  = Module(new ATan2Stage2PostProcess(spec, polySpec, stage))
   atan2Stage2Pre.io.x   := io.x
@@ -218,7 +218,7 @@ class MathFunctions(
       (io.sel === SelectFunc.SinPi)       -> sinPiPre.io.dx.get,
       (io.sel === SelectFunc.CosPi)       -> cosPiPre.io.dx.get,
       (io.sel === SelectFunc.ACos)        -> acosPre .io.dx.get,
-      (io.sel === SelectFunc.ATan2Stage1) -> recPre  .io.dx.get  // atan2 stage1 calc x/y
+      (io.sel === SelectFunc.ATan2Stage1) -> recPre  .io.dx.get, // atan2 stage1 calc x/y
       (io.sel === SelectFunc.ATan2Stage2) -> atan2Stage2Pre.io.dx.get
     ))
   }
@@ -229,7 +229,7 @@ class MathFunctions(
     (io.sel === SelectFunc.SinPi)       -> sinPiTab  .io.cs.cs,
     (io.sel === SelectFunc.CosPi)       -> sinPiTab  .io.cs.cs,// same as sinPi
     (io.sel === SelectFunc.ACos)        -> acosTab   .io.cs.cs,
-    (io.sel === SelectFunc.ATan2Stage1) -> recTab    .io.cs.cs // atan2 stage1 calc x/y
+    (io.sel === SelectFunc.ATan2Stage1) -> recTab    .io.cs.cs, // atan2 stage1 calc x/y
     (io.sel === SelectFunc.ATan2Stage2) -> atan2Stage2Tab.io.cs.cs
   ))
 
@@ -264,7 +264,7 @@ class MathFunctions(
 
   atan2Stage2Post.io.zother <> atan2Stage2Other.io.zother
   atan2Stage2Post.io.zres   := polynomialEval.io.result
-  atan2Stage2Post.io.flags  := atan2FlagReg // TODO keep the value
+  atan2Stage2Post.io.flags  := atan2FlagReg // TODO keep the value in frag reg
 
   val z0 = MuxCase(0.U, Seq(
     (io.sel === SelectFunc.Sqrt)        -> sqrtPost.io.z,
