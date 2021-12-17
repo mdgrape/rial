@@ -590,11 +590,13 @@ class ATan2Stage2PostProcess(
       (io.flags.status === ATan2Status.xIsNegIsSmaller) -> zExNS
     ))
   val zMan = MuxCase(0.U(manW.W), Seq(
-      (io.flags.status === ATan2Status.xIsPosIsLarger ) -> zManPL,
-      (io.flags.status === ATan2Status.xIsNegIsLarger ) -> zManNL,
-      (io.flags.status === ATan2Status.xIsPosIsSmaller) -> zManPS,
-      (io.flags.status === ATan2Status.xIsNegIsSmaller) -> zManNS
+      (io.flags.status === ATan2Status.xIsPosIsLarger ) -> zManPL(manW-1, 0),
+      (io.flags.status === ATan2Status.xIsNegIsLarger ) -> zManNL(manW-1, 0),
+      (io.flags.status === ATan2Status.xIsPosIsSmaller) -> zManPS(manW-1, 0),
+      (io.flags.status === ATan2Status.xIsNegIsSmaller) -> zManNS(manW-1, 0)
     ))
+
+  val zNormal = Cat(zSgn, zEx, zMan)
 
   // -------------------------------------------
   // select special cases
@@ -605,13 +607,15 @@ class ATan2Stage2PostProcess(
   val quarter3Pi = new RealGeneric(spec, Pi * 0.75)
 
   val special = io.flags.special
-  val z0 = MuxCase(Cat(zSgn, zEx, zMan), Seq(
-      (special === ATan2SpecialValue.zNaN       ) -> Cat(zSgn, nan       .ex.U(exW.W), nan       .man.toLong.U(manW.W)),
-      (special === ATan2SpecialValue.zZero      ) -> Cat(zSgn, zero      .ex.U(exW.W), zero      .man.toLong.U(manW.W)),
+  val z0 = MuxCase(zNormal, Seq(
+      (special === ATan2SpecialValue.zNormal    ) -> zNormal,
+      (special === ATan2SpecialValue.zNaN       ) -> Cat(0.U(1.W), nan   .ex.U(exW.W), nan       .man.toLong.U(manW.W)),
+      (special === ATan2SpecialValue.zZero      ) -> Cat(0.U(1.W), zero  .ex.U(exW.W), zero      .man.toLong.U(manW.W)),
       (special === ATan2SpecialValue.zPi        ) -> Cat(zSgn, pi        .ex.U(exW.W), pi        .man.toLong.U(manW.W)),
       (special === ATan2SpecialValue.zHalfPi    ) -> Cat(zSgn, halfPi    .ex.U(exW.W), halfPi    .man.toLong.U(manW.W)),
       (special === ATan2SpecialValue.zQuarterPi ) -> Cat(zSgn, quarterPi .ex.U(exW.W), quarterPi .man.toLong.U(manW.W)),
       (special === ATan2SpecialValue.z3QuarterPi) -> Cat(zSgn, quarter3Pi.ex.U(exW.W), quarter3Pi.man.toLong.U(manW.W))
     ))
+
   io.z := ShiftRegister(z0, nStage)
 }
