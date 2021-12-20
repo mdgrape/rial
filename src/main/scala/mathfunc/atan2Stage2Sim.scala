@@ -67,11 +67,13 @@ object ATan2Stage2Sim {
     // atan table
     val linearThreshold = ATan2Sim.calcLinearThreshold(manW)
 
-    val (atanEx, atanManW1) = if(x.ex == 0) {
+    val (atanEx, atanMan) = if(x.ex == 0) {
+//       println("atan2Stage2Sim: Less than zero-threshold")
       (x.ex, 0L)
-    } else if(x.ex - exBias < linearThreshold) {
+    } else if(x.ex < linearThreshold + exBias) {
+//       println("atan2Stage2Sim: Less than linear-threshold")
       // linear approx
-      (x.ex, x.manW1.toLong)
+      (x.ex, x.man.toLong)
     } else {
       // table interpolation
       val exadr = (-(x.ex - exBias) - 1).toInt
@@ -105,6 +107,8 @@ object ATan2Stage2Sim {
         val shift   = fracW+1 - res0.toLong.toBinaryString.length
         val res     = res0 << shift // normalize
 
+//         println(f"Stage2Sim: zres = ${res0.toLong.toBinaryString}(${res0})")
+
         (-shift - scaling, res.toLong)
       }
 
@@ -115,73 +119,86 @@ object ATan2Stage2Sim {
         zMan0
       }
 
-      (zEx0+exBias, zMan.toLong)
+      (zEx0+exBias, (zMan - (1<<manW)).toLong)
     }
 
-    println(f"atan(x) = ${new RealGeneric(x.spec, ysgn, atanEx, atanManW1 - (1<<manW)).toDouble} == ${atan(x.toDouble)}")
+//     println(f"Stage2Sim: zresR = ${atanMan.toLong.toBinaryString}(${atanMan})")
+//     println(f"Stage2Sim: atan(x) = ${new RealGeneric(x.spec, ysgn, atanEx, atanMan).toDouble} == ${atan(x.toDouble)}")
+//     println(f"Stage2Sim: status  = ${status}")
+//     println(f"Stage2Sim: atanEx  = ${atanEx }(${atanEx - exBias})")
+//     println(f"Stage2Sim: atanMan = ${atanMan.toBinaryString}")
 
     // z correction by:
-    //   ysgn *   atan(|y|/|x|)      .. x>0, |x|>|y|
-    //   ysgn * (pi/2-atan(|x|/|y|)) .. x>0, |x|<|y|
-    //   ysgn * (-atan(|y|/|x|)+pi)  .. x<0, |x|>|y|
-    //   ysgn * (pi/2+atan(|x|/|y|)) .. x<0, |x|<|y|
+    //   ysgn *   atan(|y|/|x|)      .. x>0, |x|>|y| : 0
+    //   ysgn * (-atan(|y|/|x|)+pi)  .. x<0, |x|>|y| : 1
+    //   ysgn * (pi/2-atan(|x|/|y|)) .. x>0, |x|<|y| : 2
+    //   ysgn * (pi/2+atan(|x|/|y|)) .. x<0, |x|<|y| : 3
 
     val zsgn = ysgn
 
-    println(f"status  = ${status}")
-    println(f"atanEx  = ${atanEx }(${atanEx - exBias})")
-    println(f"atanMan = ${atanManW1.toBinaryString}")
+    val pi     = new RealGeneric(x.spec, Pi)
+    val halfpi = new RealGeneric(x.spec, Pi * 0.5)
+
+    val piManW1     = pi.manW1              << 3
+    val halfpiManW1 = halfpi.manW1          << 2
+    val atanManW1   = (atanMan + (1<<manW)) << 2
+
+    val atanShift   = exBias - atanEx
+    val atanAligned = atanManW1 >> atanShift
+
+//     println(f"atanShift = ${atanShift}")
 
     if (status == 0) {//   ysgn *   atan(|y|/|x|)      .. x>0, |x|>|y|
 
-      return new RealGeneric(x.spec, zsgn, atanEx, atanManW1 - (1<<manW))
+      return new RealGeneric(x.spec, zsgn, atanEx, atanMan)
 
-    } else if (status == 1) {//   ysgn * (pi/2-atan(|x|/|y|)) .. x>0, |x|<|y|
+    } else if (status == 1) {//   ysgn * (-atan(|y|/|x|)+pi)  .. x<0, |x|>|y| : 1
 
-      val halfpi = new RealGeneric(x.spec, Pi * 0.5)
-      val halfpi_manW1sft3 = (halfpi.man + (1 << manW)) << 3
-      val atan_shift       = -(atanEx - exBias)
-      val atan_aligned     = (atanManW1 << 3) >> atan_shift
+      // since atanAligned is in [0, pi/4]  pi-atan is in [3/4pi, pi].
+      // 3/4pi ~ 2.35, exponent of pi - atan should always be 1.
+      val zman0      = piManW1 - atanAligned
+      val zman = roundBySpec(RoundSpec.round, 3, zman0)
 
-      //  ysgn * (pi/2-atan(|x|/|y|)) .. x>0, |x|<|y|
-      val zman0 = halfpi_manW1sft3 - atan_aligned
-      // z is in [0.78 ~ 1.57)
+//       println(f"atan2Stage2Sim: pi  .man = ${piManW1.toLong.toBinaryString}")
+//       println(f"atan2Stage2Sim: atan.man = ${atanAligned.toLong.toBinaryString}")
+//       println(f"atan2Stage2Sim: sub .man = ${zman0.toLong.toBinaryString}")
+//       println(f"atan2Stage2Sim: z   .man = ${zman.toLong.toBinaryString}")
 
-      val zman0LessThan1 = if(bit(manW+3, zman0) == 0) { 1 } else { 0 }
-      val zmanRound = roundBySpec(RoundSpec.round, 3-zman0LessThan1, zman0)
+      return new RealGeneric(x.spec, zsgn, 1 + exBias, zman - (1<<manW))
+
+    } else if (status == 2) {//   ysgn * (pi/2-atan(|x|/|y|)) .. x>0, |x|<|y| : 2
+
+      // since atanAligned is in [0, pi/4]  pi/2-atan is in [pi/4, pi/2].
+      // z is in [0.78 ~ 1.57).
+      val zman0 = halfpiManW1 - atanAligned
+
+      val zman0LessThan1 = if(bit(manW+2, zman0) == 0) { 1 } else { 0 }
+      val zmanRound = roundBySpec(RoundSpec.round, 2-zman0LessThan1, zman0)
       val zman = zmanRound - (1<<manW)
       val zex  = exBias - zman0LessThan1
 
+//       println(f"atan2Stage2Sim: pi/2.man = ${halfpiManW1.toLong.toBinaryString}")
+//       println(f"atan2Stage2Sim: atan.man = ${atanAligned.toLong.toBinaryString}")
+//       println(f"atan2Stage2Sim: sub .man = ${zman0.toLong.toBinaryString}")
+//       println(f"atan2Stage2Sim: z   .man = ${zman.toLong.toBinaryString}")
+
       return new RealGeneric(x.spec, zsgn, zex, zman)
 
-    } else if (status == 2) {//   ysgn * (-atan(|y|/|x|)+pi)  .. x<0, |x|>|y|
-
-      val pi = new RealGeneric(x.spec, Pi)
-
-      // pi.ex = 1
-      val pi_manW1   = (pi.man + (1 << manW)) << 3 // pi = 2^1 * 1.57...
-      val atan_shift = -(atanEx-exBias)
-      val atan_man   = (atanManW1 << 2) >> atan_shift
-      val zman0      = pi_manW1 - atan_man // pi ~ pi/2.
-      val zman0LessThan2 = if(bit(manW+3, zman0) == 0) { 1 } else { 0 }
-      val zman = roundBySpec(RoundSpec.round, 3-zman0LessThan2, zman0)
-
-      return new RealGeneric(x.spec, zsgn, 1-zman0LessThan2 + exBias, zman - (1<<manW))
-
-    } else                  {//   ysgn * (pi/2+atan(|x|/|y|)) .. x<0, |x|<|y|
+    } else                  {//   ysgn * (pi/2+atan(|x|/|y|)) .. x<0, |x|<|y| : 3
       assert(status == 3)
+      // since atanAligned is in [0, pi/4]  pi/2-atan is in [pi/2, 3pi/4].
+      // z is in [1.57, 2.35).
+      val zman0 = halfpiManW1 + atanAligned
 
-      val halfpi = new RealGeneric(x.spec, Pi * 0.5)
-      val halfpi_manW1sft3 = (halfpi.man + (1 << manW)) << 3
-      val atan_shift       = -(atanEx-exBias)
-      val atan_aligned     = (atanManW1 << 3) >> atan_shift
-
-      val zman0 = halfpi_manW1sft3 + atan_aligned
-      // z is in [1.57 ~ 2.35), ex is 0 or 1
       val zman0MoreThan2 = bit(manW+1+3, zman0)
-      val zmanRound = roundBySpec(RoundSpec.round, 3+zman0MoreThan2, zman0)
+      val zmanRound = roundBySpec(RoundSpec.round, 2+zman0MoreThan2, zman0)
       val zman = zmanRound - (1<<manW)
       val zex  = zman0MoreThan2 + exBias
+
+//       println(f"atan2Stage2Sim: pi/2.man = ${halfpiManW1.toLong.toBinaryString}")
+//       println(f"atan2Stage2Sim: atan.man = ${atanAligned.toLong.toBinaryString}")
+//       println(f"atan2Stage2Sim: add .man = ${zman0.toLong.toBinaryString}")
+//       println(f"atan2Stage2Sim: z   .man = ${zman.toLong.toBinaryString}")
 
       return new RealGeneric(x.spec, zsgn, zex, zman)
     }
