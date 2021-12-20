@@ -212,12 +212,13 @@ class ATan2Stage2TableCoeff(
     val coeffs = Wire(new TableCoeffInput(maxCbit))
     for (i <- 0 to order) {
       val diffWidth = maxCbit(i) - cbit(i)
-      val ci  = if(diffWidth != 0) {
-        Cat(0.U(diffWidth.W), coeff(i))
+      val ci  = coeff(i)
+      val msb = ci(cbit(i)-1)
+      if(0 < diffWidth) {
+        coeffs.cs(i) := Cat(Fill(diffWidth, msb), ci) // sign extension
       } else {
-        coeff(i) // no need to extend; this is the largest value in all the tables
+        coeffs.cs(i) := ci
       }
-      coeffs.cs(i) := ci
     }
     io.cs := ShiftRegister(coeffs, nStage)
   }
@@ -343,7 +344,7 @@ class ATan2Stage2OtherPath(
   val linearThreshold = (ATan2Sim.calcLinearThreshold(manW) + exBias)
   val isLinear = io.x.ex < linearThreshold.U(exW.W)
 
-  val zex0 = io.x.ex - (exBias - 1).U(exW.W) // later we need to correct it
+  val zex0 = io.x.ex + 1.U // later we need to correct it
 
   val xzero = !io.x.ex.orR
 
@@ -521,9 +522,13 @@ class ATan2Stage2PostProcess(
   //           '---------'
   //        2 +  manW   +  2
 
-  val piManW1        = Cat(1.U(1.W), pi.man.toLong.U(manW),     0.U(3.W))
-  val halfPiManW1    = Cat(1.U(2.W), halfPi.man.toLong.U(manW), 0.U(2.W))
-  val atanManW1      = Cat(1.U(2.W), atanMan,                   0.U(2.W))
+  val piManW1        = Cat(1.U(1.W), pi.man.toLong.U(manW.W),     0.U(3.W))
+  val halfPiManW1    = Cat(1.U(2.W), halfPi.man.toLong.U(manW.W), 0.U(2.W))
+  val atanManW1      = Cat(0.U(1.W), atanMan,                     0.U(2.W))
+
+  assert(piManW1    .getWidth == 2+manW+2)
+  assert(halfPiManW1.getWidth == 2+manW+2)
+  assert(atanManW1  .getWidth == 2+manW+2)
 
   // --------------------------------------------------
   // align atan mantissa first
