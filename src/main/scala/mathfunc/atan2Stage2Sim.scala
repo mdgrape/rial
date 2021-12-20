@@ -104,12 +104,11 @@ object ATan2Stage2Sim {
         //   We need to correct the exponent term by this scaling term.
 
         val scaling = (-(x.ex-exBias) - 1).toInt
-        val shift   = fracW+1 - res0.toLong.toBinaryString.length
-        val res     = res0 << shift // normalize
+        val res     = res0 << 1 // normalize
 
 //         println(f"Stage2Sim: zres = ${res0.toLong.toBinaryString}(${res0})")
 
-        (-shift - scaling, res.toLong)
+        (-1 - scaling, res.toLong)
       }
 
       // round the result from table
