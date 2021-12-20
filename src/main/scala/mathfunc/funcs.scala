@@ -184,7 +184,7 @@ class MathFunctions(
   val atan2Stage2Other = Module(new ATan2Stage2OtherPath  (spec, polySpec, stage))
   val atan2Stage2Post  = Module(new ATan2Stage2PostProcess(spec, polySpec, stage))
   atan2Stage2Pre.io.x   := io.x
-  atan2Stage2Tab.io.adr := sqrtPre.io.adr
+  atan2Stage2Tab.io.adr := atan2Stage2Pre.io.adr
   atan2Stage2Other.io.x := xdecomp.io.decomp
 
   // ------------------------------------------------------------------------
@@ -193,7 +193,7 @@ class MathFunctions(
   val atan2FlagReg = Reg(new ATan2Flags())
   when(io.sel === SelectFunc.ATan2Stage1) {
     // check special values ... TODO: need to consider the delay in sel and atan2Stage1PreProcess
-    atan2FlagReg.status  := Cat(io.x(spec.W-1), yIsLarger)
+    atan2FlagReg.status  := Cat(yIsLarger, io.x(spec.W-1))
     atan2FlagReg.special := atan2Stage1Pre.io.special
     atan2FlagReg.ysgn    :=     io.y(spec.W-1)
   }
