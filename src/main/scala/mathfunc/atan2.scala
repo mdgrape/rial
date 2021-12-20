@@ -344,7 +344,7 @@ class ATan2Stage2OtherPath(
   val linearThreshold = (ATan2Sim.calcLinearThreshold(manW) + exBias)
   val isLinear = io.x.ex < linearThreshold.U(exW.W)
 
-  val zex0 = io.x.ex + 1.U // later we need to correct it
+  val zex0 = io.x.ex
 
   val xzero = !io.x.ex.orR
 
@@ -496,7 +496,7 @@ class ATan2Stage2PostProcess(
 
   val zSgn = io.zother.zsgn
 
-  val zresRounded = io.zres(fracW-1, fracW-manW) +& io.zres(fracW-manW-1)
+  val zresRounded = io.zres(fracW-1, fracW-manW-1) +& io.zres(fracW-manW-2)
 
   val atanEx  = io.zother.zex
   val atanMan = Mux(io.zother.zIsNonTable, Cat(1.U(1.W), io.zother.zman), zresRounded)
@@ -524,7 +524,7 @@ class ATan2Stage2PostProcess(
 
   val piManW1        = Cat(1.U(1.W), pi.man.toLong.U(manW.W),     0.U(3.W))
   val halfPiManW1    = Cat(1.U(2.W), halfPi.man.toLong.U(manW.W), 0.U(2.W))
-  val atanManW1      = Cat(0.U(1.W), atanMan,                     0.U(2.W))
+  val atanManW1      = Cat(          atanMan,                     0.U(2.W))
 
   assert(piManW1    .getWidth == 2+manW+2)
   assert(halfPiManW1.getWidth == 2+manW+2)
@@ -535,7 +535,8 @@ class ATan2Stage2PostProcess(
 
   val log2ManW3   = log2Up(1+manW+3)
   val atanShift0  = exBias.U(exW.W) - atanEx
-  val atanShift   = atanShift0(log2ManW3-1, 0)
+  val atanShift   = Mux(atanShift0(exW-1, log2ManW3).orR,
+                        (1+manW+3).U(log2ManW3.W), atanShift0(log2ManW3-1, 0))
   val atanAligned = Mux(atanShift > (manW+1+3).U(log2ManW3.W), 0.U((manW+1+3).W),
                         atanManW1 >> atanShift)
 
