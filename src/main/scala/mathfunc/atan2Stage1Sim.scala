@@ -44,9 +44,11 @@ object ATan2Stage1Sim {
 
 //     println(f"x = ${x.sgn}|${x.ex}(${xex})|${xman.toLong.toBinaryString}")
 //     println(f"y = ${y.sgn}|${y.ex}(${yex})|${yman.toLong.toBinaryString}")
-//     println(f"x = ${x.toDouble}, y = ${y.toDouble}, atan2(y, x) = ${atan2(y.toDouble, x.toDouble)}")
+//     println(f"ATan2Stage1Sim: x = ${x.toDouble}, y = ${y.toDouble}, atan2(y, x) = ${atan2(y.toDouble, x.toDouble)}")
 
     val yIsLarger = slice(0, x.spec.W-1, x.value) < slice(0, x.spec.W-1, y.value)
+
+//     println(f"ATan2Stage1Sim: yIsLarger = ${yIsLarger}")
 
     val xnan  = x.isNaN
     val xinf  = x.isInfinite
@@ -65,7 +67,7 @@ object ATan2Stage1Sim {
     val z1piover4 =  (xinf &&  yinf) &&  xpos
     val z3piover4 =  (xinf &&  yinf) &&  xneg
 
-    val atan2Status       = x.sgn * 2 + (if(yIsLarger) {1} else {0})
+    val atan2Status       = (if(yIsLarger) {2+x.sgn} else {x.sgn})
     val atan2SpecialValue = if (znan)      { 1 }
                        else if (zzero)     { 2 }
                        else if (zpi)       { 3 }
