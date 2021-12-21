@@ -1,4 +1,4 @@
-//% @file acos.scala
+//% @file atan2.scala
 //
 // ATan2 function
 // Copyright (C) Toru Niina RIKEN BDR 2021
@@ -46,6 +46,15 @@ class ATan2Flags extends Bundle {
   val special = UInt(ATan2SpecialValue.W.W)
   val ysgn    = UInt(1.W)
 }
+
+// =========================================================================
+//      _                     _
+//  ___| |_ __ _  __ _  ___  / |
+// / __| __/ _` |/ _` |/ _ \ | |
+// \__ \ || (_| | (_| |  __/ | |
+// |___/\__\__,_|\__, |\___| |_|
+//               |___/
+// =========================================================================
 
 // -------------------------------------------------------------------------
 //  _ __  _ __ ___ _ __  _ __ ___   ___ ___  ___ ___
@@ -103,133 +112,12 @@ class ATan2Stage1PreProcess(
   io.special := ShiftRegister(special, nStage)
 }
 
-// Stage2 calculates atan(x), so we need to extract the address value
-
-class ATan2Stage2PreProcess(
-  val spec     : RealSpec, // Input / Output floating spec
-  val polySpec : PolynomialSpec,
-  val stage    : PipelineStageConfig
-) extends Module {
-
-  val nStage = stage.total
-
-  val exW    = spec.exW
-  val manW   = spec.manW
-  val exBias = spec.exBias
-
-  val adrW   = polySpec.adrW
-  val fracW  = polySpec.fracW
-  val dxW    = polySpec.dxW
-  val order  = polySpec.order
-  val exAdrW = ATan2Sim.calcExAdrW(spec)
-
-  val io = IO(new Bundle {
-    val x   = Input (UInt(spec.W.W))
-    val adr = Output(UInt((exAdrW+adrW).W))
-    val dx  = if(order != 0) { Some(Output(UInt(dxW.W))) } else { None }
-  })
-
-  val (xsgn, xex, xman) = FloatChiselUtil.decompose(spec, io.x)
-
-  val exAdr0 = (exBias - 1).U(exW.W) - xex
-  val exAdr  = exAdr0(exAdrW-1, 0)
-
-  val adr0 = Cat(exAdr, xman(manW-1, dxW))
-  io.adr := ShiftRegister(adr0, nStage)
-
-  if(order != 0) {
-    val dx0  = Cat(~xman(manW-adrW-1), xman(manW-adrW-2,0))
-    io.dx.get := ShiftRegister(dx0, nStage)
-  }
-}
-
 // -------------------------------------------------------------------------
-//  _        _     _                        __  __
-// | |_ __ _| |__ | | ___    ___ ___   ___ / _|/ _|
-// | __/ _` | '_ \| |/ _ \  / __/ _ \ / _ \ |_| |_
-// | || (_| | |_) | |  __/ | (_| (_) |  __/  _|  _|
-//  \__\__,_|_.__/|_|\___|  \___\___/ \___|_| |_|
-// -------------------------------------------------------------------------
-//
-// Stage1 re-use the reciprocal table. we don't need to implement it for atan2.
-//
-class ATan2Stage2TableCoeff(
-  val spec     : RealSpec,
-  val polySpec : PolynomialSpec,
-  val maxAdrW  : Int,      // max address width among all math funcs
-  val maxCbit  : Seq[Int], // max coeff width among all math funcs
-  val stage    : PipelineStageConfig,
-) extends Module {
-
-  val manW   = spec.manW
-  val adrW   = polySpec.adrW
-  val fracW  = polySpec.fracW
-  val order  = polySpec.order
-  val exAdrW = ATan2Sim.calcExAdrW(spec)
-  val nStage = stage.total
-
-  val io = IO(new Bundle {
-    val adr = Input  (UInt((exAdrW+adrW).W))
-    val cs  = Flipped(new TableCoeffInput(maxCbit))
-  })
-
-  val exAdr = io.adr(exAdrW + adrW - 1, adrW)
-  val adr   = io.adr(adrW - 1, 0)
-
-  val linearThreshold = ATan2Sim.calcLinearThreshold(manW)
-
-  if(order == 0) {
-
-    val tbl = VecInit( (-1 to linearThreshold.toInt by -1 ).map( exponent => {
-      VecInit((0L to (1L<<adrW)-1L).map( n => {
-        // atan(x) < x.
-        val x = scalb(1.0 + n.toDouble / (1L<<adrW), exponent.toInt)
-        val y = math.round(scalb(atan(x), -exponent-1) * (1L<<fracW))
-        assert(y < (1L << fracW))
-        y.U((fracW+1).W)
-      } ) )
-    } ) )
-
-    assert(maxCbit(0) == fracW)
-
-    val c0 = tbl(exAdr)(adr)
-    io.cs.cs(0) := ShiftRegister(c0, nStage)
-
-  } else {
-
-    val cbit = ATan2Sim.atanTableGeneration( order, adrW, manW, fracW )
-      .map( t => {t.getCBitWidth(/*sign mode = */0)} )
-      .reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
-
-    val tableIs = VecInit(
-      ATan2Sim.atanTableGeneration( order, adrW, manW, fracW ).map(t => {
-        t.getVectorWithWidth(cbit, /*sign mode = */ 0)
-      })
-    )
-    val tableI = tableIs(exAdr)
-    val coeff = getSlices(tableI(adr), cbit)
-
-    val coeffs = Wire(new TableCoeffInput(maxCbit))
-    for (i <- 0 to order) {
-      val diffWidth = maxCbit(i) - cbit(i)
-      val ci  = coeff(i)
-      val msb = ci(cbit(i)-1)
-      if(0 < diffWidth) {
-        coeffs.cs(i) := Cat(Fill(diffWidth, msb), ci) // sign extension
-      } else {
-        coeffs.cs(i) := ci
-      }
-    }
-    io.cs := ShiftRegister(coeffs, nStage)
-  }
-}
-
-// -------------------------------------------------------------------------
-//                        _        _     _                    _   _       _
-//  _ __   ___  _ __     | |_ __ _| |__ | | ___   _ __   __ _| |_| |__   / |
-// | '_ \ / _ \| '_ \ ___| __/ _` | '_ \| |/ _ \ | '_ \ / _` | __| '_ \  | |
-// | | | | (_) | | | |___| || (_| | |_) | |  __/ | |_) | (_| | |_| | | | | |
-// |_| |_|\___/|_| |_|    \__\__,_|_.__/|_|\___| | .__/ \__,_|\__|_| |_| |_|
+//                        _        _     _                    _   _
+//  _ __   ___  _ __     | |_ __ _| |__ | | ___   _ __   __ _| |_| |__
+// | '_ \ / _ \| '_ \ ___| __/ _` | '_ \| |/ _ \ | '_ \ / _` | __| '_ \
+// | | | | (_) | | | |___| || (_| | |_) | |  __/ | |_) | (_| | |_| | | |
+// |_| |_|\___/|_| |_|    \__\__,_|_.__/|_|\___| | .__/ \__,_|\__|_| |_|
 //                                               |_|
 // -------------------------------------------------------------------------
 
@@ -299,79 +187,6 @@ class ATan2Stage1OtherPath(
   // exponent of min(x,y)/max(x,y). we will later correct +/- 1 by checking
   // the mantissa of min(x,y) and max(x,y)
   io.zother.zex := ShiftRegister(zex0, nStage)
-}
-
-// -----------------------------------------------------------------------------
-//                        _        _     _                    _   _       ____
-//  _ __   ___  _ __     | |_ __ _| |__ | | ___   _ __   __ _| |_| |__   |___ \
-// | '_ \ / _ \| '_ \ ___| __/ _` | '_ \| |/ _ \ | '_ \ / _` | __| '_ \    __) |
-// | | | | (_) | | | |___| || (_| | |_) | |  __/ | |_) | (_| | |_| | | |  / __/
-// |_| |_|\___/|_| |_|    \__\__,_|_.__/|_|\___| | .__/ \__,_|\__|_| |_| |_____|
-//                                               |_|
-// -----------------------------------------------------------------------------
-
-class ATan2Stage2NonTableOutput(val spec: RealSpec) extends Bundle {
-  val zsgn        = Output(UInt(1.W))
-  val zex         = Output(UInt(spec.exW.W))
-  val zman        = Output(UInt(spec.manW.W))
-  val zIsNonTable = Output(Bool())
-  val correctionNeeded = Output(Bool())
-}
-
-class ATan2Stage2OtherPath(
-  val spec     : RealSpec, // Input / Output floating spec
-  val polySpec : PolynomialSpec,
-  val stage    : PipelineStageConfig,
-) extends Module {
-
-  val nStage = stage.total
-
-  val exW    = spec.exW
-  val manW   = spec.manW
-  val exBias = spec.exBias
-
-  val io = IO(new Bundle {
-    val flags   = Input(new ATan2Flags())
-    val x       = Flipped(new DecomposedRealOutput(spec))
-    val zother  = new ATan2Stage2NonTableOutput(spec)
-  })
-
-  val pi         = new RealGeneric(spec, Pi)
-  val halfPi     = new RealGeneric(spec, Pi * 0.5)
-  val quarterPi  = new RealGeneric(spec, Pi * 0.25)
-  val quarter3Pi = new RealGeneric(spec, Pi * 0.75)
-
-  val linearThreshold = (ATan2Sim.calcLinearThreshold(manW) + exBias)
-  val isLinear = io.x.ex < linearThreshold.U(exW.W)
-
-  val zex0 = io.x.ex
-
-  val xzero = !io.x.ex.orR
-
-  val defaultEx  = Mux(isLinear, io.x.ex, zex0) // isLinear includes xzero.
-  val defaultMan = Mux(xzero,    0.U(exW), io.x.man) // we need to re-set man if x is zero
-  // non-linear mantissa is calculated by table.
-
-  io.zother.zIsNonTable      := isLinear || (io.flags.special =/= ATan2SpecialValue.zNormal)
-  io.zother.correctionNeeded := isLinear || (io.flags.special === ATan2SpecialValue.zNormal)
-
-  io.zother.zsgn := io.flags.ysgn
-  io.zother.zex  := MuxCase(defaultEx, Seq(
-    (io.flags.special === ATan2SpecialValue.zNaN)        -> Fill(exW, 1.U(1.W)),
-    (io.flags.special === ATan2SpecialValue.zZero)       -> 0.U(exW.W),
-    (io.flags.special === ATan2SpecialValue.zPi)         -> pi.ex.U(exW.W),
-    (io.flags.special === ATan2SpecialValue.zHalfPi)     -> halfPi.ex.U(exW.W),
-    (io.flags.special === ATan2SpecialValue.zQuarterPi)  -> quarterPi.ex.U(exW.W),
-    (io.flags.special === ATan2SpecialValue.z3QuarterPi) -> quarter3Pi.ex.U(exW.W)
-    ))
-  io.zother.zman := MuxCase(defaultMan, Seq(
-    (io.flags.special === ATan2SpecialValue.zNaN)        -> Fill(manW, 1.U(1.W)),
-    (io.flags.special === ATan2SpecialValue.zZero)       -> 0.U(manW.W),
-    (io.flags.special === ATan2SpecialValue.zPi)         -> pi.man.toLong.U(manW.W),
-    (io.flags.special === ATan2SpecialValue.zHalfPi)     -> halfPi.man.toLong.U(manW.W),
-    (io.flags.special === ATan2SpecialValue.zQuarterPi)  -> quarterPi.man.toLong.U(manW.W),
-    (io.flags.special === ATan2SpecialValue.z3QuarterPi) -> quarter3Pi.man.toLong.U(manW.W)
-    ))
 }
 
 // -------------------------------------------------------------------------
@@ -455,6 +270,219 @@ class ATan2Stage1PostProcess(
   val z0 = Cat(zsgn, zex, zman)
 
   io.z := ShiftRegister(z0, nStage)
+}
+
+// =========================================================================
+//      _                     ____
+//  ___| |_ __ _  __ _  ___  |___ \
+// / __| __/ _` |/ _` |/ _ \   __) |
+// \__ \ || (_| | (_| |  __/  / __/
+// |___/\__\__,_|\__, |\___| |_____|
+//               |___/
+// =========================================================================
+
+// -------------------------------------------------------------------------
+//                                                     ____
+//  _ __  _ __ ___ _ __  _ __ ___   ___ ___  ___ ___  |___ \
+// | '_ \| '__/ _ \ '_ \| '__/ _ \ / __/ _ \/ __/ __|   __) |
+// | |_) | | |  __/ |_) | | | (_) | (_|  __/\__ \__ \  / __/
+// | .__/|_|  \___| .__/|_|  \___/ \___\___||___/___/ |_____|
+// |_|            |_|
+// -------------------------------------------------------------------------
+//
+// Stage2 calculates atan(x), so we need to extract the address value
+
+class ATan2Stage2PreProcess(
+  val spec     : RealSpec, // Input / Output floating spec
+  val polySpec : PolynomialSpec,
+  val stage    : PipelineStageConfig
+) extends Module {
+
+  val nStage = stage.total
+
+  val exW    = spec.exW
+  val manW   = spec.manW
+  val exBias = spec.exBias
+
+  val adrW   = polySpec.adrW
+  val fracW  = polySpec.fracW
+  val dxW    = polySpec.dxW
+  val order  = polySpec.order
+  val exAdrW = ATan2Sim.calcExAdrW(spec)
+
+  val io = IO(new Bundle {
+    val x   = Input (UInt(spec.W.W))
+    val adr = Output(UInt((exAdrW+adrW).W))
+    val dx  = if(order != 0) { Some(Output(UInt(dxW.W))) } else { None }
+  })
+
+  val (xsgn, xex, xman) = FloatChiselUtil.decompose(spec, io.x)
+
+  val exAdr0 = (exBias - 1).U(exW.W) - xex
+  val exAdr  = exAdr0(exAdrW-1, 0)
+
+  val adr0 = Cat(exAdr, xman(manW-1, dxW))
+  io.adr := ShiftRegister(adr0, nStage)
+
+  if(order != 0) {
+    val dx0  = Cat(~xman(manW-adrW-1), xman(manW-adrW-2,0))
+    io.dx.get := ShiftRegister(dx0, nStage)
+  }
+}
+
+// -------------------------------------------------------------------------
+//  _        _     _                        __  __   ____
+// | |_ __ _| |__ | | ___    ___ ___   ___ / _|/ _| |___ \
+// | __/ _` | '_ \| |/ _ \  / __/ _ \ / _ \ |_| |_    __) |
+// | || (_| | |_) | |  __/ | (_| (_) |  __/  _|  _|  / __/
+//  \__\__,_|_.__/|_|\___|  \___\___/ \___|_| |_|   |_____|
+// -------------------------------------------------------------------------
+//
+// Stage1 re-use the reciprocal table. we don't need to implement it for atan2.
+//
+class ATan2Stage2TableCoeff(
+  val spec     : RealSpec,
+  val polySpec : PolynomialSpec,
+  val maxAdrW  : Int,      // max address width among all math funcs
+  val maxCbit  : Seq[Int], // max coeff width among all math funcs
+  val stage    : PipelineStageConfig,
+) extends Module {
+
+  val manW   = spec.manW
+  val adrW   = polySpec.adrW
+  val fracW  = polySpec.fracW
+  val order  = polySpec.order
+  val exAdrW = ATan2Sim.calcExAdrW(spec)
+  val nStage = stage.total
+
+  val io = IO(new Bundle {
+    val adr = Input  (UInt((exAdrW+adrW).W))
+    val cs  = Flipped(new TableCoeffInput(maxCbit))
+  })
+
+  val exAdr = io.adr(exAdrW + adrW - 1, adrW)
+  val adr   = io.adr(adrW - 1, 0)
+
+  val linearThreshold = ATan2Sim.calcLinearThreshold(manW)
+
+  if(order == 0) {
+
+    val tbl = VecInit( (-1 to linearThreshold.toInt by -1 ).map( exponent => {
+      VecInit((0L to (1L<<adrW)-1L).map( n => {
+        // atan(x) < x.
+        val x = scalb(1.0 + n.toDouble / (1L<<adrW), exponent.toInt)
+        val y = math.round(scalb(atan(x), -exponent-1) * (1L<<fracW))
+        assert(y < (1L << fracW))
+        y.U((fracW+1).W)
+      } ) )
+    } ) )
+
+    assert(maxCbit(0) == fracW)
+
+    val c0 = tbl(exAdr)(adr)
+    io.cs.cs(0) := ShiftRegister(c0, nStage)
+
+  } else {
+
+    val cbit = ATan2Sim.atanTableGeneration( order, adrW, manW, fracW )
+      .map( t => {t.getCBitWidth(/*sign mode = */0)} )
+      .reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
+
+    val tableIs = VecInit(
+      ATan2Sim.atanTableGeneration( order, adrW, manW, fracW ).map(t => {
+        t.getVectorWithWidth(cbit, /*sign mode = */ 0)
+      })
+    )
+    val tableI = tableIs(exAdr)
+    val coeff = getSlices(tableI(adr), cbit)
+
+    val coeffs = Wire(new TableCoeffInput(maxCbit))
+    for (i <- 0 to order) {
+      val diffWidth = maxCbit(i) - cbit(i)
+      val ci  = coeff(i)
+      val msb = ci(cbit(i)-1)
+      if(0 < diffWidth) {
+        coeffs.cs(i) := Cat(Fill(diffWidth, msb), ci) // sign extension
+      } else {
+        coeffs.cs(i) := ci
+      }
+    }
+    io.cs := ShiftRegister(coeffs, nStage)
+  }
+}
+
+
+// -----------------------------------------------------------------------------
+//                        _        _     _                    _   _       ____
+//  _ __   ___  _ __     | |_ __ _| |__ | | ___   _ __   __ _| |_| |__   |___ \
+// | '_ \ / _ \| '_ \ ___| __/ _` | '_ \| |/ _ \ | '_ \ / _` | __| '_ \    __) |
+// | | | | (_) | | | |___| || (_| | |_) | |  __/ | |_) | (_| | |_| | | |  / __/
+// |_| |_|\___/|_| |_|    \__\__,_|_.__/|_|\___| | .__/ \__,_|\__|_| |_| |_____|
+//                                               |_|
+// -----------------------------------------------------------------------------
+
+class ATan2Stage2NonTableOutput(val spec: RealSpec) extends Bundle {
+  val zsgn        = Output(UInt(1.W))
+  val zex         = Output(UInt(spec.exW.W))
+  val zman        = Output(UInt(spec.manW.W))
+  val zIsNonTable = Output(Bool())
+  val correctionNeeded = Output(Bool())
+}
+
+class ATan2Stage2OtherPath(
+  val spec     : RealSpec, // Input / Output floating spec
+  val polySpec : PolynomialSpec,
+  val stage    : PipelineStageConfig,
+) extends Module {
+
+  val nStage = stage.total
+
+  val exW    = spec.exW
+  val manW   = spec.manW
+  val exBias = spec.exBias
+
+  val io = IO(new Bundle {
+    val flags   = Input(new ATan2Flags())
+    val x       = Flipped(new DecomposedRealOutput(spec))
+    val zother  = new ATan2Stage2NonTableOutput(spec)
+  })
+
+  val pi         = new RealGeneric(spec, Pi)
+  val halfPi     = new RealGeneric(spec, Pi * 0.5)
+  val quarterPi  = new RealGeneric(spec, Pi * 0.25)
+  val quarter3Pi = new RealGeneric(spec, Pi * 0.75)
+
+  val linearThreshold = (ATan2Sim.calcLinearThreshold(manW) + exBias)
+  val isLinear = io.x.ex < linearThreshold.U(exW.W)
+
+  val zex0 = io.x.ex
+
+  val xzero = !io.x.ex.orR
+
+  val defaultEx  = Mux(isLinear, io.x.ex, zex0) // isLinear includes xzero.
+  val defaultMan = Mux(xzero,    0.U(exW), io.x.man) // we need to re-set man if x is zero
+  // non-linear mantissa is calculated by table.
+
+  io.zother.zIsNonTable      := isLinear || (io.flags.special =/= ATan2SpecialValue.zNormal)
+  io.zother.correctionNeeded := isLinear || (io.flags.special === ATan2SpecialValue.zNormal)
+
+  io.zother.zsgn := io.flags.ysgn
+  io.zother.zex  := MuxCase(defaultEx, Seq(
+    (io.flags.special === ATan2SpecialValue.zNaN)        -> Fill(exW, 1.U(1.W)),
+    (io.flags.special === ATan2SpecialValue.zZero)       -> 0.U(exW.W),
+    (io.flags.special === ATan2SpecialValue.zPi)         -> pi.ex.U(exW.W),
+    (io.flags.special === ATan2SpecialValue.zHalfPi)     -> halfPi.ex.U(exW.W),
+    (io.flags.special === ATan2SpecialValue.zQuarterPi)  -> quarterPi.ex.U(exW.W),
+    (io.flags.special === ATan2SpecialValue.z3QuarterPi) -> quarter3Pi.ex.U(exW.W)
+    ))
+  io.zother.zman := MuxCase(defaultMan, Seq(
+    (io.flags.special === ATan2SpecialValue.zNaN)        -> Fill(manW, 1.U(1.W)),
+    (io.flags.special === ATan2SpecialValue.zZero)       -> 0.U(manW.W),
+    (io.flags.special === ATan2SpecialValue.zPi)         -> pi.man.toLong.U(manW.W),
+    (io.flags.special === ATan2SpecialValue.zHalfPi)     -> halfPi.man.toLong.U(manW.W),
+    (io.flags.special === ATan2SpecialValue.zQuarterPi)  -> quarterPi.man.toLong.U(manW.W),
+    (io.flags.special === ATan2SpecialValue.z3QuarterPi) -> quarter3Pi.man.toLong.U(manW.W)
+    ))
 }
 
 // -------------------------------------------------------------------------
