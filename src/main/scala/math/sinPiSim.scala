@@ -68,26 +68,46 @@ object SinPiSim {
 
     val zSgn = if ((x.sgn == 1) || (xexNobias == 0)) { 1 } else { 0 }
 
+    // ------------------------------------------------------------------------
     // round everything into ex = -inf to -2
 
     val (xex, xman) = if (xexNobias == 0) { // 1 ~ 2
+
+      assert(x.man != 0)
+
       val halfrange = if (bit(manW-1, x.man) == 1) {
         (1 << manW) - x.man
       } else {
         x.man
       }
-      assert(halfrange >= 0)
+      assert(0 <= halfrange && halfrange <= (1<<manW))
 
-      val shiftW = manW + 1 - halfrange.toLong.toBinaryString.length()
+      // normalize
+      val halfrangeMSB = halfrange.toLong.toBinaryString.length()
+      val shiftW = manW + 1 - halfrangeMSB
+      // if x.man == 1, we need 1<<manW for normalization
+      assert((1 <= shiftW && shiftW <= manW))
+
       val newex  = if(halfrange == 0) { -exBias } else { -shiftW }
-      val newman = (halfrange << shiftW) - (1 << manW)
+      val newmanW1 = (halfrange << shiftW)
+      val newman   = newmanW1 - (1 << manW)
+
+      assert((1<<manW) <= newmanW1)
 
       (newex.toLong, newman.toLong)
 
     } else if (xexNobias == -1) { // 0.5 ~ 1
-      val halfrange = (1 << manW) - x.man
 
-      val shiftW = manW+1 - halfrange.toLong.toBinaryString.length()
+      val halfrange = (1 << manW) - x.man
+      assert(0 <= halfrange && halfrange <= (1<<manW))
+
+      val halfrangeMSB = halfrange.toLong.toBinaryString.length()
+      val shiftW = manW+1 - halfrangeMSB
+
+      // here, man can be zero. if man==0, halfrange == 1<<manW and
+      // no shift will be required.
+      assert(0 <= shiftW && shiftW <= manW)
+
       val newex  = -1-shiftW
       val newman = (halfrange << shiftW) - (1 << manW)
 
@@ -101,7 +121,9 @@ object SinPiSim {
     assert(xman <  (1<<manW))
     if (xex == -1) {assert(xman == 0)}
 
-    // {xex, xman} is in [0, 1/2].
+    // ------------------------------------------------------------------------
+    // now, {xex, xman} is in [0, 1/2].
+    // Do polynomial or taylor approximation.
 
     val linearThreshold = calcLinearThreshold(manW).toLong // -12
     val cubicThreshold  = calcCubicThreshold(manW).toLong  // -6
@@ -169,6 +191,8 @@ object SinPiSim {
       return new RealGeneric(x.spec, zSgn, cubicApproxEx.toInt + x.spec.exBias, cubicApproxMan)
 
     } else if (xex < linearThreshold) { // sin(pix) = pix
+
+      // 2-bit error here!
 
       val prodEx        = pi.ex-exBias + xex
       val prodMan       = (pi.man + (1<<manW)).toLong * (xman + (1<<manW)).toLong
@@ -239,17 +263,48 @@ object SinPiSim {
 
   // sin(pi x) = pi x - pi^3 x^3 / 3! + pi^5 x^5 / 5! + O(x^7)
   def calcLinearThreshold(manW: Int): Int = {
-    // -12 for FP32
-    // pi * x * 2^-manW > (pi * x)^3 / 3!
-    math.floor(log2D(  6.0 * math.pow(2, -manW) / (Pi * Pi)) * 0.5).toInt
+    // sin(pi*x) = pi*x - pi^3 * x^3 / 6
+    // so the condition is:
+    //               pi*x * 2^-manW     > pi^3 * x^3 / 6
+    //                      2^-manW     > pi^2 * x^2 / 6
+    //           6 / pi^2 * 2^-manW     > x^2
+    //   log2(6) - 2log2(pi) - manW     > 2*log2(x)
+    //   log2(6) - 2log2(pi) - manW     > 2*(log2(2^x.ex) + log2(1.0 + x.man))
+    //   log2(6) - 2log2(pi) - manW / 2 > x.ex + log2(1.0 + x.man)
+    //
+    // Here, the maximum value of log2(1.0+x.man) is log2(2.0 - 2^-manW).
+    //   Thus the result is
+    //
+    //   log2(6) - 2log2(pi) - manW / 2 - log2(2.0 - 2^-manW) > x.ex
+    //
+    // The left hand side value is the linear-threshold. In case of FP32, the
+    // value is approximately -12.859.
+    //
+    math.floor(
+      (log2D(6.0) - 2 * log2D(Pi) - manW) / 2 - log2D(2.0 - math.pow(2.0, -manW))
+    ).toInt
   }
   def calcCubicThreshold(manW: Int): Int = {
-    // -6 for FP32
-    //     pi * x * 2^-manW   > (pi * x)^5 / 5!
-    // <=> 5! * 2^-manW       > (pi * x)^4
-    // <=> 5! * 2^-manW /pi^4 > x^4
-    // <=> log2(5! * 2^-manW / pi^4) / 4 > log2(x)
-    math.floor(log2D(120.0 * math.pow(2, -manW) / math.pow(Pi, 4)) * 0.25).toInt
+    // sin(pi*x) = pi*x - pi^3 * x^3 / 6 + pi^5 * x^5 / 120
+    // so the condition is:
+    //                 pi*x * 2^-manW     > pi^5 * x^5 / 120
+    //                        2^-manW     > pi^4 * x^4 / 120
+    //           120 / pi^4 * 2^-manW     > x^4
+    //   log2(120) - 4log2(pi) - manW     > 4*log2(x)
+    //   log2(120) - 4log2(pi) - manW     > 4*(log2(2^x.ex) + log2(1.0 + x.man))
+    //   log2(120) - 4log2(pi) - manW / 4 > x.ex + log2(1.0 + x.man)
+    //
+    // Here, the maximum value of log2(1.0+x.man) is log2(2.0 - 2^-manW).
+    //   Thus the result is
+    //
+    //   log2(120) - 4log2(pi) - manW / 4 - log2(2.0 - 2^-manW) > x.ex
+    //
+    // The left hand side value is the linear-threshold. In case of FP32, the
+    // value is approximately -6.674.
+
+    math.floor(
+      (log2D(120.0) - 4 * log2D(Pi) - manW) / 4 - log2D(2.0 - math.pow(2.0, -manW))
+    ).toInt
   }
 
   // number of tables depending on the exponent and linearThreshold
