@@ -136,7 +136,7 @@ object ATan2Stage2Sim {
 
       (zEx0+exBias, (zMan - (1<<manW)).toLong)
     }
-    assert(0 <= atanMan)
+    assert(0 <= atanMan && atanMan <= (1<<manW))
 
 //     println(f"atan2Stage2Sim: atanEx  = ${atanEx }(${atanEx - exBias})")
 //     println(f"atan2Stage2Sim: atanMan = ${atanMan.toLong.toBinaryString}(${atanMan})")
@@ -158,6 +158,8 @@ object ATan2Stage2Sim {
     val halfpiManW1 = halfpi.manW1          << 2
     val atanManW1   = (atanMan + (1<<manW)) << 2
 
+    // atan(min(|x|,|y|)/max(|x|,|y|)) < pi/4
+    assert(0 <= atanEx && atanEx < exBias)
     val atanShift   = exBias - atanEx
     val atanAligned = atanManW1 >> atanShift
 
