@@ -55,6 +55,11 @@ class MathFuncATan2Stage2SimTest extends FunSuite with BeforeAndAfterAllConfigMa
 
       var err1lsbPos = 0
       var err1lsbNeg = 0
+      var err2lsbPos = 0
+      var err2lsbNeg = 0
+      var errNlsbPos = 0
+      var errNlsbNeg = 0
+
       for(i <- 1 to n) {
         val y_over_x = generatorYoverX(spec,r)
         val ysgn = if(r.nextBoolean()) {1.0} else {-1.0}
@@ -72,9 +77,7 @@ class MathFuncATan2Stage2SimTest extends FunSuite with BeforeAndAfterAllConfigMa
         val s1   = ATan2Stage1Sim.atan2Stage1SimGeneric( t_rec, y, x )
         val erriS1 = errorLSB(s1._1, stage1z.toDouble)
         if(abs(erriS1) > 1.0) {
-          println(f"WARN: Stage 1 result = ${s1._1.toDouble} != ref(${stage1z.toDouble})")
-        } else {
-          println(f"INFO: Stage 1 result = ${s1._1.toDouble} == ref(${stage1z.toDouble})")
+          println(f"WARN: 1< bit error in Stage1: sim(${s1._1.toDouble}) != ref(${stage1z.toDouble})")
         }
 
         val zi   = ATan2Stage2Sim.atan2Stage2SimGeneric( ts, s1._1, s1._2, s1._3, s1._4 )
@@ -124,11 +127,22 @@ class MathFuncATan2Stage2SimTest extends FunSuite with BeforeAndAfterAllConfigMa
 
             println(f"test: x   = ${x0}")
             println(f"test: y   = ${y0}")
-            println(f"test: y/x = ${min(x0, y0)/max(x0,y0)}")
+            println(f"test: y/x = ${min(abs(x0), abs(y0))/max(abs(x0),abs(y0))}")
             println(f"test: ref = ${z0}")
             println(f"test: sim = ${zd}")
             println(f"test: s1  = (${s1._1.sgn}|${s1._1.ex}|${s1._1.man.toLong.toBinaryString}), status = ${s1._2}, special = ${s1._3}, ysgn = ${s1._4}")
             println(f"test: test(${ztestsgn}|${ztestexp}(${ztestexp - spec.exBias})|${ztestman.toLong.toBinaryString}(${ztestman.toLong}%x)) != ref(${zrefsgn}|${zrefexp}(${zrefexp - spec.exBias})|${zrefman.toLong.toBinaryString}(${zrefman.toLong}%x))")
+
+            if(erri > 2.0) {
+              errNlsbPos += 1
+            } else if (erri < -2.0) {
+              errNlsbNeg += 1
+            } else if (erri >= 0.0) {
+              err2lsbPos += 1
+            } else  {
+              err2lsbNeg += 1
+            }
+
           } else if (erri>=1.0) {
             err1lsbPos+=1
           }
@@ -148,21 +162,24 @@ class MathFuncATan2Stage2SimTest extends FunSuite with BeforeAndAfterAllConfigMa
       }
       println(f"N=$n%d : largest errors ${maxError.toInt}%d where the value is ${zatMaxError} != ${math.atan2(yatMaxError, xatMaxError)} (atan2(${yatMaxError}, ${xatMaxError})), diff = ${zatMaxError - math.atan2(yatMaxError, xatMaxError)}")
       println(f"N=$n%d : 1LSB errors positive $err1lsbPos%d / negative $err1lsbNeg%d")
+      println(f"N=$n%d : 2LSB errors positive $err2lsbPos%d / negative $err2lsbNeg%d")
+      println(f"N=$n%d : 2<   errors positive $errNlsbPos%d / negative $errNlsbNeg%d")
     }
   }
 
   val atan2F32ReciprocalTableI = ReciprocalSim.reciprocalF32TableI
-  val atan2F32ATanTableI       = ATan2Sim.atan2F32ATanTableI
+  val atan2F32ATanTableI       = ATan2Sim.atanTableGeneration( 2, 8, 23, 23+3 ) // +3
+//   val atan2F32ATanTableI       = ATan2Sim.atan2F32ATanTableI
 
   atan2Test(atan2F32ReciprocalTableI, atan2F32ATanTableI, RealSpec.Float32Spec, n, r,
     "Test Within y/x > 2^24", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, 24), pow(2.0, 128),_,_), 1)
   atan2Test(atan2F32ReciprocalTableI, atan2F32ATanTableI, RealSpec.Float32Spec, n, r,
-    "Test Within y/x > 2^12",  generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, 12), pow(2.0, 24),_,_), 2)
+    "Test Within y/x > 2^12",  generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, 12), pow(2.0, 24),_,_), 1)
   atan2Test(atan2F32ReciprocalTableI, atan2F32ATanTableI, RealSpec.Float32Spec, n, r,
     "Test Within 1 < y/x < 2^12", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(1.0, pow(2.0, 8),_,_), 2)
   atan2Test(atan2F32ReciprocalTableI, atan2F32ATanTableI, RealSpec.Float32Spec, n, r,
-    "Test Within 2^-12 < y/x < 1", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, -12), 1.0,_,_), 3)  // XXX
+    "Test Within 2^-12 < y/x < 1", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, -12), 1.0,_,_), 2)  // XXX
   atan2Test(atan2F32ReciprocalTableI, atan2F32ATanTableI, RealSpec.Float32Spec, n, r,
-    "Test Within y/x < 2^-12", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(0.0, pow(2.0, -12),_,_), 2)
+    "Test Within y/x < 2^-12", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(0.0, pow(2.0, -12),_,_), 1)
 
 }
