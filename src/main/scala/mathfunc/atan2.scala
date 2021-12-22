@@ -257,7 +257,8 @@ class ATan2Stage1PostProcess(
   val zex = Wire(UInt(exW.W))
 
   // the result of OtherPath might cause underflow.
-  val zex0Inc = zex0 + zProdMoreThan2 + zProdMoreThan2AfterRound + xySameMan.asUInt
+  val zex0Inc = zex0 + zProdMoreThan2 + zProdMoreThan2AfterRound + (xySameMan || maxXYMan0).asUInt
+
   val canUnderflow = (spec.exMin - spec.exMax + exBias < 0)
   if (canUnderflow) {
     zex := Mux(zex0Inc(exW-1), 0.U, zex0Inc)
@@ -265,7 +266,8 @@ class ATan2Stage1PostProcess(
     zex := zex0Inc
   }
 
-  val zman = Mux(~zex.orR || xySameMan, 0.U(manW.W), zProdRounded(manW-1, 0))
+  val zman = Mux(~zex.orR || xySameMan, 0.U(manW.W),
+             Mux(maxxyMan0, minxy.man, zProdRounded(manW-1, 0)))
 
   val z0 = Cat(zsgn, zex, zman)
 
