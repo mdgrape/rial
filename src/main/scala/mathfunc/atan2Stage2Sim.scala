@@ -95,20 +95,30 @@ object ATan2Stage2Sim {
         val d    = slice(0, dxbp+1, x.man) - (SafeLong(1)<<dxbp)
         val adr  = slice(dxbp+1, adrW, x.man).toInt
         val res0 = t.interval(adr).eval(d.toLong, dxbp)
+        assert(0 <= res0 && res0 < (1<<fracW))
 
-        // the result is multiplied by 2^(-ex-1).
-        // if x < 1, atan(x) = x - x^3/3 + x^5/5 + O(x^7) is less than x. So
-        // in case of x is in [2^-8, 2^-7), atan(x) < 2^-7. So we can multiply
-        // atan(x) by 2^7 = 2^(-(-8)-1) to contain more bits. By doing this, we
-        // can keep the same precision in all 2^-8 ~ 2^0 regions.
-        //   We need to correct the exponent term by this scaling term.
+        val res0MoreThanHalf = bit(fracW-1, res0) == 1
+        val shift  = if(res0MoreThanHalf) {1} else {2}
 
-        val scaling = (-(x.ex-exBias) - 1).toInt
-        val res     = res0 << 1 // normalize
+//         println(f"atan2Stage2Sim:              2         1         0")
+//         println(f"atan2Stage2Sim:          4321098765432109876543210")
+//         println(f"atan2Stage2Sim: res0   = ${res0.toLong.toBinaryString}")
+//         println(f"atan2Stage2Sim: res>1/2= ${res0MoreThanHalf}")
+//         println(f"atan2Stage2Sim: fracW  = ${fracW}")
+//         println(f"atan2Stage2Sim: shift  = ${shift}")
+//         println(f"atan2Stage2Sim: x.ex   = ${x.ex - exBias}")
+//         println(f"atan2Stage2Sim: -x.ex-1= ${-(x.ex - exBias) - 1}")
+//         println(f"atan2Stage2Sim: zex0   = ${-(x.ex - exBias) - 1 - shift}")
 
-//         println(f"Stage2Sim: zres = ${res0.toLong.toBinaryString}(${res0})")
+        val xexNobias = x.ex - exBias
+        val zex0 = xexNobias + 1 - shift
+        val res  = res0 << shift // normalize
 
-        (-1 - scaling, res.toLong)
+//         println(f"atan2Stage2Sim:               2         1         0")
+//         println(f"atan2Stage2Sim:          54321098765432109876543210")
+//         println(f"atan2Stage2Sim: res    = ${res.toLong.toBinaryString}")
+
+        (zex0, res.toLong)
       }
 
       // round the result from table
@@ -118,14 +128,20 @@ object ATan2Stage2Sim {
         zMan0
       }
 
+//       println(f"atan2Stage2Sim:             2         1         0")
+//       println(f"atan2Stage2Sim:          321098765432109876543210")
+//       println(f"atan2Stage2Sim: zMan   = ${zMan.toLong.toBinaryString}")
+
+      assert((1<<manW) <= zMan)
+
       (zEx0+exBias, (zMan - (1<<manW)).toLong)
     }
+    assert(0 <= atanMan)
 
-//     println(f"Stage2Sim: zresR = ${atanMan.toLong.toBinaryString}(${atanMan})")
-//     println(f"Stage2Sim: atan(x) = ${new RealGeneric(x.spec, ysgn, atanEx, atanMan).toDouble} == ${atan(x.toDouble)}")
-//     println(f"Stage2Sim: status  = ${status}")
-//     println(f"Stage2Sim: atanEx  = ${atanEx }(${atanEx - exBias})")
-//     println(f"Stage2Sim: atanMan = ${atanMan.toBinaryString}")
+//     println(f"atan2Stage2Sim: atanEx  = ${atanEx }(${atanEx - exBias})")
+//     println(f"atan2Stage2Sim: atanMan = ${atanMan.toLong.toBinaryString}(${atanMan})")
+//     println(f"atan2Stage2Sim: atan(x) = sim(${new RealGeneric(x.spec, ysgn, atanEx, atanMan).toDouble}) == ref(${atan(x.toDouble)})")
+//     println(f"atan2Stage2Sim: status  = ${status}")
 
     // z correction by:
     //   ysgn *   atan(|y|/|x|)      .. x>0, |x|>|y| : 0
@@ -144,6 +160,12 @@ object ATan2Stage2Sim {
 
     val atanShift   = exBias - atanEx
     val atanAligned = atanManW1 >> atanShift
+
+//     println(f"atan2Stage2Sim: piManW1     = ${piManW1    .toLong.toBinaryString}")
+//     println(f"atan2Stage2Sim: halfpiManW1 =  ${halfpiManW1.toLong.toBinaryString}")
+//     println(f"atan2Stage2Sim: atanManW1   =  ${atanManW1  .toLong.toBinaryString}")
+//     println(f"atan2Stage2Sim: atanShift   = ${atanShift  }")
+//     println(f"atan2Stage2Sim: atanAligned = ${atanAligned.toLong.toBinaryString}")
 
 //     println(f"atanShift = ${atanShift}")
 
@@ -189,15 +211,19 @@ object ATan2Stage2Sim {
       // z is in [1.57, 2.35).
       val zman0 = halfpiManW1 + atanAligned
 
-      val zman0MoreThan2 = bit(manW+1+3, zman0)
+      val zman0MoreThan2 = bit(manW+1+3-1, zman0)
       val zmanRound = roundBySpec(RoundSpec.round, 2+zman0MoreThan2, zman0)
       val zman = zmanRound - (1<<manW)
       val zex  = zman0MoreThan2 + exBias
 
+//       println(f"atan2Stage2Sim:                 2         1         0")
+//       println(f"atan2Stage2Sim:            54321098765432109876543210")
 //       println(f"atan2Stage2Sim: pi/2.man = ${halfpiManW1.toLong.toBinaryString}")
 //       println(f"atan2Stage2Sim: atan.man = ${atanAligned.toLong.toBinaryString}")
 //       println(f"atan2Stage2Sim: add .man = ${zman0.toLong.toBinaryString}")
-//       println(f"atan2Stage2Sim: z   .man = ${zman.toLong.toBinaryString}")
+//       println(f"atan2Stage2Sim: rounded  = ${zmanRound.toLong.toBinaryString}")
+//       println(f"atan2Stage2Sim: 1<<manW  = ${(1<<manW).toLong.toBinaryString}")
+//       println(f"atan2Stage2Sim: z   .man = ${zman.toLong.toBinaryString}") // ?
 
       return new RealGeneric(x.spec, zsgn, zex, zman)
     }
