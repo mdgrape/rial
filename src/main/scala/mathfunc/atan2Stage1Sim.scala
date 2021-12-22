@@ -79,8 +79,12 @@ object ATan2Stage1Sim {
     val minxy = if (yIsLarger) { x } else { y }
     val maxxy = if (yIsLarger) { y } else { x }
 
+    val xySameMan = x.man == y.man
+
     // ------------------------------------------------------------------------
     // reciprocal table
+
+    val maxxyMan0 = maxxy.man == 0
 
     val recMan = if (t_rec.nOrder==0) {
       val adr = maxxy.man.toInt
@@ -94,15 +98,14 @@ object ATan2Stage1Sim {
       val dxbp = manW-adrW-1
       val d    = (SafeLong(1)<<dxbp) - slice(0, manW-adrW, maxxy.man)-1
       val adr  = maskI(adrW)-slice(manW-adrW, adrW, maxxy.man).toInt
-      if (maxxy.man==0) {
+      if (maxxyMan0) {
         0
       } else {
         t_rec.interval(adr).eval(d.toLong, dxbp)
       }
     }
+    val zEx0 = minxy.ex - maxxy.ex + (if(xySameMan || maxxyMan0) {0} else {-1}) + exBias
 
-    val xySameMan = x.man == y.man
-    val yOverXEx  = minxy.ex + exBias - 1 - maxxy.ex + (if(maxxy.man == 0) {1} else {0})
 //     println(f"sim: yOverXEx = ${yOverXEx.toLong.toBinaryString}")
 
     // ------------------------------------------------------------------------
@@ -124,11 +127,26 @@ object ATan2Stage1Sim {
     val zMan0 = zProdRounded >> zProdMoreThan2AfterRound
 
     val zSgn = 0
-    val zEx0 = yOverXEx + zProdMoreThan2 + zProdMoreThan2AfterRound + (if(xySameMan) {1} else {0})
-//     val zEx0 = minxy.ex - maxxy.ex - 1 + exBias + zProdMoreThan2 + zProdMoreThan2AfterRound
-    val zEx = if(zEx0 < 0) {0} else if((1<<exW) <= zEx0) {maskI(exW)} else {zEx0}
+    val zExRounded = zEx0 + zProdMoreThan2 + zProdMoreThan2AfterRound
 
-    val zMan = if(zEx == 0 || xySameMan) {0L} else {zMan0.toLong}
+//     val zEx0 = minxy.ex - maxxy.ex - 1 + exBias + zProdMoreThan2 + zProdMoreThan2AfterRound
+    val zEx = if(xySameMan || maxxyMan0) {
+      zEx0 // no correction needed.
+    } else if(zExRounded < 0) {
+      0
+    } else if((1<<exW) <= zExRounded) {
+      maskI(exW)
+    } else {
+      zExRounded
+    }
+
+    val zMan = if(zEx == 0 || xySameMan) {
+      0L
+    } else if(maxxyMan0) {
+      minxy.man.toLong
+    } else {
+      zMan0.toLong
+    }
 
     (new RealGeneric(x.spec, zSgn, zEx, zMan), atan2Status, atan2SpecialValue, ysgn)
   }
