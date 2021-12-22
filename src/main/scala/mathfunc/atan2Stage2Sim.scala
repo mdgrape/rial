@@ -95,7 +95,7 @@ object ATan2Stage2Sim {
         val d    = slice(0, dxbp+1, x.man) - (SafeLong(1)<<dxbp)
         val adr  = slice(dxbp+1, adrW, x.man).toInt
         val res0 = t.interval(adr).eval(d.toLong, dxbp)
-        assert(0 <= res0 && res0 < (1<<fracW))
+        assert((1<<(fracW-2)) <= res0 && res0 < (1<<fracW))
 
         val res0MoreThanHalf = bit(fracW-1, res0) == 1
         val shift  = if(res0MoreThanHalf) {1} else {2}
@@ -118,6 +118,7 @@ object ATan2Stage2Sim {
 //         println(f"atan2Stage2Sim:          54321098765432109876543210")
 //         println(f"atan2Stage2Sim: res    = ${res.toLong.toBinaryString}")
 
+        assert((1<<fracW) <= res && res <= (1<<(fracW+1)))
         (zex0, res.toLong)
       }
 
