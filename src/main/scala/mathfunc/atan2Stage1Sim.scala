@@ -104,7 +104,8 @@ object ATan2Stage1Sim {
         t_rec.interval(adr).eval(d.toLong, dxbp)
       }
     }
-    val zEx0 = minxy.ex - maxxy.ex + (if(xySameMan || maxxyMan0) {0} else {-1}) + exBias
+    val zExInc = if(xySameMan || maxxyMan0) {1} else {0}
+    val zEx0 = minxy.ex - maxxy.ex - 1 + zExInc + exBias
 
 //     println(f"sim: yOverXEx = ${yOverXEx.toLong.toBinaryString}")
 
