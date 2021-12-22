@@ -102,7 +102,7 @@ object ATan2Stage1Sim {
     }
 
     val xySameMan = x.man == y.man
-    val yOverXEx  = minxy.ex + exBias - 1 - maxxy.ex
+    val yOverXEx  = minxy.ex + exBias - 1 - maxxy.ex + (if(maxxy.man == 0) {1} else {0})
 //     println(f"sim: yOverXEx = ${yOverXEx.toLong.toBinaryString}")
 
     // ------------------------------------------------------------------------
