@@ -267,7 +267,7 @@ class ATan2Stage1PostProcess(
   }
 
   val zman = Mux(~zex.orR || xySameMan, 0.U(manW.W),
-             Mux(maxxyMan0, minxy.man, zProdRounded(manW-1, 0)))
+             Mux(maxXYMan0, io.minxy.man, zProdRounded(manW-1, 0)))
 
   val z0 = Cat(zsgn, zex, zman)
 
