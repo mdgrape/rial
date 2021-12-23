@@ -551,9 +551,7 @@ class ATan2Stage2PostProcess(
   val zresRounded = zres(fracW-1, extraBits-1) + zres(extraBits-2)
   assert((zresRounded.getWidth == manW+1).B)
 
-  val atanEx0 = Mux(zresMoreThanHalf, io.zother.zex, io.zother.zex - 1.U)
-
-  val atanEx  = Mux(io.zother.zIsNonTable, io.zother.zex,  atanEx0)
+  val atanEx  = Mux(io.zother.zIsNonTable || zresMoreThanHalf, io.zother.zex, io.zother.zex - 1.U)
   val atanMan = Mux(io.zother.zIsNonTable, io.zother.zman, zresRounded(manW-1, 0))
 
 //   printf("atan = %d|%b\n", atanEx, atanMan)
