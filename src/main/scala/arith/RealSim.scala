@@ -358,6 +358,33 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
     if (sgn!=0) -z else z
   }
 
+  def toFloat : Float = {
+    if (spec == RealSpec.Float32Spec) {
+      val longBits = value & maskSL(spec.W)
+      java.lang.Float.intBitsToFloat(longBits.toInt)
+    } else {
+      //println(sgn, ex, man)
+      if (isNaN) {return Float.NaN}
+      if (isInfinite) {
+        if (sgn!=0) return Float.NegativeInfinity
+        else        return Float.PositiveInfinity
+      }
+      if (isZero) {return 0.0f}
+
+      val manRound = if (spec.manW>23) {
+        roundToEven(spec.manW-23, manW1)
+      } else if (spec.manW < 23) {
+        manW1 << (23-spec.manW)
+      } else {
+        manW1
+      }
+
+      val manD = manRound.toFloat
+      val z = scalb(manD, ex-spec.exBias-23)
+      if (sgn!=0) {-z} else {z}
+    }
+  }
+
   def convert( newSpec : RealSpec, roundSpec : RoundSpec ) : RealGeneric = {
     val manRound =
       if (newSpec.manW>=spec.manW) { man << (newSpec.manW - spec.manW) }
