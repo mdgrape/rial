@@ -35,5 +35,8 @@ object ScalaTestUtil {
     val err = x.toDouble - y
     java.lang.Math.scalb(err, -x.exNorm+x.spec.manW)
   }
-  
+  def errorLSB( x : RealGeneric, y : Float ) : Float = {
+    val err = x.toFloat - y
+    java.lang.Math.scalb(err, -x.exNorm+x.spec.manW)
+  }
 }
