@@ -457,11 +457,9 @@ class ATan2Stage2OtherPath(
   val linearThreshold = (ATan2Sim.calcLinearThreshold(manW) + exBias)
   val isLinear = io.x.ex < linearThreshold.U(exW.W)
 
-  val zex0 = io.x.ex
-
   val xzero = !io.x.ex.orR
 
-  val defaultEx  = Mux(isLinear, io.x.ex, zex0) // isLinear includes xzero.
+  val defaultEx  = io.x.ex // isLinear includes xzero.
   val defaultMan = Mux(xzero,    0.U(exW), io.x.man) // we need to re-set man if x is zero
   // non-linear mantissa is calculated by table.
 
@@ -526,11 +524,39 @@ class ATan2Stage2PostProcess(
 
   val zSgn = io.zother.zsgn
 
-  val zresRounded = io.zres(fracW-1, fracW-manW-1) +& io.zres(fracW-manW-2)
+  // atan(x) = x - x^3/3 + x^5/5 + O(x^7)
+  //
+  // If x is in [0, 1],
+  //                  x/2 < atan(x)          < x
+  //         2^ex-1 * 1.m < atan(x)          < 2^ex * 1.m
+  //   1/4 < 2^-2   * 1.m < 2^(-ex-1)atan(x) < 1.m / 2 < 1
+  //        0.01 ==_2 1/4 < 2^(-ex-1)atan(x) < 1
+  //                        ~~~~~~~~~~~~~~~~
+  //                        this is calculated in polynomial
+  //
+  // So the table interpolation result may take 0.010000_(2) ~ 0.111111_(2).
+  // We need to check if the MSB of zres is 0 or 1.
 
-  val atanEx  = io.zother.zex
-  val atanMan = Mux(io.zother.zIsNonTable, Cat(1.U(1.W), io.zother.zman), zresRounded)
+  val zres0 = io.zres
+  val zresMoreThanHalf = zres0(fracW-1)
+  val zres  = Mux(zresMoreThanHalf, zres0, Cat(zres0(fracW-2, 0), 0.U(1.W)))
 
+//   printf("        : 5432109876543210987654321\n")
+//   printf("zres0   = %b\n", zres0)
+//   printf("zresMTH = %b\n", zresMoreThanHalf)
+//   printf("zres    = %b\n", zres )
+
+  assert(extraBits >= 2)
+
+  val zresRounded = zres(fracW-1, extraBits-1) + zres(extraBits-2)
+  assert((zresRounded.getWidth == manW+1).B)
+
+  val atanEx0 = Mux(zresMoreThanHalf, io.zother.zex, io.zother.zex - 1.U)
+
+  val atanEx  = Mux(io.zother.zIsNonTable, io.zother.zex,  atanEx0)
+  val atanMan = Mux(io.zother.zIsNonTable, io.zother.zman, zresRounded(manW-1, 0))
+
+//   printf("atan = %d|%b\n", atanEx, atanMan)
 
   // ==========================================================================
   // select correction by:
@@ -540,6 +566,8 @@ class ATan2Stage2PostProcess(
   //   ysgn * (pi/2+atan(|x|/|y|)) .. x<0, |x|<|y| : xneg, xsmaller
   //          ^^^^^^^^^^^^^^^^^^^
   //          this part is always positive
+  //
+  // 1067712929 did not equal 1074921680 x = (1|124(-3)|11111011001001010000001), y = (0|125(-2)|100110101101101000011), test(0|127(0)|1001000000000110100001) != ref(0|128(1)|100100000000011010000) (ATan2Stage2Test.scala:152)
 
   val pi         = new RealGeneric(spec, Pi)
   val halfPi     = new RealGeneric(spec, Pi * 0.5)
@@ -554,7 +582,7 @@ class ATan2Stage2PostProcess(
 
   val piManW1        = Cat(1.U(1.W), pi.man.toLong.U(manW.W),     0.U(3.W))
   val halfPiManW1    = Cat(1.U(2.W), halfPi.man.toLong.U(manW.W), 0.U(2.W))
-  val atanManW1      = Cat(          atanMan,                     0.U(2.W))
+  val atanManW1      = Cat(1.U(2.W), atanMan,                     0.U(2.W))
 
   assert(piManW1    .getWidth == 2+manW+2)
   assert(halfPiManW1.getWidth == 2+manW+2)
@@ -573,9 +601,8 @@ class ATan2Stage2PostProcess(
   // -------------------------------------------------------------------
   //   ysgn *   atan(|y|/|x|)      .. x>0, |x|>|y| : xpos, xlarger
 
-  // nothing is needed.
   val zExPL  = atanEx
-  val zManPL = atanMan
+  val zManPL = atanMan(manW-1, 0)
 
   // -------------------------------------------------------------------
   //   ysgn * (-atan(|y|/|x|)+pi)  .. x<0, |x|>|y| : xneg, xlarger
@@ -594,7 +621,7 @@ class ATan2Stage2PostProcess(
   // pi/2 - atan(x) is in (pi/4, pi/2] ~ (0.78.., 1.57..], ex is -1 or 0
 
   val halfPiMinusATanMan0 = halfPiManW1 - atanAligned
-  val halfPiMinusATanMan0MoreThan1 = halfPiMinusATanMan0((1+manW+3)-2) // === 1?
+  val halfPiMinusATanMan0MoreThan1 = halfPiMinusATanMan0((1+manW+3)-2)
 
   val zExPS  = (exBias-1).U(exW.W) + halfPiMinusATanMan0MoreThan1
   val zManPS = Mux(halfPiMinusATanMan0MoreThan1,
@@ -609,7 +636,7 @@ class ATan2Stage2PostProcess(
   // pi/2 + atan(x) is in (pi/2, 3pi/4] ~ (1.57.., 2.35..], ex is 0 or 1
 
   val halfPiPlusATanMan0 = halfPiManW1 + atanAligned
-  val halfPiPlusATanMan0MoreThan2 = halfPiMinusATanMan0((1+manW+3)-1) // === 1?
+  val halfPiPlusATanMan0MoreThan2 = halfPiPlusATanMan0((1+manW+3)-1)
 
   val zExNS  = exBias.U(exW.W) + halfPiPlusATanMan0MoreThan2
   val zManNS = Mux(halfPiPlusATanMan0MoreThan2,
@@ -618,6 +645,15 @@ class ATan2Stage2PostProcess(
     )
 
   // -------------------------------------------------------------------
+//   printf("PosLarger  = %d|%b\n", zExPL, zManPL)
+//   printf("NegLarger  = %d|%b\n", zExNL, zManNL)
+//   printf("PosSmaller = %d|%b\n", zExPS, zManPS)
+//   printf("NegSmaller = %d|%b\n", zExNS, zManNS)
+//   printf("status = %d\n", io.flags.status)
+
+//   assert(!io.enable || (zres.getWidth == fracW).B)
+//   assert(!io.enable || zres(fracW-1) === 1.U)
+//   assert(!io.enable || zresRounded(manW) === 1.U)
 
   val zEx = MuxCase(0.U(exW.W), Seq(
       (io.flags.status === ATan2Status.xIsPosIsLarger ) -> zExPL,
