@@ -97,7 +97,7 @@ class Pow2Generic(
   // zero when xi = 0x80??????/0x81??????/
   val zExNegMax = (xiInt(expW-1)===1.U) && (xiInt(expW-2,1)===0.U)
   val zEx0 = exBias.U + xiInt
-  val zEx = Mux( exOvf || nan , 0xFF.U,
+  val zEx = Mux( exOvf || nan , Fill(exW, 1.U(1.W)),
             Mux( exUdf || zExNegMax, 0.U, zEx0))
 
   val z0 = Wire(UInt((manW+expW).W))
