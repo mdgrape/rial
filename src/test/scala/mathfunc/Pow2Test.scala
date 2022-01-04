@@ -44,10 +44,9 @@ class MathFuncPow2Test extends FlatSpec
 
   val r = new Random(123456789)
 
-  def generateRealWithin( p : Double, spec: RealSpec, r : Random ) = {
-    val rD : Double = (r.nextDouble()-0.5)*p
-    val x = new RealGeneric(spec, rD)
-    new RealGeneric (spec, (x.value & (maskSL(spec.exW+1)<<spec.manW)) + SafeLong(BigInt(spec.manW, r)))
+  def generateRealWithin( from : Double, to : Double, spec: RealSpec, r : Random ) = {
+    val rD : Double = from + r.nextDouble() * (to - from)
+    new RealGeneric(spec, rD)
   }
 
   def generateRealFull ( spec: RealSpec, r : Random ) = {
@@ -114,14 +113,13 @@ class MathFuncPow2Test extends FlatSpec
     }
   }
 
-//   runtest(RealSpec.BFloat16Spec, 0, 7, 0, PipelineStageConfig.none(),
+  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(),
+    n, r, "Test Safe Positive", generateRealWithin(0.0,  127.0, _,_) )
+  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(),
+    n, r, "Test Safe Negative", generateRealWithin(0.0, -126.0, _,_) )
+//   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(),
 //     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-//   runtest(RealSpec.BFloat16Spec, 0, 7, 0, PipelineStageConfig.none(),
+//   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(),
 //     n, r, "Test All range",generateRealFull(_,_) )
-
-  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(),
-    n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(),
-    n, r, "Test All range",generateRealFull(_,_) )
 }
 
