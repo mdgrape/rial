@@ -3,7 +3,7 @@
 // pow2 and exp function
 // Copyright (C) Toru Niina RIKEN BDR 2021
 //
-package rial.math
+package rial.mathfunc
 
 import scala.language.reflectiveCalls
 import scala.math._
@@ -15,6 +15,7 @@ import rial.util.RialChiselUtil._
 import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig._
 import rial.arith.RealSpec
+import rial.arith.FloatChiselUtil
 
 // -------------------------------------------------------------------------
 //  _ __  _ __ ___ _ __  _ __ ___   ___ ___  ___ ___
@@ -32,7 +33,10 @@ class Pow2PreProcess(
 
   val nStage = stage.total
 
+  val exW  = spec.exW
   val manW = spec.manW
+
+  val exBias = spec.exBias
 
   val adrW      = polySpec.adrW
   val fracW     = polySpec.fracW
@@ -47,7 +51,7 @@ class Pow2PreProcess(
   })
 
   val padding = if (adrW>=manW) {
-    if (nOrder != 0) {
+    if (order != 0) {
       println("ERROR: table address width >= mantissa width, but polynomial order is not zero.")
       sys.exit(1)
       0
@@ -55,37 +59,39 @@ class Pow2PreProcess(
       adrW-manW
     }
   } else {
-    extraBits
+    polySpec.extraBits
   }
 
   val bp       = manW + padding    // for rounding
-  val exValidW = log2Up(bp+expW-1) // valid exponent bits
+  val exValidW = log2Up(bp+exW-1) // valid exponent bits
 
   val (sgn, ex, man) = FloatChiselUtil.decompose(spec, io.x)
 
   // Float to Integer, keep fractional width bp
-  // max exponent is expW-2
-  val lsbPadding = expW-2+padding
+  // max exponent is exW-2
+  val lsbPadding = exW-2+padding
   val manWith1   = 1.U(1.W) ## man ## 0.U(lsbPadding.W)
-  val man1W      = manW + padding + expW - 1
-  // manWith1 width: manW+extraBits+expW-1
+  val man1W      = manW + padding + exW - 1
+  // manWith1 width: manW+extraBits+exW-1
   //   binary point: manW+extraBits
 
   // right shift amount :
-  //   0  if ex==exBias+expW-2
-  //   shift = exBias+expW-2-ex
-  //   0 if shift >= bp+expW-1
+  //   0  if ex==exBias+exW-2
+  //   shift = exBias+exW-2-ex
+  //   0 if shift >= bp+exW-1
   //     => ex <= exBias-bp-1
-  val shift_base  = (exBias+expW-2) & maskI(exValidW)
-  val shiftToZero = ex < (exBias-bp).U(expW.W)
+  val shift_base  = (exBias+exW-2) & maskI(exValidW)
+  val shiftToZero = ex < (exBias-bp).U(exW.W)
   val shift       = shift_base.U - ex(exValidW-1,0)
   val xshift      = manWith1 >> shift
   // bp includes extraBits bit for rounding / extension
   val xu = 0.U(1.W) ## Mux(shiftToZero, 0.U(man1W.W), xshift)
-  val xi = Mux(sgn, -xu, xu) // bp+expW
-  val xiInt  = xi(bp+expW-1,bp) // Integral part - for exponent
+  val xi = Mux(sgn.asBool, -xu, xu) // bp+exW
+  val xiInt  = xi(bp+exW-1,bp) // Integral part - for exponent
   val xiFrac = xi(bp-1, 0)
   //printf("ex=%d shiftToZero=%b shift=%d xi=%x\n", ex, shiftToZero, shift, xi)
+
+  io.xint := ShiftRegister(xiInt, nStage)
 
   val adr0 = xiFrac(bp-1, bp-1-adrW+1)
   io.adr := ShiftRegister(adr0, nStage)
@@ -199,17 +205,17 @@ class Pow2OtherPath(
   })
 
   val exOvfUdf = io.x.ex >= (exW-1+exBias).U
-  val exOvf    = exOvfUdf && !x.io.sgn
-  val exUdf    = exOvfUdf &&  x.io.sgn
+  val exOvf    = exOvfUdf && !io.x.sgn.asBool
+  val exUdf    = exOvfUdf &&  io.x.sgn.asBool
   val znan     = if (spec.disableNaN) {false.B} else {// iff x is nan, z is nan.
     (io.x.ex === Fill(exW, 1.U(1.W))) && ( io.x.man =/= 0.U )
   }
   val zinf  = exOvf
   val zzero = exUdf
 
-  val zExNegMax = (xint(exW-1)===1.U) && (xint(exW-2,1)===0.U)
-  val zEx0 = exBias.U + xiInt
-  val zEx = Mux( exOvf || nan , Fill(exW, 1.U(1.W)),
+  val zExNegMax = (io.xint(exW-1)===1.U) && (io.xint(exW-2,1)===0.U)
+  val zEx0 = exBias.U + io.xint
+  val zEx = Mux( exOvf || znan, Fill(exW, 1.U(1.W)),
             Mux( exUdf || zExNegMax, 0.U, zEx0))
 
   val zIsNonTable = znan || zinf || zzero
@@ -255,7 +261,7 @@ class Pow2PostProcess(
     val z      = Output(UInt(spec.W.W))
   })
 
-  val zman0  = dropLSB(extraBits, zres) + zres(extraBits-1)
+  val zman0  = dropLSB(extraBits, io.zres) + io.zres(extraBits-1)
   val polynomialOvf = zman0.head(2) === 1.U // >=1
   val polynomialUdf = zman0.head(1) === 1.U // Negative
   val zeroFlush     = polynomialUdf || io.zother.zIsNonTable
