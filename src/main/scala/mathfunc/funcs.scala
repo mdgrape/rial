@@ -28,8 +28,9 @@ object SelectFunc {
   val ACos        =  6.U(W.W)
   val ATan2Stage1 =  7.U(W.W)
   val ATan2Stage2 =  8.U(W.W)
-  val Exp         =  9.U(W.W)
-  val Log         = 10.U(W.W)
+  val Pow2        =  9.U(W.W)
+  val Exp         = 10.U(W.W)
+  val Log         = 11.U(W.W)
 }
 
 class DecomposedRealOutput(val spec: RealSpec) extends Bundle {
@@ -199,6 +200,16 @@ class MathFunctions(
   }
   atan2Stage2Other.io.flags := atan2FlagReg
 
+  val pow2Pre   = Module(new Pow2PreProcess (spec, polySpec, stage))
+  val pow2Tab   = Module(new Pow2TableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
+  val pow2Other = Module(new Pow2OtherPath  (spec, polySpec, stage))
+  val pow2Post  = Module(new Pow2PostProcess(spec, polySpec, stage))
+
+  pow2Pre.io.x   := io.x
+  pow2Tab.io.adr := pow2Pre.io.adr
+  pow2Other.io.x := xdecomp.io.decomp
+  pow2Other.io.xint := pow2Pre.io.xint
+
   // ------------------------------------------------------------------------
   //                  now we are here
   //                               |
@@ -223,7 +234,8 @@ class MathFunctions(
       (io.sel === SelectFunc.CosPi)       -> cosPiPre.io.dx.get,
       (io.sel === SelectFunc.ACos)        -> acosPre .io.dx.get,
       (io.sel === SelectFunc.ATan2Stage1) -> recPre  .io.dx.get, // atan2 stage1 calc x/y
-      (io.sel === SelectFunc.ATan2Stage2) -> atan2Stage2Pre.io.dx.get
+      (io.sel === SelectFunc.ATan2Stage2) -> atan2Stage2Pre.io.dx.get,
+      (io.sel === SelectFunc.Pow2)        -> pow2Pre .io.dx.get
     ))
   }
   polynomialEval.io.coeffs.cs <> MuxCase(nullTab.cs, Seq(
@@ -234,7 +246,8 @@ class MathFunctions(
     (io.sel === SelectFunc.CosPi)       -> sinPiTab  .io.cs.cs,// same as sinPi
     (io.sel === SelectFunc.ACos)        -> acosTab   .io.cs.cs,
     (io.sel === SelectFunc.ATan2Stage1) -> recTab    .io.cs.cs, // atan2 stage1 calc x/y
-    (io.sel === SelectFunc.ATan2Stage2) -> atan2Stage2Tab.io.cs.cs
+    (io.sel === SelectFunc.ATan2Stage2) -> atan2Stage2Tab.io.cs.cs,
+    (io.sel === SelectFunc.Pow2)        -> pow2Tab   .io.cs.cs
   ))
 
   //                                         we are here
@@ -270,6 +283,9 @@ class MathFunctions(
   atan2Stage2Post.io.zres   := polynomialEval.io.result
   atan2Stage2Post.io.flags  := atan2FlagReg // TODO keep the value in frag reg
 
+  pow2Post.io.zother <> pow2Other.io.zother
+  pow2Post.io.zres   := polynomialEval.io.result
+
   val z0 = MuxCase(0.U, Seq(
     (io.sel === SelectFunc.Sqrt)        -> sqrtPost.io.z,
     (io.sel === SelectFunc.InvSqrt)     -> invsqrtPost.io.z,
@@ -278,7 +294,8 @@ class MathFunctions(
     (io.sel === SelectFunc.CosPi)       -> sinPiPost.io.z, // same as sinPi
     (io.sel === SelectFunc.ACos)        -> acosPost.io.z,
     (io.sel === SelectFunc.ATan2Stage1) -> atan2Stage1Post.io.z,
-    (io.sel === SelectFunc.ATan2Stage2) -> atan2Stage2Post.io.z
+    (io.sel === SelectFunc.ATan2Stage2) -> atan2Stage2Post.io.z,
+    (io.sel === SelectFunc.Pow2)        -> pow2Post.io.z
   ))
 
   io.z := ShiftRegister(z0, stage.total)
