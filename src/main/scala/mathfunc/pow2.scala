@@ -266,8 +266,8 @@ class Pow2PostProcess(
   })
 
   val zman0  = dropLSB(extraBits, io.zres) + io.zres(extraBits-1)
-  val polynomialOvf = zman0.head(2) === 1.U // >=1
-  val polynomialUdf = zman0.head(1) === 1.U // Negative
+  val polynomialOvf = false.B// zman0.head(2) === 1.U // >=1
+  val polynomialUdf = false.B// zman0.head(1) === 1.U // Negative
   val zeroFlush     = polynomialUdf || io.zother.zIsNonTable
   val zman_checkovf = Mux(polynomialOvf, Fill(manW,1.U(1.W)), zman0(manW-1,0))
 
