@@ -149,6 +149,9 @@ class Pow2TableCoeff(
     io.cs.cs(0) := ShiftRegister(c0, nStage) // width should be manW + extraBits
 
   } else {
+    // x -> xInt + xFrac
+    // pow2(x) -> 2^xInt * 2^xFrac
+    // Since xFrac is in [0, 1), 2^xFrac is in [1, 2)
     val tableD = new FuncTableDouble( x => pow(2.0,x)-1.0, order )
     tableD.addRange(0.0, 1.0, 1<<adrW)
 
@@ -156,14 +159,15 @@ class Pow2TableCoeff(
     val cbit   = tableI.cbit
 
     // both 1st and 2nd derivative of 2^x is larger than 0
-    val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/1)
+    val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/0)
     val coeff  = getSlices(coeffTable(io.adr), coeffWidth)
 
     val coeffs = Wire(new TableCoeffInput(maxCbit))
     for (i <- 0 to order) {
       val diffWidth = maxCbit(i) - cbit(i)
       val ci  = coeff(i)
-      coeffs.cs(i) := Cat(Fill(diffWidth, 1.U(1.W)), ci) // zero extension
+      val msb = ci(cbit(i)-1)
+      coeffs.cs(i) := Cat(Fill(diffWidth, msb), ci) // sign extension
     }
     io.cs := ShiftRegister(coeffs, nStage)
   }
