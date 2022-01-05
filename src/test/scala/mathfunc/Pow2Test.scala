@@ -72,7 +72,7 @@ class MathFuncPow2Test extends FlatSpec
           val maxCalcW   = c.getMaxCalcW
           val nstage     = c.getStage
           val reftable   = ExponentialSim.pow2TableGeneration( nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit) )
-          val reference  = ExponentialSim.pow2simGeneric(reftable, extraBits, _ )
+          val reference  = MathFuncPow2Sim.pow2SimGeneric(reftable, _ )
 
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
