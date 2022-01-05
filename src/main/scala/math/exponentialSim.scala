@@ -56,7 +56,7 @@ object ExponentialSim {
 
     if ( ex >= expW-1 ) { // Overflow or Underflow
       return ( if (sgn==0) overflow_value else RealGeneric.zero(x.spec) )
-    } 
+    }
     val calcW0 = manW+extraBits
     val extraManW = if (calcW0<adrW) {
       if (t.nOrder != 0) {
@@ -89,6 +89,7 @@ object ExponentialSim {
     val d    = slice(0, dxbp+1, xi) - (SafeLong(1)<<dxbp)
     //println(f"d=$d%x")
     val adr  = slice(dxbp+1, adrW, xi).toInt
+
     // From here Long is used instead of SafeLong; should be fixed
     val zman = t.interval(adr).eval(d.toLong, dxbp)
     // Simple rounding
@@ -111,7 +112,7 @@ object ExponentialSim {
       cbitSetting: Option[Seq[Int]] = None
     ) = {
     val tableD = new FuncTableDouble( x => pow(2.0, x)-1.0, order )
-    tableD.addRange(0.0, 1.0, 1<<pow2F32AdrW)
+    tableD.addRange(0.0, 1.0, 1<<adrW)
     new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
   }
 
@@ -153,7 +154,7 @@ object ExponentialSim {
       val moreThan2 = bit(manW*2+1, prod)
       val ym = slice(manW+moreThan2, manW, prod)
       val r  = bit(manW-1+moreThan2, prod)
-      val stickey = if (slice(0, manW-1+moreThan2, prod) != 0) 1 else 0 
+      val stickey = if (slice(0, manW-1+moreThan2, prod) != 0) 1 else 0
       val inc = r & (stickey | bit(0,ym))
       val ymRound = ym + inc
       val ye = if ((bit(manW,ymRound)|moreThan2) !=0 ) xe+1 else xe
