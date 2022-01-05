@@ -45,9 +45,9 @@ class Pow2PreProcess(
 
   val io = IO(new Bundle {
     val x    = Input (UInt(spec.W.W))
-    val xint = Output(UInt(exW.W)) // integer part of x
-    val adr  = Output(UInt((1+adrW).W)) // we use LSB of x.ex
+    val adr  = Output(UInt(adrW.W))
     val dx   = if(order != 0) { Some(Output(UInt(dxW.W))) } else { None }
+    val xint = Output(UInt(exW.W)) // integer part of x
   })
 
   val padding = if (adrW>=manW) {
@@ -97,7 +97,7 @@ class Pow2PreProcess(
   io.adr := ShiftRegister(adr0, nStage)
 
   if(order != 0) {
-    val dx0  = Cat(~xiFrac(bp-1-adrW), xiFrac(bp-1-adrW-1, 0))
+    val dx0  = Cat(~xiFrac(bp-1-adrW), xiFrac(bp-1-adrW-1, padding))
     io.dx.get := ShiftRegister(dx0, nStage)
   }
 }
