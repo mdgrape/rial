@@ -21,6 +21,11 @@ import rial.util.ScalaUtil._
 import rial.arith._
 import rial.table._
 
+// import com.sun.jna._
+// trait libc extends Library {
+//   def powf(x: Float, y:Float):Float
+// }
+
 class MathFuncPow2SimTest extends FunSuite with BeforeAndAfterAllConfigMap {
   var n = 1000000
 
@@ -46,6 +51,9 @@ class MathFuncPow2SimTest extends FunSuite with BeforeAndAfterAllConfigMap {
     generator       : ( (RealSpec, Random) => RealGeneric),
     tolerance       : Int ) = {
     test(s"pow2(x), format ${spec.toStringShort}, ${generatorStr}") {
+
+//       val libc = Native.loadLibrary("c", classOf[libc]).asInstanceOf[libc]
+
       var maxError    = 0.0
       var xatMaxError = 0.0
       var zatMaxError = 0.0
@@ -59,6 +67,13 @@ class MathFuncPow2SimTest extends FunSuite with BeforeAndAfterAllConfigMap {
       for(i <- 1 to n) {
         val x  = generator(spec,r)
         val x0 = x.toDouble
+
+//         val z0   = libc.powf(2.0f, x0)
+//         val z0b  = java.lang.Float.floatToIntBits(z0)
+//         val z0sgn = bit(31, z0b)
+//         val z0ex  = slice(spec.manW, spec.exW,  z0b)
+//         val z0man = slice(0,         spec.manW, z0b)
+//         val z0r  = new RealGeneric(spec, z0sgn, z0ex, z0man)
 
         val z0   = pow(2.0, x0)
         val z0r  = new RealGeneric(spec, z0)
@@ -89,11 +104,11 @@ class MathFuncPow2SimTest extends FunSuite with BeforeAndAfterAllConfigMap {
             val zrefexp = slice(spec.manW, spec.exW, z0r.value)
             val zrefman = z0r.value & maskSL(spec.manW)
 
-            if(erri.abs>2.0){
-            println(f"test: x   = ${x0}(${x.sgn}|${x.ex}(${x.ex-x.spec.exBias})|${x.man.toLong.toBinaryString})")
-            println(f"test: ref = ${z0}(${zrefsgn}|${zrefexp}(${zrefexp-x.spec.exBias})|${zrefman.toLong.toBinaryString})")
-            println(f"test: sim = ${zd}(${zsimsgn}|${zsimexp}(${zsimexp-x.spec.exBias})|${zsimman.toLong.toBinaryString})")
-            println(f"test: test(${zsimsgn}|${zsimexp}(${zsimexp - spec.exBias})|${zsimman.toLong.toBinaryString}(${zsimman.toLong}%x)) != ref(${zrefsgn}|${zrefexp}(${zrefexp - spec.exBias})|${zrefman.toLong.toBinaryString}(${zrefman.toLong}%x))")
+            if(erri.abs>2.0) {
+              println(f"test: x   = ${x0}(${x.sgn}|${x.ex}(${x.ex-x.spec.exBias})|${x.man.toLong.toBinaryString})")
+              println(f"test: ref = ${z0}(${zrefsgn}|${zrefexp}(${zrefexp-x.spec.exBias})|${zrefman.toLong.toBinaryString})")
+              println(f"test: sim = ${zd}(${zsimsgn}|${zsimexp}(${zsimexp-x.spec.exBias})|${zsimman.toLong.toBinaryString})")
+              println(f"test: test(${zsimsgn}|${zsimexp}(${zsimexp - spec.exBias})|${zsimman.toLong.toBinaryString}(${zsimman.toLong}%x)) != ref(${zrefsgn}|${zrefexp}(${zrefexp - spec.exBias})|${zrefman.toLong.toBinaryString}(${zrefman.toLong}%x))")
             }
 
             if(erri > 2.0) {
@@ -112,7 +127,7 @@ class MathFuncPow2SimTest extends FunSuite with BeforeAndAfterAllConfigMap {
           else if (erri<= -1.0) {
             err1lsbNeg+=1
           }
-          assert(erri.abs<=tolerance.toDouble)
+          assert(erri.abs<=tolerance)
 
           if (maxError < erri.abs) {
             maxError    = erri.abs
