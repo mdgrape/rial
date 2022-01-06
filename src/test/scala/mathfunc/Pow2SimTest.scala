@@ -46,7 +46,7 @@ class MathFuncPow2SimTest extends FunSuite with BeforeAndAfterAllConfigMap {
     generator       : ( (RealSpec, Random) => RealGeneric),
     tolerance       : Int ) = {
     test(s"pow2(x), format ${spec.toStringShort}, ${generatorStr}") {
-      var maxError   = 0.0
+      var maxError    = 0.0
       var xatMaxError = 0.0
       var zatMaxError = 0.0
 
@@ -65,7 +65,6 @@ class MathFuncPow2SimTest extends FunSuite with BeforeAndAfterAllConfigMap {
 
         val zi   = MathFuncPow2Sim.pow2SimGeneric( t, x )
         val zd   = zi.toDouble
-        val errf = zd - z0r.toDouble
         val erri = errorLSB(zi, z0r.toDouble)
 
         if (x0.isInfinity) {
@@ -116,16 +115,18 @@ class MathFuncPow2SimTest extends FunSuite with BeforeAndAfterAllConfigMap {
           assert(erri.abs<=tolerance.toDouble)
 
           if (maxError < erri.abs) {
-            maxError = erri.abs
+            maxError    = erri.abs
             xatMaxError = x0
             zatMaxError = zd
           }
         }
       }
       println(f"${generatorStr} Summary")
-      println(f"N=$n%d : largest errors ${maxError.toInt}%d where the value is "
-            + f"${zatMaxError} != ${pow(2.0, xatMaxError)}, "
-            + f"diff = ${zatMaxError - pow(2.0, xatMaxError)}, x = ${xatMaxError}")
+      if(maxError != 0.0) {
+        println(f"N=$n%d : largest errors ${maxError.toInt}%d where the value is "
+              + f"${zatMaxError} != ${pow(2.0, xatMaxError)}, "
+              + f"diff = ${zatMaxError - pow(2.0, xatMaxError)}, x = ${xatMaxError}")
+      }
       println(f"N=$n%d : 1LSB errors positive $err1lsbPos%d / negative $err1lsbNeg%d")
       println(f"N=$n%d : 2LSB errors positive $err2lsbPos%d / negative $err2lsbNeg%d")
       println(f"N=$n%d : 2<   errors positive $errNlsbPos%d / negative $errNlsbNeg%d")
