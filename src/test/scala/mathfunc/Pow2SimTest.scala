@@ -48,7 +48,6 @@ class MathFuncPow2SimTest extends FunSuite with BeforeAndAfterAllConfigMap {
     test(s"pow2(x), format ${spec.toStringShort}, ${generatorStr}") {
       var maxError   = 0.0
       var xatMaxError = 0.0
-      var yatMaxError = 0.0
       var zatMaxError = 0.0
 
       var err1lsbPos = 0
@@ -125,8 +124,8 @@ class MathFuncPow2SimTest extends FunSuite with BeforeAndAfterAllConfigMap {
       }
       println(f"${generatorStr} Summary")
       println(f"N=$n%d : largest errors ${maxError.toInt}%d where the value is "
-            + f"${zatMaxError} != ${min(abs(xatMaxError), abs(yatMaxError))/max(abs(xatMaxError), abs(yatMaxError))}, "
-            + f"diff = ${zatMaxError - min(abs(xatMaxError), abs(yatMaxError))/max(abs(xatMaxError), abs(yatMaxError))}")
+            + f"${zatMaxError} != ${pow(2.0, xatMaxError)}, "
+            + f"diff = ${zatMaxError - pow(2.0, xatMaxError)}, x = ${xatMaxError}")
       println(f"N=$n%d : 1LSB errors positive $err1lsbPos%d / negative $err1lsbNeg%d")
       println(f"N=$n%d : 2LSB errors positive $err2lsbPos%d / negative $err2lsbNeg%d")
       println(f"N=$n%d : 2<   errors positive $errNlsbPos%d / negative $errNlsbNeg%d")
@@ -138,17 +137,22 @@ class MathFuncPow2SimTest extends FunSuite with BeforeAndAfterAllConfigMap {
     2, 8, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+2)
 
   pow2Test(pow2F32TableI, RealSpec.Float32Spec, n, r,
-    "Test Safe Positive (<127)", generateRealWithin(1.0, 127.0,_,_), 2)
+    "Test Safe Positive [1, 127]", generateRealWithin(1.0, 127.0,_,_), 2)
   pow2Test(pow2F32TableI, RealSpec.Float32Spec, n, r,
-    "Test Safe Negative (>-126)", generateRealWithin(-126.0, -1.0,_,_), 2)
+    "Test Safe Negative [-126, -1]", generateRealWithin(-126.0, -1.0,_,_), 2)
 
   pow2Test(pow2F32TableI, RealSpec.Float32Spec, n, r,
-    "Test Large Positive (>127)", generateRealWithin(127.0, Double.PositiveInfinity,_,_), 2)
+    "Test Large Positive [127, inf]", generateRealWithin(127.0, Double.PositiveInfinity,_,_), 2)
   pow2Test(pow2F32TableI, RealSpec.Float32Spec, n, r,
-    "Test Large Negative (<-126)", generateRealWithin(Double.NegativeInfinity, -126.0,_,_), 2)
+    "Test Large Negative [-inf, -126]", generateRealWithin(Double.NegativeInfinity, -126.0,_,_), 2)
 
   pow2Test(pow2F32TableI, RealSpec.Float32Spec, n, r,
-    "Test Safe Positive Small", generateRealWithin(0.0, pow(2.0, -7),_,_), 2)
+    "Test Small Positive [2^-7, 1]", generateRealWithin(pow(2.0, -7),1.0,_,_), 2)
   pow2Test(pow2F32TableI, RealSpec.Float32Spec, n, r,
-    "Test Safe Negative Small", generateRealWithin(-pow(2.0, -7), 0.0,_,_), 2)
+    "Test Small Negative [-1, -2^-7]", generateRealWithin(-1.0, -pow(2.0, -7),_,_), 2)
+
+  pow2Test(pow2F32TableI, RealSpec.Float32Spec, n, r,
+    "Test Tiny Positive [0, 2^-7]", generateRealWithin(0.0, pow(2.0, -7),_,_), 2)
+  pow2Test(pow2F32TableI, RealSpec.Float32Spec, n, r,
+    "Test Tiny Negative [-2^-7, 0]", generateRealWithin(-pow(2.0, -7), 0.0,_,_), 2)
 }
