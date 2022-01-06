@@ -46,6 +46,16 @@ object MathFuncPow2Sim {
     val xinf  = x.isInfinite
     val xzero = x.isZero
 
+    if(xnan) {
+      return RealGeneric.nan(x.spec)
+    }
+    if(xinf && xsgn == 0) {
+      return RealGeneric.inf(x.spec, 0)
+    }
+    if(xzero || (xinf && xsgn == 1)) {
+      return new RealGeneric(x.spec, 1.0)
+    }
+
     val xexNobias = x.ex - exBias
 
     // xint  = if(x>0) {floor(x)} else {ceil(x)}
