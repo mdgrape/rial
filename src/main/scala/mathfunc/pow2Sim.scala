@@ -71,7 +71,7 @@ object MathFuncPow2Sim {
     // xint is in [2^x.ex, 2^(x.ex+1) ).
     //
 
-    val log2 = (x:Double) => {log(x) / log(2.0)}
+    val log2 = (a:Double) => {log(a) / log(2.0)}
 
     // if xex exceeds this, the result overflows
     val xExOvfLimit = math.ceil(log2(maskL(exW)-exBias)).toLong // log2(255-127 = 128) = 7
@@ -101,22 +101,29 @@ object MathFuncPow2Sim {
 
     val xshift = xIntW - xexNobias
     val xValShifted = xVal >> xshift
-
-    val xint  = slice(xFracW, xIntW,  xValShifted)
-    val xfrac = slice(0,      xFracW, xValShifted)
-
-    val zex  = if(xsgn == 0) {
-       xint + exBias
-    } else { // x is negative!
-      -xint + exBias
+    val xint0  = slice(xFracW, xIntW,  xValShifted).toLong
+    val xfrac0 = slice(0,      xFracW, xValShifted).toLong
+    val (xint, xfrac) = if(xsgn == 0) {
+      (xint0, xfrac0)
+    } else {
+      if(xfrac0 != 0) {
+        (-xint0 - 1L, (1L<<xFracW) - xfrac0)
+      } else {
+        (-xint0, 0L)
+      }
     }
+    // 2^(-x) = 2^(-xInt - xFrac)
+    //        = 2^(-xInt - 1 + 1 - xFrac)
+    //        = 2^(-xInt - 1 + (1 - xFrac))
+    //                         ^^^^^^^^^^ positive
+
+    val zex = xint + exBias
 
     if      (zex>=maskI(exW)) { return RealGeneric.inf (x.spec, 0) }
     else if (zex<=0)          { return RealGeneric.zero(x.spec) }
 
     val dxbp = manW-adrW-1
-    val d    = slice(extraBits, dxbp+1, xfrac) - // round!
-               (SafeLong(1) << dxbp)
+    val d    = slice(extraBits, dxbp+1, xfrac) - (SafeLong(1) << dxbp) // round?
     val adr  = slice(extraBits+dxbp+1, adrW, xfrac)
 
     val zman = t.interval(adr.toInt).eval(d.toLong, dxbp)
