@@ -52,7 +52,7 @@ object MathFuncPow2Sim {
     if(xinf && xsgn == 0) {
       return RealGeneric.inf(x.spec, 0)
     }
-    if(xzero || (xinf && xsgn == 1)) {
+    if(xinf && xsgn == 1) {
       return new RealGeneric(x.spec, 1.0)
     }
 
@@ -70,6 +70,67 @@ object MathFuncPow2Sim {
     //
     // xint is in [2^x.ex, 2^(x.ex+1) ).
     //
+    // ----
+    // 2^x = 1 + ln2 x + (ln2)^2/2 x^2
+    // ln(2) ~ 0.69... < 0.7
+    // (ln2)^2 < 0.49 < 0.5
+    // (ln2)^2/2 < 2^-2
+    //
+    // linearthreshold is
+    //
+    // ln(2)^2/2 x^2 < 2^-manW
+    // <=  2^-2 x^2 < 2^-manW
+    // <=> x^2 < 2^(-manW+2)
+    // <=> x < 2^((-manW+2)/2)
+    // <=> 2^ex * 1.m < 2^((-manW+2)/2)
+    // <=  2^(ex+1) < 2^((-manW+2)/2)
+    // <=> ex+1 < (-manW+2)/2
+    // <=> 2ex+2 < -manW+2
+    // <=> 2ex   < -manW
+    //
+    // constantThreshold is
+    //
+    // ln2 x < 2^-manW
+    // <= x < 2^-manW
+    // <= 2^(ex+1) < 2^-manW
+    // <=>   ex    < -manW-1
+    //
+
+//     val constantThreshold = -manW-1
+//     val isConstant = xexNobias < constantThreshold
+//
+//     if(isConstant) {
+//       return new RealGeneric(x.spec, 1.0)
+//     }
+//
+//     val linearThreshold = -manW / 2 // -12
+//     val isLinear = xexNobias < linearThreshold
+//
+//     if(isLinear) {
+//       // 2^x = 1 + ln2 x
+//       // ln2 = 0.69..., => coef.ex == -1
+//       val coefficient = new RealGeneric(x.spec, log(2.0))
+//
+//       val ln2x = coefficient.manW1 * x.manW1
+//       val ln2xShifted = ln2x >> (-xexNobias + 1)
+//       val ln2xManExtraBit = ln2xShifted >> (manW-2)
+//
+//       if(xsgn == 0) {
+//         val ln2xMan = (ln2xManExtraBit >> 2) + bit(1, ln2xManExtraBit)
+//         return new RealGeneric(x.spec, 0, 0+exBias, ln2xMan)
+//       } else {
+//         val ln2xManNegW1 = (1<<(manW+2)) - ln2xManExtraBit
+//         assert(bit(manW+1, ln2xManNegW1) == 1)
+//
+//         val ln2xManNeg   = (ln2xManNegW1 >> 1) + bit(0, ln2xManNegW1)
+//         assert(bit(manW, ln2xManNeg) == 1 || bit(manW+1, ln2xManNeg) == 1)
+//
+//         if (bit(manW+1, ln2xManNeg) == 1) {
+//           return new RealGeneric(x.spec, 0, 0+exBias, 0)
+//         }
+//         return new RealGeneric(x.spec, 0, -1+exBias, ln2xManNeg)
+//       }
+//     }
 
     val log2 = (a:Double) => {log(a) / log(2.0)}
 
