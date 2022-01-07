@@ -15,6 +15,7 @@ import rial.util.RialChiselUtil._
 import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig._
 import rial.arith.RealSpec
+import rial.arith.RealGeneric
 import rial.arith.FloatChiselUtil
 
 // -------------------------------------------------------------------------
@@ -42,63 +43,61 @@ class Pow2PreProcess(
   val fracW     = polySpec.fracW
   val dxW       = polySpec.dxW
   val order     = polySpec.order
+  val extraBits = polySpec.extraBits
+
+  val padding   = extraBits
 
   val io = IO(new Bundle {
-    val x    = Input (UInt(spec.W.W))
-    val adr  = Output(UInt(adrW.W))
-    val dx   = if(order != 0) { Some(Output(UInt(dxW.W))) } else { None }
-    val xint = Output(UInt(exW.W)) // integer part of x
+    val x         = Input (UInt(spec.W.W))
+    val adr       = Output(UInt(adrW.W))
+    val dx        = if(order != 0) { Some(Output(UInt(dxW.W))) } else { None }
+
+    // integer part of x, to calculate zex
+    val xint      = Output(UInt(exW.W))
+
+    // LSB of fractional part of x, for zman correction
+    val xfracLSBs = if(padding != 0) {Some(Output(UInt(padding.W)))} else {None}
   })
 
-  val padding = if (adrW>=manW) {
-    if (order != 0) {
-      println("ERROR: table address width >= mantissa width, but polynomial order is not zero.")
-      sys.exit(1)
-      0
-    } else {
-      adrW-manW
-    }
-  } else {
-    polySpec.extraBits
-  }
+  val (xsgn, xex, xman) = FloatChiselUtil.decompose(spec, io.x)
 
-  val bp       = manW + padding    // for rounding
-  val exValidW = log2Up(bp+exW-1) // valid exponent bits
+  val log2 = (a:Double) => {log(a) / log(2.0)}
+  val xExOvfLimit = math.ceil(log2(maskL(exW)-exBias)).toLong // log2(255-127 = 128) = 7
+  val xExUdfLimit = math.ceil(log2(abs(0 - exBias)  )).toLong // log2(|0-127| = 127) > 6
 
-  val (sgn, ex, man) = FloatChiselUtil.decompose(spec, io.x)
+  val xIntW  = max(xExOvfLimit, xExUdfLimit).toInt
+  val xFracW = manW + padding
 
-  // Float to Integer, keep fractional width bp
-  // max exponent is exW-2
-  val lsbPadding = exW-2+padding
-  val manWith1   = 1.U(1.W) ## man ## 0.U(lsbPadding.W)
-  val man1W      = manW + padding + exW - 1
-  // manWith1 width: manW+extraBits+exW-1
-  //   binary point: manW+extraBits
+  val xValW = xIntW + xFracW + 1
+  val xVal  = Cat(1.U(1.W), xman, 0.U((xIntW + padding).W))
 
-  // right shift amount :
-  //   0  if ex==exBias+exW-2
-  //   shift = exBias+exW-2-ex
-  //   0 if shift >= bp+exW-1
-  //     => ex <= exBias-bp-1
-  val shift_base  = (exBias+exW-2) & maskI(exValidW)
-  val shiftToZero = ex < (exBias-bp).U(exW.W)
-  val shift       = shift_base.U - ex(exValidW-1,0)
-  val xshift      = manWith1 >> shift
-  // bp includes extraBits bit for rounding / extension
-  val xu = 0.U(1.W) ## Mux(shiftToZero, 0.U(man1W.W), xshift)
-  val xi = Mux(sgn.asBool, -xu, xu) // bp+exW
-  val xiInt  = xi(bp+exW-1,bp) // Integral part - for exponent
-  val xiFrac = xi(bp-1, 0)
-  //printf("ex=%d shiftToZero=%b shift=%d xi=%x\n", ex, shiftToZero, shift, xi)
+  val xshift0 = (xIntW + exBias).U(exW.W) - xex
+  val xshift  = xshift0(xIntW-1, 0)
+  val xValShifted = xVal >> (xshift-1.U(1.W))
+  val xValRounded = (xValShifted >> 1) + xValShifted(0)
 
-  io.xint := ShiftRegister(xiInt, nStage)
+  val xint0  = xValRounded(xIntW+xFracW-1, xFracW)
+  val xfrac0 = xValRounded(xFracW-1, 0)
 
-  val adr0 = xiFrac(bp-1, bp-1-adrW+1)
+  // if xsgn == 1, we negate xint to calculate exbias. but we later do that in
+  // Pow2OtherPath.
+  val xint = xint0 + (xsgn.asBool && (xfrac0 =/= 0.U)).asUInt
+  io.xint := ShiftRegister(xint, nStage)
+
+  val xfracNeg = (1<<xFracW).U((xFracW+1).W) - xfrac0
+  val xfrac = Mux(xsgn === 0.U, xfrac0, xfracNeg(xFracW-1, 0))
+
+  val adr0 = xfrac(xFracW-1, (xFracW-1)-adrW+1)
   io.adr := ShiftRegister(adr0, nStage)
 
   if(order != 0) {
-    val dx0  = Cat(~xiFrac(bp-1-adrW), xiFrac(bp-1-adrW-1, padding))
+    val dx0  = Cat(~xfrac(xFracW-1-adrW), xfrac(xFracW-1-adrW-1, padding))
     io.dx.get := ShiftRegister(dx0, nStage)
+  }
+
+  if(padding != 0) {
+    val xfracLSBs0 = xfrac(padding-1, 0)
+    io.xfracLSBs.get := ShiftRegister(xfracLSBs0, nStage)
   }
 }
 
@@ -186,10 +185,13 @@ class Pow2NonTableOutput(val spec: RealSpec) extends Bundle {
   //  zsgn  = 0, always
   val zex   = Output(UInt(spec.exW.W))
   val znan  = Output(Bool())
+  val zinf  = Output(Bool())
+  val zzero = Output(Bool())
   val zIsNonTable = Output(Bool())
 }
 
-// No pathway other than table interpolation. just calculate ex and sgn.
+// No pathway (like taylor series) other than table interpolation.
+// Here we calculate z.ex and correction to zman.
 class Pow2OtherPath(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
@@ -202,30 +204,45 @@ class Pow2OtherPath(
   val manW   = spec.manW
   val exBias = spec.exBias
 
+  val padding = exBias
+
   val io = IO(new Bundle {
-    val x      = Flipped(new DecomposedRealOutput(spec))
-    val xint   = Input(UInt(exW.W))
-    val zother = new Pow2NonTableOutput(spec)
+    val x           = Flipped(new DecomposedRealOutput(spec))
+    val xint        = Input(UInt(exW.W))
+    val zother      = new Pow2NonTableOutput(spec)
   })
 
-  val exOvfUdf = io.x.ex >= (exW-1+exBias).U
-  val exOvf    = exOvfUdf && !io.x.sgn.asBool
-  val exUdf    = exOvfUdf &&  io.x.sgn.asBool
-  val znan     = if (spec.disableNaN) {false.B} else {// iff x is nan, z is nan.
-    (io.x.ex === Fill(exW, 1.U(1.W))) && ( io.x.man =/= 0.U )
-  }
-  val zinf  = exOvf
-  val zzero = exUdf
+  // --------------------------------------------------------------------------
+  // calc zex
 
-  val zExNegMax = (io.xint(exW-1)===1.U) && (io.xint(exW-2,1)===0.U)
-  val zEx0 = exBias.U + io.xint
-  val zEx = Mux( exOvf || znan, Fill(exW, 1.U(1.W)),
-            Mux( exUdf || zExNegMax, 0.U, zEx0))
+  // if xex exceeds this, the result overflows
+  val log2 = (a:Double) => {log(a) / log(2.0)}
+  val xExOvfLimit = math.ceil(log2(maskL(exW)-exBias)).toInt // log2(255-127 = 128) = 7
+  val xExUdfLimit = math.ceil(log2(abs(0 - exBias)  )).toInt // log2(|0-127| = 127) > 6
+
+  val xExOvfLimBiased = (xExOvfLimit + exBias).U(exW.W)
+  val xExUdfLimBiased = (xExUdfLimit + exBias).U(exW.W)
+
+  val zexPos = io.xint +& exBias.U(exW.W)
+  val zexNeg = exBias.U(exW.W) -& io.xint
+  val zex0   = Mux(io.x.sgn === 0.U, zexPos(exW-1, 0), zexNeg(exW-1, 0))
+
+  val znan  = io.x.nan
+  val zinf  = (io.x.sgn === 0.U) &&
+    ((xExOvfLimBiased <= io.x.ex) || (zexPos(exW) === 1.U) || io.x.inf)
+  val zzero = (io.x.sgn === 1.U) &&
+    ((xExUdfLimBiased <= io.x.ex) || (zexNeg(exW) === 1.U) || io.x.inf)
+
+  val zex = Mux(znan || zinf, Fill(exW, 1.U(1.W)),
+            Mux(zzero, 0.U(exW.W),
+                zex0))
 
   val zIsNonTable = znan || zinf || zzero
 
-  io.zother.zex  := ShiftRegister(zEx,  nStage)
-  io.zother.znan := ShiftRegister(znan, nStage)
+  io.zother.zex         := ShiftRegister(zex,   nStage)
+  io.zother.znan        := ShiftRegister(znan,  nStage)
+  io.zother.zinf        := ShiftRegister(zinf,  nStage)
+  io.zother.zzero       := ShiftRegister(zzero, nStage)
   io.zother.zIsNonTable := ShiftRegister(zIsNonTable, nStage)
 }
 
@@ -256,23 +273,64 @@ class Pow2PostProcess(
   val order  = polySpec.order
   val extraBits = polySpec.extraBits
 
+  val padding = extraBits
+
   val io = IO(new Bundle {
     // ex and some flags
     val zother = Flipped(new Pow2NonTableOutput(spec))
     // table interpolation results
     val zres   = Input(UInt(fracW.W))
+    // for z correction
+    val xfracLSBs = if(padding != 0) {Some(Input(UInt(padding.W)))} else {None}
     // output
     val z      = Output(UInt(spec.W.W))
   })
 
-  val zman0  = dropLSB(extraBits, io.zres) + io.zres(extraBits-1)
-  val polynomialOvf = false.B// zman0.head(2) === 1.U // >=1
-  val polynomialUdf = false.B// zman0.head(1) === 1.U // Negative
-  val zeroFlush     = polynomialUdf || io.zother.zIsNonTable
-  val zman_checkovf = Mux(polynomialOvf, Fill(manW,1.U(1.W)), zman0(manW-1,0))
+  val zex0  = io.zother.zex
+  val zman0 = dropLSB(extraBits, io.zres) + io.zres(extraBits-1)
 
-  val zMan = Mux(zeroFlush, Cat(io.zother.znan, 0.U((manW-1).W)), zman_checkovf)
-  val z0   = Cat(0.U(1.W), io.zother.zex, zMan)
+  // --------------------------------------------------------------------------
+  // calc zman correction coeff
+
+  val zCorrection = Wire(UInt(1.W))
+
+  if(padding != 0) {
+    val zCorrTmpW   = 10 // XXX see pow2Sim
+    val ln2         = new RealGeneric(spec, log(2.0))
+    val coefficient = ln2.manW1.toLong.U((1+manW).W)
+
+    val xfracLSBs = io.xfracLSBs.get
+    val zCorrCoef0 = coefficient * xfracLSBs
+    val zCorrCoefW = 1 + manW + padding
+    val zCorrCoef  = zCorrCoef0(zCorrCoefW-1, zCorrCoefW-zCorrTmpW)
+    assert(zCorrCoef.getWidth == zCorrTmpW)
+
+    val zCorrTerm0 = Cat(1.U(1.W), zman0) * zCorrCoef
+    val zCorrTermW = 1 + manW + zCorrTmpW
+    val zCorrTerm  = zCorrTerm0(zCorrTermW-1, zCorrTermW-zCorrTmpW)
+    assert(zCorrTerm.getWidth == zCorrTmpW)
+
+    zCorrection := (zCorrTerm(zCorrTmpW-1).asBool ||
+                    zCorrTerm(zCorrTmpW-2).asBool).asUInt
+  } else {
+    // no correction needed.
+    zCorrection := 0.U(1.W)
+  }
+
+  // --------------------------------------------------------------------------
+  // calc z
+
+  val zmanCorrected = zman0 +& zCorrection
+  assert(zmanCorrected.getWidth == manW+1)
+
+  val zEx  = zex0 + zmanCorrected(manW)
+  val zMan = Mux(io.zother.zIsNonTable, Cat(io.zother.znan, 0.U((manW-1).W)),
+                 zmanCorrected(manW-1, 0))
+  val z0   = Cat(0.U(1.W), zEx, zMan)
+
+  assert(zEx .getWidth == exW)
+  assert(zMan.getWidth == manW)
+  assert(z0  .getWidth == spec.W)
 
   io.z   := ShiftRegister(z0, nStage)
 }
