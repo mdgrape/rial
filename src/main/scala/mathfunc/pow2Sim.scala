@@ -69,68 +69,6 @@ object MathFuncPow2Sim {
     // man = 2^xfrac - 1
     //
     // xint is in [2^x.ex, 2^(x.ex+1) ).
-    //
-    // ----
-    // 2^x = 1 + ln2 x + (ln2)^2/2 x^2
-    // ln(2) ~ 0.69... < 0.7
-    // (ln2)^2 < 0.49 < 0.5
-    // (ln2)^2/2 < 2^-2
-    //
-    // linearthreshold is
-    //
-    // ln(2)^2/2 x^2 < 2^-manW
-    // <=  2^-2 x^2 < 2^-manW
-    // <=> x^2 < 2^(-manW+2)
-    // <=> x < 2^((-manW+2)/2)
-    // <=> 2^ex * 1.m < 2^((-manW+2)/2)
-    // <=  2^(ex+1) < 2^((-manW+2)/2)
-    // <=> ex+1 < (-manW+2)/2
-    // <=> 2ex+2 < -manW+2
-    // <=> 2ex   < -manW
-    //
-    // constantThreshold is
-    //
-    // ln2 x < 2^-manW
-    // <= x < 2^-manW
-    // <= 2^(ex+1) < 2^-manW
-    // <=>   ex    < -manW-1
-    //
-
-//     val constantThreshold = -manW-1
-//     val isConstant = xexNobias < constantThreshold
-//
-//     if(isConstant) {
-//       return new RealGeneric(x.spec, 1.0)
-//     }
-//
-//     val linearThreshold = -manW / 2 // -12
-//     val isLinear = xexNobias < linearThreshold
-//
-//     if(isLinear) {
-//       // 2^x = 1 + ln2 x
-//       // ln2 = 0.69..., => coef.ex == -1
-//       val coefficient = new RealGeneric(x.spec, log(2.0))
-//
-//       val ln2x = coefficient.manW1 * x.manW1
-//       val ln2xShifted = ln2x >> (-xexNobias + 1)
-//       val ln2xManExtraBit = ln2xShifted >> (manW-2)
-//
-//       if(xsgn == 0) {
-//         val ln2xMan = (ln2xManExtraBit >> 2) + bit(1, ln2xManExtraBit)
-//         return new RealGeneric(x.spec, 0, 0+exBias, ln2xMan)
-//       } else {
-//         val ln2xManNegW1 = (1<<(manW+2)) - ln2xManExtraBit
-//         assert(bit(manW+1, ln2xManNegW1) == 1)
-//
-//         val ln2xManNeg   = (ln2xManNegW1 >> 1) + bit(0, ln2xManNegW1)
-//         assert(bit(manW, ln2xManNeg) == 1 || bit(manW+1, ln2xManNeg) == 1)
-//
-//         if (bit(manW+1, ln2xManNeg) == 1) {
-//           return new RealGeneric(x.spec, 0, 0+exBias, 0)
-//         }
-//         return new RealGeneric(x.spec, 0, -1+exBias, ln2xManNeg)
-//       }
-//     }
 
     val log2 = (a:Double) => {log(a) / log(2.0)}
 
@@ -146,22 +84,24 @@ object MathFuncPow2Sim {
     // Note: still the result might over/underflows because log2(...) might not be
     //       an integer value.
 
+    val padding = extraBits
+
     // If integer part of x is larger than 2^ovflim, then it overflows.
     // So we need integer part bitwidth smaller than the limit.
     val xIntW  = max(xExOvfLimit, xExUdfLimit).toInt
-    val xFracW = manW + extraBits // extrabits is for rounding. after shift it, round it before extracting dx.
+    val xFracW = manW + padding
 
     //  .---xIntW----. .--- xFracW ----.
     // | integer part | fractional part |
 
     val xValW = xIntW + xFracW + 1
-    val xVal  = x.manW1 << (xIntW + extraBits)
+    val xVal  = x.manW1 << (xIntW + padding)
 
     assert(xVal < maskL(xValW))
     assert(xexNobias < xIntW)
 
     val xshift = xIntW - xexNobias
-    val xValShifted = xVal >> xshift
+    val xValShifted = (xVal >> xshift) + bit(xshift-1, xVal) // simple rounding
     val xint0  = slice(xFracW, xIntW,  xValShifted).toLong
     val xfrac0 = slice(0,      xFracW, xValShifted).toLong
     val (xint, xfrac) = if(xsgn == 0) {
@@ -184,8 +124,8 @@ object MathFuncPow2Sim {
     else if (zex<=0)          { return RealGeneric.zero(x.spec) }
 
     val dxbp = manW-adrW-1
-    val d    = slice(extraBits, dxbp+1, xfrac) - (SafeLong(1) << dxbp) // round?
-    val adr  = slice(extraBits+dxbp+1, adrW, xfrac)
+    val d    = slice(padding, dxbp+1, xfrac) - (SafeLong(1) << dxbp) // DO NOT round here, because we have correction term
+    val adr  = slice(padding+dxbp+1, adrW, xfrac)
 
     val zman = t.interval(adr.toInt).eval(d.toLong, dxbp)
 
@@ -195,14 +135,26 @@ object MathFuncPow2Sim {
       zman
     }
 
+    val corrTermW   = 10 // XXX determined empirically
+    val coefficient = new RealGeneric(x.spec, log(2.0))
+    val xShiftedOut = slice(0, padding, xfrac)
+    val zCorrectionCoef0 = (coefficient.manW1 * xShiftedOut)
+    val zCorrectionCoef  = zCorrectionCoef0 >> ((manW + 1) + padding - corrTermW)
+    val zCorrectionTerm0 = (((1<<manW) + zmanRound) * zCorrectionCoef)
+    val zCorrectionTerm  = zCorrectionTerm0 >> (manW+1 + corrTermW - corrTermW)
+    val zCorrectionShifted = bit(corrTermW-1, zCorrectionTerm) + bit(corrTermW-2, zCorrectionTerm)
+    assert(0 <= zCorrectionShifted && zCorrectionShifted <= 1)
+
+    val zmanCorrected = zmanRound + zCorrectionShifted
+
     val z = if (zman<0) {
       println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=$x%h")
       0L
-    } else if (zmanRound >= (1L<<manW)) {
+    } else if (zmanCorrected >= (1L<<manW)) {
       println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=$x%h")
       maskL(manW)
     } else {
-      zmanRound
+      zmanCorrected.toLong
     }
     new RealGeneric(x.spec, 0, zex.toInt, SafeLong(z))
   }
