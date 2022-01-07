@@ -209,6 +209,9 @@ class MathFunctions(
   pow2Tab.io.adr := pow2Pre.io.adr
   pow2Other.io.x := xdecomp.io.decomp
   pow2Other.io.xint := pow2Pre.io.xint
+  if(pow2Pre.io.xfracLSBs.isDefined) {
+    pow2Post.io.xfracLSBs.get := pow2Pre.io.xfracLSBs.get
+  }
 
   // ------------------------------------------------------------------------
   //                  now we are here
