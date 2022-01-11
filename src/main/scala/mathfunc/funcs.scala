@@ -200,17 +200,22 @@ class MathFunctions(
   }
   atan2Stage2Other.io.flags := atan2FlagReg
 
+  val expPre    = Module(new ExpPreProcess (spec, polySpec, stage))
   val pow2Pre   = Module(new Pow2PreProcess (spec, polySpec, stage))
   val pow2Tab   = Module(new Pow2TableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
   val pow2Other = Module(new Pow2OtherPath  (spec, polySpec, stage))
   val pow2Post  = Module(new Pow2PostProcess(spec, polySpec, stage))
 
-  pow2Pre.io.x   := io.x
-  pow2Tab.io.adr := pow2Pre.io.adr
-  pow2Other.io.x := xdecomp.io.decomp
-  pow2Other.io.xint := pow2Pre.io.xint
+  expPre.io.x       := io.x
+  pow2Pre.io.x      := io.x
+  pow2Tab.io.adr    := Mux(io.sel === SelectFunc.Pow2, pow2Pre.io.adr, expPre.io.adr)
+  pow2Other.io.x    := xdecomp.io.decomp
+  pow2Other.io.xint := Mux(io.sel === SelectFunc.Pow2, pow2Pre.io.xint, expPre.io.xint)
+
   if(pow2Pre.io.xfracLSBs.isDefined) {
-    pow2Post.io.xfracLSBs.get := pow2Pre.io.xfracLSBs.get
+    assert(expPre.io.xfracLSBs.isDefined)
+    pow2Post.io.xfracLSBs.get := Mux(io.sel === SelectFunc.Pow2,
+      pow2Pre.io.xfracLSBs.get, expPre.io.xfracLSBs.get)
   }
 
   // ------------------------------------------------------------------------
@@ -238,7 +243,8 @@ class MathFunctions(
       (io.sel === SelectFunc.ACos)        -> acosPre .io.dx.get,
       (io.sel === SelectFunc.ATan2Stage1) -> recPre  .io.dx.get, // atan2 stage1 calc x/y
       (io.sel === SelectFunc.ATan2Stage2) -> atan2Stage2Pre.io.dx.get,
-      (io.sel === SelectFunc.Pow2)        -> pow2Pre .io.dx.get
+      (io.sel === SelectFunc.Pow2)        -> pow2Pre .io.dx.get,
+      (io.sel === SelectFunc.Exp)         -> expPre .io.dx.get
     ))
   }
   polynomialEval.io.coeffs.cs <> MuxCase(nullTab.cs, Seq(
@@ -250,7 +256,8 @@ class MathFunctions(
     (io.sel === SelectFunc.ACos)        -> acosTab   .io.cs.cs,
     (io.sel === SelectFunc.ATan2Stage1) -> recTab    .io.cs.cs, // atan2 stage1 calc x/y
     (io.sel === SelectFunc.ATan2Stage2) -> atan2Stage2Tab.io.cs.cs,
-    (io.sel === SelectFunc.Pow2)        -> pow2Tab   .io.cs.cs
+    (io.sel === SelectFunc.Pow2)        -> pow2Tab   .io.cs.cs,
+    (io.sel === SelectFunc.Exp)         -> pow2Tab   .io.cs.cs // same as pow2
   ))
 
   //                                         we are here
@@ -298,7 +305,8 @@ class MathFunctions(
     (io.sel === SelectFunc.ACos)        -> acosPost.io.z,
     (io.sel === SelectFunc.ATan2Stage1) -> atan2Stage1Post.io.z,
     (io.sel === SelectFunc.ATan2Stage2) -> atan2Stage2Post.io.z,
-    (io.sel === SelectFunc.Pow2)        -> pow2Post.io.z
+    (io.sel === SelectFunc.Pow2)        -> pow2Post.io.z,
+    (io.sel === SelectFunc.Exp)         -> pow2Post.io.z // same as pow2
   ))
 
   io.z := ShiftRegister(z0, stage.total)
