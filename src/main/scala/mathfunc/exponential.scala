@@ -1,6 +1,6 @@
 //% @file exponential.scala
 //
-// pow2 and exp function
+// exp function
 // Copyright (C) Toru Niina RIKEN BDR 2021
 //
 package rial.mathfunc
@@ -131,3 +131,4 @@ class ExpPreProcess(
   }
 }
 
+// all others are the same as pow2.
