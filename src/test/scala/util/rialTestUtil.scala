@@ -39,4 +39,9 @@ object ScalaTestUtil {
     val err = x.toFloat - y
     java.lang.Math.scalb(err, -x.exNorm+x.spec.manW)
   }
+  def errorLSB( x : RealGeneric, y : RealGeneric ) : SafeLong = {
+     x.value - y.value
+  }
+
+
 }
