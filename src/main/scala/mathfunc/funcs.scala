@@ -200,7 +200,7 @@ class MathFunctions(
   }
   atan2Stage2Other.io.flags := atan2FlagReg
 
-  val expPre    = Module(new ExpPreProcess (spec, polySpec, stage))
+  val expPre    = Module(new ExpPreProcess  (spec, polySpec, stage))
   val pow2Pre   = Module(new Pow2PreProcess (spec, polySpec, stage))
   val pow2Tab   = Module(new Pow2TableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
   val pow2Other = Module(new Pow2OtherPath  (spec, polySpec, stage))
@@ -208,7 +208,7 @@ class MathFunctions(
 
   expPre.io.x       := io.x
   pow2Pre.io.x      := io.x
-  pow2Tab.io.adr    := Mux(io.sel === SelectFunc.Pow2, pow2Pre.io.adr, expPre.io.adr)
+  pow2Tab.io.adr    := Mux(io.sel === SelectFunc.Pow2, pow2Pre.io.adr,  expPre.io.adr)
   pow2Other.io.x    := xdecomp.io.decomp
   pow2Other.io.xint := Mux(io.sel === SelectFunc.Pow2, pow2Pre.io.xint, expPre.io.xint)
 
@@ -244,7 +244,7 @@ class MathFunctions(
       (io.sel === SelectFunc.ATan2Stage1) -> recPre  .io.dx.get, // atan2 stage1 calc x/y
       (io.sel === SelectFunc.ATan2Stage2) -> atan2Stage2Pre.io.dx.get,
       (io.sel === SelectFunc.Pow2)        -> pow2Pre .io.dx.get,
-      (io.sel === SelectFunc.Exp)         -> expPre .io.dx.get
+      (io.sel === SelectFunc.Exp)         -> expPre  .io.dx.get
     ))
   }
   polynomialEval.io.coeffs.cs <> MuxCase(nullTab.cs, Seq(
