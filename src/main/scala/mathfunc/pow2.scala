@@ -229,9 +229,9 @@ class Pow2OtherPath(
 
   val znan  = io.x.nan
   val zinf  = (io.x.sgn === 0.U) &&
-    ((xExOvfLimBiased <= io.x.ex) || (zexPos(exW) === 1.U) || io.x.inf)
+    ((xExOvfLimBiased <= io.x.ex) || (  spec.exMax.U  < io.xint) || io.x.inf)
   val zzero = (io.x.sgn === 1.U) &&
-    ((xExUdfLimBiased <= io.x.ex) || (zexNeg(exW) === 1.U) || io.x.inf)
+    ((xExUdfLimBiased <= io.x.ex) || ((-spec.exMin).U < io.xint) || io.x.inf)
 
   val zex = Mux(znan || zinf, Fill(exW, 1.U(1.W)),
             Mux(zzero, 0.U(exW.W),
