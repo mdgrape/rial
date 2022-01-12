@@ -323,7 +323,9 @@ class Pow2PostProcess(
   val zmanCorrected = zman0 +& zCorrection
   assert(zmanCorrected.getWidth == manW+1)
 
-  val zEx  = zex0 + zmanCorrected(manW)
+  val zexCorrection = zmanCorrected(manW) & (!io.zother.zIsNonTable)
+
+  val zEx  = zex0 + zexCorrection
   val zMan = Mux(io.zother.zIsNonTable, Cat(io.zother.znan, 0.U((manW-1).W)),
                  zmanCorrected(manW-1, 0))
   val z0   = Cat(0.U(1.W), zEx, zMan)
