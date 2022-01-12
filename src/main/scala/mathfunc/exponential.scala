@@ -58,53 +58,71 @@ class ExpPreProcess(
 
     // LSB of fractional part of x, for zman correction
     val xfracLSBs = if(padding != 0) {Some(Output(UInt(padding.W)))} else {None}
+
+    // 1 if (x * log2e).ex is larger than x.ex.
+    val xexd = Output(UInt(1.W))
   })
 
   val (xsgn, xex0, xman0) = FloatChiselUtil.decompose(spec, io.x)
 
   val log2 = (a:Double) => {log(a) / log(2.0)}
-
-  // --------------------------------------------------------------------------
-  // x = x * log2e
-
-  val log2e = new RealGeneric(spec, log2(E)) // ~ 1.4427
-
-  val xprod = Cat(1.U(1.W), xman0) * log2e.manW1.toBigInt.U((spec.manW+1).W)
-  val xprodW = xprod.getWidth
-  assert(xprodW == (1+manW)*2)
-  val xprodMoreThan2 = xprod(xprodW - 1) === 1.U
-
-  val xprodSticky  = (xprodMoreThan2 & xprod(manW-1)) | xprod(manW-2, 0).orR
-  val xprodRound   = Mux(xprodMoreThan2, xprod(manW), xprod(manW-1))
-  val xprodShifted = Mux(xprodMoreThan2, xprod(xprodW-2, manW+1), xprod(xprodW-3, manW))
-  val xprodLSB     = xprodShifted(0)
-
-  val xprodInc = FloatChiselUtil.roundIncBySpec(RoundSpec.roundToEven,
-    xprodLSB, xprodRound, xprodSticky)
-
-  val xprodRounded = xprodShifted +& xprodInc
-  assert(xprodRounded.getWidth == manW+1)
-  val xprodMoreThan2AfterRounded = xprodRounded(manW)
-
-  val xman = xprodRounded(manW-1, 0)
-  val xex  = xex0 + xprodMoreThan2AfterRounded
-
-  // --------------------------------------------------------------------------
-  // do the same thing as pow2
-
   val xExOvfLimit = math.ceil(log2(maskL(exW)-exBias)).toLong // log2(255-127 = 128) = 7
   val xExUdfLimit = math.ceil(log2(abs(0 - exBias)  )).toLong // log2(|0-127| = 127) > 6
 
   val xIntW  = max(xExOvfLimit, xExUdfLimit).toInt
   val xFracW = manW + padding
 
+  val extraMan = padding + xIntW
+
+  // --------------------------------------------------------------------------
+  // x = x * log2e
+
+  val log2eSpec = new RealSpec(8, 0x7F, 37, false, false, true) // XXX determined empirically
+  val log2e = new RealGeneric(log2eSpec, log2(E)) // ~ 1.4427
+
+  val xprod = Cat(1.U(1.W), xman0) * log2e.manW1.toBigInt.U((log2eSpec.manW+1).W)
+  val xprodW = xprod.getWidth
+  assert(xprodW == (1+manW) + (1+log2eSpec.manW))
+  val xprodMoreThan2 = xprod(xprodW - 1) === 1.U
+
+  assert(log2eSpec.manW - extraMan > 0)
+
+  val xprodbp        = spec.manW + log2eSpec.manW
+  val xprodRoundBits = xprodbp - (spec.manW + extraMan)
+
+  val xprodSticky  = (xprodMoreThan2 & xprod(xprodRoundBits-1)) |
+                     xprod(xprodRoundBits-2, 0).orR
+  val xprodRound   = Mux(xprodMoreThan2, xprod(xprodRoundBits), xprod(xprodRoundBits-1))
+  val xprodShifted = Mux(xprodMoreThan2, xprod(xprodbp, xprodRoundBits+1),
+                                         xprod(xprodbp-1, xprodRoundBits))
+  val xprodLSB     = xprodShifted(0)
+
+  val xprodInc = FloatChiselUtil.roundIncBySpec(RoundSpec.roundToEven,
+    xprodLSB, xprodRound, xprodSticky)
+
+  val xprodRounded = xprodShifted +& xprodInc
+  assert(xprodRounded.getWidth == manW+1 + extraMan)
+  val xprodMoreThan2AfterRounded = xprodRounded(manW+extraMan)
+
+  val xman = xprodRounded(manW+extraMan-1, 0)
+  val xex  = xex0 + xprodMoreThan2AfterRounded + xprodMoreThan2
+
+  assert(!(xprodMoreThan2AfterRounded && xprodMoreThan2))
+
+  io.xexd := xprodMoreThan2AfterRounded + xprodMoreThan2
+
+  // --------------------------------------------------------------------------
+  // do the same thing as pow2
+
   val xValW = xIntW + xFracW + 1
-  val xVal  = Cat(1.U(1.W), xman, 0.U((xIntW + padding).W))
+  val xVal  = Cat(1.U(1.W), xman)
 
   val xshift0 = (xIntW + exBias).U(exW.W) - xex
   val xshift  = xshift0(xIntW-1, 0)
-  val xValShifted = xVal >> (xshift-1.U(1.W))
-  val xValRounded = (xValShifted >> 1) + xValShifted(0)
+  val xValShifted = xVal >> (xshift - 1.U) // XXX
+  val xValRounded = (xValShifted >> 1.U) + xValShifted(0)
+  // xVal becomes 0 if xint is large enough.
+  // To check zinf correctly, we need to output (x*log2e).ex and pass it to OtherPath.
 
   val xint0  = xValRounded(xIntW+xFracW-1, xFracW)
   val xfrac0 = xValRounded(xFracW-1, 0)
@@ -131,4 +149,62 @@ class ExpPreProcess(
   }
 }
 
-// all others are the same as pow2.
+// almost the same, but over/under-flow checking is different from pow2
+class ExpOtherPath(
+  val spec     : RealSpec, // Input / Output floating spec
+  val polySpec : PolynomialSpec,
+  val stage    : PipelineStageConfig,
+) extends Module {
+
+  val nStage = stage.total
+
+  val exW    = spec.exW
+  val manW   = spec.manW
+  val exBias = spec.exBias
+
+  val padding = exBias
+
+  val io = IO(new Bundle {
+    val x           = Flipped(new DecomposedRealOutput(spec))
+    val xint        = Input(UInt(exW.W))
+    val xexd        = Input(UInt(1.W))
+    val zother      = new Pow2NonTableOutput(spec)
+  })
+
+  // --------------------------------------------------------------------------
+  // calc zex
+
+  val log2 = (a:Double) => {log(a) / log(2.0)}
+  val xExOvfLimit = math.ceil(log2(maskL(exW)-exBias)).toInt // log2(255-127 = 128) = 7
+  val xExUdfLimit = math.ceil(log2(abs(0 - exBias)  )).toInt // log2(|0-127| = 127) > 6
+
+  assert(pow(2.0,  spec.exMax) < exp(pow(2.0, xExOvfLimit)))
+  assert(pow(2.0, -spec.exMin) < exp(pow(2.0, xExUdfLimit)))
+
+  val xExOvfLimBiased = (xExOvfLimit + exBias).U(exW.W)
+  val xExUdfLimBiased = (xExUdfLimit + exBias).U(exW.W)
+
+  val zexPos = io.xint +& exBias.U(exW.W)
+  val zexNeg = exBias.U(exW.W) -& io.xint
+  val zex0   = Mux(io.x.sgn === 0.U, zexPos(exW-1, 0), zexNeg(exW-1, 0))
+
+  val xex = io.x.ex + io.xexd
+
+  val znan  = io.x.nan
+  val zinf  = (io.x.sgn === 0.U) &&
+    ((xExOvfLimBiased <= xex) || (  spec.exMax.U  < io.xint) || io.x.inf)
+  val zzero = (io.x.sgn === 1.U) &&
+    ((xExUdfLimBiased <= xex) || ((-spec.exMin).U < io.xint) || io.x.inf)
+
+  val zex = Mux(znan || zinf, Fill(exW, 1.U(1.W)),
+            Mux(zzero, 0.U(exW.W),
+                zex0))
+
+  val zIsNonTable = znan || zinf || zzero
+
+  io.zother.zex         := ShiftRegister(zex,   nStage)
+  io.zother.znan        := ShiftRegister(znan,  nStage)
+  io.zother.zinf        := ShiftRegister(zinf,  nStage)
+  io.zother.zzero       := ShiftRegister(zzero, nStage)
+  io.zother.zIsNonTable := ShiftRegister(zIsNonTable, nStage)
+}
