@@ -107,9 +107,18 @@ class ExpPreProcess(
   val xman = xprodRounded(manW+extraMan-1, 0)
   val xex  = xex0 + xprodMoreThan2AfterRounded + xprodMoreThan2
 
-  assert(!(xprodMoreThan2AfterRounded && xprodMoreThan2))
+  assert(xprodMoreThan2AfterRounded +& xprodMoreThan2 =/= 2.U)
 
-  io.xexd := xprodMoreThan2AfterRounded + xprodMoreThan2
+  val xexd0 = xprodMoreThan2AfterRounded + xprodMoreThan2
+  io.xexd := ShiftRegister(xexd0, nStage)
+
+//   printf("-------------------------\n")
+//   printf("PreProc: x     = %b|%b(%d)|%b\n", xsgn, xex0, xex0, xman0)
+//   printf("PreProc: xman0 = %b\n", xman0)
+//   printf("PreProc: xman  = %b\n", xman)
+//   printf("PreProc: xex0  = %b\n", xex0)
+//   printf("PreProc: xex   = %b\n", xex)
+//   printf("PreProc: xexd  = %b\n", xexd0)
 
   // --------------------------------------------------------------------------
   // do the same thing as pow2
@@ -123,17 +132,26 @@ class ExpPreProcess(
   val xValRounded = (xValShifted >> 1.U) + xValShifted(0)
   // xVal becomes 0 if xint is large enough.
   // To check zinf correctly, we need to output (x*log2e).ex and pass it to OtherPath.
+//   printf("PreProc: xVal = %b\n", xVal)
+//   printf("PreProc: xRounded = %b\n", xValRounded)
 
   val xint0  = xValRounded(xIntW+xFracW-1, xFracW)
   val xfrac0 = xValRounded(xFracW-1, 0)
+//   printf("PreProc: xint0 = %b\n", xint0)
+//   printf("PreProc: xfrac0= %b\n", xfrac0)
 
   // if xsgn == 1, we negate xint to calculate exbias. but we later do that in
-  // Pow2OtherPath.
-  val xint = xint0 + (xsgn.asBool && (xfrac0 =/= 0.U)).asUInt
-  io.xint := ShiftRegister(xint, nStage)
+  // ExpOtherPath.
+  // To avoid overflow, we need to extend the width here. Since xintW is smaller
+  // than exW, this operation is safe. TODO: check if any parameter breaks this
+  // relationship.
+  val xint = xint0 +& (xsgn.asBool && (xfrac0 =/= 0.U)).asUInt
+  io.xint := ShiftRegister(xint(exW-1, 0), nStage)
 
   val xfracNeg = (1<<xFracW).U((xFracW+1).W) - xfrac0
   val xfrac = Mux(xsgn === 0.U, xfrac0, xfracNeg(xFracW-1, 0))
+//   printf("PreProc: xint  = %b\n", xint)
+//   printf("PreProc: xfrac = %b\n", xfrac)
 
   val adr0 = xfrac(xFracW-1, (xFracW-1)-adrW+1)
   io.adr := ShiftRegister(adr0, nStage)
@@ -175,11 +193,11 @@ class ExpOtherPath(
   // calc zex
 
   val log2 = (a:Double) => {log(a) / log(2.0)}
-  val xExOvfLimit = math.ceil(log2(maskL(exW)-exBias)).toInt // log2(255-127 = 128) = 7
-  val xExUdfLimit = math.ceil(log2(abs(0 - exBias)  )).toInt // log2(|0-127| = 127) > 6
+  val xExOvfLimit = math.ceil(log2( spec.exMax)).toInt
+  val xExUdfLimit = math.ceil(log2(-spec.exMin)).toInt
 
-  assert(pow(2.0,  spec.exMax) < exp(pow(2.0, xExOvfLimit)))
-  assert(pow(2.0, -spec.exMin) < exp(pow(2.0, xExUdfLimit)))
+  println(f"expother.xexOvflimit = ${xExOvfLimit}")
+  println(f"expother.xexUdflimit = ${xExUdfLimit}")
 
   val xExOvfLimBiased = (xExOvfLimit + exBias).U(exW.W)
   val xExUdfLimBiased = (xExUdfLimit + exBias).U(exW.W)
@@ -189,12 +207,17 @@ class ExpOtherPath(
   val zex0   = Mux(io.x.sgn === 0.U, zexPos(exW-1, 0), zexNeg(exW-1, 0))
 
   val xex = io.x.ex + io.xexd
+//   printf("OtherPath: x     = %b|%b(%d)|%b\n", io.x.sgn, io.x.ex, io.x.ex, io.x.man)
+//   printf("OtherPath: xexd  = %b\n", io.xexd)
+//   printf("OtherPath: xex   = %b\n", xex)
 
   val znan  = io.x.nan
   val zinf  = (io.x.sgn === 0.U) &&
     ((xExOvfLimBiased <= xex) || (  spec.exMax.U  < io.xint) || io.x.inf)
   val zzero = (io.x.sgn === 1.U) &&
     ((xExUdfLimBiased <= xex) || ((-spec.exMin).U < io.xint) || io.x.inf)
+//   printf("OtherPath: zzero = %b\n", xex)
+//   printf("OtherPath: 7<xex = %b\n", (xExUdfLimBiased <= xex))
 
   val zex = Mux(znan || zinf, Fill(exW, 1.U(1.W)),
             Mux(zzero, 0.U(exW.W),
