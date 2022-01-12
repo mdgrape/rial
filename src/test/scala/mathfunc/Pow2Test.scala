@@ -129,9 +129,9 @@ class MathFuncPow2Test extends FlatSpec
   }
 
   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
-    "Test Safe Positive [1, 127]", generateRealWithin(1.0, 127.0,_,_))
+    "Test Safe Positive [1, 128]", generateRealWithin(1.0, 129.0,_,_))
   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
-    "Test Safe Negative [-126, -1]", generateRealWithin(-126.0, -1.0,_,_))
+    "Test Safe Negative [-127, -1]", generateRealWithin(-129.0, -1.0,_,_))
 
   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
     "Test Large Positive [127, inf]", generateRealWithin(127.0, Double.PositiveInfinity,_,_), /*disableTimeout = */ true)
