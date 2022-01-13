@@ -17,6 +17,11 @@ object ScalaTestUtil {
     new RealGeneric (spec, (x.value & (maskSL(spec.exW+1)<<spec.manW)) + SafeLong(BigInt(spec.manW, r)))
   }
 
+  def generateRealWithin( from: Double, to: Double, spec: RealSpec, r: Random ) = {
+    val rD : Double = (r.nextDouble())*(to - from) + from
+    new RealGeneric(spec, rD)
+  }
+
   def generateRealFull ( spec: RealSpec, r : Random ) = {
     new RealGeneric (spec, SafeLong(BigInt(spec.W, r)))
   }
