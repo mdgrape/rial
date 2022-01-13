@@ -57,7 +57,12 @@ class Pow2PreProcess(
 
     // LSB of fractional part of x, for zman correction
     val xfracLSBs = if(padding != 0) {Some(Output(UInt(padding.W)))} else {None}
+
+    // Used in ExpPreProcess, but not used here. Always zero.
+    val xexd = Output(UInt(1.W))
   })
+
+  io.xexd := 0.U(1.W)
 
   val (xsgn, xex, xman) = FloatChiselUtil.decompose(spec, io.x)
 
@@ -209,13 +214,13 @@ class Pow2OtherPath(
   val io = IO(new Bundle {
     val x           = Flipped(new DecomposedRealOutput(spec))
     val xint        = Input(UInt(exW.W))
+    val xexd        = Input(UInt(1.W)) // used in ExpPreProcess.
     val zother      = new Pow2NonTableOutput(spec)
   })
 
   // --------------------------------------------------------------------------
   // calc zex
 
-  // if xex exceeds this, the result overflows
   val log2 = (a:Double) => {log(a) / log(2.0)}
   val xExOvfLimit = math.ceil(log2( spec.exMax)).toInt // ceil(log2(128)) = 7
   val xExUdfLimit = math.ceil(log2(-spec.exMin)).toInt // ceil(log2(127)) = 7
@@ -227,11 +232,13 @@ class Pow2OtherPath(
   val zexNeg = exBias.U(exW.W) -& io.xint
   val zex0   = Mux(io.x.sgn === 0.U, zexPos(exW-1, 0), zexNeg(exW-1, 0))
 
+  val xex = io.x.ex + io.xexd
+
   val znan  = io.x.nan
   val zinf  = (io.x.sgn === 0.U) &&
-    ((xExOvfLimBiased <= io.x.ex) || (  spec.exMax.U  < io.xint) || io.x.inf)
+    ((xExOvfLimBiased <= xex) || (  spec.exMax.U  < io.xint) || io.x.inf)
   val zzero = (io.x.sgn === 1.U) &&
-    ((xExUdfLimBiased <= io.x.ex) || ((-spec.exMin).U < io.xint) || io.x.inf)
+    ((xExUdfLimBiased <= xex) || ((-spec.exMin).U < io.xint) || io.x.inf)
 
   val zex = Mux(znan || zinf, Fill(exW, 1.U(1.W)),
             Mux(zzero, 0.U(exW.W),
