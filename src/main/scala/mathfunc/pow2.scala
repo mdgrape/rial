@@ -86,7 +86,7 @@ class Pow2PreProcess(
 
   // if xsgn == 1, we negate xint to calculate exbias. but we later do that in
   // Pow2OtherPath.
-  val xint = xint0 + (xsgn.asBool && (xfrac0 =/= 0.U)).asUInt
+  val xint = xint0 +& (xsgn.asBool && (xfrac0 =/= 0.U)).asUInt
   io.xint := ShiftRegister(xint, nStage)
 
   val xfracNeg = (1<<xFracW).U((xFracW+1).W) - xfrac0

@@ -202,7 +202,6 @@ class MathFunctions(
   atan2Stage2Other.io.flags := atan2FlagReg
 
   val expPre    = Module(new ExpPreProcess  (spec, polySpec, stage))
-  val expOther  = Module(new ExpOtherPath   (spec, polySpec, stage))
   val pow2Pre   = Module(new Pow2PreProcess (spec, polySpec, stage))
   val pow2Tab   = Module(new Pow2TableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
   val pow2Other = Module(new Pow2OtherPath  (spec, polySpec, stage))
@@ -210,12 +209,10 @@ class MathFunctions(
 
   expPre.io.x       := io.x
   pow2Pre.io.x      := io.x
-  pow2Tab.io.adr    := Mux(io.sel === SelectFunc.Pow2, pow2Pre.io.adr,  expPre.io.adr)
+  pow2Tab.io.adr    := Mux(io.sel === SelectFunc.Pow2, pow2Pre.io.adr, expPre.io.adr)
   pow2Other.io.x    := xdecomp.io.decomp
-  pow2Other.io.xint := pow2Pre.io.xint
-  expOther.io.x     := xdecomp.io.decomp
-  expOther.io.xint  := expPre.io.xint
-  expOther.io.xexd  := expPre.io.xexd
+  pow2Other.io.xint := Mux(io.sel === SelectFunc.Pow2, pow2Pre.io.xint, expPre.io.xint)
+  pow2Other.io.xexd := ((io.sel === SelectFunc.Exp) && expPre.io.xexd.asBool).asUInt
 
   if(pow2Pre.io.xfracLSBs.isDefined) {
     assert(expPre.io.xfracLSBs.isDefined)
@@ -298,7 +295,7 @@ class MathFunctions(
   atan2Stage2Post.io.zres   := polynomialEval.io.result
   atan2Stage2Post.io.flags  := atan2FlagReg // TODO keep the value in frag reg
 
-  pow2Post.io.zother := Mux(io.sel === SelectFunc.Pow2, pow2Other.io.zother, expOther.io.zother)
+  pow2Post.io.zother := pow2Other.io.zother
   pow2Post.io.zres   := polynomialEval.io.result
 
   val z0 = MuxCase(0.U, Seq(
