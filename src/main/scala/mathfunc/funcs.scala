@@ -216,7 +216,7 @@ class MathFunctions(
 
   if(pow2Pre.io.xfracLSBs.isDefined) {
     assert(expPre.io.xfracLSBs.isDefined)
-    pow2Post.io.xfracLSBs.get := Mux(io.sel === SelectFunc.Pow2,
+    pow2Other.io.xfracLSBs.get := Mux(io.sel === SelectFunc.Pow2,
       pow2Pre.io.xfracLSBs.get, expPre.io.xfracLSBs.get)
   }
 
@@ -295,6 +295,9 @@ class MathFunctions(
   atan2Stage2Post.io.zres   := polynomialEval.io.result
   atan2Stage2Post.io.flags  := atan2FlagReg // TODO keep the value in frag reg
 
+  if(pow2Pre.io.xfracLSBs.isDefined) {
+    pow2Post.io.zCorrCoef.get := pow2Other.io.zCorrCoef.get
+  }
   pow2Post.io.zother := pow2Other.io.zother
   pow2Post.io.zres   := polynomialEval.io.result
 

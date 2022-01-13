@@ -209,14 +209,42 @@ class Pow2OtherPath(
   val manW   = spec.manW
   val exBias = spec.exBias
 
-  val padding = exBias
+  val extraBits = polySpec.extraBits
+  val padding = extraBits
+
+  val zCorrTmpW = 10 // XXX see pow2Sim
 
   val io = IO(new Bundle {
-    val x           = Flipped(new DecomposedRealOutput(spec))
-    val xint        = Input(UInt(exW.W))
-    val xexd        = Input(UInt(1.W)) // used in ExpPreProcess.
-    val zother      = new Pow2NonTableOutput(spec)
+    val x         = Flipped(new DecomposedRealOutput(spec))
+    val xint      = Input(UInt(exW.W))
+    val xexd      = Input(UInt(1.W)) // used in ExpPreProcess.
+    // for z correction
+    val xfracLSBs = if(padding != 0) {Some(Input (UInt(padding.W  )))} else {None}
+    val zCorrCoef = if(padding != 0) {Some(Output(UInt(zCorrTmpW.W)))} else {None}
+    // normal output
+    val zother    = new Pow2NonTableOutput(spec)
   })
+
+  // --------------------------------------------------------------------------
+  // calc first half of zCorrection = z * xfracLSBs * ln2
+  //                                      ^^^^^^^^^^^^^^^ this part
+  //
+  // note: z isn't calculated yet, so here we can only calculate xfracLSBs * ln2
+  if(padding != 0) {
+    val ln2         = new RealGeneric(spec, log(2.0))
+    val coefficient = ln2.manW1.toLong.U((1+manW).W)
+
+    val xfracLSBs  = io.xfracLSBs.get
+    val zCorrCoef0 = coefficient * xfracLSBs
+    val zCorrCoefW = 1 + manW + padding
+    val zCorrCoef  = zCorrCoef0(zCorrCoefW-1, zCorrCoefW-zCorrTmpW)
+
+    assert(zCorrCoef.getWidth  == zCorrTmpW)
+    assert(xfracLSBs.getWidth  == padding)
+    assert(zCorrCoef0.getWidth == zCorrCoefW)
+
+    io.zCorrCoef.get := ShiftRegister(zCorrCoef, nStage)
+  }
 
   // --------------------------------------------------------------------------
   // calc zex
@@ -282,13 +310,15 @@ class Pow2PostProcess(
 
   val padding = extraBits
 
+  val zCorrTmpW = 10 // XXX see pow2Sim
+
   val io = IO(new Bundle {
     // ex and some flags
     val zother = Flipped(new Pow2NonTableOutput(spec))
     // table interpolation results
     val zres   = Input(UInt(fracW.W))
     // for z correction
-    val xfracLSBs = if(padding != 0) {Some(Input(UInt(padding.W)))} else {None}
+    val zCorrCoef = if(padding != 0) {Some(Input(UInt(zCorrTmpW.W)))} else {None}
     // output
     val z      = Output(UInt(spec.W.W))
   })
@@ -302,16 +332,7 @@ class Pow2PostProcess(
   val zCorrection = Wire(UInt(1.W))
 
   if(padding != 0) {
-    val zCorrTmpW   = 10 // XXX see pow2Sim
-    val ln2         = new RealGeneric(spec, log(2.0))
-    val coefficient = ln2.manW1.toLong.U((1+manW).W)
-
-    val xfracLSBs = io.xfracLSBs.get
-    val zCorrCoef0 = coefficient * xfracLSBs
-    val zCorrCoefW = 1 + manW + padding
-    val zCorrCoef  = zCorrCoef0(zCorrCoefW-1, zCorrCoefW-zCorrTmpW)
-    assert(zCorrCoef.getWidth == zCorrTmpW)
-
+    val zCorrCoef  = io.zCorrCoef.get
     val zCorrTerm0 = Cat(1.U(1.W), zman0) * zCorrCoef
     val zCorrTermW = 1 + manW + zCorrTmpW
     val zCorrTerm  = zCorrTerm0(zCorrTermW-1, zCorrTermW-zCorrTmpW)
