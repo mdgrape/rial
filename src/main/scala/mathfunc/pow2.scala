@@ -217,8 +217,8 @@ class Pow2OtherPath(
 
   // if xex exceeds this, the result overflows
   val log2 = (a:Double) => {log(a) / log(2.0)}
-  val xExOvfLimit = math.ceil(log2(maskL(exW)-exBias)).toInt // log2(255-127 = 128) = 7
-  val xExUdfLimit = math.ceil(log2(abs(0 - exBias)  )).toInt // log2(|0-127| = 127) > 6
+  val xExOvfLimit = math.ceil(log2( spec.exMax)).toInt // ceil(log2(128)) = 7
+  val xExUdfLimit = math.ceil(log2(-spec.exMin)).toInt // ceil(log2(127)) = 7
 
   val xExOvfLimBiased = (xExOvfLimit + exBias).U(exW.W)
   val xExUdfLimBiased = (xExUdfLimit + exBias).U(exW.W)
