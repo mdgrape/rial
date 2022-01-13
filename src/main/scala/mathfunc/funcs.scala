@@ -30,7 +30,8 @@ object SelectFunc {
   val ATan2Stage2 =  8.U(W.W)
   val Pow2        =  9.U(W.W)
   val Exp         = 10.U(W.W)
-  val Log         = 11.U(W.W)
+  val Log2        = 11.U(W.W)
+  val Log         = 12.U(W.W)
 }
 
 class DecomposedRealOutput(val spec: RealSpec) extends Bundle {
