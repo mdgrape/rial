@@ -100,6 +100,17 @@ class Log2Sim( val spec : RealSpec, val nOrder : Int, val aW : Int, extraBits : 
   }
 }
 
+object Log2Sim {
+  def log2TableGeneration(order: Int, adrW: Int, manW: Int, fracW: Int,
+      calcWidthSetting: Option[Seq[Int]] = None,
+      cbitSetting: Option[Seq[Int]] = None
+    ) = {
+    val tableD = new FuncTableDouble( x => log(1.0+x)/log(2.0), order )
+    tableD.addRange(0.0, 1.0, 1<<adrW)
+    new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
+  }
+}
+
 class Log2F32Sim extends Log2Sim( RealSpec.Float32Spec, 2, 8, 2 ) { }
 class Log2BF16Sim extends Log2Sim( RealSpec.BFloat16Spec, 0, 7, 3 ) { }
 
