@@ -76,10 +76,10 @@ object MathFuncLog2Sim {
     // --------------------------------------------------------------------------
 
     val xexNobias = x.ex.toLong - exBias.toLong
-    val xint0     = if(xexNobias >= 0) {xexNobias} else {-xexNobias - 1}
+    val zint0     = if(xexNobias >= 0) {xexNobias} else {-xexNobias - 1}
 
 //     println(f"xexNobias = ${xexNobias}")
-//     println(f"xint0     = ${xint0}")
+//     println(f"zint0     = ${zint0}")
 
     // --------------------------------------------------------------------------
     // polynomial
@@ -90,12 +90,12 @@ object MathFuncLog2Sim {
 
     val zfrac0Pos = t.interval(adr.toInt).eval(d.toLong, dxbp)
     val zfrac0 = if(xexNobias >= 0) {zfrac0Pos} else {(1<<fracW) - zfrac0Pos}
-//     println(f"zfrac0Pos = ${zfrac0Pos.toBinaryString}")
-//     println(f"zfrac0    = ${zfrac0.toBinaryString   }")
+//     println(f"s: zfrac0Pos = ${zfrac0Pos.toBinaryString}")
+//     println(f"s: zfrac0    = ${zfrac0.toBinaryString   }")
 
     assert(0L <= zfrac0 && zfrac0 < (1L<<fracW))
 
-    val zfull0 = (xint0 << fracW) + zfrac0.toLong
+    val zfull0 = (zint0 << fracW) + zfrac0.toLong
 //     println(f"zfull0  = ${zfull0.toBinaryString }")
     assert(0 <= zfull0)
 
