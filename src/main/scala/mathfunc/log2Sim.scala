@@ -41,6 +41,8 @@ object MathFuncLog2Sim {
     val fracW     = t.bp
     val extraBits = fracW - manW
 
+    val log2 = (a:Double) => {log(a) / log(2.0)}
+
 //     println(f"x = ${x.sgn}|${x.ex}(${x.ex})|${x.man.toLong.toBinaryString}")
 //     println(f"Log2Sim: x = ${x.toDouble}, log2(x) = ${log2(x.toDouble)}")
 
@@ -73,8 +75,11 @@ object MathFuncLog2Sim {
 
     // --------------------------------------------------------------------------
 
-    val xexNobias = x.ex - exBias
-    val xint0  = abs(xexNobias)
+    val xexNobias = x.ex.toLong - exBias.toLong
+    val xint0     = if(xexNobias >= 0) {xexNobias} else {-xexNobias - 1}
+
+//     println(f"xexNobias = ${xexNobias}")
+//     println(f"xint0     = ${xint0}")
 
     // --------------------------------------------------------------------------
     // polynomial
@@ -84,32 +89,46 @@ object MathFuncLog2Sim {
     val adr  = slice(dxbp+1, adrW,   x.man)
 
     val zfrac0Pos = t.interval(adr.toInt).eval(d.toLong, dxbp)
-    val zfrac0 = if(xexNobias < 0) {zfrac0Pos} else {-zfrac0Pos}
+    val zfrac0 = if(xexNobias >= 0) {zfrac0Pos} else {(1<<fracW) - zfrac0Pos}
+//     println(f"zfrac0Pos = ${zfrac0Pos.toBinaryString}")
+//     println(f"zfrac0    = ${zfrac0.toBinaryString   }")
 
-    val zfull0 = (xint0 << (manW+extraBits)) + zfrac0
-    assert(zfull0 >= 0)
+    assert(0L <= zfrac0 && zfrac0 < (1L<<fracW))
+
+    val zfull0 = (xint0 << fracW) + zfrac0.toLong
+//     println(f"zfull0  = ${zfull0.toBinaryString }")
+    assert(0 <= zfull0)
 
     val zfullW  = zfull0.toBinaryString.length
-    val zShiftW = exW + manW + extraBits - zfullW
-    assert(zShiftW > 0)
+    val zShiftW = exW + fracW - zfullW
+//     println(f"zfullW  = ${zfullW }")
+//     println(f"zShiftW = ${zShiftW}")
+    assert(0 <= zShiftW)
 
     val zShifted = zfull0 << zShiftW
-    assert(bit(exW + manW + extraBits - 1, zShifted) == 1)
+//     println(f"zShifted = ${zShifted.toBinaryString }")
+    assert(bit(exW + fracW - 1, zShifted) == 1)
 
-    val zman0 = slice(exW + extraBits - 2, manW, zShifted)
-    val zex0  = exBias - (exW-1) + zShiftW
+    val zman0       = slice(exW-1, fracW, zShifted) // -1 for the hidden bit
+    val zmanRounded = slice(extraBits, manW, zman0) + bit(extraBits-1, zman0)
+//     println(f"zman0 = ${zman0.toBinaryString }")
+//     println(f"zmanR = ${zmanRounded.toBinaryString }")
 
-    val zman = if (zman0<0) {
+    val zex0  = exBias + (exW-1) - zShiftW
+
+    val zman = if (zmanRounded<0) {
       println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=$x%h")
       0L
-    } else if (zman0 >= (1L<<manW)) {
+    } else if (zmanRounded >= (1L<<manW)) {
       println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=$x%h")
       maskL(manW)
     } else {
-      zman0.toLong
+      zmanRounded.toLong
     }
     val zex = zex0.toInt
 
-    new RealGeneric(x.spec, 0, zex, SafeLong(zman))
+    val zsgn = if(x.ex < exBias) {1} else {0}
+
+    new RealGeneric(x.spec, zsgn, zex, SafeLong(zman))
   }
 }
