@@ -228,6 +228,7 @@ class MathFunctions(
   log2Pre.io.x      := io.x
   log2Tab.io.adr    := log2Pre.io.adr
   log2Other.io.x    := xdecomp.io.decomp
+  log2Post.io.x     := xdecomp.io.decomp
 
   // ------------------------------------------------------------------------
   //                  now we are here
@@ -270,7 +271,7 @@ class MathFunctions(
     (io.sel === SelectFunc.ATan2Stage2) -> atan2Stage2Tab.io.cs.cs,
     (io.sel === SelectFunc.Pow2)        -> pow2Tab   .io.cs.cs,
     (io.sel === SelectFunc.Exp)         -> pow2Tab   .io.cs.cs, // same as pow2
-    (io.sel === SelectFunc.Log2)        -> pow2Tab   .io.cs.cs
+    (io.sel === SelectFunc.Log2)        -> log2Tab   .io.cs.cs
   ))
 
   //                                         we are here
