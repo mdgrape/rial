@@ -49,8 +49,6 @@ class MathFuncLog2SimTest extends FunSuite with BeforeAndAfterAllConfigMap {
 
       val log2 = (a:Double) => {log(a) / log(2.0)}
 
-//       val libc = Native.loadLibrary("c", classOf[libc]).asInstanceOf[libc]
-
       var maxError    = 0.0
       var xatMaxError = 0.0
       var zatMaxError = 0.0
@@ -64,13 +62,6 @@ class MathFuncLog2SimTest extends FunSuite with BeforeAndAfterAllConfigMap {
       for(i <- 1 to n) {
         val x  = generator(spec,r)
         val x0 = x.toDouble
-
-//         val z0   = libc.powf(2.0f, x0)
-//         val z0b  = java.lang.Float.floatToIntBits(z0)
-//         val z0sgn = bit(31, z0b)
-//         val z0ex  = slice(spec.manW, spec.exW,  z0b)
-//         val z0man = slice(0,         spec.manW, z0b)
-//         val z0r  = new RealGeneric(spec, z0sgn, z0ex, z0man)
 
         val z0   = log2(x0)
         val z0r  = new RealGeneric(spec, z0)
