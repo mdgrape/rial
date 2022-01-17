@@ -168,7 +168,7 @@ object MathFuncExpSim {
 
     val zmanCorrected = zmanRound + zCorrectionShifted
 
-    val z = if (zman<0) {
+    val z = if (zmanCorrected<0) {
       println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=$x%h")
       0L
     } else if (zmanCorrected >= (1L<<manW)) {
