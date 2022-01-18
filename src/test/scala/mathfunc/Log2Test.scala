@@ -90,7 +90,9 @@ class MathFuncLog2Test extends FlatSpec
           val maxCalcW   = c.getMaxCalcW
           val nstage     = c.getStage
           val reftable   = Log2Sim.log2TableGeneration(
-            2, 8, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+2)
+            2, 8, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+2,
+            Some(Seq(27, 21, 20)), Some(Seq(27, 22, 20)))
+
           val reference  = MathFuncLog2Sim.log2SimGeneric(reftable, _ )
 
           val q  = new Queue[(BigInt,BigInt)]
