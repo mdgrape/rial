@@ -101,16 +101,17 @@ object MathFuncLog2Sim {
 
     val zfullW  = zfull0.toBinaryString.length
     val zShiftW = exW + fracW - zfullW
-//     println(f"zfullW  = ${zfullW }")
-//     println(f"zShiftW = ${zShiftW}")
+//     println(f"s: zfullW  = ${zfullW }")
+//     println(f"s: zShiftW = ${zShiftW}")
     assert(0 <= zShiftW)
 
     val zShifted = zfull0 << zShiftW
-//     println(f"zShifted = ${zShifted.toBinaryString }")
+//     println(f"s: zShifted = ${zShifted.toBinaryString }")
     assert(bit(exW + fracW - 1, zShifted) == 1)
 
     val zman0       = slice(exW-1, fracW, zShifted) // -1 for the hidden bit
     val zmanRounded = slice(extraBits, manW, zman0) + bit(extraBits-1, zman0)
+//     println(f"s: zman0 = ${slice(extraBits, manW, zman0).toBinaryString } + ${bit(extraBits-1, zman0)}")
 //     println(f"zman0 = ${zman0.toBinaryString }")
 //     println(f"zmanR = ${zmanRounded.toBinaryString }")
 

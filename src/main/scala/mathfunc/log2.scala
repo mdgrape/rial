@@ -149,7 +149,6 @@ class Log2NonTableOutput(val spec: RealSpec) extends Bundle {
 
   val zsgn  = Output(UInt(1.W))
   val zint  = Output(UInt(spec.exW.W))
-  val zex   = Output(UInt((log2Ceil(spec.exW)+1).W))
   val znan  = Output(Bool())
   val zinf  = Output(Bool())
   val zzero = Output(Bool())
@@ -190,19 +189,17 @@ class Log2OtherPath(
   // log2(ex) - 1 <  zex                < log2(ex + 1)
   //
   val xexPos = io.x.ex - exBias.U // ==  x
-  val xexNeg = exBias.U - io.x.ex // == -x == abs(x)
+  val xexNeg = (exBias-1).U - io.x.ex // == -x == abs(x)
   val xexPosW = PriorityEncoder(xexPos)
   val xexNegW = PriorityEncoder(xexNeg)
 
   // integer part of z (fractional part is calculated in polynomial module)
   val zint = Mux(io.x.sgn === 0.U, xexPos, xexNeg)
-  val zex0 = Mux(io.x.ex === exBias.U, 0.U, Mux(io.x.sgn === 0.U, xexPosW, xexNegW))
 
   // TODO: If xexNobias === 0 or -1, we need to count zeros in MSB.
   //       And, to determine `shift` in postprocess, we need to pass it to post.
 
   io.zother.zint := ShiftRegister(zint, nStage)
-  io.zother.zex  := ShiftRegister(zex0, nStage)
 
   // --------------------------------------------------------------------------
   // check special value
@@ -265,26 +262,34 @@ class Log2PostProcess(
     val z      = Output(UInt(spec.W.W))
   })
 
-
   // --------------------------------------------------------------------------
   // z is large enough (xex != 0, -1)
 
-  val zint0  = io.zother.zint
+  val zint   = io.zother.zint
   val zfrac0 = io.zres
+  val zfrac  = Mux(io.x.ex >= exBias.U, zfrac0, (~zfrac0) + 1.U)
+
+//   printf("c: zfrac0 = %b\n", zfrac0)
+//   printf("c: zfrac  = %b\n", zfrac )
 
   // z = log2(2^xex * 1.xman)
   //   = xex + log2(1.xman)
   // if xex < 0, we need to subtract log2(1.xman) from |xex| and set sgn to 1
 
-  val zNum = Mux(io.x.ex < exBias.U, Cat(zint0,      zfrac0),
-                                     Cat(zint0-1.U, ~zfrac0+1.U))
+  val log2 = (a:Double) => {log(a) / log(2.0)}
 
-  val zShiftW  = PriorityEncoder(Reverse(zNum))
-  val zShifted = zNum << zShiftW
-  val zman0    = zShifted(fracW+exW-2, fracW+exW-1 - manW)
-  val zex0     = (exBias - exW).U - zShiftW
+  val zFull    = Cat(zint, zfrac)
+  val zShiftW  = Mux(zFull(exW+fracW-1) === 1.U, 0.U, PriorityEncoder(Reverse(zFull)))
+  val zShifted = zFull << zShiftW
+//   printf("c: zfull    = %b\n", zfrac )
+//   printf("c: zshiftW  = %b\n", zfrac )
+//   printf("c: zshifted = %b\n", zShifted )
 
-  assert(zShifted(fracW+exW-1) == 1.U)
+  assert(zShifted(fracW+exW-1) === 1.U)
+
+//   printf("c: zman0 = %b + %b\n", zShifted(fracW+exW-2, fracW+exW-1-manW), zShifted(fracW+exW-1-manW-1))
+  val zman0    = zShifted(fracW+exW-2, fracW+exW-1-manW) + zShifted(fracW+exW-1-manW-1)
+  val zex0     = (exBias + exW - 1).U - zShiftW
 
   // --------------------------------------------------------------------------
 
