@@ -90,13 +90,14 @@ object MathFuncLog2Sim {
     // taylor
     //
     // log(1+x) = x/ln(2) - x^2/2ln(2) + x^3/3ln(2) + O(x^4)
-    //          = x(1 - x/2 + x^3/3) / ln(2)
+    //          = x(1 - x/2 + x^2/3) / ln(2)
     //
-    // if x < 2^-8, then x^3 < 2^-24
-    // use x(1 - x/2)ln(2)
+    // if x < 2^-12, then x^2 < 2^-24
+    // use x(1 - x/2)/ln(2)
+    //    -x(1 + x/2)/ln(2)
 
-    val xman = x.man.toLong // x - 1
-    if(xexNobias == 0 && xman < (1 << (manW-8))) {
+    if(xexNobias == 0 && x.man.toLong < (1L << (manW-12))) {
+      val xman = x.man.toLong // x - 1
 
       val invln2 = math.round((1.0 / log(2.0)) * (1 << (manW+extraBits))).toLong // > 1
       val xmanbp = xman.toBinaryString.length
