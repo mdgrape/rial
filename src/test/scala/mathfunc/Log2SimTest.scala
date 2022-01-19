@@ -97,9 +97,9 @@ class MathFuncLog2SimTest extends FunSuite with BeforeAndAfterAllConfigMap {
 
             if(erri.abs>2.0) {
               println(f"test: x   = ${x0}(${x.sgn}|${x.ex}(${x.ex-x.spec.exBias})|${x.man.toLong.toBinaryString})")
-              println(f"test: ref = ${z0}(${zrefsgn}|${zrefexp}(${zrefexp-x.spec.exBias})|${zrefman.toLong.toBinaryString})")
-              println(f"test: sim = ${zd}(${zsimsgn}|${zsimexp}(${zsimexp-x.spec.exBias})|${zsimman.toLong.toBinaryString})")
-              println(f"test: test(${zsimsgn}|${zsimexp}(${zsimexp - spec.exBias})|${zsimman.toLong.toBinaryString}(${zsimman.toLong}%x)) != ref(${zrefsgn}|${zrefexp}(${zrefexp - spec.exBias})|${zrefman.toLong.toBinaryString}(${zrefman.toLong}%x))")
+              println(f"test: ref = ${z0}%16g(${zrefsgn}|${zrefexp}(${(zrefexp-x.spec.exBias).toInt}%4d)|${zrefman.toLong.toBinaryString})")
+              println(f"test: sim = ${zd}%16g(${zsimsgn}|${zsimexp}(${(zsimexp-x.spec.exBias).toInt}%4d)|${zsimman.toLong.toBinaryString})")
+//               println(f"test: test(${zsimsgn}|${zsimexp}(${zsimexp - spec.exBias})|${zsimman.toLong.toBinaryString}(${zsimman.toLong}%x)) != ref(${zrefsgn}|${zrefexp}(${zrefexp - spec.exBias})|${zrefman.toLong.toBinaryString}(${zrefman.toLong}%x))")
             }
 
             if(erri > 2.0) {
