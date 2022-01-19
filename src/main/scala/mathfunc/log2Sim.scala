@@ -72,6 +72,9 @@ object MathFuncLog2Sim {
     if(xneg) {
       return RealGeneric.nan(x.spec)
     }
+    if(x.ex == exBias && x.man == 0) {
+      return RealGeneric.zero(x.spec)
+    }
 
     val zsgn = if(x.ex < exBias) {1} else {0}
 
@@ -93,11 +96,7 @@ object MathFuncLog2Sim {
     // use x(1 - x/2)ln(2)
 
     val xman = x.man.toLong // x - 1
-    if((xexNobias == 0 || xexNobias == -1) && xman < (1 << (manW-8))) {
-
-      if(xman == 0) {
-        return RealGeneric.zero(x.spec)
-      }
+    if(xexNobias == 0 && xman < (1 << (manW-8))) {
 
       val invln2 = math.round((1.0 / log(2.0)) * (1 << (manW+extraBits))).toLong // > 1
       val xmanbp = xman.toBinaryString.length
