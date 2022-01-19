@@ -73,6 +73,8 @@ object MathFuncLog2Sim {
       return RealGeneric.nan(x.spec)
     }
 
+    val zsgn = if(x.ex < exBias) {1} else {0}
+
     // --------------------------------------------------------------------------
 
     val xexNobias = x.ex.toLong - exBias.toLong
@@ -80,6 +82,54 @@ object MathFuncLog2Sim {
 
 //     println(f"xexNobias = ${xexNobias}")
 //     println(f"zint0     = ${zint0}")
+
+    // --------------------------------------------------------------------------
+    // taylor
+    //
+    // log(1+x) = x/ln(2) - x^2/2ln(2) + x^3/3ln(2) + O(x^4)
+    //          = x(1 - x/2 + x^3/3) / ln(2)
+    //
+    // if x < 2^-8, then x^3 < 2^-24
+    // use x(1 - x/2)ln(2)
+
+    val xman = x.man.toLong // x - 1
+    if((xexNobias == 0 || xexNobias == -1) && xman < (1 << (manW-8))) {
+
+      if(xman == 0) {
+        return RealGeneric.zero(x.spec)
+      }
+
+      val invln2 = math.round((1.0 / log(2.0)) * (1 << (manW+extraBits))).toLong // > 1
+      val xmanbp = xman.toBinaryString.length
+      val xln2prod  = invln2 * xman // xmanbp+1+manW+extrabits
+      val xln2MoreThan2 = bit(xmanbp + manW + extraBits, xln2prod)
+      val xln2shift = (xmanbp-1) + xln2MoreThan2
+      val xln2      = xln2prod >> xln2shift
+
+//       println(f"x/ln2 = ${xln2.toLong.toBinaryString}")
+      assert(bit(manW+extraBits, xln2) == 1 && (xln2 >> (manW+extraBits+1)) == 0)
+
+      val oneMinusHalfx = (1L << (manW+extraBits)) - (xman << (extraBits-1)) // < 1
+
+//       println(f"oneMinusHalfx = ${oneMinusHalfx.toLong.toBinaryString}")
+      assert(bit(manW+extraBits-1, oneMinusHalfx) == 1 && slice(manW+extraBits, 64 - (manW+extraBits), oneMinusHalfx) == 0)
+
+      val resProd    = xln2 * oneMinusHalfx // W = 2 * (manW+extraBits) + 1
+//       println(f"resProd    = ${resProd.toLong.toBinaryString}")
+
+      val resProdMoreThan1 = bit(2*(manW+extraBits), resProd)
+      val resShift   = (manW + extraBits - 1 + resProdMoreThan1)
+      val resShifted = resProd >> resShift
+//       println(f"resShifted = ${resShifted.toLong.toBinaryString}")
+//       println(f"resProdMT1 = ${resProdMoreThan1}")
+      assert(bit(manW+extraBits, resShifted) == 1)
+      assert(resShifted >> (manW+extraBits+1) == 0)
+
+      val zmanTaylor = (resShifted >> extraBits) + bit(extraBits-1, resShifted)
+      val zexTaylor = -(manW - (xmanbp-1)) + xln2MoreThan2 - 1 + resProdMoreThan1
+
+      return new RealGeneric(x.spec, zsgn, zexTaylor.toInt + exBias, zmanTaylor)
+    }
 
     // --------------------------------------------------------------------------
     // polynomial
@@ -127,8 +177,6 @@ object MathFuncLog2Sim {
       zmanRounded.toLong
     }
     val zex = zex0.toInt
-
-    val zsgn = if(x.ex < exBias) {1} else {0}
 
     new RealGeneric(x.spec, zsgn, zex, SafeLong(zman))
   }
