@@ -161,6 +161,7 @@ object MathFuncLog2Sim {
       val xman = x.man.toLong // x - 1
       val xmanbp = xman.toBinaryString.length
 
+      val smallAdrW = 11
       // by doing this, the interpolation fails in case of xfrac << 1...
       val tablePosD = new FuncTableDouble( xfrac => {
         val x   = 1.0 + xfrac
@@ -169,12 +170,12 @@ object MathFuncLog2Sim {
         assert(0.25 < res && res < 1.0)
         res
       }, t.nOrder)
-      tablePosD.addRange(0.0, 1.0, 1<<adrW)
+      tablePosD.addRange(0.0, 1.0, 1<<smallAdrW)
       val tablePosI = new FuncTableInt( tablePosD, fracW )
 
-      val dxbp = manW-adrW-1
+      val dxbp = manW-smallAdrW-1
       val d    = slice(0,      dxbp+1, x.man) - (SafeLong(1) << dxbp)
-      val adr  = slice(dxbp+1, adrW,   x.man)
+      val adr  = slice(dxbp+1, smallAdrW,   x.man)
 
       val zfrac0 = tablePosI.interval(adr.toInt).eval(d.toLong, dxbp)
       val (zmanW10, zex0) = if(bit(fracW-1, zfrac0) == 1) {
