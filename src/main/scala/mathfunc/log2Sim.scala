@@ -155,6 +155,49 @@ object MathFuncLog2Sim {
     }
 
     // --------------------------------------------------------------------------
+    // polynomial (x is in [1, 2))
+
+    if(xexNobias == 0) {
+      val xman = x.man.toLong // x - 1
+      val xmanbp = xman.toBinaryString.length
+
+      // by doing this, the interpolation fails in case of xfrac << 1...
+      val tablePosD = new FuncTableDouble( xfrac => {
+        val x   = 1.0 + xfrac
+        val xex = floor(log2(xfrac)).toInt
+        val res = log2(x) * pow(2.0, -xex - 2)
+        assert(0.25 < res && res < 1.0)
+        res
+      }, t.nOrder)
+      tablePosD.addRange(0.0, 1.0, 1<<adrW)
+      val tablePosI = new FuncTableInt( tablePosD, fracW )
+
+      val dxbp = manW-adrW-1
+      val d    = slice(0,      dxbp+1, x.man) - (SafeLong(1) << dxbp)
+      val adr  = slice(dxbp+1, adrW,   x.man)
+
+      val zfrac0 = tablePosI.interval(adr.toInt).eval(d.toLong, dxbp)
+      val (zmanW10, zex0) = if(bit(fracW-1, zfrac0) == 1) {
+        (zfrac0 << 1, -(manW - xmanbp))
+      } else if(bit(fracW-2, zfrac0) == 1) {
+        (zfrac0 << 2, -(manW - xmanbp) - 1)
+      } else {
+        (zfrac0 << 3, -(manW - xmanbp) - 2)
+      }
+
+      val zmanW1 = (zmanW10 >> extraBits) + bit(extraBits-1, zmanW10)
+      val zMoreThan2 = bit(manW+1, zmanW1)
+      val zman      = if(zMoreThan2 == 1) {
+        slice(1, manW, zmanW1)
+      } else {
+        slice(0, manW, zmanW1)
+      }
+      val zex = zex0 + zMoreThan2
+
+      return new RealGeneric(x.spec, zsgn, zex.toInt + exBias, zman)
+    }
+
+    // --------------------------------------------------------------------------
     // polynomial
 
     val dxbp = manW-adrW-1
