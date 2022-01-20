@@ -22,7 +22,7 @@ import rial.arith._
 import rial.table._
 
 class MathFuncLog2SimTest extends FunSuite with BeforeAndAfterAllConfigMap {
-  var n = 1000000
+  var n = 10000
 
   override def beforeAll(configMap: ConfigMap) = {
     n = configMap.getOptional[String]("n").getOrElse("10000").toInt
@@ -147,11 +147,11 @@ class MathFuncLog2SimTest extends FunSuite with BeforeAndAfterAllConfigMap {
   log2Test(log2F32TableI, RealSpec.Float32Spec, n, r,
     "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_), 2)
   log2Test(log2F32TableI, RealSpec.Float32Spec, n, r,
-    "Test Small More Than 1 [1, 1+2^-12]",   generateRealWithin(1.0, 1.0+pow(2.0, -12),_,_), 2)
+    "Test Small More Than 1 [1, 1+2^-11]",   generateRealWithin(1.0, 1.0+pow(2.0, -11) - pow(2.0,-23),_,_), 2)
   log2Test(log2F32TableI, RealSpec.Float32Spec, n, r,
-    "Test Small More Than 1 [1-2^-12, 1]",   generateRealWithin(1.0-pow(2.0, -12), 1.0,_,_), 2)
+    "Test Small More Than 1 [1-2^-11, 1]",   generateRealWithin(1.0-pow(2.0, -11) + pow(2.0,-23), 1.0,_,_), 2)
   log2Test(log2F32TableI, RealSpec.Float32Spec, n, r,
-    "Test Small More Than 1 [1, 2]",   generateRealWithin(1.0, 2.0,_,_), 2)
+    "Test Small More Than 1 [1, 2]",   generateRealWithin(1.0+pow(2.0, -11), 2.0,_,_), 2)
 
   log2Test(log2F32TableI, RealSpec.Float32Spec, n, r,
     "Test Large Less Than 1 [0.5, 1]", generateRealWithin(0.5,1.0,_,_), 2)
