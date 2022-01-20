@@ -101,32 +101,26 @@ object MathFuncLog2Sim {
 
       val invln2 = math.round((1.0 / log(2.0)) * (1 << (manW+extraBits))).toLong // > 1
       val xmanbp = xman.toBinaryString.length
-      val xln2prod  = invln2 * xman // xmanbp+1+manW+extrabits
-      val xln2MoreThan2 = bit(xmanbp + manW + extraBits, xln2prod)
-      val xln2shift = (xmanbp-1) + xln2MoreThan2
-      val xln2      = xln2prod >> xln2shift
-
-//       println(f"x/ln2 = ${xln2.toLong.toBinaryString}")
-      assert(bit(manW+extraBits, xln2) == 1 && (xln2 >> (manW+extraBits+1)) == 0)
+//       assert(bit(manW+extraBits, xln2) == 1 && (xln2 >> (manW+extraBits+1)) == 0)
 
       val oneMinusHalfx = (1L << (manW+extraBits)) - (xman << (extraBits-1)) // < 1
 
-//       println(f"oneMinusHalfx = ${oneMinusHalfx.toLong.toBinaryString}")
+      val lntermProd      = xman * oneMinusHalfx
+      val lntermMoreThan2 = bit(xmanbp + manW + extraBits, lntermProd)
+      val lnterm          = lntermProd >> (xmanbp-1 + lntermMoreThan2)
+
       assert(bit(manW+extraBits-1, oneMinusHalfx) == 1 && slice(manW+extraBits, 64 - (manW+extraBits), oneMinusHalfx) == 0)
 
-      val resProd    = xln2 * oneMinusHalfx // W = 2 * (manW+extraBits) + 1
-//       println(f"resProd    = ${resProd.toLong.toBinaryString}")
+      val resProd    = invln2 * lnterm // W = 2 * (manW+extraBits) + 2
 
-      val resProdMoreThan1 = bit(2*(manW+extraBits), resProd)
-      val resShift   = (manW + extraBits - 1 + resProdMoreThan1)
+      val resProdMoreThan2 = bit(2*(manW+extraBits)+1, resProd)
+      val resShift   = (manW + extraBits + resProdMoreThan2)
       val resShifted = resProd >> resShift
-//       println(f"resShifted = ${resShifted.toLong.toBinaryString}")
-//       println(f"resProdMT1 = ${resProdMoreThan1}")
       assert(bit(manW+extraBits, resShifted) == 1)
-      assert(resShifted >> (manW+extraBits+1) == 0)
+      assert((resShifted >> (manW+extraBits+1)) == 0)
 
       val zmanTaylor = (resShifted >> extraBits) + bit(extraBits-1, resShifted)
-      val zexTaylor = -(manW - (xmanbp-1)) + xln2MoreThan2 - 1 + resProdMoreThan1
+      val zexTaylor = -(manW - (xmanbp-1)) + lntermMoreThan2 + resProdMoreThan2
 
       return new RealGeneric(x.spec, zsgn, zexTaylor.toInt + exBias, zmanTaylor)
     }
