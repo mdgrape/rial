@@ -22,10 +22,10 @@ import rial.arith._
 import rial.table._
 
 class MathFuncLog2SimTest extends FunSuite with BeforeAndAfterAllConfigMap {
-  var n = 10000
+  var n = 1000000
 
   override def beforeAll(configMap: ConfigMap) = {
-    n = configMap.getOptional[String]("n").getOrElse("10000").toInt
+    n = configMap.getOptional[String]("n").getOrElse("1000000").toInt
     println(s"ncycle=$n")
   }
 
@@ -41,13 +41,14 @@ class MathFuncLog2SimTest extends FunSuite with BeforeAndAfterAllConfigMap {
     java.lang.Math.scalb(err, -x.exNorm+x.spec.manW)
   }
 
-  def log2Test(t : FuncTableInt, spec : RealSpec, n : Int, r : Random,
+  def log2Test(t : FuncTableInt, tSmallPos : Seq[FuncTableInt], tSmallNeg : Seq[FuncTableInt], spec : RealSpec, n : Int, r : Random,
     generatorStr    : String,
     generator       : ( (RealSpec, Random) => RealGeneric),
-    tolerance       : Int ) = {
+    toleranceUlps   : Int ) = {
     test(s"log2(x), format ${spec.toStringShort}, ${generatorStr}") {
 
       val log2 = (a:Double) => {log(a) / log(2.0)}
+      val tolerance = pow(2, toleranceUlps) - 1
 
       var maxError    = 0.0
       var xatMaxError = 0.0
@@ -66,7 +67,7 @@ class MathFuncLog2SimTest extends FunSuite with BeforeAndAfterAllConfigMap {
         val z0   = log2(x0)
         val z0r  = new RealGeneric(spec, z0)
 
-        val zi   = MathFuncLog2Sim.log2SimGeneric( t, x )
+        val zi   = MathFuncLog2Sim.log2SimGeneric( t, tSmallPos, tSmallNeg, x )
         val zd   = zi.toDouble
         val erri = errorLSB(zi, z0r.toDouble)
         val errf = zi.toDouble - z0r.toDouble
@@ -118,7 +119,7 @@ class MathFuncLog2SimTest extends FunSuite with BeforeAndAfterAllConfigMap {
           else if (erri<= -1.0) {
             err1lsbNeg+=1
           }
-          assert(erri.abs<=tolerance || errf.abs <= pow(2.0, -spec.manW)) // Fixed point precision
+          assert(erri.abs<=tolerance)// || errf.abs <= pow(2.0, -spec.manW)) // Fixed point precision
 
           if (maxError < erri.abs) {
             maxError    = erri.abs
@@ -144,20 +145,24 @@ class MathFuncLog2SimTest extends FunSuite with BeforeAndAfterAllConfigMap {
     2, 8, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+2,
     Some(Seq(27, 21, 20)), Some(Seq(27, 22, 20)))
 
-  log2Test(log2F32TableI, RealSpec.Float32Spec, n, r,
-    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_), 2)
-  log2Test(log2F32TableI, RealSpec.Float32Spec, n, r,
-    "Test Small More Than 1 [1, 1+2^-11]",   generateRealWithin(1.0, 1.0+pow(2.0, -11) - pow(2.0,-23),_,_), 2)
-  log2Test(log2F32TableI, RealSpec.Float32Spec, n, r,
-    "Test Small More Than 1 [1-2^-11, 1]",   generateRealWithin(1.0-pow(2.0, -11) + pow(2.0,-23), 1.0,_,_), 2)
-  log2Test(log2F32TableI, RealSpec.Float32Spec, n, r,
+  val log2F32SmallPositiveTableI = MathFuncLog2Sim.log2SmallPositiveTableGeneration(RealSpec.Float32Spec)
+  val log2F32SmallNegativeTableI = MathFuncLog2Sim.log2SmallNegativeTableGeneration(RealSpec.Float32Spec)
+
+  log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_), 1)
+  log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+    "Test Small More Than 1 [1, 1+2^-11]",   generateRealWithin(1.0, 1.0+pow(2.0, -11) - pow(2.0,-23),_,_), 1)
+  log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+    "Test Small More Than 1 [1-2^-11, 1]",   generateRealWithin(1.0-pow(2.0, -11) + pow(2.0,-23), 1.0,_,_), 1)
+  log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
     "Test Small More Than 1 [1, 2]",   generateRealWithin(1.0+pow(2.0, -11), 2.0,_,_), 2)
 
-  log2Test(log2F32TableI, RealSpec.Float32Spec, n, r,
-    "Test Large Less Than 1 [0.5, 1]", generateRealWithin(0.5,1.0,_,_), 2)
-  log2Test(log2F32TableI, RealSpec.Float32Spec, n, r,
-    "Test Small Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5,_,_), 2)
+  // TODO
+//   log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+//     "Test Large Less Than 1 [0.5, 1]", generateRealWithin(0.5,1.0,_,_), 2)
+  log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+    "Test Small Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5,_,_), 1)
 
-  log2Test(log2F32TableI, RealSpec.Float32Spec, n, r,
-    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_), 2)
+  log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_), 1)
 }
