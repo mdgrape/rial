@@ -26,6 +26,16 @@ import rial.arith._
 
 object MathFuncLog2Sim {
 
+  def calcTaylorThreshold(spec: RealSpec): Int = {
+    // log(1+x) = x/ln(2) - x^2/2ln(2) + x^3/3ln(2) + O(x^4)
+    //          = x(1 - x/2 + x^2/3) / ln(2)
+    // cond: x^2/3 < 2^-manW
+    //   <=> x^2   < 2^-manW+1
+    //   <=> x     < 2^(-manW+1)/2
+    //   <=> x.ex  < (-manW+1)/2
+    -floor((1-spec.manW)/2).toInt
+  }
+
   //
   // log2(2^ex * 1.man) = log2(2^ex) + log2(1.man)
   //                    = ex + log2(1.man)
