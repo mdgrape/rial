@@ -36,6 +36,81 @@ object MathFuncLog2Sim {
     -floor((1-spec.manW)/2).toInt
   }
 
+  // table for [1+2^{-calcTaylorThreshold}, 2)
+  def log2SmallPositiveTableGeneration(spec: RealSpec,
+      order: Int = 2,
+      adrW: Int = 8,
+      extraBits: Int = 2,
+      calcWidthSetting: Option[Seq[Int]] = None,
+      cbitSetting: Option[Seq[Int]] = None
+    ): Seq[FuncTableInt] = {
+
+    val log2 = (a:Double) => {log(a) / log(2.0)}
+    val fracW = spec.manW + extraBits
+    val taylorThreshold = calcTaylorThreshold(spec)
+
+    val f = (xfrac: Double, xex: Int) => {
+        val xrange = (1.0 + xfrac) * pow(2.0, xex-1)
+        val x   = 1.0 + xrange
+        val res = log2(x) * pow(2.0, -xex-1)
+        assert(0.25 <= res && res <= 1.0)
+        res
+    }
+
+    val maxCalcWidth = (0 to -taylorThreshold by -1).map(xex => {
+        val tableD = new FuncTableDouble( x => f(x, xex), order )
+        tableD.addRange(0.0, 1.0, 1<<adrW)
+        val tableI = new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
+        tableI.calcWidth
+      }).reduce( (lhs, rhs) => {
+        lhs.zip(rhs).map( x => max(x._1, x._2))
+      })
+
+    (0 to -taylorThreshold by -1).map( xex => {
+      val tableD = new FuncTableDouble( x => f(x, xex), order )
+      tableD.addRange(0.0, 1.0, 1<<adrW)
+      new FuncTableInt( tableD, fracW, Some(maxCalcWidth), cbitSetting )
+    })
+  }
+
+  // table for [0.5, 1-2^{-calcTaylorThreshold})
+  def log2SmallNegativeTableGeneration(spec: RealSpec,
+      order: Int = 2,
+      adrW: Int = 8,
+      extraBits: Int = 2,
+      calcWidthSetting: Option[Seq[Int]] = None,
+      cbitSetting: Option[Seq[Int]] = None
+    ): Seq[FuncTableInt] = {
+
+    val log2 = (a:Double) => {log(a) / log(2.0)}
+    val fracW = spec.manW + extraBits
+    val taylorThreshold = calcTaylorThreshold(spec)
+
+    val f = (xfrac: Double, xex: Int) => {
+        val xrange = (1.0 + xfrac) * pow(2.0, xex-2)
+        val x   = 1.0 - xrange
+        val res = -log2(x) * pow(2.0, -xex)
+        assert(0.25 <= res && res <= 1.0)
+        res
+    }
+
+    val maxCalcWidth = (0 to -taylorThreshold by -1).map(xex => {
+        val tableD = new FuncTableDouble( x => f(x, xex), order )
+        tableD.addRange(0.0, 1.0, 1<<adrW)
+        val tableI = new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
+        tableI.calcWidth
+      }).reduce( (lhs, rhs) => {
+        lhs.zip(rhs).map( x => max(x._1, x._2))
+      })
+
+    (0 to -taylorThreshold by -1).map( xex => {
+      val tableD = new FuncTableDouble( x => f(x, xex), order )
+      tableD.addRange(0.0, 1.0, 1<<adrW)
+      new FuncTableInt( tableD, fracW, Some(maxCalcWidth), cbitSetting )
+    })
+  }
+
+
   //
   // log2(2^ex * 1.man) = log2(2^ex) + log2(1.man)
   //                    = ex + log2(1.man)
