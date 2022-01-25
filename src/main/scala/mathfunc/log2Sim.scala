@@ -115,7 +115,7 @@ object MathFuncLog2Sim {
   // log2(2^ex * 1.man) = log2(2^ex) + log2(1.man)
   //                    = ex + log2(1.man)
   //
-  def log2SimGeneric( t : FuncTableInt, x : RealGeneric ): RealGeneric = {
+  def log2SimGeneric( t : FuncTableInt, tSmallPos : Seq[FuncTableInt], tSmallNeg : Seq[FuncTableInt], x : RealGeneric ): RealGeneric = {
 
 //     println("==================================================")
     val exW    = x.spec.exW
@@ -181,7 +181,9 @@ object MathFuncLog2Sim {
     // use x(1 - x/2)/ln(2)
     //    -x(1 + x/2)/ln(2)
 
-    if(xexNobias == 0 && x.man.toLong < (1L << (manW-11))) {
+    val taylorThreshold = calcTaylorThreshold(x.spec)
+
+    if(xexNobias == 0 && x.man.toLong < (1L << (manW-taylorThreshold))) {
       val xman = x.man.toLong // x - 1
       val xmanbp = xman.toBinaryString.length
 
@@ -211,7 +213,7 @@ object MathFuncLog2Sim {
 
     // the exponent is -1, so xman is "multiplied" by 2. So the threshold and
     // exponent calculation become different
-    if(xexNobias == -1 && (((1L<<manW) - x.man.toLong) < (1L << (manW-10)))) {
+    if(xexNobias == -1 && (((1L<<manW) - x.man.toLong) < (1L << (manW-taylorThreshold+1)))) {
       val xman   = (1L<<manW) - x.man.toLong
       val xmanbp = xman.toBinaryString.length
 
@@ -241,34 +243,48 @@ object MathFuncLog2Sim {
 
     // --------------------------------------------------------------------------
     // polynomial (x is in [1, 2))
-
+    //
+    // if x == 0,
+    // log2(x) = log2(2^ex * 1.man)
+    //         = ex + log2(1.man)
+    //         = log2(1.man)
+    //
+    // log2 table should return full precision
+    //
     if(xexNobias == 0) {
-      val xman = x.man.toLong // x - 1
-      val xmanbp = xman.toBinaryString.length
+      val xman0  = x.man.toLong /* = x - 1 */
+      val xmanbp = xman0.toBinaryString.length
+      val xex    = manW - xmanbp
+      val mask   = maskL(manW - xex - 1)
+      val xman   = xman0 & mask
+//       println(f"xman0  = ${xman0.toLong.toBinaryString}%24s")
+//       println(f"xex    = ${xex}")
+//       println(f"mask   = ${mask .toLong.toBinaryString}%24s")
+//       println(f"xman   = ${xman .toLong.toBinaryString}%24s")
 
-      val smallAdrW = 11
-      // by doing this, the interpolation fails in case of xfrac << 1...
-      val tablePosD = new FuncTableDouble( xfrac => {
-        val x   = 1.0 + xfrac
-        val xex = floor(log2(xfrac)).toInt
-        val res = log2(x) * pow(2.0, -xex - 2)
-        assert(0.25 < res && res < 1.0)
-        res
-      }, t.nOrder)
-      tablePosD.addRange(0.0, 1.0, 1<<smallAdrW)
-      val tablePosI = new FuncTableInt( tablePosD, fracW )
+      val tablePosI = tSmallPos(xex)
+      val smallAdrW = adrW
 
-      val dxbp = manW-smallAdrW-1
-      val d    = slice(0,      dxbp+1, x.man) - (SafeLong(1) << dxbp)
-      val adr  = slice(dxbp+1, smallAdrW,   x.man)
+      val dxbp = xmanbp-smallAdrW-1 -1
+      val d    = slice(0,      dxbp+1, xman) - (SafeLong(1) << dxbp)
+      val adr  = slice(dxbp+1, smallAdrW, xman)
+//       println(f"dxbp   = ${maskL(dxbp) .toLong.toBinaryString}%24s")
+//       println(f"d      = ${d    .toLong.toBinaryString}%24s")
+//       println(f"adr    = ${adr  .toLong.toBinaryString}%24s")
 
       val zfrac0 = tablePosI.interval(adr.toInt).eval(d.toLong, dxbp)
+
+//       println(f"x in table = ${1.0 + ((1.0+xman.toDouble/(mask+1)) * pow(2.0, -xex-1))}")
+//       println(f"f in table = ${log2(1.0 + ((1.0+xman.toDouble/(mask+1)) * pow(2.0, -xex-1))) * pow(2.0, xex-1)}")
+//       println(f"zfrac0 = ${zfrac0.toLong.toBinaryString}")
+//       println(f"zfrac  = ${zfrac0.toDouble / (1<<fracW)}")
+
       val (zmanW10, zex0) = if(bit(fracW-1, zfrac0) == 1) {
-        (zfrac0 << 1, -(manW - xmanbp))
+        (zfrac0 << 1, -xex)
       } else if(bit(fracW-2, zfrac0) == 1) {
-        (zfrac0 << 2, -(manW - xmanbp) - 1)
+        (zfrac0 << 2, -xex - 1)
       } else {
-        (zfrac0 << 3, -(manW - xmanbp) - 2)
+        (zfrac0 << 3, -xex - 2)
       }
 
       val zmanW1 = (zmanW10 >> extraBits) + bit(extraBits-1, zmanW10)
@@ -282,6 +298,61 @@ object MathFuncLog2Sim {
 
       return new RealGeneric(x.spec, zsgn, zex.toInt + exBias, zman)
     }
+
+    // --------------------------------------------------------------------------
+    // polynomial (x is in [0.5, 1))
+    //
+    // if x < 1,
+    // log2(x) = log2(2^ex * 1.man)
+    //         = ex + log2(1.man)
+    //         = -(-ex - log2(1.man))
+    //         = -(|ex| - 1 + 1 - log2(1.man))
+    //             ^^^^^^^^   ^^^^^^^^^^^^^^^
+    //             zint       zfrac
+    // if ex == -1,
+    // log2(x) = log2(2^ex * 1.man)
+    //         = -1 + log2(1.man) // cancellation!
+    //
+    // log2(0.5 * 1.man)
+    //
+    // table only takes mantissa. We need to subtract 1 from it, anyway...
+    //
+//     if(xexNobias == -1) {
+//       val xman = x.man.toLong // 1-x
+//       val xmanbp = ((1L<<manW) - xman).toBinaryString.length
+// 
+//       val smallAdrW = adrW
+//       val tableNegI = tSmallNeg
+// 
+//       val dxbp = manW-smallAdrW-1
+//       val d    = slice(0,      dxbp+1, xman) - (SafeLong(1) << dxbp)
+//       val adr  = slice(dxbp+1, smallAdrW, xman)
+// 
+//       val zfrac0 = tableNegI.interval(adr.toInt).eval(d.toLong, dxbp)
+// 
+// 
+//       println( "         5432109876543210987654321")
+//       println(f"zfrac0 = ${zfrac0.toLong.toBinaryString}%25s")
+// 
+//       val (zmanW10, zex0) = if(bit(fracW-1, zfrac0) == 1) {
+//         (zfrac0 << 1, -(manW - xmanbp) - 1)
+//       } else if(bit(fracW-2, zfrac0) == 1) {
+//         (zfrac0 << 2, -(manW - xmanbp) - 2)
+//       } else {
+//         (zfrac0 << 3, -(manW - xmanbp) - 3)
+//       }
+// 
+//       val zmanW1 = (zmanW10 >> extraBits) + bit(extraBits-1, zmanW10)
+//       val zMoreThan2 = bit(manW+1, zmanW1)
+//       val zman      = if(zMoreThan2 == 1) {
+//         slice(1, manW, zmanW1)
+//       } else {
+//         slice(0, manW, zmanW1)
+//       }
+//       val zex = zex0 + zMoreThan2
+// 
+//       return new RealGeneric(x.spec, zsgn, zex.toInt + exBias, zman)
+//     }
 
     // --------------------------------------------------------------------------
     // polynomial
