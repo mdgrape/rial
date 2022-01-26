@@ -87,14 +87,14 @@ object MathFuncLog2Sim {
     val taylorThreshold = calcTaylorThreshold(spec)
 
     val f = (xfrac: Double, xex: Int) => {
-        val xrange = (1.0 + xfrac) * pow(2.0, xex-2)
+        val xrange = (1.0 + xfrac) * pow(2.0, -xex-2)
         val x   = 1.0 - xrange
-        val res = -log2(x) * pow(2.0, -xex)
+        val res = -log2(x) * pow(2.0, xex)
         assert(0.25 <= res && res <= 1.0)
         res
     }
 
-    val maxCalcWidth = (0 to -taylorThreshold by -1).map(xex => {
+    val maxCalcWidth = (0 to taylorThreshold).map(xex => {
         val tableD = new FuncTableDouble( x => f(x, xex), order )
         tableD.addRange(0.0, 1.0, 1<<adrW)
         val tableI = new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
@@ -103,7 +103,7 @@ object MathFuncLog2Sim {
         lhs.zip(rhs).map( x => max(x._1, x._2))
       })
 
-    (0 to -taylorThreshold by -1).map( xex => {
+    (0 to taylorThreshold).map( xex => {
       val tableD = new FuncTableDouble( x => f(x, xex), order )
       tableD.addRange(0.0, 1.0, 1<<adrW)
       new FuncTableInt( tableD, fracW, Some(maxCalcWidth), cbitSetting )
