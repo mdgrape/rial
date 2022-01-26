@@ -366,33 +366,11 @@ object MathFuncLog2Sim {
       }
       val zex = zex0 + zMoreThan2
 
-      // ----
-
-//       val order = t.nOrder
-//       val f = (xfrac: Double, xex: Int) => {
-//           val xrange = (pow(2.0, xex-2) + xfrac)
-// //           val xrange = (1.0 + xfrac) // * pow(2.0, xex-2)
-//           val x   = 1.0 - xrange
-//           val res = -log2(x) * pow(2.0, -xex)
-// //           assert(0.25 <= res && res <= 1.0)
-//           res
-//       }
-//       val ts = (0 to -taylorThreshold by -1).map( xex => {
-//         val tableD = new FuncTableDouble( x => f(x, xex), order )
-//         tableD.addRange(0.0, 1.0, 1<<adrW)
-//         tableD
-//       })
-// 
-//       val ft = ts(xex).eval(xman.toDouble / (1 << manW))
-//       println(f"f in double table = ${ft.toDouble}")
-
-
-
       return new RealGeneric(x.spec, zsgn, zex.toInt + exBias, zman)
     }
 
     // --------------------------------------------------------------------------
-    // polynomial
+    // polynomial (0.0 < x < 0.5, 2.0 < x < inf)
 
     val dxbp = manW-adrW-1
     val d    = slice(0,      dxbp+1, x.man) - (SafeLong(1) << dxbp)
@@ -400,13 +378,10 @@ object MathFuncLog2Sim {
 
     val zfrac0Pos = t.interval(adr.toInt).eval(d.toLong, dxbp)
     val zfrac0 = if(xexNobias >= 0) {zfrac0Pos} else {(1<<fracW) - zfrac0Pos}
-//     println(f"s: zfrac0Pos = ${zfrac0Pos.toBinaryString}")
-//     println(f"s: zfrac0    = ${zfrac0.toBinaryString   }")
-
-    assert(0L <= zfrac0 && zfrac0 < (1L<<fracW))
-
+    val zfrac  = zfrac0 & maskL(fracW)
     val zfull0 = (zint0 << fracW) + zfrac0.toLong
-//     println(f"zfull0  = ${zfull0.toBinaryString }")
+
+    assert(0L <= zfrac && zfrac < (1L<<fracW)) // avoid overflow in polynomial
     assert(0 <= zfull0)
 
     val zfullW  = zfull0.toBinaryString.length
