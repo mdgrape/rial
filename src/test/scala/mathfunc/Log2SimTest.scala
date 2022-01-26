@@ -157,9 +157,8 @@ class MathFuncLog2SimTest extends FunSuite with BeforeAndAfterAllConfigMap {
   log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
     "Test Small More Than 1 [1, 2]",   generateRealWithin(1.0+pow(2.0, -11), 2.0,_,_), 2)
 
-  // TODO
-//   log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
-//     "Test Large Less Than 1 [0.5, 1]", generateRealWithin(0.5,1.0,_,_), 2)
+  log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+    "Test Large Less Than 1 [0.5, 1]", generateRealWithin(0.5,1.0,_,_), 2)
   log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
     "Test Small Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5,_,_), 1)
 
