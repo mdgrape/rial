@@ -317,42 +317,79 @@ object MathFuncLog2Sim {
     //
     // table only takes mantissa. We need to subtract 1 from it, anyway...
     //
-//     if(xexNobias == -1) {
-//       val xman = x.man.toLong // 1-x
-//       val xmanbp = ((1L<<manW) - xman).toBinaryString.length
-// 
-//       val smallAdrW = adrW
-//       val tableNegI = tSmallNeg
-// 
-//       val dxbp = manW-smallAdrW-1
-//       val d    = slice(0,      dxbp+1, xman) - (SafeLong(1) << dxbp)
-//       val adr  = slice(dxbp+1, smallAdrW, xman)
-// 
-//       val zfrac0 = tableNegI.interval(adr.toInt).eval(d.toLong, dxbp)
-// 
-// 
-//       println( "         5432109876543210987654321")
-//       println(f"zfrac0 = ${zfrac0.toLong.toBinaryString}%25s")
-// 
-//       val (zmanW10, zex0) = if(bit(fracW-1, zfrac0) == 1) {
-//         (zfrac0 << 1, -(manW - xmanbp) - 1)
-//       } else if(bit(fracW-2, zfrac0) == 1) {
-//         (zfrac0 << 2, -(manW - xmanbp) - 2)
-//       } else {
-//         (zfrac0 << 3, -(manW - xmanbp) - 3)
+    if(xexNobias == -1) {
+      val xman0  = (1L<<manW) - x.man.toLong // 1-x
+      val xmanbp = xman0.toBinaryString.length
+      val xex    = manW - xmanbp // this does not consider the x.ex
+      val mask   = maskL(xmanbp - 1)
+      val xman   = xman0 & mask
+//       println( "         432109876543210987654321")
+//       println(f"xman   = ${x.man.toLong.toBinaryString}%24s")
+//       println(f"xman0  = ${xman0.toLong.toBinaryString}%24s")
+//       println(f"xex    = ${xex}")
+//       println(f"mask   = ${mask .toLong.toBinaryString}%24s")
+//       println(f"xman   = ${xman .toLong.toBinaryString}%24s")
+
+      val tableNegI = tSmallNeg(xex)
+      val smallAdrW = adrW
+
+      val xmanShifted = xman << xex
+
+      val dxbp = manW-smallAdrW-1-1
+      val d    = slice(0,      dxbp+1, xmanShifted) - (SafeLong(1) << dxbp)
+      val adr  = slice(dxbp+1, smallAdrW, xmanShifted)
+
+//       println(f"d      = ${slice(0,      dxbp+1, xmanShifted).toLong.toBinaryString}%24s")
+//       println(f"adr    = ${adr  .toLong.toBinaryString}%24s")
+
+      val zfrac0 = tableNegI.interval(adr.toInt).eval(d.toLong, dxbp)
+
+//       println(f"x in table = ${1.0 - ((1.0+xman.toDouble/(mask+1)) * pow(2.0, -xex-2))}")
+//       println(f"f in table = ${-log2(1.0 - ((1.0+xman.toDouble/(mask+1)) * pow(2.0, -xex-2)))}")
+//       println(f"zfrac0 = ${zfrac0.toLong.toBinaryString}")
+//       println(f"zfrac  = ${zfrac0.toDouble / (1<<fracW)}")
+
+      val (zmanW10, zex0) = if(bit(fracW-1, zfrac0) == 1) {
+        (zfrac0 << 1, -xex - 1)
+      } else if(bit(fracW-2, zfrac0) == 1) {
+        (zfrac0 << 2, -xex - 2)
+      } else {
+        (zfrac0 << 3, -xex - 3)
+      }
+
+      val zmanW1 = (zmanW10 >> extraBits) + bit(extraBits-1, zmanW10)
+      val zMoreThan2 = bit(manW+1, zmanW1)
+      val zman      = if(zMoreThan2 == 1) {
+        slice(1, manW, zmanW1)
+      } else {
+        slice(0, manW, zmanW1)
+      }
+      val zex = zex0 + zMoreThan2
+
+      // ----
+
+//       val order = t.nOrder
+//       val f = (xfrac: Double, xex: Int) => {
+//           val xrange = (pow(2.0, xex-2) + xfrac)
+// //           val xrange = (1.0 + xfrac) // * pow(2.0, xex-2)
+//           val x   = 1.0 - xrange
+//           val res = -log2(x) * pow(2.0, -xex)
+// //           assert(0.25 <= res && res <= 1.0)
+//           res
 //       }
+//       val ts = (0 to -taylorThreshold by -1).map( xex => {
+//         val tableD = new FuncTableDouble( x => f(x, xex), order )
+//         tableD.addRange(0.0, 1.0, 1<<adrW)
+//         tableD
+//       })
 // 
-//       val zmanW1 = (zmanW10 >> extraBits) + bit(extraBits-1, zmanW10)
-//       val zMoreThan2 = bit(manW+1, zmanW1)
-//       val zman      = if(zMoreThan2 == 1) {
-//         slice(1, manW, zmanW1)
-//       } else {
-//         slice(0, manW, zmanW1)
-//       }
-//       val zex = zex0 + zMoreThan2
-// 
-//       return new RealGeneric(x.spec, zsgn, zex.toInt + exBias, zman)
-//     }
+//       val ft = ts(xex).eval(xman.toDouble / (1 << manW))
+//       println(f"f in double table = ${ft.toDouble}")
+
+
+
+      return new RealGeneric(x.spec, zsgn, zex.toInt + exBias, zman)
+    }
 
     // --------------------------------------------------------------------------
     // polynomial
