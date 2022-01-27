@@ -87,5 +87,7 @@ class Threefry4_32( r: Int = 20, rotStage: Int = 0 ) extends Module {
 }
 
 object Threefry4_32Driver extends App {
-  chisel3.Driver.execute(args, () => new Threefry4_32(20,2))
-  }
+  (new chisel3.stage.ChiselStage).execute(args,
+      Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new Threefry4_32(20,2)))
+    )
+}
