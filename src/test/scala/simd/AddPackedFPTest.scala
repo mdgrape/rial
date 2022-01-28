@@ -70,7 +70,7 @@ class AddPackedFPTest extends AnyFlatSpec
   def generateRealSmallDifferencePair ( p : Double, q: Double, xSpec: RealSpec, ySpec: RealSpec, r : Random ) = {
     val x = generateRealWithin( p, xSpec, r )
     val y = generateRealWithin( p, ySpec, r )
-    val scale = r.nextDouble * (q+1.0)
+    val scale = r.nextDouble() * (q+1.0)
     if (r.nextInt(2)==0) {
       val z =
         if (scale>=q) {
