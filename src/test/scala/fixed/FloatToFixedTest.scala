@@ -65,7 +65,7 @@ class FloatToFixedTest extends AnyFlatSpec
             val zi = c.io.z.peek.litValue.toBigInt
             c.clock.step(1)
             if (i > nstage) {
-              val (xid,zid) = q.dequeue
+              val (xid,zid) = q.dequeue()
               assert(zi == zid, f"x=${xid.toLong.toBinaryString}(${new RealGeneric(xSpec, xid).toDouble}) actual(${zi.toLong.toBinaryString}) != expect(${zid.toLong.toBinaryString})")
             }
           }

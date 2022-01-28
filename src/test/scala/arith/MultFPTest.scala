@@ -73,7 +73,7 @@ class MultFPTest extends AnyFlatSpec
               val zi = c.io.z.peek.litValue.toBigInt
               c.clock.step(1)
               if (i > nstage) {
-                val (xid,yid,z0d) = q.dequeue
+                val (xid,yid,z0d) = q.dequeue()
                 assert(zi == z0d, f"x=$xid%16x y=$yid%16x $zi%16x!=$z0d%16x")
               }
             }

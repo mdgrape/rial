@@ -80,7 +80,7 @@ class Pow2F32Test extends AnyFlatSpec
               val zi = c.io.z.peek.litValue.toLong
               c.clock.step(1)
               if (i > nstage) {
-                val (xid,z0d) = q.dequeue
+                val (xid,z0d) = q.dequeue()
                 assert(zi == z0d, f"x=$xid%08x $zi%08x!=$z0d%08x")
               }
             }
@@ -143,7 +143,7 @@ class Pow2BF16Test extends AnyFlatSpec
             c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
             val zi = c.io.z.peek.litValue.toBigInt
             if (i > nstage) {
-              val (xid,z0d) = q.dequeue
+              val (xid,z0d) = q.dequeue()
               assert(zi == z0d, f"x=$xid%x $zi%x!=$z0d%x")
             }
             c.clock.step(1)
@@ -221,7 +221,7 @@ class ExpF32Test extends AnyFlatSpec
             val zi = c.io.z.peek.litValue.toBigInt
             c.clock.step(1)
             if (i > nstage) {
-              val (xid,z0d) = q.dequeue
+              val (xid,z0d) = q.dequeue()
               assert(zi == z0d, f"x=$xid%x $zi%x!=$z0d%x")
             }
           }
@@ -297,7 +297,7 @@ class ExpBF16Test extends AnyFlatSpec
             val zi = c.io.z.peek.litValue.toBigInt
             c.clock.step(1)
             if (i > nstage) {
-              val (xid,z0d) = q.dequeue
+              val (xid,z0d) = q.dequeue()
               assert(zi == z0d, f"x=$xid%x $zi%x!=$z0d%x")
             }
           }

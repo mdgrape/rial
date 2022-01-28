@@ -123,7 +123,7 @@ class AddPackedFPTest extends AnyFlatSpec
             //if (zi != z0d) c.debugControlIO.poke(true.B)
             c.clock.step(1)
             if (i > nstage) {
-              val (xids,yids,z0ds) = q.dequeue
+              val (xids,yids,z0ds) = q.dequeue()
               val z_eq  = Seq
                 .tabulate(len)(i => {(zis(i), z0ds(i))})
                 .foldLeft(true)((b : Boolean, zz : (BigInt, BigInt)) => {b && (zz._1 == zz._2)})

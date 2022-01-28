@@ -89,7 +89,7 @@ class MultFPIntTest extends AnyFlatSpec
               val zi = c.io.z.peek.litValue.toBigInt
               c.clock.step(1)
               if (i > nstage) {
-                val (xid,yid,z0d) = q.dequeue
+                val (xid,yid,z0d) = q.dequeue()
 
                 val zisgn  = bit(zSpec.W-1, zi).toInt
                 val ziexp  = slice(zSpec.manW, zSpec.exW, zi)

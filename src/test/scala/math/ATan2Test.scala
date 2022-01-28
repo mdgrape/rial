@@ -74,7 +74,7 @@ class ATan2Test extends AnyFlatSpec
             c.io.y.poke(yi.value.toBigInt.U(spec.W.W))
             val zi = c.io.z.peek.litValue.toBigInt
             if (i > nstage) {
-              val (xid,yid,z0d) = q.dequeue
+              val (xid,yid,z0d) = q.dequeue()
 
               val zisgn = bit(spec.W-1, zi).toInt
               val ziexp = slice(spec.manW, spec.exW, zi)

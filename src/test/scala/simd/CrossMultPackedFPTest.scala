@@ -120,7 +120,7 @@ class CrossMultPackedFPTest extends AnyFlatSpec
 
               c.clock.step(1)
               if (i > nstage) {
-                val ((x0id, x1id, x2id, x3id),(y0id,y1id,y2id,y3id), (z0d, z1d, z2d, z3d)) = q.dequeue
+                val ((x0id, x1id, x2id, x3id),(y0id,y1id,y2id,y3id), (z0d, z1d, z2d, z3d)) = q.dequeue()
                 assert(z0i == z0d, f"x=$x0id%16x y=$y0id%16x $z0i%16x!=$z0d%16x")
                 assert(z1i == z1d, f"x=$x1id%16x y=$y1id%16x $z1i%16x!=$z1d%16x")
                 assert(z2i == z2d, f"x=$x0id%16x y=$y0id%16x $z0i%16x!=$z0d%16x")

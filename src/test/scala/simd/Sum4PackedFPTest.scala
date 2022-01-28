@@ -131,7 +131,7 @@ class Sum4PackedFPTest extends AnyFlatSpec
             //if (zi != z0d) c.debugControlIO.poke(true.B)
             c.clock.step(1)
             if (i > nstage) {
-              val (xids, masks, zd) = q.dequeue
+              val (xids, masks, zd) = q.dequeue()
               val x0 = xids(0)
               val x1 = xids(1)
               val x2 = xids(2)

@@ -77,7 +77,7 @@ class ReciprocalTest extends AnyFlatSpec
             c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
             val zi = c.io.z.peek.litValue.toBigInt
             if (i > nstage) {
-              val (xid,z0d) = q.dequeue
+              val (xid,z0d) = q.dequeue()
               assert(zi == z0d, f"x=$xid%x $zi%x!=$z0d%x")
             }
             c.clock.step(1)

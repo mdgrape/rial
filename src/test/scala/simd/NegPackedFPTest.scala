@@ -94,7 +94,7 @@ class NegPackedFPTest extends AnyFlatSpec
 
               c.clock.step(1)
               if (i > nstage) {
-                val (xids, z0ds) = q.dequeue
+                val (xids, z0ds) = q.dequeue()
                 for (i <- 0 until len) {
                   val (xid, z0d) = (xids(i), z0ds(i))
                   val zi = zis(i)

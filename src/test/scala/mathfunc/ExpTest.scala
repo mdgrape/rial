@@ -99,7 +99,7 @@ class MathFuncExpTest extends AnyFlatSpec
             val zi = c.io.z.peek.litValue.toBigInt
             if (i > nstage) {
 
-              val (xid,z0d) = q.dequeue
+              val (xid,z0d) = q.dequeue()
 
               val xidsgn = bit(spec.W-1, xid).toInt
               val xidexp = slice(spec.manW, spec.exW, xid)

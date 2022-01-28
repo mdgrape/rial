@@ -116,7 +116,7 @@ class AddFPTest extends AnyFlatSpec
             //if (zi != z0d) c.debugControlIO.poke(true.B)
             c.clock.step(1)
             if (i > nstage) {
-              val (xid,yid,z0d) = q.dequeue
+              val (xid,yid,z0d) = q.dequeue()
               if (zi != z0d) {
                 c.io.x.poke(xid.U(64.W))
                 c.io.y.poke(yid.U(64.W))

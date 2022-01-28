@@ -185,7 +185,7 @@ class FMAFPTest extends AnyFlatSpec
 
             c.clock.step(1)
             if (i > nstage) {
-              val (xid,yid,zid,wid) = q.dequeue
+              val (xid,yid,zid,wid) = q.dequeue()
               if (wi0 != wid) {
                 c.io.x.poke(xid.U(xSpec.W.W))
                 c.io.y.poke(yid.U(ySpec.W.W))

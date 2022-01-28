@@ -81,7 +81,7 @@ class ScalarMultPackedFPTest extends AnyFlatSpec
 
               c.clock.step(1)
               if (i > nstage) {
-                val (xid, yids, z0ds) = q.dequeue
+                val (xid, yids, z0ds) = q.dequeue()
                 for (i <- 0 until len) {
                   val (yid, z0d) = (yids(i), z0ds(i))
                   val zi = zis(i)

@@ -89,7 +89,7 @@ class MathFuncATan2Stage1Test extends AnyFlatSpec
             c.io.y.poke(yi.value.toBigInt.U(spec.W.W))
             val zi = c.io.z.peek.litValue.toBigInt
             if (i > nstage) {
-              val (xid, yid, z0d) = q.dequeue
+              val (xid, yid, z0d) = q.dequeue()
 
               val xidsgn = bit(spec.W-1, xid).toInt
               val xidexp = slice(spec.manW, spec.exW, xid)
