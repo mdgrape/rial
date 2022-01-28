@@ -102,7 +102,7 @@ class NegPackedFPTest extends AnyFlatSpec
                 }
               }
             }
-            q.clear
+            q.clear()
           }
         }
       }

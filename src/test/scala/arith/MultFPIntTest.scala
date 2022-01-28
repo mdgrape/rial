@@ -101,7 +101,7 @@ class MultFPIntTest extends AnyFlatSpec
                   f"test(${zisgn}|${ziexp}|${ziman}) != ref(${z0dsgn}|${z0dexp}|${z0dman})")
               }
             }
-            q.clear
+            q.clear()
           }
         }
       }

@@ -69,7 +69,7 @@ class FloatToFixedTest extends AnyFlatSpec
               assert(zi == zid, f"x=${xid.toLong.toBinaryString}(${new RealGeneric(xSpec, xid).toDouble}) actual(${zi.toLong.toBinaryString}) != expect(${zid.toLong.toBinaryString})")
             }
           }
-          q.clear
+          q.clear()
         }
       }
   }

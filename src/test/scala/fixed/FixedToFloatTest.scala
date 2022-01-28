@@ -69,7 +69,7 @@ class FixedToFloatTest extends AnyFlatSpec
               assert(zi == zid, f"x=${xid.toLong.toBinaryString} ${zi.toLong.toBinaryString} != ${zid.toLong.toBinaryString}")
             }
           }
-          q.clear
+          q.clear()
         }
       }
   }

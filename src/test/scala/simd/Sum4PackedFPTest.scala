@@ -139,7 +139,7 @@ class Sum4PackedFPTest extends AnyFlatSpec
               assert(z0i == zd, f"xs=[$x0%16x,$x1%16x,$x2%16x,$x3%16x], $z0i%16x!=$zd%16x")
             }
           }
-          q.clear
+          q.clear()
         }
       }
     }

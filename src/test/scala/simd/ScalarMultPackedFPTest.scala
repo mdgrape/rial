@@ -89,7 +89,7 @@ class ScalarMultPackedFPTest extends AnyFlatSpec
                 }
               }
             }
-            q.clear
+            q.clear()
           }
         }
       }

@@ -205,7 +205,7 @@ class FMAFPTest extends AnyFlatSpec
               assert(wi0 == wid, f"test(${wi0sgn}|${wi0exp}|${wi0man}) != ref(${widsgn}|${widexp}|${widman})")
             }
           }
-          q.clear
+          q.clear()
         }
       }
     }

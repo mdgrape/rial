@@ -143,7 +143,7 @@ class AddPackedFPTest extends AnyFlatSpec
               }
             }
           }
-          q.clear
+          q.clear()
         }
       }
     }

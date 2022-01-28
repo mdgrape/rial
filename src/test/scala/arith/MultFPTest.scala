@@ -77,7 +77,7 @@ class MultFPTest extends AnyFlatSpec
                 assert(zi == z0d, f"x=$xid%16x y=$yid%16x $zi%16x!=$z0d%16x")
               }
             }
-            q.clear
+            q.clear()
           }
         }
       }

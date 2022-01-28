@@ -89,7 +89,7 @@ class MultPackedFPTest extends AnyFlatSpec
                 }
               }
             }
-            q.clear
+            q.clear()
           }
         }
       }

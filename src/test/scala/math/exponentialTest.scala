@@ -84,7 +84,7 @@ class Pow2F32Test extends AnyFlatSpec
                 assert(zi == z0d, f"x=$xid%08x $zi%08x!=$z0d%08x")
               }
             }
-            q.clear
+            q.clear()
           }
         }
       }

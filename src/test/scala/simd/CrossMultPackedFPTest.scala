@@ -127,7 +127,7 @@ class CrossMultPackedFPTest extends AnyFlatSpec
                 assert(z3i == z3d, f"x=$x1id%16x y=$y1id%16x $z1i%16x!=$z1d%16x")
               }
             }
-            q.clear
+            q.clear()
           }
         }
       }
