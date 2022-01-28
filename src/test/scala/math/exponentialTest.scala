@@ -56,7 +56,7 @@ class Pow2F32Test extends AnyFlatSpec
   }
 
   def generateF32Full ( r : Random ) : Long = {
-    val xi = r.nextInt
+    val xi = r.nextInt()
     xi.toLong&maskL(32)
   }
 
