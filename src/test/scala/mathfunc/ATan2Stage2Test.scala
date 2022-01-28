@@ -101,7 +101,7 @@ class MathFuncATan2Stage2Test extends AnyFlatSpec
             for(j <- 0 until max(1, stage.total)) {
               c.clock.step(1)
             }
-            val z1i = c.io.z.peek.litValue.toBigInt
+            val z1i = c.io.z.peek().litValue.toBigInt
 
             assert(z1r._1.value.toBigInt == z1i, f"z1r(${z1r._1.value.toLong.toBinaryString}) != z1i(${z1i.toLong.toBinaryString})");
 //             println(f"test:z1i = ${z1i.toLong.toBinaryString}")
@@ -109,7 +109,7 @@ class MathFuncATan2Stage2Test extends AnyFlatSpec
             c.io.sel.poke(SelectFunc.ATan2Stage2)
             c.io.x.poke(z1i.U(spec.W.W))
             c.io.y.poke(0.U(spec.W.W))
-            val z2i = c.io.z.peek.litValue.toBigInt
+            val z2i = c.io.z.peek().litValue.toBigInt
 
             if (i > nstage) {
               val (xid, yid, z0d) = q.dequeue()

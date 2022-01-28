@@ -77,7 +77,7 @@ class Pow2F32Test extends AnyFlatSpec
               val z0r= ExponentialSim.pow2F32Sim(xr)
               q += ((xi,z0r.value.toLong))
               c.io.x.poke(xi.U(32.W))
-              val zi = c.io.z.peek.litValue.toLong
+              val zi = c.io.z.peek().litValue.toLong
               c.clock.step(1)
               if (i > nstage) {
                 val (xid,z0d) = q.dequeue()
@@ -141,7 +141,7 @@ class Pow2BF16Test extends AnyFlatSpec
             val z0r= reference(xi)
             q += ((xi.value.toBigInt,z0r.value.toBigInt))
             c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
-            val zi = c.io.z.peek.litValue.toBigInt
+            val zi = c.io.z.peek().litValue.toBigInt
             if (i > nstage) {
               val (xid,z0d) = q.dequeue()
               assert(zi == z0d, f"x=$xid%x $zi%x!=$z0d%x")
@@ -218,7 +218,7 @@ class ExpF32Test extends AnyFlatSpec
             val z0r= reference(xi)
             q += ((xi.value.toBigInt,z0r.value.toBigInt))
             c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
-            val zi = c.io.z.peek.litValue.toBigInt
+            val zi = c.io.z.peek().litValue.toBigInt
             c.clock.step(1)
             if (i > nstage) {
               val (xid,z0d) = q.dequeue()
@@ -294,7 +294,7 @@ class ExpBF16Test extends AnyFlatSpec
             val z0r= reference(xi)
             q += ((xi.value.toBigInt,z0r.value.toBigInt))
             c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
-            val zi = c.io.z.peek.litValue.toBigInt
+            val zi = c.io.z.peek().litValue.toBigInt
             c.clock.step(1)
             if (i > nstage) {
               val (xid,z0d) = q.dequeue()

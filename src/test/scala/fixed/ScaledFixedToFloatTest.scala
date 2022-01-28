@@ -70,7 +70,7 @@ class ScaledFixedToFloatTest extends AnyFlatSpec
             q += ((xi,yi,zi0))
             c.io.x.poke(xi.U(xSpec.W.W))
             c.io.y.poke(yi.U(xSpec.W.W))
-            val zi = c.io.z.peek.litValue.toBigInt
+            val zi = c.io.z.peek().litValue.toBigInt
             c.clock.step(1)
             if (i > nstage) {
               val (xid,yid,zid) = q.dequeue()

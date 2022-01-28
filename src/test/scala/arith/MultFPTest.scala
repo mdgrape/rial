@@ -70,7 +70,7 @@ class MultFPTest extends AnyFlatSpec
               q += ((xi,yi,z0i))
               c.io.x.poke(xi.U(64.W))
               c.io.y.poke(yi.U(64.W))
-              val zi = c.io.z.peek.litValue.toBigInt
+              val zi = c.io.z.peek().litValue.toBigInt
               c.clock.step(1)
               if (i > nstage) {
                 val (xid,yid,z0d) = q.dequeue()

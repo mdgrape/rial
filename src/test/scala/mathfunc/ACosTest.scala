@@ -81,7 +81,7 @@ class MathFuncACosTest extends AnyFlatSpec
             c.io.sel.poke(SelectFunc.ACos)
             c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
             c.io.y.poke(0.U(spec.W.W))
-            val zi = c.io.z.peek.litValue.toBigInt
+            val zi = c.io.z.peek().litValue.toBigInt
             if (i > nstage) {
               val (xid,z0d) = q.dequeue()
 

@@ -126,7 +126,7 @@ class Sum4PackedFPTest extends AnyFlatSpec
               c.io.x(i).poke(xis(i).U(64.W))
               c.io.mask(i).poke(mask(i).B)
             }
-            val z0i = c.io.z.peek.litValue.toBigInt
+            val z0i = c.io.z.peek().litValue.toBigInt
 
             //if (zi != z0d) c.debugControlIO.poke(true.B)
             c.clock.step(1)

@@ -113,10 +113,10 @@ class CrossMultPackedFPTest extends AnyFlatSpec
               c.io.y(2).poke(y2i.U(64.W))
               c.io.y(3).poke(y3i.U(64.W))
 
-              val z0i = c.io.z(0).peek.litValue.toBigInt
-              val z1i = c.io.z(1).peek.litValue.toBigInt
-              val z2i = c.io.z(2).peek.litValue.toBigInt
-              val z3i = c.io.z(3).peek.litValue.toBigInt
+              val z0i = c.io.z(0).peek().litValue.toBigInt
+              val z1i = c.io.z(1).peek().litValue.toBigInt
+              val z2i = c.io.z(2).peek().litValue.toBigInt
+              val z3i = c.io.z(3).peek().litValue.toBigInt
 
               c.clock.step(1)
               if (i > nstage) {

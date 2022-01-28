@@ -118,7 +118,7 @@ class AddPackedFPTest extends AnyFlatSpec
               c.io.x(i).poke(xis(i).U(64.W))
               c.io.y(i).poke(yis(i).U(64.W))
             }
-            val zis = Seq.tabulate(len)(i => {c.io.z(i).peek.litValue.toBigInt})
+            val zis = Seq.tabulate(len)(i => {c.io.z(i).peek().litValue.toBigInt})
 
             //if (zi != z0d) c.debugControlIO.poke(true.B)
             c.clock.step(1)

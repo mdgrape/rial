@@ -181,7 +181,7 @@ class FMAFPTest extends AnyFlatSpec
             c.io.y.poke(yi.U(ySpec.W.W))
             c.io.z.poke(zi.U(zSpec.W.W))
 
-            val wi0 = c.io.w.peek.litValue.toBigInt
+            val wi0 = c.io.w.peek().litValue.toBigInt
 
             c.clock.step(1)
             if (i > nstage) {

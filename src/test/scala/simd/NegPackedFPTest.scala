@@ -90,7 +90,7 @@ class NegPackedFPTest extends AnyFlatSpec
               for (i <- 0 until len) {
                 c.io.x(i).poke(xis(i).U(64.W))
               }
-              val zis = Seq.tabulate(len)(i => {c.io.z(i).peek.litValue.toBigInt})
+              val zis = Seq.tabulate(len)(i => {c.io.z(i).peek().litValue.toBigInt})
 
               c.clock.step(1)
               if (i > nstage) {

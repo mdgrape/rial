@@ -74,7 +74,7 @@ class SqrtTest extends AnyFlatSpec
             val z0r= reference(xi)
             q += ((xi.value.toBigInt,z0r.value.toBigInt))
             c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
-            val zi = c.io.z.peek.litValue.toBigInt
+            val zi = c.io.z.peek().litValue.toBigInt
             if (i > nstage) {
               val (xid,z0d) = q.dequeue()
 

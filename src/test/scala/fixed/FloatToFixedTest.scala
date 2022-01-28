@@ -62,7 +62,7 @@ class FloatToFixedTest extends AnyFlatSpec
 
             q += ((xi, ziref))
             c.io.x.poke(xi.U(xSpec.W.W))
-            val zi = c.io.z.peek.litValue.toBigInt
+            val zi = c.io.z.peek().litValue.toBigInt
             c.clock.step(1)
             if (i > nstage) {
               val (xid,zid) = q.dequeue()

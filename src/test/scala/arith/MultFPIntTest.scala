@@ -86,7 +86,7 @@ class MultFPIntTest extends AnyFlatSpec
               } else {
                 c.io.y.poke(yi.U(yWidth.W))
               }
-              val zi = c.io.z.peek.litValue.toBigInt
+              val zi = c.io.z.peek().litValue.toBigInt
               c.clock.step(1)
               if (i > nstage) {
                 val (xid,yid,z0d) = q.dequeue()

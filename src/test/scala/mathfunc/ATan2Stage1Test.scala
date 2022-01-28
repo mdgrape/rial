@@ -87,7 +87,7 @@ class MathFuncATan2Stage1Test extends AnyFlatSpec
             c.io.sel.poke(SelectFunc.ATan2Stage1)
             c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
             c.io.y.poke(yi.value.toBigInt.U(spec.W.W))
-            val zi = c.io.z.peek.litValue.toBigInt
+            val zi = c.io.z.peek().litValue.toBigInt
             if (i > nstage) {
               val (xid, yid, z0d) = q.dequeue()
 
