@@ -54,19 +54,19 @@ object GenGenericMain extends App {
 
   val parser = new scopt.OptionParser[Config]("GenGeneric") {
     head("scopt", "3.x")
-    arg[String]("<name>") required() action { (x, c) =>
+    arg[String]("<name>").required() action { (x, c) =>
       c.copy(name = x) } text("name is the name of the function")
-    arg[String]("<function>") required() action { (x, c) =>
+    arg[String]("<function>").required() action { (x, c) =>
       c.copy(func = x) } text("func is the equation for the function")
 
     opt[String]('d', "dir") action { (x, c) =>
       c.copy(name = x) } text("directory to put generated files")
 
-    opt[Double]('l', "lower") required() action { (x, c) => c.copy(xmin = x) } text("input lower bound")
-    opt[Double]('r', "upper") required() action { (x, c) => c.copy(xmax = x) } text("input upper bound")
-    opt[Int]('o', "order") required() action { (x, c) => c.copy(order = x) } text("polynomial order")
-    opt[Int]('b', "bp") required() action { (x, c) => c.copy(bp = x) } text("binary point of output")
-    opt[Int]('w', "adrwidth") required() action { (x, c) => c.copy(ndivlog = x) } text("Address width w of table; number of segments = 2^w")
+    opt[Double]('l', "lower").required() action { (x, c) => c.copy(xmin = x) } text("input lower bound")
+    opt[Double]('r', "upper").required() action { (x, c) => c.copy(xmax = x) } text("input upper bound")
+    opt[Int]('o', "order").required() action { (x, c) => c.copy(order = x) } text("polynomial order")
+    opt[Int]('b', "bp").required() action { (x, c) => c.copy(bp = x) } text("binary point of output")
+    opt[Int]('w', "adrwidth").required() action { (x, c) => c.copy(ndivlog = x) } text("Address width w of table; number of segments = 2^w")
     opt[Int]('s', "imode") action { (x, c) =>
       c.copy(imode = x) } text("Input mode: 0: fixed, 1: floating, 2: floating with an additional segment [0,xmin)")
     opt[Int]('t', "omode") action { (x, c) => c.copy(omode = x) } text("Output mode: 0: fixed, 1: floating")
