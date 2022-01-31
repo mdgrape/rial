@@ -63,8 +63,8 @@ libraryDependencies += "org.jfree" % "jfreechart" % "1.5.0"
 libraryDependencies += "org.scala-lang" % "scala-compiler" % "2.12.10"
 
 // ScalaTest
-libraryDependencies += "org.scalactic" % "scalactic_2.12" % "3.0.8"
-libraryDependencies += "org.scalatest" % "scalatest_2.12" % "3.0.8" % "test"
+libraryDependencies += "org.scalactic" % "scalactic_2.12" % "3.2.0"
+libraryDependencies += "org.scalatest" % "scalatest_2.12" % "3.2.0" % "test"
 
 // https://mvnrepository.com/artifact/org.apache.commons/commons-math3
 libraryDependencies += "org.apache.commons" % "commons-math3" % "3.2"
