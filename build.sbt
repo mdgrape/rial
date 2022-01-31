@@ -30,9 +30,9 @@ name := "rial"
 
 version := "0.1.0"
 
-scalaVersion := "2.12.10"
+scalaVersion := "2.12.15"
 
-crossScalaVersions := Seq("2.12.10", "2.11.12")
+crossScalaVersions := Seq("2.12.15", "2.11.12")
 
 resolvers ++= Seq(
   Resolver.sonatypeRepo("snapshots"),
@@ -41,8 +41,8 @@ resolvers ++= Seq(
 
 // Provide a managed dependency on X if -DXVersion="" is supplied on the command line.
 val defaultVersions = Map(
-  "chisel3" -> "3.4-SNAPSHOT",
-  "chiseltest" -> "0.3-SNAPSHOT"
+  "chisel3" -> "3.4.4",
+  "chiseltest" -> "0.3.4"
   )
 
 libraryDependencies ++= Seq("chisel3","chiseltest").map {
@@ -60,7 +60,7 @@ libraryDependencies ++= Seq(
 libraryDependencies += "org.jfree" % "jfreechart" % "1.5.0"
 
 // Scala-compiler
-libraryDependencies += "org.scala-lang" % "scala-compiler" % "2.12.10"
+libraryDependencies += "org.scala-lang" % "scala-compiler" % "2.12.15"
 
 // ScalaTest
 libraryDependencies += "org.scalactic" % "scalactic_2.12" % "3.2.0"
