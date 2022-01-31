@@ -33,7 +33,7 @@ class FusedMulAddFPGeneric(
 
   def getStage() = nStage
 
-  val io = IO(iodef = new Bundle {
+  val io = IO(new Bundle {
     val x   = Input(UInt(xSpec.W.W))
     val y   = Input(UInt(ySpec.W.W))
     val z   = Input(UInt(zSpec.W.W))

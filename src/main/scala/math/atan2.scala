@@ -48,7 +48,7 @@ class ATan2Generic(
   val exW   = spec.exW
   val exBias = spec.exBias
 
-  val io = IO(iodef = new Bundle {
+  val io = IO(new Bundle{
     val x   = Input (UInt(spec.W.W))
     val y   = Input (UInt(spec.W.W))
     val z   = Output(UInt(spec.W.W))

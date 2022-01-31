@@ -21,7 +21,7 @@ class MultPackedFPGeneric(
 
   def getStage() = nStage
 
-  val io = IO(iodef = new Bundle {
+  val io = IO(new Bundle{
     val x   = Input (Vec(len, UInt(xSpec.W.W)))
     val y   = Input (Vec(len, UInt(ySpec.W.W)))
     val z   = Output(Vec(len, UInt(zSpec.W.W)))

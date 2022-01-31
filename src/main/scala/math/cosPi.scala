@@ -40,7 +40,7 @@ class CosPiGeneric(
 
   def getStage() = nStage
 
-  val io = IO(iodef = new Bundle {
+  val io = IO(new Bundle{
     val x = Input (UInt(spec.W.W))
     val z = Output(UInt(spec.W.W))
   })

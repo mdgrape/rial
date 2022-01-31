@@ -39,7 +39,7 @@ class ReciprocalGeneric(
   val manW = spec.manW
   val W    = expW+manW+1
 
-  val io = IO(iodef = new Bundle {
+  val io = IO(new Bundle{
     val x   = Input(UInt(W.W))
     val z   = Output(UInt(W.W))
   })

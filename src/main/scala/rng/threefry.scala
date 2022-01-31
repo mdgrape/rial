@@ -28,7 +28,7 @@ class Threefry4_32( r: Int = 20, rotStage: Int = 0 ) extends Module {
   val R0 = Array[Int]( 10, 11, 13, 23, 6, 17, 25, 18 )
   val R1 = Array[Int]( 26, 21, 27, 5, 20, 11, 10, 20 )
 
-  val io = IO(iodef = new Bundle {
+  val io = IO(new Bundle {
     val key   = Input(Vec(4, UInt(32.W)))
     val count = Input(Vec(4, UInt(32.W)))
     val rand  = Output(Vec(4, UInt(32.W)))

@@ -28,7 +28,7 @@ class FixedToFloatGeneric(
 
   def getStage() = nStage
 
-  val io = IO(iodef = new Bundle {
+  val io = IO(new Bundle{
     val x = Input (UInt(xSpec.W.W))
     val z = Output(UInt(zSpec.W.W))
   })

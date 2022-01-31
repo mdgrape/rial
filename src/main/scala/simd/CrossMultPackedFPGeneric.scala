@@ -42,7 +42,7 @@ class CrossMultPackedFPGeneric( // length is fixed: 4.
 
   def getStage() = nStage
 
-  val io = IO(iodef = new Bundle {
+  val io = IO(new Bundle{
     val x   = Input (Vec(4, UInt(xSpec.W.W)))
     val y   = Input (Vec(4, UInt(ySpec.W.W)))
     val z   = Output(Vec(4, UInt(zSpec.W.W)))
