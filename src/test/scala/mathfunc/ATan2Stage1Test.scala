@@ -6,8 +6,8 @@ import chiseltest._
 //import org.scalatest.flatspec.AnyFlatSpec
 //import org.scalatest.matchers.should.Matchers
 //import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
-import org.scalatest.FlatSpec
-import org.scalatest.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
 
 import spire.math.SafeLong
@@ -30,7 +30,7 @@ import scala.language.reflectiveCalls
 // Testing ATan2Stage1 using ChiselTest
 //
 
-class MathFuncATan2Stage1Test extends FlatSpec
+class MathFuncATan2Stage1Test extends AnyFlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
   behavior of "Test atan2Stage1"
@@ -79,7 +79,7 @@ class MathFuncATan2Stage1Test extends FlatSpec
 
           val q  = new Queue[(BigInt,BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
-            println("-----------------------------")
+//             println("-----------------------------")
             val xi = generatorX(spec,r)
             val yi = generatorYoverX(spec,r)
             val z0r= reference(xi, yi)._1
@@ -117,10 +117,10 @@ class MathFuncATan2Stage1Test extends FlatSpec
               val y = new RealGeneric(spec, yidsgn, yidexp.toInt, yidman)
               val z = new RealGeneric(spec, z0dsgn, z0dexp.toInt, z0dman)
 
-              println(f"x                 = ${xid.toLong.toBinaryString}(${x.toDouble})")
-              println(f"y                 = ${yid.toLong.toBinaryString}(${y.toDouble})")
-              println(f"min(x,y)/max(x,y) = ${if(x.toDouble < y.toDouble) {x.toDouble / y.toDouble} else {y.toDouble / x.toDouble}}")
-              println(f"z                 = ${z0d.toLong.toBinaryString}(${z.toDouble})")
+//               println(f"x                 = ${xid.toLong.toBinaryString}(${x.toDouble})")
+//               println(f"y                 = ${yid.toLong.toBinaryString}(${y.toDouble})")
+//               println(f"min(x,y)/max(x,y) = ${if(x.toDouble < y.toDouble) {x.toDouble / y.toDouble} else {y.toDouble / x.toDouble}}")
+//               println(f"z                 = ${z0d.toLong.toBinaryString}(${z.toDouble})")
 
               assert(zi == z0d, f"x = (${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman.toLong.toBinaryString}), " +
                                 f"y = (${yidsgn}|${yidexp}(${yidexp - spec.exBias})|${yidman.toLong.toBinaryString}), " +

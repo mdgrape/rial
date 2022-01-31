@@ -2,7 +2,7 @@
 //package rial.tests
 
 //import org.scalatest.funsuite.AnyFunSuite
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
 
 //import org.scalatest.flatspec.AnyFlatSpec
@@ -23,7 +23,7 @@ import rial.table._
 
 import rial.testUtil.ScalaTestUtil._
 
-class LogSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
+class LogSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
 //class ExponentialSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   var n = 1000
 

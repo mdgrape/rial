@@ -6,8 +6,8 @@ import chiseltest._
 //import org.scalatest.flatspec.AnyFlatSpec
 //import org.scalatest.matchers.should.Matchers
 //import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
-import org.scalatest.FlatSpec
-import org.scalatest.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
 
 import spire.math.SafeLong
@@ -29,7 +29,7 @@ import scala.language.reflectiveCalls
 // Testing CosPi using ChiselTest
 //
 
-class CosPiTest extends FlatSpec
+class CosPiTest extends AnyFlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
   behavior of "Test cosPi"

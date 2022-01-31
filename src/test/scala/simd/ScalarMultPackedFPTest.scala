@@ -7,8 +7,8 @@ import chiseltest._
 //import org.scalatest.flatspec.AnyFlatSpec
 //import org.scalatest.matchers.should.Matchers
 //import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
-import org.scalatest.FlatSpec
-import org.scalatest.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
 import rial.math._
 import rial.arith._
@@ -28,7 +28,7 @@ import spire.implicits._
 // Testing Pow2F32 using ChiselTest
 //
 
-class ScalarMultPackedFPTest extends FlatSpec
+class ScalarMultPackedFPTest extends AnyFlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
   behavior of "Test x*y"

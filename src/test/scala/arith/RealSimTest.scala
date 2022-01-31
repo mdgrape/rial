@@ -1,7 +1,7 @@
 
 //import org.scalatest.funsuite.AnyFunSuite
-import org.scalatest.FunSuite
-import org.scalatest.Matchers
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
 
 //import org.scalatest.flatspec.AnyFlatSpec
@@ -13,7 +13,7 @@ import scala.math._
 import rial.arith._
 import rial.util.ScalaUtil._
 
-class RealSimTest extends FunSuite with Matchers with BeforeAndAfterAllConfigMap {
+class RealSimTest extends AnyFunSuite with Matchers with BeforeAndAfterAllConfigMap {
 //class RealSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   var n = 1000
 

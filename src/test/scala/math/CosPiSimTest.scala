@@ -2,7 +2,7 @@
 //package rial.tests
 
 //import org.scalatest.funsuite.AnyFunSuite
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
 
 //import org.scalatest.flatspec.AnyFlatSpec
@@ -21,7 +21,7 @@ import rial.util.ScalaUtil._
 import rial.arith._
 import rial.table._
 
-class CosPiSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
+class CosPiSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
 //class CosPiSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   var n = 10000
 

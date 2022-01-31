@@ -2,7 +2,7 @@
 //package rial.tests
 
 //import org.scalatest.funsuite.AnyFunSuite
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
 
 //import org.scalatest.flatspec.AnyFlatSpec
@@ -23,7 +23,7 @@ import rial.table._
 
 // This test checks (mantissas exactly match) **OR** (the error is less than 2^-manW).
 // it has an error in the last 5 bits around atan2(pi) and atan2(2pi).
-class ATan2SimTest extends FunSuite with BeforeAndAfterAllConfigMap {
+class ATan2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   var n = 10000
 
   override def beforeAll(configMap: ConfigMap) = {

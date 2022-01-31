@@ -3,8 +3,8 @@ import org.scalatest._
 import chisel3._
 import chisel3.experimental.BundleLiterals._
 import chiseltest._
-import org.scalatest.FlatSpec
-import org.scalatest.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
 import rial.arith._
 import rial.fixed._
@@ -23,7 +23,7 @@ import spire.implicits._
 // Testing Fixed -> Float using ChiselTest
 //
 
-class FixedToFloatTest extends FlatSpec
+class FixedToFloatTest extends AnyFlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
   behavior of "Test fixed -> float"

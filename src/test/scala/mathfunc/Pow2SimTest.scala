@@ -1,7 +1,7 @@
 //package rial.tests
 
 //import org.scalatest.funsuite.AnyFunSuite
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
 
 //import org.scalatest.flatspec.AnyFlatSpec
@@ -26,7 +26,7 @@ import rial.table._
 //   def powf(x: Float, y:Float):Float
 // }
 
-class MathFuncPow2SimTest extends FunSuite with BeforeAndAfterAllConfigMap {
+class MathFuncPow2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   var n = 1000000
 
   override def beforeAll(configMap: ConfigMap) = {

@@ -2,7 +2,7 @@
 //package rial.tests
 
 //import org.scalatest.funsuite.AnyFunSuite
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
 
 //import org.scalatest.flatspec.AnyFlatSpec
@@ -23,7 +23,7 @@ import rial.table._
 
 // This test checks (mantissas exactly match) **OR** (the error is less than 2^-manW).
 // it has an error in the last 5 bits around sin(pi) and sin(2pi).
-class SinPiSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
+class SinPiSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   var n = 100000
 
   override def beforeAll(configMap: ConfigMap) = {

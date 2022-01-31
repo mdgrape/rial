@@ -3,8 +3,8 @@ import org.scalatest._
 import chisel3._
 import chisel3.experimental.BundleLiterals._
 import chiseltest._
-import org.scalatest.FlatSpec
-import org.scalatest.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
 
 import spire.math.SafeLong
@@ -25,7 +25,7 @@ import scala.language.reflectiveCalls
 //
 // Testing ATan2 using ChiselTest
 //
-class ATan2Test extends FlatSpec
+class ATan2Test extends AnyFlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
   behavior of "Test atan2"

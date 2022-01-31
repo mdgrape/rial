@@ -1,7 +1,7 @@
 //package rial.tests
 
 //import org.scalatest.funsuite.AnyFunSuite
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
 
 //import org.scalatest.flatspec.AnyFlatSpec
@@ -22,7 +22,7 @@ import rial.testUtil.ScalaTestUtil._ // errorLSB
 import rial.arith._
 import rial.table._
 
-class MathFuncExpSimTest extends FunSuite with BeforeAndAfterAllConfigMap {
+class MathFuncExpSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   var n = 1000000
 
   override def beforeAll(configMap: ConfigMap) = {

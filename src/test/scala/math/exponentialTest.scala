@@ -6,8 +6,8 @@ import chiseltest._
 //import org.scalatest.flatspec.AnyFlatSpec
 //import org.scalatest.matchers.should.Matchers
 //import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
-import org.scalatest.FlatSpec
-import org.scalatest.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
 
 import spire.math.SafeLong
@@ -29,7 +29,7 @@ import scala.language.reflectiveCalls
 // Testing Pow2F32 using ChiselTest
 //
 
-class Pow2F32Test extends FlatSpec
+class Pow2F32Test extends AnyFlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
   behavior of "Test pow2 F32"
@@ -96,7 +96,7 @@ class Pow2F32Test extends FlatSpec
 }
 
 
-class Pow2BF16Test extends FlatSpec
+class Pow2BF16Test extends AnyFlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
   behavior of "Test pow2 BF16"
@@ -172,7 +172,7 @@ class Pow2BF16Test extends FlatSpec
 
 }
 
-class ExpF32Test extends FlatSpec
+class ExpF32Test extends AnyFlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
   behavior of "Test exp F32"
@@ -248,7 +248,7 @@ class ExpF32Test extends FlatSpec
     "Test All range",generateRealFull(_,_) )
 }
 
-class ExpBF16Test extends FlatSpec
+class ExpBF16Test extends AnyFlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
   behavior of "Test exp BF16"
