@@ -152,10 +152,12 @@ object GenGenericMain extends App {
       (eMin to eMax-1).toSeq.foreach( e => {
         val x = scalb(1.0, e)
         println(f"Block $n : xmin=$x xmax=${x+x} nblock=${nblock} width=${x/nblock}")
-        tbl.addRange(x, x, nblock)
+        tbl.addRange(x, x+x, nblock)
         n+=1
       } )
     } else {
+      println("Input fixedpoint mode")
+      println(f"x range = [${config.xmin},${config.xmax})")
       tbl.addRange(config.xmin, config.xmax, ndiv)
     }
 
