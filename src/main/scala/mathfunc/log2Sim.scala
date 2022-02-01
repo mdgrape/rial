@@ -36,78 +36,67 @@ object MathFuncLog2Sim {
     -floor((1-spec.manW)/2).toInt
   }
 
-  // table for [1+2^{-calcTaylorThreshold}, 2)
+  // table for [1.0, 2.0)
   def log2SmallPositiveTableGeneration(spec: RealSpec,
-      order: Int = 2,
-      adrW: Int = 8,
-      extraBits: Int = 2,
+      order:     Int =  2,
+      adrW:      Int = 11,
+      extraBits: Int =  4,
       calcWidthSetting: Option[Seq[Int]] = None,
       cbitSetting: Option[Seq[Int]] = None
-    ): Seq[FuncTableInt] = {
+    ): FuncTableInt = {
 
     val log2 = (a:Double) => {log(a) / log(2.0)}
     val fracW = spec.manW + extraBits
-    val taylorThreshold = calcTaylorThreshold(spec)
 
-    val f = (xfrac: Double, xex: Int) => {
-        val xrange = (1.0 + xfrac) * pow(2.0, xex-1)
-        val x   = 1.0 + xrange
-        val res = log2(x) * pow(2.0, -xex-1)
-        assert(0.25 <= res && res <= 1.0)
-        res
+    // log(1+x) = 1/ln(2)[x - x^2/2 + x^3/3 + O(x^4)]
+    //          = 1.44.. [x - x^2/2 + x^3/3 + O(x^4)]
+    //          < 2x
+    // x < log2(1+x), 0<=x<=1. (log2 is convex upward, log2(1+0)=0, log2(1+1)=1)
+    // so
+    // x < log2(1+x) < 2x
+    //
+    // 2^xex * 1.xman < log2(1+x)            < 2^(xex+1) * 1.xman
+    // 2^xex          < log2(1+x)            < 2^(xex+1) * 2
+    // 1              < log2(1+x) * 2^-xex   < 2^2
+    // 0.25           < log2(1+x) * 2^-xex-2 < 1
+
+    val f = (x: Double) => {
+      val f64      = RealSpec.Float64Spec
+      val xi       = java.lang.Double.doubleToRawLongBits(x)
+      val xex      = slice(f64.manW, f64.exW, xi) - f64.exBias.toLong
+      val baseline = pow(2.0, -xex-2)
+      val z        = log2(1.0 + x)
+      z * baseline
     }
-
-    val maxCalcWidth = (0 to -taylorThreshold by -1).map(xex => {
-        val tableD = new FuncTableDouble( x => f(x, xex), order )
-        tableD.addRange(0.0, 1.0, 1<<adrW)
-        val tableI = new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
-        tableI.calcWidth
-      }).reduce( (lhs, rhs) => {
-        lhs.zip(rhs).map( x => max(x._1, x._2))
-      })
-
-    (0 to -taylorThreshold by -1).map( xex => {
-      val tableD = new FuncTableDouble( x => f(x, xex), order )
-      tableD.addRange(0.0, 1.0, 1<<adrW)
-      new FuncTableInt( tableD, fracW, Some(maxCalcWidth), cbitSetting )
-    })
+    val tableD = new FuncTableDouble( f, order )
+    tableD.addRange(0.0, 1.0, 1<<adrW)
+    return new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
   }
 
-  // table for [0.5, 1-2^{-calcTaylorThreshold})
+  // table for [0.5, 1.0)
   def log2SmallNegativeTableGeneration(spec: RealSpec,
-      order: Int = 2,
-      adrW: Int = 8,
-      extraBits: Int = 2,
+      order:     Int =  2,
+      adrW:      Int =  8,
+      extraBits: Int =  2,
       calcWidthSetting: Option[Seq[Int]] = None,
       cbitSetting: Option[Seq[Int]] = None
-    ): Seq[FuncTableInt] = {
+    ): FuncTableInt = {
 
     val log2 = (a:Double) => {log(a) / log(2.0)}
-    val fracW = spec.manW + extraBits
-    val taylorThreshold = calcTaylorThreshold(spec)
+    val resW = spec.exW + spec.manW
+    val fracW = resW + extraBits
 
-    val f = (xfrac: Double, xex: Int) => {
-        val xrange = (1.0 + xfrac) * pow(2.0, -xex-2)
-        val x   = 1.0 - xrange
-        val res = -log2(x) * pow(2.0, xex)
-        assert(0.25 <= res && res <= 1.0)
-        res
+    val f = (x: Double) => {
+      val z   = log2((1.0 + x) * 0.5)
+      val zFP = (new RealGeneric(spec, z)).value
+      val res = slice(0, resW, zFP).toDouble * pow(2.0, -resW)
+      res
     }
 
-    val maxCalcWidth = (0 to taylorThreshold).map(xex => {
-        val tableD = new FuncTableDouble( x => f(x, xex), order )
-        tableD.addRange(0.0, 1.0, 1<<adrW)
-        val tableI = new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
-        tableI.calcWidth
-      }).reduce( (lhs, rhs) => {
-        lhs.zip(rhs).map( x => max(x._1, x._2))
-      })
+    val tableD = new FuncTableDouble( f, order )
+    tableD.addRange(0.0, 1.0, 1<<adrW)
 
-    (0 to taylorThreshold).map( xex => {
-      val tableD = new FuncTableDouble( x => f(x, xex), order )
-      tableD.addRange(0.0, 1.0, 1<<adrW)
-      new FuncTableInt( tableD, fracW, Some(maxCalcWidth), cbitSetting )
-    })
+    return new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
   }
 
 
@@ -115,7 +104,7 @@ object MathFuncLog2Sim {
   // log2(2^ex * 1.man) = log2(2^ex) + log2(1.man)
   //                    = ex + log2(1.man)
   //
-  def log2SimGeneric( t : FuncTableInt, tSmallPos : Seq[FuncTableInt], tSmallNeg : Seq[FuncTableInt], x : RealGeneric ): RealGeneric = {
+  def log2SimGeneric( t : FuncTableInt, tSmallPos : FuncTableInt, tSmallNeg : FuncTableInt, x : RealGeneric ): RealGeneric = {
 
 //     println("==================================================")
     val exW    = x.spec.exW
@@ -252,51 +241,46 @@ object MathFuncLog2Sim {
     // log2 table should return full precision
     //
     if(xexNobias == 0) {
-      val xman0  = x.man.toLong /* = x - 1 */
-      val xmanbp = xman0.toBinaryString.length
-      val xex    = manW - xmanbp
-      val mask   = maskL(manW - xex - 1)
-      val xman   = xman0 & mask
-//       println(f"xman0  = ${xman0.toLong.toBinaryString}%24s")
-//       println(f"xex    = ${xex}")
-//       println(f"mask   = ${mask .toLong.toBinaryString}%24s")
-//       println(f"xman   = ${xman .toLong.toBinaryString}%24s")
+      val xman  = x.man.toLong
+      val xex   = -(manW - xman.toBinaryString.length)
 
-      val tablePosI = tSmallPos(xex)
-      val smallAdrW = adrW
+      val spAdrW  = tSmallPos.adrW
+      val spFracW = tSmallPos.bp
+      val spExtraBits = spFracW - manW
 
-      val dxbp = xmanbp-smallAdrW-1 -1
+      val dxbp = manW - spAdrW - 1
       val d    = slice(0,      dxbp+1, xman) - (SafeLong(1) << dxbp)
-      val adr  = slice(dxbp+1, smallAdrW, xman)
-//       println(f"dxbp   = ${maskL(dxbp) .toLong.toBinaryString}%24s")
-//       println(f"d      = ${d    .toLong.toBinaryString}%24s")
-//       println(f"adr    = ${adr  .toLong.toBinaryString}%24s")
+      val adr  = slice(dxbp+1, spAdrW, xman)
+//       println(f"xex  = ${x.ex.toLong}")
+//       println(f"xman = ${xman.toLong.toBinaryString}%32s")
+//       println(f"dx   = ${slice(0,      dxbp+1, xman).toLong.toBinaryString}%32s")
+//       println(f"d    = ${(if(d < 0) {"-" + (-d).toLong.toBinaryString} else {d.toLong.toBinaryString})}%32s")
+//       println(f"adr  = ${adr .toLong.toBinaryString}%32s")
 
-      val zfrac0 = tablePosI.interval(adr.toInt).eval(d.toLong, dxbp)
+      val z0     = tSmallPos.interval(adr.toInt).eval(d.toLong, dxbp)
 
-//       println(f"x in table = ${1.0 + ((1.0+xman.toDouble/(mask+1)) * pow(2.0, -xex-1))}")
-//       println(f"f in table = ${log2(1.0 + ((1.0+xman.toDouble/(mask+1)) * pow(2.0, -xex-1))) * pow(2.0, xex-1)}")
-//       println(f"zfrac0 = ${zfrac0.toLong.toBinaryString}")
-//       println(f"zfrac  = ${zfrac0.toDouble / (1<<fracW)}")
+//       println(f"           3         2         1")
+//       println(f"         21098765432109876543210987654321")
+//       println(f"z0     = ${z0.toLong.toBinaryString}%32s")
 
-      val (zmanW10, zex0) = if(bit(fracW-1, zfrac0) == 1) {
-        (zfrac0 << 1, -xex)
-      } else if(bit(fracW-2, zfrac0) == 1) {
-        (zfrac0 << 2, -xex - 1)
+      val (zex0, zman0) = if(bit(spFracW-1, z0) == 1) {
+        (xex   + exBias, z0 << 1) // the result from table < 1, but manW1 should be >1
+      } else if (bit(spFracW-2, z0) == 1) {
+        (xex-1 + exBias, z0 << 2)
       } else {
-        (zfrac0 << 3, -xex - 2)
+        assert(bit(spFracW-3, z0) == 1)
+        (xex-2 + exBias, z0 << 3)
       }
+//       println(f"zman0  = ${zman0.toLong.toBinaryString}%32s")
+//       println(f"dex    = ${zex0 - xex}")
 
-      val zmanW1 = (zmanW10 >> extraBits) + bit(extraBits-1, zmanW10)
-      val zMoreThan2 = bit(manW+1, zmanW1)
-      val zman      = if(zMoreThan2 == 1) {
-        slice(1, manW, zmanW1)
-      } else {
-        slice(0, manW, zmanW1)
-      }
-      val zex = zex0 + zMoreThan2
+      val zRound = (zman0 >> spExtraBits) + bit(spExtraBits-1, zman0)
+//       println(f"zRound = ${zRound.toLong.toBinaryString}%32s")
 
-      return new RealGeneric(x.spec, zsgn, zex.toInt + exBias, zman)
+      val zman   = slice(0, manW, zRound)
+      val zex    = zex0 + bit(manW+1, zRound)
+
+      return new RealGeneric(x.spec, zsgn, zex.toInt, zman.toLong)
     }
 
     // --------------------------------------------------------------------------
@@ -317,57 +301,57 @@ object MathFuncLog2Sim {
     //
     // table only takes mantissa. We need to subtract 1 from it, anyway...
     //
-    if(xexNobias == -1) {
-      val xman0  = (1L<<manW) - x.man.toLong // 1-x
-      val xmanbp = xman0.toBinaryString.length
-      val xex    = manW - xmanbp // this does not consider the x.ex
-      val mask   = maskL(xmanbp - 1)
-      val xman   = xman0 & mask
-//       println( "         432109876543210987654321")
-//       println(f"xman   = ${x.man.toLong.toBinaryString}%24s")
-//       println(f"xman0  = ${xman0.toLong.toBinaryString}%24s")
-//       println(f"xex    = ${xex}")
-//       println(f"mask   = ${mask .toLong.toBinaryString}%24s")
-//       println(f"xman   = ${xman .toLong.toBinaryString}%24s")
-
-      val tableNegI = tSmallNeg(xex)
-      val smallAdrW = adrW
-
-      val xmanShifted = xman << xex
-
-      val dxbp = manW-smallAdrW-1-1
-      val d    = slice(0,      dxbp+1, xmanShifted) - (SafeLong(1) << dxbp)
-      val adr  = slice(dxbp+1, smallAdrW, xmanShifted)
-
-//       println(f"d      = ${slice(0,      dxbp+1, xmanShifted).toLong.toBinaryString}%24s")
-//       println(f"adr    = ${adr  .toLong.toBinaryString}%24s")
-
-      val zfrac0 = tableNegI.interval(adr.toInt).eval(d.toLong, dxbp)
-
-//       println(f"x in table = ${1.0 - ((1.0+xman.toDouble/(mask+1)) * pow(2.0, -xex-2))}")
-//       println(f"f in table = ${-log2(1.0 - ((1.0+xman.toDouble/(mask+1)) * pow(2.0, -xex-2)))}")
-//       println(f"zfrac0 = ${zfrac0.toLong.toBinaryString}")
-//       println(f"zfrac  = ${zfrac0.toDouble / (1<<fracW)}")
-
-      val (zmanW10, zex0) = if(bit(fracW-1, zfrac0) == 1) {
-        (zfrac0 << 1, -xex - 1)
-      } else if(bit(fracW-2, zfrac0) == 1) {
-        (zfrac0 << 2, -xex - 2)
-      } else {
-        (zfrac0 << 3, -xex - 3)
-      }
-
-      val zmanW1 = (zmanW10 >> extraBits) + bit(extraBits-1, zmanW10)
-      val zMoreThan2 = bit(manW+1, zmanW1)
-      val zman      = if(zMoreThan2 == 1) {
-        slice(1, manW, zmanW1)
-      } else {
-        slice(0, manW, zmanW1)
-      }
-      val zex = zex0 + zMoreThan2
-
-      return new RealGeneric(x.spec, zsgn, zex.toInt + exBias, zman)
-    }
+//     if(xexNobias == -1) {
+//       val xman0  = (1L<<manW) - x.man.toLong // 1-x
+//       val xmanbp = xman0.toBinaryString.length
+//       val xex    = manW - xmanbp // this does not consider the x.ex
+//       val mask   = maskL(xmanbp - 1)
+//       val xman   = xman0 & mask
+// //       println( "         432109876543210987654321")
+// //       println(f"xman   = ${x.man.toLong.toBinaryString}%24s")
+// //       println(f"xman0  = ${xman0.toLong.toBinaryString}%24s")
+// //       println(f"xex    = ${xex}")
+// //       println(f"mask   = ${mask .toLong.toBinaryString}%24s")
+// //       println(f"xman   = ${xman .toLong.toBinaryString}%24s")
+//
+//       val tableNegI = tSmallNeg(xex)
+//       val smallAdrW = adrW
+//
+//       val xmanShifted = xman << xex
+//
+//       val dxbp = manW-smallAdrW-1-1
+//       val d    = slice(0,      dxbp+1, xmanShifted) - (SafeLong(1) << dxbp)
+//       val adr  = slice(dxbp+1, smallAdrW, xmanShifted)
+//
+// //       println(f"d      = ${slice(0,      dxbp+1, xmanShifted).toLong.toBinaryString}%24s")
+// //       println(f"adr    = ${adr  .toLong.toBinaryString}%24s")
+//
+//       val zfrac0 = tableNegI.interval(adr.toInt).eval(d.toLong, dxbp)
+//
+// //       println(f"x in table = ${1.0 - ((1.0+xman.toDouble/(mask+1)) * pow(2.0, -xex-2))}")
+// //       println(f"f in table = ${-log2(1.0 - ((1.0+xman.toDouble/(mask+1)) * pow(2.0, -xex-2)))}")
+// //       println(f"zfrac0 = ${zfrac0.toLong.toBinaryString}")
+// //       println(f"zfrac  = ${zfrac0.toDouble / (1<<fracW)}")
+//
+//       val (zmanW10, zex0) = if(bit(fracW-1, zfrac0) == 1) {
+//         (zfrac0 << 1, -xex - 1)
+//       } else if(bit(fracW-2, zfrac0) == 1) {
+//         (zfrac0 << 2, -xex - 2)
+//       } else {
+//         (zfrac0 << 3, -xex - 3)
+//       }
+//
+//       val zmanW1 = (zmanW10 >> extraBits) + bit(extraBits-1, zmanW10)
+//       val zMoreThan2 = bit(manW+1, zmanW1)
+//       val zman      = if(zMoreThan2 == 1) {
+//         slice(1, manW, zmanW1)
+//       } else {
+//         slice(0, manW, zmanW1)
+//       }
+//       val zex = zex0 + zMoreThan2
+//
+//       return new RealGeneric(x.spec, zsgn, zex.toInt + exBias, zman)
+//     }
 
     // --------------------------------------------------------------------------
     // polynomial (0.0 < x < 0.5, 2.0 < x < inf)
