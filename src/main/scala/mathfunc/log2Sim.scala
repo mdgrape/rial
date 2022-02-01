@@ -27,20 +27,24 @@ import rial.arith._
 object MathFuncLog2Sim {
 
   def calcTaylorThreshold(spec: RealSpec): Int = {
-    // log(1+x) = x/ln(2) - x^2/2ln(2) + x^3/3ln(2) + O(x^4)
-    //          = x(1 - x/2 + x^2/3) / ln(2)
-    // cond: x^2/3 < 2^-manW
-    //   <=> x^2   < 2^-manW+1
-    //   <=> x     < 2^(-manW+1)/2
-    //   <=> x.ex  < (-manW+1)/2
-    -floor((1-spec.manW)/2).toInt
+    // log(1+x) = 1/ln(2) * (x - x^2/2 + x^3/3 - x^4/4 + O(x^5))
+    //          = x(1 - x/2 + x^2/3 - x^3/4) / ln(2)
+    // cond: x^3/4 < 2^-manW
+    //   <=> x^3   < 2^-manW+2
+    //   <=> x     < 2^(-manW+2)/3
+    //   <=> x.ex  < (-manW+2)/3
+    -floor((2-spec.manW)/3).toInt
+
+    // log(1-x) = 1/ln(2) * (-x - x^2/2 - x^3/3 - x^4/4 + O(x^5))
+    //          = -x(1 + x/2 + x^2/3 + x^3/4) / ln(2)
+    // the condition is the same
   }
 
   // table for [1.0, 2.0)
   def log2SmallPositiveTableGeneration(spec: RealSpec,
       order:     Int =  2,
-      adrW:      Int = 11,
-      extraBits: Int =  4,
+      adrW:      Int =  8,
+      extraBits: Int =  2,
       calcWidthSetting: Option[Seq[Int]] = None,
       cbitSetting: Option[Seq[Int]] = None
     ): FuncTableInt = {
@@ -166,21 +170,36 @@ object MathFuncLog2Sim {
     // log(1+x) = x/ln(2) - x^2/2ln(2) + x^3/3ln(2) + O(x^4)
     //          = x(1 - x/2 + x^2/3) / ln(2)
     //
-    // if x < 2^-12, then x^2 < 2^-24
-    // use x(1 - x/2)/ln(2)
-    //    -x(1 + x/2)/ln(2)
 
     val taylorThreshold = calcTaylorThreshold(x.spec)
 
     if(xexNobias == 0 && x.man.toLong < (1L << (manW-taylorThreshold))) {
-      val xman = x.man.toLong // x - 1
-      val xmanbp = xman.toBinaryString.length
+      val xman   = x.man // x - 1
+      val xmanbp = xman.toLong.toBinaryString.length
 
-      val invln2 = math.round((1.0 / log(2.0)) * (1 << (manW+extraBits))).toLong // > 1
+      // 1/ln2 > 1
+      val invln2   = math.round((1.0 / log(2.0)) * (1L << fracW)).toLong
+      val oneThird = math.round((1.0 / 3.0)      * (1L << fracW)).toLong
 
-      val oneMinusHalfx = (1L << (manW+extraBits)) - (xman << (extraBits-1)) // < 1
+      // 1 - x/2 < 1
+      val oneMinusHalfx = (1L << fracW) - (xman << (extraBits-1))
 
-      val lntermProd      = xman * oneMinusHalfx
+      // x^2/3
+      val xsq      = xman * xman
+      val xsqThird = ((xsq * oneThird) >> (xmanbp + xmanbp)) >> ((manW - xmanbp) * 2)
+
+      // 1 - x/2 + x^2/3 < 1
+      val taylorTerm = oneMinusHalfx + xsqThird
+
+//       val xf = xman.toDouble / (1<<manW)
+//       println(f"1           = ${(1<<fracW).toLong.toBinaryString   }%32s")
+//       println(f"1/3         = ${oneThird.toLong.toBinaryString     }%32s")
+//       println(f"x           = ${xman.toLong.toBinaryString         }%32s(${xman         .toDouble / (1<<manW)})")
+//       println(f"x^2/3       = ${xsqThird.toLong.toBinaryString     }%32s(${xsqThird     .toDouble / (1<<fracW)}) == ${xf * xf / 3.0}")
+//       println(f"1-x/2       = ${oneMinusHalfx.toLong.toBinaryString}%32s(${oneMinusHalfx.toDouble / (1<<fracW)})")
+//       println(f"1-x/2+x^2/3 = ${taylorTerm.toLong.toBinaryString   }%32s(${taylorTerm   .toDouble / (1<<fracW)})")
+
+      val lntermProd      = xman * taylorTerm
       val lntermMoreThan2 = bit(xmanbp + manW + extraBits, lntermProd)
       val lnterm          = lntermProd >> (xmanbp-1 + lntermMoreThan2)
 
