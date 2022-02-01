@@ -41,7 +41,7 @@ class MathFuncLog2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     java.lang.Math.scalb(err, -x.exNorm+x.spec.manW)
   }
 
-  def log2Test(t : FuncTableInt, tSmallPos : Seq[FuncTableInt], tSmallNeg : Seq[FuncTableInt], spec : RealSpec, n : Int, r : Random,
+  def log2Test(t : FuncTableInt, tSmallPos : FuncTableInt, tSmallNeg : FuncTableInt, spec : RealSpec, n : Int, r : Random,
     generatorStr    : String,
     generator       : ( (RealSpec, Random) => RealGeneric),
     toleranceUlps   : Int ) = {
@@ -96,7 +96,7 @@ class MathFuncLog2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
             val zrefexp = slice(spec.manW, spec.exW, z0r.value)
             val zrefman = z0r.value & maskSL(spec.manW)
 
-            if(erri.abs>2.0) {
+            if(erri.abs>tolerance) {
               println(f"test: x   = ${x0}(${x.sgn}|${x.ex}(${x.ex-x.spec.exBias})|${x.man.toLong.toBinaryString})")
               println(f"test: ref = ${z0}%16g(${zrefsgn}|${zrefexp}(${(zrefexp-x.spec.exBias).toInt}%4d)|${zrefman.toLong.toBinaryString})")
               println(f"test: sim = ${zd}%16g(${zsimsgn}|${zsimexp}(${(zsimexp-x.spec.exBias).toInt}%4d)|${zsimman.toLong.toBinaryString})")
@@ -156,6 +156,13 @@ class MathFuncLog2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     "Test Small More Than 1 [1-2^-11, 1]",   generateRealWithin(1.0-pow(2.0, -11) + pow(2.0,-23), 1.0,_,_), 1)
   log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
     "Test Small More Than 1 [1, 2]",   generateRealWithin(1.0+pow(2.0, -11), 2.0,_,_), 2)
+
+  val _ = (-1 until -11 by -1).map( ex => {
+    val xmax = 1.0 + pow(2.0, ex)
+    val xmin = 1.0 + pow(2.0, ex-1)
+    log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+      f"Test Small More Than 1 [1+2^${ex-1}%3d, 1+2^${ex}%3d]", generateRealWithin(xmin, xmax,_,_), 2)
+  })
 
   log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
     "Test Large Less Than 1 [0.5, 1]", generateRealWithin(0.5,1.0,_,_), 2)
