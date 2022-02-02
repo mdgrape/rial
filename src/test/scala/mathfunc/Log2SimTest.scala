@@ -134,9 +134,9 @@ class MathFuncLog2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
               + f"${zatMaxError} != ${log2(xatMaxError)}, "
               + f"diff = ${zatMaxError - log2(xatMaxError)}, x = ${xatMaxError}")
       }
-      println(f"N=$n%d : 1LSB errors positive $err1lsbPos%d / negative $err1lsbNeg%d")
-      println(f"N=$n%d : 2LSB errors positive $err2lsbPos%d / negative $err2lsbNeg%d")
-      println(f"N=$n%d : 2<   errors positive $errNlsbPos%d / negative $errNlsbNeg%d")
+      println(f"N=$n%d : +/- 1 errors(the last 1 bit) positive $err1lsbPos%d / negative $err1lsbNeg%d")
+      println(f"N=$n%d : +/- 2 errors(the last 2 bit) positive $err2lsbPos%d / negative $err2lsbNeg%d")
+      println(f"N=$n%d : +/- 3 errors(the last 2 bit) positive $errNlsbPos%d / negative $errNlsbNeg%d")
       println( "---------------------------------------------------------------")
     }
   }
@@ -157,12 +157,19 @@ class MathFuncLog2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
     "Test Small More Than 1 [1, 2]",   generateRealWithin(1.0+pow(2.0, -11), 2.0,_,_), 2)
 
-  val _ = (-1 until -11 by -1).map( ex => {
-    val xmax = 1.0 + pow(2.0, ex)
-    val xmin = 1.0 + pow(2.0, ex-1)
-    log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
-      f"Test Small More Than 1 [1+2^${ex-1}%3d, 1+2^${ex}%3d]", generateRealWithin(xmin, xmax,_,_), 2)
-  })
+//   val smallPositive = (-1 until -23 by -1).map( ex => {
+//     val xmax = 1.0 + pow(2.0, ex)
+//     val xmin = 1.0 + pow(2.0, ex-1)
+//     log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+//       f"Test Small More Than 1 [1+2^${ex-1}%3d, 1+2^${ex}%3d]", generateRealWithin(xmin, xmax,_,_), 2)
+//   })
+//
+//   val smallNegative = (-7 until -23 by -1).map( ex => {
+//     val xmax = 1.0 - pow(2.0, ex-1)
+//     val xmin = 1.0 - pow(2.0, ex)
+//     log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+//       f"Test Small More Than 1 [1-2^${ex}%3d, 1-2^${ex-1}%3d]", generateRealWithin(xmin, xmax,_,_), 2)
+//   })
 
   log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
     "Test Large Less Than 1 [0.5, 1]", generateRealWithin(0.5,1.0,_,_), 2)
