@@ -1,12 +1,5 @@
-//package rial.tests
-
-
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
-
-
-
-//import scopt.OptionParser
 
 import scala.util.Random
 import scala.math._
@@ -41,11 +34,13 @@ class MathFuncLogSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     java.lang.Math.scalb(err, -x.exNorm+x.spec.manW)
   }
 
-  def logTest(t : FuncTableInt, spec : RealSpec, n : Int, r : Random,
+  def logTest(t : FuncTableInt, tSmallPos : FuncTableInt, tSmallNeg : FuncTableInt, spec : RealSpec, n : Int, r : Random,
     generatorStr    : String,
     generator       : ( (RealSpec, Random) => RealGeneric),
-    tolerance       : Int ) = {
+    toleranceUlps   : Int ) = {
     test(s"log(x), format ${spec.toStringShort}, ${generatorStr}") {
+
+      val tolerance = pow(2, toleranceUlps) - 1
 
       var maxError    = 0.0
       var xatMaxError = 0.0
@@ -64,7 +59,7 @@ class MathFuncLogSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         val z0   = log(x0)
         val z0r  = new RealGeneric(spec, z0)
 
-        val zi   = MathFuncLogSim.logSimGeneric( t, x )
+        val zi   = MathFuncLogSim.logSimGeneric( t, tSmallPos, tSmallNeg, x )
         val zd   = zi.toDouble
         val erri = errorLSB(zi, z0r.toDouble)
         val errf = zi.toDouble - z0r.toDouble
@@ -93,7 +88,7 @@ class MathFuncLogSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
             val zrefexp = slice(spec.manW, spec.exW, z0r.value)
             val zrefman = z0r.value & maskSL(spec.manW)
 
-            if(erri.abs>2.0) {
+            if(erri.abs>tolerance) {
               println(f"test: x   = ${x0}(${x.sgn}|${x.ex}(${x.ex-x.spec.exBias})|${x.man.toLong.toBinaryString})")
               println(f"test: ref = ${z0}(${zrefsgn}|${zrefexp}(${zrefexp-x.spec.exBias})|${zrefman.toLong.toBinaryString})")
               println(f"test: sim = ${zd}(${zsimsgn}|${zsimexp}(${zsimexp-x.spec.exBias})|${zsimman.toLong.toBinaryString})")
@@ -116,7 +111,7 @@ class MathFuncLogSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
           else if (erri<= -1.0) {
             err1lsbNeg+=1
           }
-          assert(erri.abs<=tolerance || errf.abs <= pow(2.0, -spec.manW)) // Fixed point precision
+          assert(erri.abs<=tolerance)
 
           if (maxError < erri.abs) {
             maxError    = erri.abs
@@ -131,9 +126,9 @@ class MathFuncLogSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
               + f"${zatMaxError} != ${log(xatMaxError)}, "
               + f"diff = ${zatMaxError - log(xatMaxError)}, x = ${xatMaxError}")
       }
-      println(f"N=$n%d : 1LSB errors positive $err1lsbPos%d / negative $err1lsbNeg%d")
-      println(f"N=$n%d : 2LSB errors positive $err2lsbPos%d / negative $err2lsbNeg%d")
-      println(f"N=$n%d : 2<   errors positive $errNlsbPos%d / negative $errNlsbNeg%d")
+      println(f"N=$n%d : +/- 1 errors(the last 1 bit) positive $err1lsbPos%d / negative $err1lsbNeg%d")
+      println(f"N=$n%d : +/- 2 errors(the last 2 bit) positive $err2lsbPos%d / negative $err2lsbNeg%d")
+      println(f"N=$n%d : +/- 3 errors(the last 2 bit) positive $errNlsbPos%d / negative $errNlsbNeg%d")
       println( "---------------------------------------------------------------")
     }
   }
@@ -142,16 +137,24 @@ class MathFuncLogSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     2, 8, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+2,
     Some(Seq(27, 21, 20)), Some(Seq(27, 22, 20)))
 
-  logTest(log2F32TableI, RealSpec.Float32Spec, n, r,
-    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_), 2)
-  logTest(log2F32TableI, RealSpec.Float32Spec, n, r,
-    "Test Small More Than 1 [1, 2]",   generateRealWithin(1.0, 2.0,_,_), 2)
+  val log2F32SmallPositiveTableI = MathFuncLog2Sim.log2SmallPositiveTableGeneration(RealSpec.Float32Spec)
+  val log2F32SmallNegativeTableI = MathFuncLog2Sim.log2SmallNegativeTableGeneration(RealSpec.Float32Spec)
 
-  logTest(log2F32TableI, RealSpec.Float32Spec, n, r,
+  logTest(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_), 1)
+  logTest(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+    "Test Small More Than 1 [1, 1+2^-8]",   generateRealWithin(1.0, 1.0+pow(2.0, -8) - pow(2.0,-23),_,_), 2)
+  logTest(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+    "Test Small More Than 1 [1-2^-11, 1]",   generateRealWithin(1.0-pow(2.0, -11) + pow(2.0,-23), 1.0,_,_), 2)
+  logTest(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+    "Test Small More Than 1 [1, 2]",   generateRealWithin(1.0+pow(2.0, -11), 2.0,_,_), 2)
+
+  logTest(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
     "Test Large Less Than 1 [0.5, 1]", generateRealWithin(0.5,1.0,_,_), 2)
-  logTest(log2F32TableI, RealSpec.Float32Spec, n, r,
+  logTest(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
     "Test Small Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5,_,_), 2)
 
-  logTest(log2F32TableI, RealSpec.Float32Spec, n, r,
-    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_), 2)
+  logTest(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_), 1)
+
 }
