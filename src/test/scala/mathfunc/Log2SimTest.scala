@@ -1,12 +1,5 @@
-//package rial.tests
-
-
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
-
-
-
-//import scopt.OptionParser
 
 import scala.util.Random
 import scala.math._
