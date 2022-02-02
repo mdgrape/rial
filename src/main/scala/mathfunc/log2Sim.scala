@@ -192,14 +192,6 @@ object MathFuncLog2Sim {
       // 1 - x/2 + x^2/3 < 1
       val taylorTerm = oneMinusHalfx + xsqThird
 
-//       val xf = xman.toDouble / (1<<manW)
-//       println(f"1           = ${(1<<fracW).toLong.toBinaryString   }%32s")
-//       println(f"1/3         = ${oneThird.toLong.toBinaryString     }%32s")
-//       println(f"x           = ${xman.toLong.toBinaryString         }%32s(${xman         .toDouble / (1<<manW)})")
-//       println(f"x^2/3       = ${xsqThird.toLong.toBinaryString     }%32s(${xsqThird     .toDouble / (1<<fracW)}) == ${xf * xf / 3.0}")
-//       println(f"1-x/2       = ${oneMinusHalfx.toLong.toBinaryString}%32s(${oneMinusHalfx.toDouble / (1<<fracW)})")
-//       println(f"1-x/2+x^2/3 = ${taylorTerm.toLong.toBinaryString   }%32s(${taylorTerm   .toDouble / (1<<fracW)})")
-
       val lntermProd      = xman * taylorTerm
       val lntermMoreThan2 = bit(xmanbp + manW + extraBits, lntermProd)
       val lnterm          = lntermProd >> (xmanbp-1 + lntermMoreThan2)
@@ -220,17 +212,30 @@ object MathFuncLog2Sim {
       return new RealGeneric(x.spec, zsgn, zexTaylor.toInt + exBias, zmanTaylor)
     }
 
+    // --------------------------------------------------------------------------
+    //
+    // log(1-x) = -x/ln(2) - x^2/2ln(2) - x^3/3ln(2) - O(x^4)
+    //          = -x(1 + x/2 + x^2/3) * (1 / ln(2))
+    //
     // the exponent is -1, so xman is "multiplied" by 2. So the threshold and
     // exponent calculation become different
     if(xexNobias == -1 && (((1L<<manW) - x.man.toLong) < (1L << (manW-taylorThreshold+1)))) {
       val xman   = (1L<<manW) - x.man.toLong
       val xmanbp = xman.toBinaryString.length
 
-      val invln2 = math.round((1.0 / log(2.0)) * (1 << (manW+extraBits))).toLong // > 1
+      val invln2   = math.round((1.0 / log(2.0)) * (1 << (manW+extraBits))).toLong // > 1
+      val oneThird = math.round((1.0 / 3.0)      * (1L << fracW)).toLong
 
+      // 1 + x/2 > 1
       val onePlusHalfx = (1L << (manW+extraBits)) + (xman << (extraBits-2))
 
-      val lntermProd      = xman * onePlusHalfx
+      // x^2/3
+      val xsq      = xman * xman
+      val xsqThird = ((xsq * oneThird) >> (xmanbp + xmanbp)) >> ((manW - xmanbp+1) * 2)
+
+      val taylorTerm = onePlusHalfx + xsqThird
+
+      val lntermProd      = xman * taylorTerm
       val lntermMoreThan2 = bit(xmanbp + manW + extraBits, lntermProd)
       val lnterm          = lntermProd >> (xmanbp - 1 + lntermMoreThan2)
       assert(bit(manW+extraBits, lnterm) == 1)
