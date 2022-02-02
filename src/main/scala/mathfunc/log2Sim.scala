@@ -29,12 +29,13 @@ object MathFuncLog2Sim {
   def calcTaylorThreshold(spec: RealSpec): Int = {
     // log(1+x) = 1/ln(2) * (x - x^2/2 + x^3/3 - x^4/4 + O(x^5))
     //          = x(1 - x/2 + x^2/3 - x^3/4) / ln(2)
-    // cond: x^3/4 < 2^-manW
-    //   <=> x^3   < 2^-manW+2
-    //   <=> x     < 2^(-manW+2)/3
-    //   <=> x.ex  < (-manW+2)/3
-    -floor((2-spec.manW)/3).toInt
-
+    // cond: x^3/4          < 2^-manW
+    //   <=> x^3            < 2^-manW+2
+    //   <=> x              < 2^(-manW+2)/3
+    //   <=> 2^x.ex * 1.man < 2^(-manW+2)/3
+    //   <=> 2^x.ex         < 2^((-manW+2)/3) / 2
+    //   <=> x.ex           < (-manW+2)/3 - 1
+    -floor((2-spec.manW)/3 - 1).toInt
     // log(1-x) = 1/ln(2) * (-x - x^2/2 - x^3/3 - x^4/4 + O(x^5))
     //          = -x(1 + x/2 + x^2/3 + x^3/4) / ln(2)
     // the condition is the same
@@ -151,9 +152,13 @@ object MathFuncLog2Sim {
     if(xneg) {
       return RealGeneric.nan(x.spec)
     }
-    if(x.ex == exBias && x.man == 0) {
+    if(x.man == 0 && x.ex == exBias) {
       return RealGeneric.zero(x.spec)
     }
+    if(x.man == 0 && x.ex == exBias-1) {
+      return new RealGeneric(x.spec, 1, exBias, 0)
+    }
+
 
     val zsgn = if(x.ex < exBias) {1} else {0}
 
