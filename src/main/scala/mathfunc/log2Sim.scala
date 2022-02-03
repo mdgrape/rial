@@ -194,18 +194,20 @@ object MathFuncLog2Sim {
       val xsq      = xman * xman
       val xsqThird = ((xsq * oneThird) >> (xmanbp + xmanbp)) >> ((manW - xmanbp) * 2)
 
-      // 1 - x/2 + x^2/3 < 1
-      val taylorTerm = oneMinusHalfx + xsqThird // bp=fracW
-      // x/ln2
-      val convTerm   = invln2 * xman            // bp=fracW + xmanbp-1
+      // 1 - x/2 + x^2/3 < 1, x < 2^-8
+      val taylorTerm = oneMinusHalfx + xsqThird // W = fracW
+      // x < x/ln2 ~ x * 1.44 < 2x
+      val convTerm   = invln2 * xman            // W = fracW + xmanbp
 
-      // x/ln2 * (1 - x/2 + x^2/3)
-      val resProd      = convTerm * taylorTerm  // bp = 2*fracW + xmanbp-1
+      // x < x/ln2 * (1 - x/2 + x^2/3) < 2x
+      val resProd      = convTerm * taylorTerm  // W = 2*fracW + xmanbp
       val resMoreThan2 = bit(xmanbp + fracW*2, resProd)
-      val resShifted   = resProd >> (fracW+xmanbp-1 + resMoreThan2)
+      val resShifted   = (resProd >> (fracW+xmanbp-1 + resMoreThan2 + extraBits)) +
+                         bit(fracW+xmanbp-1 + resMoreThan2 + extraBits-1, resProd)
+      val resShiftedMoreThan2 = bit(manW+1, resShifted) // resShifted includes 1 at 2^0.
 
-      val zmanTaylor = (resShifted >> extraBits) + bit(extraBits-1, resShifted)
-      val zexTaylor = -(manW - (xmanbp-1)) + resMoreThan2
+      val zmanTaylor = slice(0, manW, resShifted)
+      val zexTaylor = -(manW - (xmanbp-1)) + resMoreThan2 + resShiftedMoreThan2
 
       return new RealGeneric(x.spec, zsgn, zexTaylor.toInt + exBias, zmanTaylor)
     }
