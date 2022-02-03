@@ -141,13 +141,27 @@ class MathFuncLogSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val log2F32SmallNegativeTableI = MathFuncLog2Sim.log2SmallNegativeTableGeneration(RealSpec.Float32Spec)
 
   logTest(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
-    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_), 1)
+    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_), 2)
   logTest(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
-    "Test Small More Than 1 [1, 1+2^-8]",   generateRealWithin(1.0, 1.0+pow(2.0, -8) - pow(2.0,-23),_,_), 2)
+    "Test Small More Than 1 [1, 1+2^-11]",   generateRealWithin(1.0, 1.0+pow(2.0, -11) - pow(2.0,-23),_,_), 2)
   logTest(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
     "Test Small More Than 1 [1-2^-11, 1]",   generateRealWithin(1.0-pow(2.0, -11) + pow(2.0,-23), 1.0,_,_), 2)
   logTest(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
     "Test Small More Than 1 [1, 2]",   generateRealWithin(1.0+pow(2.0, -11), 2.0,_,_), 2)
+
+//   val smallPositive = (-7 until -23 by -1).map( ex => {
+//     val xmax = 1.0 + pow(2.0, ex)
+//     val xmin = 1.0 + pow(2.0, ex-1)
+//     logTest(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+//       f"Test Small More Than 1 [1+2^${ex-1}%3d, 1+2^${ex}%3d]", generateRealWithin(xmin, xmax,_,_), 2)
+//   })
+//
+//   val smallNegative = (-7 until -23 by -1).map( ex => {
+//     val xmax = 1.0 - pow(2.0, ex-1)
+//     val xmin = 1.0 - pow(2.0, ex)
+//     logTest(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+//       f"Test Small More Than 1 [1-2^${ex}%3d, 1-2^${ex-1}%3d]", generateRealWithin(xmin, xmax,_,_), 2)
+//   })
 
   logTest(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
     "Test Large Less Than 1 [0.5, 1]", generateRealWithin(0.5,1.0,_,_), 2)
@@ -156,5 +170,4 @@ class MathFuncLogSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
 
   logTest(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
     "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_), 1)
-
 }
