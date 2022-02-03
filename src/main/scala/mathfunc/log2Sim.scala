@@ -195,24 +195,17 @@ object MathFuncLog2Sim {
       val xsqThird = ((xsq * oneThird) >> (xmanbp + xmanbp)) >> ((manW - xmanbp) * 2)
 
       // 1 - x/2 + x^2/3 < 1
-      val taylorTerm = oneMinusHalfx + xsqThird
+      val taylorTerm = oneMinusHalfx + xsqThird // bp=fracW
+      // x/ln2
+      val convTerm   = invln2 * xman            // bp=fracW + xmanbp-1
 
-      val lntermProd      = xman * taylorTerm
-      val lntermMoreThan2 = bit(xmanbp + manW + extraBits, lntermProd)
-      val lnterm          = lntermProd >> (xmanbp-1 + lntermMoreThan2)
-
-      assert(bit(manW+extraBits-1, oneMinusHalfx) == 1 && slice(manW+extraBits, 64 - (manW+extraBits), oneMinusHalfx) == 0)
-
-      val resProd    = invln2 * lnterm // W = 2 * (manW+extraBits) + 2
-
-      val resProdMoreThan2 = bit(2*(manW+extraBits)+1, resProd)
-      val resShift   = (manW + extraBits + resProdMoreThan2)
-      val resShifted = resProd >> resShift
-      assert(bit(manW+extraBits, resShifted) == 1)
-      assert((resShifted >> (manW+extraBits+1)) == 0)
+      // x/ln2 * (1 - x/2 + x^2/3)
+      val resProd      = convTerm * taylorTerm  // bp = 2*fracW + xmanbp-1
+      val resMoreThan2 = bit(xmanbp + fracW*2, resProd)
+      val resShifted   = resProd >> (fracW+xmanbp-1 + resMoreThan2)
 
       val zmanTaylor = (resShifted >> extraBits) + bit(extraBits-1, resShifted)
-      val zexTaylor = -(manW - (xmanbp-1)) + lntermMoreThan2 + resProdMoreThan2
+      val zexTaylor = -(manW - (xmanbp-1)) + resMoreThan2
 
       return new RealGeneric(x.spec, zsgn, zexTaylor.toInt + exBias, zmanTaylor)
     }
