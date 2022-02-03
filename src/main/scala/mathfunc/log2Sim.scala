@@ -223,29 +223,28 @@ object MathFuncLog2Sim {
       val xman   = (1L<<manW) - x.man.toLong
       val xmanbp = xman.toBinaryString.length
 
-      val invln2   = math.round((1.0 / log(2.0)) * (1 << (manW+extraBits))).toLong // > 1
+      val invln2   = math.round((1.0 / log(2.0)) * (1L << fracW)).toLong // > 1
       val oneThird = math.round((1.0 / 3.0)      * (1L << fracW)).toLong
 
       // 1 + x/2 > 1
-      val onePlusHalfx = (1L << (manW+extraBits)) + (xman << (extraBits-2))
+      val onePlusHalfx = (1L << fracW) + (xman << (extraBits-2))
 
       // x^2/3
       val xsq      = xman * xman
-      val xsqThird = ((xsq * oneThird) >> (xmanbp + xmanbp)) >> ((manW - xmanbp+1) * 2)
+      val xsqThird = ((xsq * oneThird) >> (xmanbp + xmanbp)) >> ((manW - (xmanbp-1)) * 2)
 
       val taylorTerm = onePlusHalfx + xsqThird
 
       val lntermProd      = xman * taylorTerm
-      val lntermMoreThan2 = bit(xmanbp + manW + extraBits, lntermProd)
+      val lntermMoreThan2 = bit(xmanbp + fracW, lntermProd)
       val lnterm          = lntermProd >> (xmanbp - 1 + lntermMoreThan2)
       assert(bit(manW+extraBits, lnterm) == 1)
       assert(lnterm >> (manW+extraBits+1) == 0)
 
       val resProd = invln2 * lnterm // W = 2 * (manW+extraBits) + 2
 
-      val resProdMoreThan2 = bit(2*(manW+extraBits)+1, resProd)
-      val resShift   = (manW + extraBits + resProdMoreThan2)
-      val resShifted = resProd >> resShift
+      val resProdMoreThan2 = bit(2*fracW+1, resProd)
+      val resShifted = resProd >> (fracW + resProdMoreThan2)
       assert(bit(manW+extraBits, resShifted) == 1)
       assert(resShifted >> (manW+extraBits+1) == 0)
 
