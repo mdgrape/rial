@@ -239,10 +239,13 @@ object MathFuncLog2Sim {
 
       val resProd = convTerm * taylorTerm
       val resMoreThan2 = bit(xmanbp + fracW + fracW, resProd)
-      val resShifted   = resProd >> (xmanbp - 1 + fracW + resMoreThan2)
+      val resShifted   = (resProd >> (xmanbp - 1 + fracW + resMoreThan2 + extraBits)) +
+                         bit(xmanbp - 1 + fracW + resMoreThan2 + extraBits - 1, resProd)
+                         // resShifted include 1 at 2^0.
+      val resMoreThan2AfterRound = bit(manW+1, resShifted)
 
-      val zmanTaylor = (resShifted >> extraBits) + bit(extraBits-1, resShifted)
-      val zexTaylor = -(manW - (xmanbp-1)) - 1 + resMoreThan2
+      val zmanTaylor = slice(0, manW, resShifted)
+      val zexTaylor = -(manW - (xmanbp-1)) - 1 + resMoreThan2 + resMoreThan2AfterRound
 
       return new RealGeneric(x.spec, zsgn, zexTaylor.toInt + exBias, zmanTaylor)
     }
