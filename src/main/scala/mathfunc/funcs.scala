@@ -81,8 +81,8 @@ class MathFunctions(
   val order = polySpec.order
 
   val maxAdrW  = adrW + 4        // TODO automatically calculate this from spec
-  val maxCbit  = Seq(27, 21, 20) // TODO ditto
-  val maxCalcW = Seq(27, 22, 20) // TODO ditto
+  val maxCbit  = Seq(27, 24, 24) // TODO ditto
+  val maxCalcW = Seq(27, 24, 24) // TODO ditto
 
   def getMaxAdrW()  = maxAdrW
   def getMaxCbit()  = maxCbit
