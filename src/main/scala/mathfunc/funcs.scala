@@ -225,10 +225,13 @@ class MathFunctions(
   val log2Other = Module(new Log2OtherPath  (spec, polySpec, stage))
   val log2Post  = Module(new Log2PostProcess(spec, polySpec, stage))
 
-  log2Pre.io.x      := io.x
-  log2Tab.io.adr    := log2Pre.io.adr
-  log2Other.io.x    := xdecomp.io.decomp
-  log2Post.io.x     := xdecomp.io.decomp
+  log2Pre.io.x       := io.x
+  log2Tab.io.adr     := log2Pre.io.adr
+  log2Other.io.x     := xdecomp.io.decomp
+  log2Other.io.exadr := log2Pre.io.adr(log2Pre.io.adr.getWidth-1, log2Pre.io.adr.getWidth-2)
+  log2Post.io.x      := xdecomp.io.decomp
+  log2Post.io.exadr  := log2Pre.io.adr(log2Pre.io.adr.getWidth-1, log2Pre.io.adr.getWidth-2)
+  log2Post.io.xmanbp := log2Other.io.xmanbp
 
   // ------------------------------------------------------------------------
   //                  now we are here
