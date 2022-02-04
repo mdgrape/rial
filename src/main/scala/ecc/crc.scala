@@ -1,10 +1,10 @@
 //% @file crc.scala
 //
 // Cyclic Redunduncy Check
-// part of TIN - Torus Interconnect Network
+// part of RIAL - RIKEN Arithmetic and Logic library
 // Copyright (C) Makoto Taiji RIKEN BDR 2022
 //
-package tin.common
+package rial.ecc
 
 import scala.language.reflectiveCalls
 import scala.math._
@@ -71,6 +71,7 @@ class CRCcore ( g : BigInt, w : Int ) extends Module {
   io.ro := rv.asUInt
 }
 
+// Parity
 object CRCcoreGen_1_32 extends App {
   (new chisel3.stage.ChiselStage).execute(args,
     Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new CRCcore(3, 32)) ) )
