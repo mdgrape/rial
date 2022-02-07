@@ -389,11 +389,11 @@ class Log2OtherPath(
   // log2(ex)     <= zex + log2(1.zman) < log2(ex + 1)
   // log2(ex) - 1 <  zex                < log2(ex + 1)
   //
-  val xexPos = io.x.ex - exBias.U // ==  x
-  val xexNeg = (exBias-1).U - io.x.ex // == -x == abs(x)
+  val xexPos = io.x.ex - exBias.U     // ==  exNobias
+  val xexNeg = (exBias-1).U - io.x.ex // == -exNobias - 1 == -(ex - exBias) - 1 = -ex + exBias - 1
 
   // integer part of z (fractional part is calculated in polynomial module)
-  val zint = Mux(io.x.sgn === 0.U, xexPos, xexNeg)
+  val zint = Mux(io.x.ex >= exBias.U, xexPos, xexNeg)
   io.zother.zint := ShiftRegister(zint, nStage)
 
   // --------------------------------------------------------------------------
@@ -517,8 +517,12 @@ class Log2PostProcess(
   // postprocess polynomial result; x is in [2, inf) or (0, 1/2]
 
   val zLargeInt   = io.zother.zint
-  val zLargeFrac0 = io.zres
-  val zLargeFrac  = Mux(io.x.ex >= exBias.U, zLargeFrac0, (~zLargeFrac0) + 1.U)
+  val zLargeFracPos = io.zres
+  val zLargeFracNeg = ~io.zres + 1.U
+  val zLargeFrac  = Mux(io.x.ex >= exBias.U, zLargeFracPos, zLargeFracNeg)
+
+//   printf("cir: zLargeInt  = %b\n", zLargeInt)
+//   printf("cir: zLargeFrac = %b\n", zLargeFrac)
 
   // z = log2(2^xex * 1.xman)
   //   = xex + log2(1.xman)
@@ -527,6 +531,10 @@ class Log2PostProcess(
   val zLargeFull    = Cat(zLargeInt, zLargeFrac)
   val zLargeShiftW  = Mux(zLargeFull(exW+fracW-1) === 1.U, 0.U, PriorityEncoder(Reverse(zLargeFull)))
   val zLargeShifted = zLargeFull << zLargeShiftW
+
+//   printf("cir: zLargeFull    = %b\n", zLargeFull   )
+//   printf("cir: zLargeShiftW  = %b\n", zLargeShiftW )
+//   printf("cir: zLargeShifted = %b\n", zLargeShifted)
 
   assert(zLargeShifted(fracW+exW-1) === 1.U)
 
