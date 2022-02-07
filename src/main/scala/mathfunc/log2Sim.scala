@@ -155,10 +155,10 @@ object MathFuncLog2Sim {
     if(x.man == 0 && x.ex == exBias) {
       return RealGeneric.zero(x.spec)
     }
+    // XXX table for x in (0.5, 1] fails if x == 0.5
     if(x.man == 0 && x.ex == exBias-1) {
       return new RealGeneric(x.spec, 1, exBias, 0)
     }
-
 
     val zsgn = if(x.ex < exBias) {1} else {0}
 
