@@ -500,23 +500,12 @@ class Log2PostProcess(
   val zSmallMan0 = Mux(io.zres(fracW-1) === 1.U, zSmallManBase(fracW+2-1, 2),
                    Mux(io.zres(fracW-2) === 1.U, zSmallManBase(fracW+1-1, 1),
                                                  zSmallManBase(fracW+0-1, 0)))
-  assert(zSmallMan0.getWidth == fracW)
-
 //   printf("cir: zSmallManBase = %b\n", zSmallManBase)
-
-  val zSmallManRound = zSmallMan0(fracW-1, extraBits) +& zSmallMan0(extraBits-1)
-  val zSmallManMoreThan2 = zSmallManRound(manW)
-  val zSmallMan = zSmallManRound(manW-1, 0)
-
-//   printf("cir: zSmallManRound     = %b\n", zSmallManRound    )
-//   printf("cir: zSmallManMoreThan2 = %b\n", zSmallManMoreThan2)
-//   printf("cir: zSmallMan          = %b\n", zSmallMan         )
-
+  assert(zSmallMan0.getWidth == fracW)
   // exadr = 1: xexNobias == -1, x in [1/2, 1)
   // exadr = 2: xexNobias ==  0, x in [1, 2)
   // exadr = 0: others
-  val zSmallEx  = Mux(io.exadr === 2.U, zSmallPosEx, zSmallNegEx) + zSmallManMoreThan2
-//   printf("cir: zSmallEx           = %b\n", zSmallEx         )
+  val zSmallEx0 = Mux(io.exadr === 2.U, zSmallPosEx, zSmallNegEx)
 
   // --------------------------------------------------------------------------
   // postprocess polynomial result; x is in [2, inf) or (0, 1/2]
@@ -533,9 +522,11 @@ class Log2PostProcess(
   //   = xex + log2(1.xman)
   // if xex < 0, we need to subtract log2(1.xman) from |xex| and set sgn to 1
 
-  val zLargeFull    = Cat(zLargeInt, zLargeFrac)
-  val zLargeShiftW  = Mux(zLargeFull(exW+fracW-1) === 1.U, 0.U, PriorityEncoder(Reverse(zLargeFull)))
-  val zLargeShifted = zLargeFull << zLargeShiftW
+  val zLargeFull     = Cat(zLargeInt, zLargeFrac)
+  val zLargeFullPrec = PriorityEncoder(Reverse(zLargeFull)) // 0es at the MSBs
+  val zLargeShiftW   = Mux(zLargeFull(exW+fracW-1) === 1.U, 0.U, zLargeFullPrec)
+  val zLargeShifted  = zLargeFull << zLargeShiftW // W = fracW+exW
+  // here we multiplied zInt + zFrac by 8 - zLargeShiftW.
 
 //   printf("cir: zLargeFull    = %b\n", zLargeFull   )
 //   printf("cir: zLargeShiftW  = %b\n", zLargeShiftW )
@@ -543,18 +534,25 @@ class Log2PostProcess(
 
   assert(zLargeShifted(fracW+exW-1) === 1.U)
 
-  val zLargeManRound = zLargeShifted(fracW+exW-2, fracW+exW-1-manW) +& zLargeShifted(fracW+exW-1-manW-1)
-  val zLargeManMoreThan2 = zLargeManRound(manW)
+  assert(extraBits < exW) // normally this holds. normally.
+  val zLargeMan0 = zLargeShifted(fracW+exW-2, exW-1)
+  val zLargeEx0  = (exBias + exW - 1).U - zLargeShiftW
 
-  val zLargeMan = zLargeManRound(manW-1, 0)
-  val zLargeEx  = (exBias + exW - 1).U - zLargeShiftW + zLargeManMoreThan2
+  // --------------------------------------------------------------------------
+  // rounding
+
+  val zEx0  = Mux(io.exadr === 0.U, zLargeEx0,  zSmallEx0 )
+  val zMan0 = Mux(io.exadr === 0.U, zLargeMan0, zSmallMan0)
+
+  val zManRound     = zMan0(fracW-1, extraBits) +& zMan0(extraBits-1)
+  val zManMoreThan2 = zManRound(manW)
+  val zMan = Mux(io.zother.zIsNonTable, io.zother.zman, zManRound(manW-1, 0))
+  val zEx  = Mux(io.zother.zIsNonTable, io.zother.zex,  zEx0 + zManMoreThan2)
 
   // --------------------------------------------------------------------------
   // select the correct result
 
   val zSgn = io.zother.zsgn
-  val zEx  = Mux(io.zother.zIsNonTable, io.zother.zex,  Mux(io.exadr === 0.U, zLargeEx,  zSmallEx ))
-  val zMan = Mux(io.zother.zIsNonTable, io.zother.zman, Mux(io.exadr === 0.U, zLargeMan, zSmallMan))
   val z0   = Cat(zSgn, zEx, zMan)
 
   assert(zEx .getWidth == exW)
