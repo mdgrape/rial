@@ -236,6 +236,11 @@ class Log2NonTableOutput(val spec: RealSpec) extends Bundle {
   // always required
   val zsgn  = Output(UInt(1.W))
   val zIsNonTable = Output(Bool())
+  val znan  = Output(Bool())
+  val zinf  = Output(Bool())
+  val zzero = Output(Bool())
+  val zone  = Output(Bool())
+  val zhalf = Output(Bool())
   // taylor result & special value result
   val zman  = Output(UInt(spec.manW.W))
   val zex   = Output(UInt(spec.exW.W))
@@ -414,13 +419,18 @@ class Log2OtherPath(
   val zone  = xmanAllZero && io.x.ex === (exBias+1).U
   val zhalf = xmanAllZero && io.x.ex === (exBias-1).U
 
+  io.zother.znan  := ShiftRegister(znan , nStage)
+  io.zother.zinf  := ShiftRegister(zinf , nStage)
+  io.zother.zzero := ShiftRegister(zzero, nStage)
+  io.zother.zone  := ShiftRegister(zone , nStage)
+  io.zother.zhalf := ShiftRegister(zhalf, nStage)
+
   val zIsNonTable = znan || zinf || zzero || zone || zhalf ||
                     isTaylorSmallPos || isTaylorSmallNeg
+  io.zother.zIsNonTable := ShiftRegister(zIsNonTable, nStage)
 
   val zsgn = io.x.ex < exBias.U
   io.zother.zsgn := ShiftRegister(zsgn,  nStage)
-
-  io.zother.zIsNonTable := ShiftRegister(zIsNonTable, nStage)
 
   // --------------------------------------------------------------------------
   // merge Taylor results and special values
