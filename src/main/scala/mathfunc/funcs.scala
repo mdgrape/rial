@@ -201,23 +201,20 @@ class MathFunctions(
   }
   atan2Stage2Other.io.flags := atan2FlagReg
 
-  val expPre    = Module(new ExpPreProcess  (spec, polySpec, stage))
   val pow2Pre   = Module(new Pow2PreProcess (spec, polySpec, stage))
   val pow2Tab   = Module(new Pow2TableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
   val pow2Other = Module(new Pow2OtherPath  (spec, polySpec, stage))
   val pow2Post  = Module(new Pow2PostProcess(spec, polySpec, stage))
 
-  expPre.io.x       := io.x
+  pow2Pre.io.isexp  := (io.sel === SelectFunc.Exp)
   pow2Pre.io.x      := io.x
-  pow2Tab.io.adr    := Mux(io.sel === SelectFunc.Pow2, pow2Pre.io.adr, expPre.io.adr)
+  pow2Tab.io.adr    := pow2Pre.io.adr
   pow2Other.io.x    := xdecomp.io.decomp
-  pow2Other.io.xint := Mux(io.sel === SelectFunc.Pow2, pow2Pre.io.xint, expPre.io.xint)
-  pow2Other.io.xexd := ((io.sel === SelectFunc.Exp) && expPre.io.xexd.asBool).asUInt
+  pow2Other.io.xint := pow2Pre.io.xint
+  pow2Other.io.xexd := pow2Pre.io.xexd
 
   if(pow2Pre.io.xfracLSBs.isDefined) {
-    assert(expPre.io.xfracLSBs.isDefined)
-    pow2Other.io.xfracLSBs.get := Mux(io.sel === SelectFunc.Pow2,
-      pow2Pre.io.xfracLSBs.get, expPre.io.xfracLSBs.get)
+    pow2Other.io.xfracLSBs.get := pow2Pre.io.xfracLSBs.get
   }
 
   val log2Pre   = Module(new Log2PreProcess (spec, polySpec, stage))
@@ -259,7 +256,7 @@ class MathFunctions(
       (io.sel === SelectFunc.ATan2Stage1) -> recPre  .io.dx.get, // atan2 stage1 calc x/y
       (io.sel === SelectFunc.ATan2Stage2) -> atan2Stage2Pre.io.dx.get,
       (io.sel === SelectFunc.Pow2)        -> pow2Pre .io.dx.get,
-      (io.sel === SelectFunc.Exp)         -> expPre  .io.dx.get,
+      (io.sel === SelectFunc.Exp)         -> pow2Pre .io.dx.get, // same as pow2
       (io.sel === SelectFunc.Log2)        -> log2Pre .io.dx.get,
       (io.sel === SelectFunc.Log)         -> log2Pre .io.dx.get  // same as log2
     ))
