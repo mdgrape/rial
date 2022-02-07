@@ -260,7 +260,8 @@ class MathFunctions(
       (io.sel === SelectFunc.ATan2Stage2) -> atan2Stage2Pre.io.dx.get,
       (io.sel === SelectFunc.Pow2)        -> pow2Pre .io.dx.get,
       (io.sel === SelectFunc.Exp)         -> expPre  .io.dx.get,
-      (io.sel === SelectFunc.Log2)        -> log2Pre .io.dx.get
+      (io.sel === SelectFunc.Log2)        -> log2Pre .io.dx.get,
+      (io.sel === SelectFunc.Log)         -> log2Pre .io.dx.get  // same as log2
     ))
   }
   polynomialEval.io.coeffs.cs <> MuxCase(nullTab.cs, Seq(
@@ -274,7 +275,8 @@ class MathFunctions(
     (io.sel === SelectFunc.ATan2Stage2) -> atan2Stage2Tab.io.cs.cs,
     (io.sel === SelectFunc.Pow2)        -> pow2Tab   .io.cs.cs,
     (io.sel === SelectFunc.Exp)         -> pow2Tab   .io.cs.cs, // same as pow2
-    (io.sel === SelectFunc.Log2)        -> log2Tab   .io.cs.cs
+    (io.sel === SelectFunc.Log2)        -> log2Tab   .io.cs.cs,
+    (io.sel === SelectFunc.Log)         -> log2Tab   .io.cs.cs  // same as log2
   ))
 
   //                                         we are here
@@ -318,6 +320,7 @@ class MathFunctions(
 
   log2Post.io.zother <> log2Other.io.zother
   log2Post.io.zres   := polynomialEval.io.result
+  log2Post.io.isln   := io.sel === SelectFunc.Log
 
   val z0 = MuxCase(0.U, Seq(
     (io.sel === SelectFunc.Sqrt)        -> sqrtPost.io.z,
@@ -330,7 +333,8 @@ class MathFunctions(
     (io.sel === SelectFunc.ATan2Stage2) -> atan2Stage2Post.io.z,
     (io.sel === SelectFunc.Pow2)        -> pow2Post.io.z,
     (io.sel === SelectFunc.Exp)         -> pow2Post.io.z, // same as pow2
-    (io.sel === SelectFunc.Log2)        -> log2Post.io.z
+    (io.sel === SelectFunc.Log2)        -> log2Post.io.z,
+    (io.sel === SelectFunc.Log)         -> log2Post.io.z  // same as log2
   ))
 
   io.z := ShiftRegister(z0, stage.total)
