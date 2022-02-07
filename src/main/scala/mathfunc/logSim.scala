@@ -248,12 +248,17 @@ object MathFuncLogSim {
       (zex.toInt, zman0.toLong)
     }
 
+//     println(f"sim: log2xEx0  = ${(log2ex0 + exBias) .toLong.toBinaryString}")
+//     println(f"sim: log2xMan0 = ${log2man0.toLong.toBinaryString}")
+
     // --------------------------------------------------------------------------
     // convert log2 to ln
 
     // 1/log2(e) < 1
-    val oneOverLog2e = math.round(1.0 / log2(math.E) * (1 << (fracW+1))).toLong
+    val oneOverLog2e = math.round(log(2.0) * (1 << (fracW+1))).toLong
     assert((1<<fracW) < oneOverLog2e && oneOverLog2e < (1<<(fracW+1)))
+
+//     println(f"sim: oneOverLog2e = ${oneOverLog2e.toLong.toBinaryString}")
 
     val zmanProd = ((1<<fracW) + log2man0) * oneOverLog2e
     val zmanProdMoreThan2 = bit((fracW+1)*2-1, zmanProd).toInt
