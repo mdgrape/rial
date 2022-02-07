@@ -479,6 +479,7 @@ class Log2PostProcess(
   val log2 = (a:Double) => {log(a) / log(2.0)}
 
   val io = IO(new Bundle {
+    val isln   = Input(Bool()) // If log_e, true. else if log2, false.
     val x      = Flipped(new DecomposedRealOutput(spec))
     val zother = Flipped(new Log2NonTableOutput(spec, polySpec))
     val exadr  = Input(UInt(2.W))
@@ -543,15 +544,39 @@ class Log2PostProcess(
   // --------------------------------------------------------------------------
   // rounding
 
-  val zEx0  = Mux(io.zother.zIsNonTable, io.zother.zex ,
-              Mux(io.exadr === 0.U, zLargeEx0,  zSmallEx0))
-  val zMan0 = Mux(io.zother.zIsNonTable, io.zother.zman,
-              Mux(io.exadr === 0.U, zLargeMan0, zSmallMan0))
+  val log2xEx0  = Mux(io.zother.zIsNonTable, io.zother.zex ,
+                  Mux(io.exadr === 0.U, zLargeEx0,  zSmallEx0))
+  val log2xMan0 = Mux(io.zother.zIsNonTable, io.zother.zman,
+                  Mux(io.exadr === 0.U, zLargeMan0, zSmallMan0))
+//   printf("log2xEx0  = %b\n", log2xEx0 )
+//   printf("log2xMan0 = %b\n", log2xMan0)
 
-  val zManRound     = zMan0(fracW-1, extraBits) +& zMan0(extraBits-1)
-  val zManMoreThan2 = zManRound(manW)
-  val zMan = zManRound(manW-1, 0)
-  val zEx  = zEx0 + zManMoreThan2
+  // -------------------------------------------------------------------------
+  // ln(x)
+
+  // ln2 = 0.6931... < 1
+  val ln2 = math.round(log(2.0) * (1<<(fracW+1))).toLong.U((fracW+1).W)
+  assert(ln2(fracW) === 1.U)
+
+  val lnxProd      = Cat(1.U(1.W), log2xMan0) * ln2
+  val lnxMoreThan2 = lnxProd((1+fracW)*2-1).asBool
+  val lnxShifted   = Mux(lnxMoreThan2, lnxProd(fracW*2,   fracW+extraBits+1),
+                                       lnxProd(fracW*2-1, fracW+extraBits  ))
+  val lnxInc       = Mux(lnxMoreThan2, lnxProd(fracW+extraBits),
+                                       lnxProd(fracW+extraBits-1))
+  val lnxRounded   = lnxShifted +& lnxInc
+  val lnxMoreThan2AfterRound = lnxRounded(manW)
+  val lnxEx0       = log2xEx0 - 1.U + lnxMoreThan2 + lnxMoreThan2AfterRound
+
+  // -------------------------------------------------------------------------
+  // log2(x)
+
+  val log2xManRound  = log2xMan0(fracW-1, extraBits) +& log2xMan0(extraBits-1)
+  val log2xMoreThan2 = log2xManRound(manW)
+  val log2xEx        = log2xEx0 + log2xMoreThan2
+
+  val zMan = Mux(io.isln, lnxRounded(manW-1, 0), log2xManRound(manW-1, 0))
+  val zEx  = Mux(io.isln, lnxEx0,                log2xEx                 )
 
   // --------------------------------------------------------------------------
   // select the correct result
