@@ -76,6 +76,11 @@ object MathFuncLogSim {
     if(x.ex == exBias && x.man == 0) {
       return RealGeneric.zero(x.spec)
     }
+    // XXX
+    if(x.man == 0 && x.ex == exBias-1) {
+      // ln(0.5) = ln(1/2) = -ln(2)
+      return new RealGeneric(x.spec, log(2.0))
+    }
 
     val zsgn = if(x.ex < exBias) {1} else {0}
 
