@@ -134,7 +134,7 @@ class MathFuncLog2Test extends AnyFlatSpec
 
   val log2F32TableI = Log2Sim.log2TableGeneration(
     2, 8, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+2,
-    Some(Seq(27, 21, 20)), Some(Seq(27, 22, 20)))
+    Some(Seq(27, 24, 24)), Some(Seq(27, 24, 24)))
 
   val log2F32SmallPositiveTableI = MathFuncLog2Sim.log2SmallPositiveTableGeneration(RealSpec.Float32Spec)
   val log2F32SmallNegativeTableI = MathFuncLog2Sim.log2SmallNegativeTableGeneration(RealSpec.Float32Spec)
@@ -157,7 +157,7 @@ class MathFuncLog2Test extends AnyFlatSpec
     "Test Small Less Than 1 [0.5, 1]", generateRealWithin(0.5,1.0-pow(2.0, -8.0),_,_))
   runtest(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI,
     RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
-    "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5,_,_))
+    "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5-pow(2.0, -24),_,_))
 
   runtest(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI,
     RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
