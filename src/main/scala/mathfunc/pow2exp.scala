@@ -1,6 +1,6 @@
-//% @file pow2.scala
+//% @file pow2exp.scala
 //
-// pow2 function
+// pow2 and exp function
 // Copyright (C) Toru Niina RIKEN BDR 2021
 //
 package rial.mathfunc

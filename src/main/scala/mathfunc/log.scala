@@ -1,6 +1,6 @@
-//% @file log2.scala
+//% @file log.scala
 //
-// log2 function
+// log2 and ln function
 // Copyright (C) Toru Niina RIKEN BDR 2021
 //
 package rial.mathfunc
