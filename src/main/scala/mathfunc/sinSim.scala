@@ -283,18 +283,10 @@ object MathFuncSinSim {
         ((xex+2-lessThanHalf).toInt, (res << (1+lessThanHalf)).toLong - (1L<<calcW))
       }
       val zmanRound = if (extraBits>0) {(zman>>extraBits) + bit(extraBits-1, zman)} else {zman}
+      val zMan = slice(0, manW, zmanRound)
+      val zManMoreThan2 = bit(manW, zmanRound).toInt
 
-      val z = if (zman<0) {
-        println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=$x%h")
-        0L
-      } else if (zmanRound >= (1L<<manW)) {
-        println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=$x%h")
-        println(f"WARNING (${this.getClass.getName}) : x = ${x.toDouble}, sin(x) = ${sin(Pi * x.toDouble)}, z = ${new RealGeneric(x.spec, zSgn, zEx.toInt + exBias, SafeLong(maskL(manW))).toDouble}, zman = ${zmanRound.toBinaryString}")
-        maskL(manW)
-      } else {
-        zmanRound
-      }
-      new RealGeneric(x.spec, zSgn, zEx.toInt + exBias, SafeLong(z))
+      new RealGeneric(x.spec, zSgn, zEx + exBias + zManMoreThan2, SafeLong(zMan))
     }
   }
 

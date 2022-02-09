@@ -271,13 +271,11 @@ object MathFuncCosSim {
         ((xex+2-lessThanHalf).toInt, (res << (1+lessThanHalf)).toLong - (1L<<calcW))
       }
 
-      val z = if (extraBits>0) {
-          (zman>>extraBits) + bit(extraBits-1, zman)
-        } else {
-          zman
-        }
+      val zmanRound = if (extraBits>0) {(zman>>extraBits) + bit(extraBits-1, zman)} else {zman}
+      val zMan = slice(0, manW, zmanRound)
+      val zManMoreThan2 = bit(manW, zmanRound).toInt
 
-      new RealGeneric(x.spec, zSgn, zEx.toInt + exBias, SafeLong(z))
+      new RealGeneric(x.spec, zSgn, zEx + exBias + zManMoreThan2, SafeLong(zMan))
     }
   }
 
