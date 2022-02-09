@@ -247,18 +247,38 @@ object MathFuncSinSim {
       val (zEx, zman) = if (order == 0) {
         val adr   = xman.toInt
         val res0  = t.interval(adr).eval(0L, 0)
-        val lessThanHalf = if(bit(calcW-1, res0) == 0) { 1 } else { 0 }
-        val ex    = xex+2-lessThanHalf
-        val res   = (res0 << (1+lessThanHalf)).toLong - (1 << calcW)
+        val res = if (res0<0) {
+            println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x = ${x.toDouble}, sin(x) = ${sin(x.toDouble)}")
+            0L
+          } else if (res0 >= (1L<<calcW)) {
+            println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x = ${x.toDouble}, sin(x) = ${sin(x.toDouble)}")
+            maskL(calcW)
+          } else {
+            res0
+          }
 
-        (ex.toInt, res)
+        val lessThanHalf = if(bit(calcW-1, res) == 0) { 1 } else { 0 }
+        val ex    = xex+2-lessThanHalf
+        val man   = (res << (1+lessThanHalf)).toLong - (1 << calcW)
+
+        (ex.toInt, man)
 
       } else {
         val dxbp = manW-adrW-1
         val d    = slice(0, manW-adrW, xman) - (SafeLong(1)<<dxbp)
         val adr  = slice(manW-adrW, adrW, xman).toInt
 
-        val res = t.interval(adr).eval(d.toLong, dxbp)
+        val res0 = t.interval(adr).eval(d.toLong, dxbp)
+        val res = if (res0<0) {
+            println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x = ${x.toDouble}, sin(x) = ${sin(x.toDouble)}")
+            0L
+          } else if (res0 >= (1L<<calcW)) {
+            println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x = ${x.toDouble}, sin(x) = ${sin(x.toDouble)}")
+            maskL(calcW)
+          } else {
+            res0
+          }
+
         val lessThanHalf = if(bit(calcW-1, res) == 0) { 1 } else { 0 }
         ((xex+2-lessThanHalf).toInt, (res << (1+lessThanHalf)).toLong - (1L<<calcW))
       }
