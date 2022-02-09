@@ -75,14 +75,10 @@ class MathFuncSinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
             val zrefexp = slice(spec.manW, spec.exW, z0r.value)
             val zrefman = z0r.value & maskSL(spec.manW)
 
-              println(f"z0  = ${z0}")
-              println(f"z0r = ${z0r.sgn}| ${z0r.ex}| ${z0r.man.toLong.toBinaryString}")
-              println(f"zi  = ${zi.sgn }| ${zi .ex}| ${zi .man.toLong.toBinaryString}")
-              println(f"zd  = ${zd}")
-              println(f"test: x   = ${x0}(${x.sgn}|${x.ex}(${x.ex-x.spec.exBias})|${x.man.toLong.toBinaryString})")
-              println(f"test: ref = ${z0}(${zrefsgn}|${zrefexp}(${zrefexp-x.spec.exBias})|${zrefman.toLong.toBinaryString})")
-              println(f"test: sim = ${zd}(${zsimsgn}|${zsimexp}(${zsimexp-x.spec.exBias})|${zsimman.toLong.toBinaryString})")
-              println(f"test: test(${zsimsgn}|${zsimexp}(${zsimexp - spec.exBias})|${zsimman.toLong.toBinaryString}(${zsimman.toLong}%x)) != ref(${zrefsgn}|${zrefexp}(${zrefexp - spec.exBias})|${zrefman.toLong.toBinaryString}(${zrefman.toLong}%x))")
+            println(f"test: x   = ${x0}%16g(${x.sgn}|${x.ex}(${x.ex-x.spec.exBias})|${x.man.toLong.toBinaryString})")
+            println(f"test: ref = ${z0}%16g(${zrefsgn}|${zrefexp}(${zrefexp-x.spec.exBias})|${zrefman.toLong.toBinaryString})")
+            println(f"test: sim = ${zd}%16g(${zsimsgn}|${zsimexp}(${zsimexp-x.spec.exBias})|${zsimman.toLong.toBinaryString})")
+            println(f"test: test(${zsimsgn}|${zsimexp}(${zsimexp - spec.exBias})|${zsimman.toLong.toBinaryString}(${zsimman.toLong}%x)) != ref(${zrefsgn}|${zrefexp}(${zrefexp - spec.exBias})|${zrefman.toLong.toBinaryString}(${zrefman.toLong}%x))")
           }
 
           if(erri != 0) {
@@ -97,7 +93,7 @@ class MathFuncSinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
             }
           }
 
-          assert(erri.abs<=tolerance)
+          assert(erri.abs<=tolerance || (z0 - zd).abs < pow(2.0, -spec.manW) * tolerance)
 
           if (maxError < erri.abs) {
             maxError    = erri.abs
@@ -122,41 +118,24 @@ class MathFuncSinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
 
   val sinPiF32TableI = SinPiSim.sinPiTableGeneration( 2, 8, 23, 23+3 )
 
-  //XXX allowing error in 2ULPs
+  //XXX error
   sinTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
     "Test Within [-pi, -pi/2]", generateRealWithin(-Pi, -0.5 * Pi,_,_), 3)
+
   sinTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
-    "Test Within [-pi/2, -2^-12pi]", generateRealWithin(-0.5*Pi, -pow(2.0, -12)*Pi,_,_), 3)
+    "Test Within [-pi/2, -2^-12pi]", generateRealWithin(-0.5*Pi, -pow(2.0, -12)*Pi,_,_), 2)
   sinTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
-    "Test Within [-2^-12pi, 0]", generateRealWithin(-pow(2.0, -12)*Pi, 0.0,_,_), 3)
+    "Test Within [-2^-12pi, 0]", generateRealWithin(-pow(2.0, -12)*Pi, 0.0,_,_), 2)
   sinTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
-    "Test Within [0, 2^-12pi]", generateRealWithin(0.0, pow(2.0, -12)*Pi,_,_), 3)
+    "Test Within [0, 2^-12pi]", generateRealWithin(0.0, pow(2.0, -12)*Pi,_,_), 2)
   sinTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
-    "Test Within [2^-12pi, pi/2]", generateRealWithin(pow(2.0, -12)*Pi, 0.5*Pi,_,_), 3)
+    "Test Within [2^-12pi, pi/2]", generateRealWithin(pow(2.0, -12)*Pi, 0.5*Pi,_,_), 2)
+
+  //XXX error
   sinTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
-    "Test Within [pi/2, pi]", generateRealWithin(0.5*Pi, Pi,_,_), 3)
+    "Test Within [pi/2, pi]", generateRealWithin(0.5*Pi, Pi,_,_), 3 )
   sinTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
     "Test Within [pi, 3/2pi]", generateRealWithin(Pi, 1.5*Pi,_,_), 3)
   sinTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
     "Test Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 3)
-
-//   sinPiTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
-//     "Test Within [-1,    -0.5]",   generateRealWithin(-1.0, -0.5,_,_), 2, true)
-//   sinPiTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
-//     "Test Within [-0.5,  -2^-6]",  generateRealWithin(-0.5, -pow(2.0, -6),_,_), 1, true)
-//   sinPiTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
-//     "Test Within [-2^-6, -2^-12]", generateRealWithin(pow(2.0, -6), -pow(2.0, -12),_,_), 2, true) // XXX
-//   sinPiTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
-//     "Test Within [-2^-12, 0]",     generateRealWithin(-pow(2.0, -12), 0.0,_,_), 1, true)
-//   sinPiTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
-//     "Test Within [0,      2^-12]", generateRealWithin(0.0, pow(2.0, -12)-pow(2.0, -35),_,_), 1, true)
-//   sinPiTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
-//     "Test Within [2^-12,  2^-6]",  generateRealWithin(pow(2.0, -12), pow(2.0, -6),_,_), 2, true) // XXX
-//   sinPiTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
-//     "Test Within [2^-6,   0.5]",   generateRealWithin(pow(2.0, -6), 0.5,_,_), 1, true)
-//   sinPiTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
-//     "Test Within [0.5,    1.0]",   generateRealWithin(0.5, 1.0,_,_), 2, true)
-//   sinPiTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
-//     "Test Within [1.0,    2.0]",   generateRealWithin(1.0, 2.0,_,_), 2, true)
-
 }
