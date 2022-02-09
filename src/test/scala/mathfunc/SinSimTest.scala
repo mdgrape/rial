@@ -124,19 +124,21 @@ class MathFuncSinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
 
   //XXX allowing error in 2ULPs
   sinTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
-    "Test Within [-1, -0.5]", generateRealWithin(-1.0, -0.5,_,_), 3)
+    "Test Within [-pi, -pi/2]", generateRealWithin(-Pi, -0.5 * Pi,_,_), 3)
   sinTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
-    "Test Within [-0.5, -2^-12]", generateRealWithin(-0.5, -pow(2.0, -12),_,_), 3)
+    "Test Within [-pi/2, -2^-12pi]", generateRealWithin(-0.5*Pi, -pow(2.0, -12)*Pi,_,_), 3)
   sinTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
-    "Test Within [-2^-12, 0]", generateRealWithin(-pow(2.0, -12), 0.0,_,_), 3)
+    "Test Within [-2^-12pi, 0]", generateRealWithin(-pow(2.0, -12)*Pi, 0.0,_,_), 3)
   sinTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
-    "Test Within [0, 2^-12]", generateRealWithin(0.0, pow(2.0, -12),_,_), 3)
+    "Test Within [0, 2^-12pi]", generateRealWithin(0.0, pow(2.0, -12)*Pi,_,_), 3)
   sinTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
-    "Test Within [2^-12, 2^-1]", generateRealWithin(pow(2.0, -12), 0.5,_,_), 3)
+    "Test Within [2^-12pi, pi/2]", generateRealWithin(pow(2.0, -12)*Pi, 0.5*Pi,_,_), 3)
   sinTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
-    "Test Within [2^-1, 1]", generateRealWithin(0.5, 1.0,_,_), 3)
+    "Test Within [pi/2, pi]", generateRealWithin(0.5*Pi, Pi,_,_), 3)
   sinTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
-    "Test Within [1, 2]", generateRealWithin(1.0, 2.0,_,_), 3)
+    "Test Within [pi, 3/2pi]", generateRealWithin(Pi, 1.5*Pi,_,_), 3)
+  sinTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
+    "Test Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 3)
 
 //   sinPiTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
 //     "Test Within [-1,    -0.5]",   generateRealWithin(-1.0, -0.5,_,_), 2, true)
