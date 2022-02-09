@@ -57,6 +57,10 @@ object MathFuncSinSim {
     val xOverPiExNobias = x.ex - x.spec.exBias - 2 +
       xOverPiProdMoreThan2 + xOverPiProdMoreThan2AfterRound
 
+//     println(f"x = ${x.toDouble}, x/pi = ${x.toDouble/Pi}, " +
+//             f"x/pi sim = ${new RealGeneric(x.spec, 0, xOverPiExNobias + exBias, xOverPiMan).toDouble}")
+//     println(f"x/pi mantissa = ${xOverPiMan.toLong.toBinaryString}")
+
     // ------------------------------------------------------------------------
     // check its value
 
@@ -87,6 +91,8 @@ object MathFuncSinSim {
 
     // ------------------------------------------------------------------------
     // round everything into ex = -inf to -2
+    //
+    // here, we use pi-x or pi + x and it sometimes causes loss of precision.
 
     val (xex, xman) = if (xOverPiExNobias == 0) { // 1 ~ 2
 
@@ -137,6 +143,9 @@ object MathFuncSinSim {
     assert(xex  <= -1)
     assert(xman <  (1<<manW))
     if (xex == -1) {assert(xman == 0)}
+
+//     println(f"x' = ${new RealGeneric(x.spec, 0, xex.toInt+exBias, xman).toDouble}, " +
+//             f"1 - x/pi = ${1 - x.toDouble / Pi}")
 
     // ------------------------------------------------------------------------
     // now, {xex, xman} is in [0, 1/2].
@@ -334,44 +343,5 @@ object MathFuncSinSim {
     math.floor(
       (log2D(120.0) - 4 * log2D(Pi) - manW) / 4 - log2D(2.0 - math.pow(2.0, -manW))
     ).toInt
-  }
-
-  // number of tables depending on the exponent and linearThreshold
-  def calcExAdrW(spec: RealSpec, allowCubicInterpolation: Boolean = false): Int = {
-    // .--- table interp ---. .--------- cubic approx ---------.  .-- linear approx --.
-    // -2 ~ cubicThreshold+1, cubicThreshold ~ linearThreshold+1, linearThreshold, -inf
-    if (allowCubicInterpolation) {
-      val cubicThreshold = calcLinearThreshold(spec.manW)
-      val nTables = -cubicThreshold - 2 // = -2 - (cubicThreshold+1) + 1
-      log2Up(nTables)
-    } else {
-      val linearThreshold = calcLinearThreshold(spec.manW)
-      val nTables = -linearThreshold - 2 // = -2 - (linearThreshold+1) + 1
-      log2Up(abs(linearThreshold)+1)
-    }
-  }
-
-  def sinTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int,
-      calcWidthSetting: Option[Seq[Int]] = None,
-      cbitSetting: Option[Seq[Int]] = None
-    ) = {
-    val linearThreshold = calcLinearThreshold(manW)
-
-    if(adrW >= manW) {assert(order == 0)}
-
-    val maxCalcWidth = (-2 to linearThreshold by -1).map(exponent => {
-        val tableD = new FuncTableDouble( x => scalb(sin(Pi * scalb(1.0 + x, exponent)), -exponent-3), order )
-        tableD.addRange(0.0, 1.0, 1<<adrW)
-      val tableI = new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
-        tableI.calcWidth
-      }).reduce( (lhs, rhs) => {
-        lhs.zip(rhs).map( x => max(x._1, x._2))
-      })
-
-    (-2 to linearThreshold by -1).map( i => {
-      val tableD = new FuncTableDouble( x => scalb(sin(Pi * scalb(1.0+x, i)), -i-3), order )
-      tableD.addRange(0.0, 1.0, 1<<adrW)
-      new FuncTableInt( tableD, fracW, Some(maxCalcWidth), cbitSetting )
-    })
   }
 }
