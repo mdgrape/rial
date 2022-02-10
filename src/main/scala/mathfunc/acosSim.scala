@@ -125,44 +125,59 @@ object MathFuncACosSim {
 
       val xNegMan   = (1L<<manW) - x.man
       val xNegManW  = xNegMan.toLong.toBinaryString.length
-      val xNegManEx = manW + 1 - xNegManW
-      val baseEx    = 1 + floor((xNegManEx+1)/2).toInt
+      val xNegManEx = -(manW + 1 - xNegManW)
+      val baseEx    = (1 + floor((xNegManEx+1)/2)).toInt
 
-      val res0 = if (xNegManW < 8) {
+      val res00 = if (xNegManW <= 8) {
         assert(adrW == 8)
         val dxbp = 8 - adrW - 1
         val d    = 0
-        val adr  = slice(dxbp+1, adrW, man).toInt
+        val adr  = slice(0, adrW, xNegMan).toInt
         tEdge1.interval(adr).eval(d.toLong, dxbp)
-      } else if (xNegManW < 16) {
+      } else if (xNegManW <= 16) {
         val dxbp = 16 - adrW - 1
-        val d    = slice(0, dxbp+1, man) - (SafeLong(1)<<dxbp)
-        val adr  = slice(dxbp+1, adrW, man).toInt
+        val d    = slice(0, dxbp+1, xNegMan) - (SafeLong(1)<<dxbp)
+        val adr  = slice(dxbp+1, adrW, xNegMan).toInt
         tEdge2.interval(adr).eval(d.toLong, dxbp)
       } else {
         val dxbp = manW - adrW - 1
-        val d    = slice(0, dxbp+1, man) - (SafeLong(1)<<dxbp)
-        val adr  = slice(dxbp+1, adrW, man).toInt
+        val d    = slice(0, dxbp+1, xNegMan) - (SafeLong(1)<<dxbp)
+        val adr  = slice(dxbp+1, adrW, xNegMan).toInt
         tEdge3.interval(adr).eval(d.toLong, dxbp)
       }
+
+      println(f"x    = ${x.toDouble}")
+      println( "               v   2         1         ")
+      println( "       21098765432109876543210987654321")
+      println(f"x.man= ${x.man.toLong.toBinaryString}%32s")
+      println(f"res0 = ${res00.toLong.toBinaryString}%32s")
+
+      val oneOverSqrt2 = math.round((1.0 / sqrt(2.0)) * (1 << calcW))
+      val res0Prod = res00 * oneOverSqrt2
+      val res0ProdLessThan1 = if(bit(calcW*2, res0Prod) == 0) {1} else {0}
+      val res0Rounded = (res0Prod >> (calcW - res0ProdLessThan1)) +
+                        bit(calcW - res0ProdLessThan1 - 1, res0Prod)
+      val res0 = res0Rounded >> 1
 
       val res0MoreThanHalf = bit(calcW-1, res0)
       val res0MoreThanQuat = bit(calcW-2, res0)
 
       val (zExInc, zManRounded) = if(res0MoreThanHalf == 1) {
-        ( 0, (res0 >> extraBits) + bit(extraBits-1, res0))
-      } else if (res0MoreThanQuat == 1) {
         val res = res0 << 1
         (-1, (res >> extraBits) + bit(extraBits-1, res))
-      } else {
+      } else if (res0MoreThanQuat == 1) {
         val res = res0 << 2
         (-2, (res >> extraBits) + bit(extraBits-1, res))
+      } else {
+        val res = res0 << 3
+        (-3, (res >> extraBits) + bit(extraBits-1, res))
       }
 
       val zManRoundedMoreThan2 = bit(manW+1, zManRounded)
       val zEx  = baseEx + zExInc + zManRoundedMoreThan2
       val zMan = slice(0, manW, zManRounded)
 
+      println(f"zman = ${zManRounded.toLong.toBinaryString}%32s")
       assert(bit(manW, zManRounded) == 1 || zManRoundedMoreThan2 == 1)
 
       return new RealGeneric(x.spec, 0, zEx.toInt + exBias, zMan)
@@ -271,53 +286,49 @@ object MathFuncACosSim {
       cbitSetting: Option[Seq[Int]] = None
     ) = {
       // xman in [1.111'1111'1111'1111'0000'0000, 1.111'1111'1111'1111'1111'1111]
+      val log2 = (x: Double) => {log(x)/log(2)}
       val f = (x: Double) => {
         val f64      = RealSpec.Float64Spec
         val nx       = x * pow(2.0, 8 - manW)
-        val xi       = java.lang.Double.doubleToRawLongBits(nx)
-        val xex      = slice(f64.manW, f64.exW, xi) - f64.exBias.toLong
-        val baseline = pow(2.0, -(1+floor((xex+1)/2).toInt))
+        val exbase   = -(1 + (log2DownD(nx)+1)/2).toInt
+        val baseline = pow(2.0, exbase)
         val z        = acos(1.0 - nx)
         z * baseline
       }
-      val tableD = new FuncTableDouble( f, order )
-      tableD.addRange(0.0, 1.0, 1<<manW)
+      val tableD = new FuncTableDouble( f, 0 )
+      tableD.addRange(0.0, 1.0, 1<<adrW)
       new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
   }
   def acosTableEdge2( order : Int, adrW : Int, manW : Int, fracW : Int,
       calcWidthSetting: Option[Seq[Int]] = None,
       cbitSetting: Option[Seq[Int]] = None
     ) = {
-      // xman in [1.111'1111'1111'1111'0000'0000, 1.111'1111'1111'1111'1111'1111]
       val f = (x: Double) => {
         val f64      = RealSpec.Float64Spec
         val nx       = x * pow(2.0, 16 - manW)
-        val xi       = java.lang.Double.doubleToRawLongBits(x)
-        val xex      = slice(f64.manW, f64.exW, xi) - f64.exBias.toLong
-        val baseline = pow(2.0, -(1+floor((xex+1)/2).toInt))
-        val z        = acos(1.0 - x)
+        val exbase   = -(1 + (log2DownD(nx)+1)/2).toInt
+        val baseline = pow(2.0, exbase)
+        val z        = acos(1.0 - nx)
         z * baseline
       }
       val tableD = new FuncTableDouble( f, order )
-      tableD.addRange(0.0, 1.0, 1<<manW)
+      tableD.addRange(0.0, 1.0, 1<<adrW)
       new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
   }
   def acosTableEdge3( order : Int, adrW : Int, manW : Int, fracW : Int,
       calcWidthSetting: Option[Seq[Int]] = None,
       cbitSetting: Option[Seq[Int]] = None
     ) = {
-      // xman in [1.111'1111'1111'1111'0000'0000, 1.111'1111'1111'1111'1111'1111]
       val f = (x: Double) => {
         val f64      = RealSpec.Float64Spec
         val nx       = x
-        val xi       = java.lang.Double.doubleToRawLongBits(x)
-        val xex      = slice(f64.manW, f64.exW, xi) - f64.exBias.toLong
-        val baseline = pow(2.0, -(1+floor((xex+1)/2).toInt))
-        val z        = acos(1.0 - x)
+        val exbase   = -(1 + (log2DownD(nx)+1)/2).toInt
+        val baseline = pow(2.0, exbase)
+        val z        = acos(1.0 - nx)
         z * baseline
       }
       val tableD = new FuncTableDouble( f, order )
-      tableD.addRange(0.0, 1.0, 1<<manW)
+      tableD.addRange(0.0, 1.0, 1<<adrW)
       new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
   }
 

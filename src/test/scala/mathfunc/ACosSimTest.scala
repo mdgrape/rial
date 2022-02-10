@@ -130,6 +130,8 @@ class MathFuncACosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val acosEdge2F32Table = MathFuncACosSim.acosTableEdge2(2, 8, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+2)
   val acosEdge3F32Table = MathFuncACosSim.acosTableEdge3(2, 8, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+2)
 
+//   acosTest(acosF32Table, acosEdge1F32Table, acosEdge2F32Table, acosEdge3F32Table, RealSpec.Float32Spec, n, r,
+//     "Test close to 1.0: [0.5, 1.0]", generateRealWithin(0.5, 1.0-pow(2.0, -23),_,_), 2)
   acosTest(acosF32Table, acosEdge1F32Table, acosEdge2F32Table, acosEdge3F32Table, RealSpec.Float32Spec, n, r,
-    "Test close to 1.0: [0.5, 1.0]", generateRealWithin(0.5, 1.0-pow(2.0, -23),_,_), 1)
+    "Test close to 1.0: [1-2^-16, 1.0]", generateRealWithin(1.0 - pow(2.0, -17), 1.0-pow(2.0, -23),_,_), 15)
 }
