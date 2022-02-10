@@ -117,7 +117,7 @@ class MathFuncACosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
       }
       for(kv <- errs.toSeq.sortBy(_._1)) {
         val (k, (errPos, errNeg)) = kv
-        println(f"N=$n%d : +/- $k errors positive $errPos%d / negative $errNeg%d")
+        println(f"N=$n%d : +/- ${k}%4d errors (${log2DownL(k)+1}%2d ULPs) positive $errPos%d / negative $errNeg%d")
       }
       println( "---------------------------------------------------------------")
     }
