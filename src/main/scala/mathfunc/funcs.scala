@@ -117,6 +117,7 @@ class MathFunctions(
   val sqrtOther = Module(new SqrtOtherPath  (spec, polySpec, stage))
   val sqrtPost  = Module(new SqrtPostProcess(spec, polySpec, stage))
 
+  sqrtPre.io.en  := (io.sel === SelectFunc.Sqrt || io.sel === SelectFunc.InvSqrt)
   sqrtPre.io.x   := io.x
   sqrtTab.io.adr := sqrtPre.io.adr
   sqrtOther.io.x := xdecomp.io.decomp
@@ -135,6 +136,9 @@ class MathFunctions(
 
   // atan2 uses reciprocal 1/max(x,y) to calculate min(x,y)/max(x,y).
   val recUseY = (io.sel === SelectFunc.ATan2Stage1) && yIsLarger
+
+  recPre.io.en  := (io.sel === SelectFunc.Reciprocal) |
+                   (io.sel === SelectFunc.ATan2Stage1)
   recPre.io.x   := Mux(recUseY, io.y, io.x)
   recTab.io.adr := recPre.io.adr
   recOther.io.x := xdecomp.io.decomp
@@ -147,6 +151,8 @@ class MathFunctions(
   val cosPiPre   = Module(new CosPiPreProcess (spec, polySpec, stage))
   val cosPiOther = Module(new CosPiOtherPath  (spec, polySpec, stage))
 
+  sinPiPre.io.en           := (io.sel === SelectFunc.SinPi)
+  cosPiPre.io.en           := (io.sel === SelectFunc.CosPi)
   sinPiPre.io.x            := io.x
   cosPiPre.io.x            := io.x
 
@@ -164,6 +170,7 @@ class MathFunctions(
   val acosOther = Module(new ACosOtherPath  (spec, polySpec, stage))
   val acosPost  = Module(new ACosPostProcess(spec, polySpec, stage))
 
+  acosPre.io.en  := (io.sel === SelectFunc.ACos)
   acosPre.io.x   := io.x
   acosTab.io.adr := acosPre.io.adr
   acosOther.io.x := xdecomp.io.decomp
@@ -174,6 +181,7 @@ class MathFunctions(
 
   // atan2Stage1Pre checks if x and y are special values.
   // for calculation, reciprocal is re-used.
+  atan2Stage1Pre.io.en:= (io.sel === SelectFunc.ATan2Stage1)
   atan2Stage1Pre.io.x := xdecomp.io.decomp
   atan2Stage1Pre.io.y := ydecomp.io.decomp
 
@@ -185,6 +193,7 @@ class MathFunctions(
   val atan2Stage2Tab   = Module(new ATan2Stage2TableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
   val atan2Stage2Other = Module(new ATan2Stage2OtherPath  (spec, polySpec, stage))
   val atan2Stage2Post  = Module(new ATan2Stage2PostProcess(spec, polySpec, stage))
+  atan2Stage2Pre.io.en  := (io.sel === SelectFunc.ATan2Stage2)
   atan2Stage2Pre.io.x   := io.x
   atan2Stage2Tab.io.adr := atan2Stage2Pre.io.adr
   atan2Stage2Other.io.x := xdecomp.io.decomp
@@ -206,6 +215,7 @@ class MathFunctions(
   val pow2Other = Module(new Pow2OtherPath  (spec, polySpec, stage))
   val pow2Post  = Module(new Pow2PostProcess(spec, polySpec, stage))
 
+  pow2Pre.io.en     := (io.sel === SelectFunc.Exp) || (io.sel === SelectFunc.Pow2)
   pow2Pre.io.isexp  := (io.sel === SelectFunc.Exp)
   pow2Pre.io.x      := io.x
   pow2Tab.io.adr    := pow2Pre.io.adr
@@ -222,6 +232,7 @@ class MathFunctions(
   val log2Other = Module(new Log2OtherPath  (spec, polySpec, stage))
   val log2Post  = Module(new Log2PostProcess(spec, polySpec, stage))
 
+  log2Pre.io.en      := (io.sel === SelectFunc.Log) || (io.sel === SelectFunc.Log2)
   log2Pre.io.x       := io.x
   log2Tab.io.adr     := log2Pre.io.adr
   log2Other.io.x     := xdecomp.io.decomp
@@ -246,21 +257,42 @@ class MathFunctions(
   val nullTab = 0.U.asTypeOf(new TableCoeffInput(maxCbit))
 
   if(order != 0) {
-    polynomialEval.io.dx.get := MuxCase(0.U, Seq(
-      (io.sel === SelectFunc.Sqrt)        -> sqrtPre .io.dx.get,
-      (io.sel === SelectFunc.InvSqrt)     -> sqrtPre .io.dx.get, // same as sqrt
-      (io.sel === SelectFunc.Reciprocal)  -> recPre  .io.dx.get,
-      (io.sel === SelectFunc.SinPi)       -> sinPiPre.io.dx.get,
-      (io.sel === SelectFunc.CosPi)       -> cosPiPre.io.dx.get,
-      (io.sel === SelectFunc.ACos)        -> acosPre .io.dx.get,
-      (io.sel === SelectFunc.ATan2Stage1) -> recPre  .io.dx.get, // atan2 stage1 calc x/y
-      (io.sel === SelectFunc.ATan2Stage2) -> atan2Stage2Pre.io.dx.get,
-      (io.sel === SelectFunc.Pow2)        -> pow2Pre .io.dx.get,
-      (io.sel === SelectFunc.Exp)         -> pow2Pre .io.dx.get, // same as pow2
-      (io.sel === SelectFunc.Log2)        -> log2Pre .io.dx.get,
-      (io.sel === SelectFunc.Log)         -> log2Pre .io.dx.get  // same as log2
-    ))
+    polynomialEval.io.dx.get := sqrtPre .io.dx.get |
+                                recPre  .io.dx.get |
+                                sinPiPre.io.dx.get |
+                                cosPiPre.io.dx.get |
+                                acosPre .io.dx.get |
+                                recPre  .io.dx.get |
+                          atan2Stage2Pre.io.dx.get |
+                                pow2Pre .io.dx.get |
+                                log2Pre .io.dx.get
+
+//     printf("      sqrtPre .io.dx.get = %b\n",       sqrtPre .io.dx.get)
+//     printf("      recPre  .io.dx.get = %b\n",       recPre  .io.dx.get)
+//     printf("      sinPiPre.io.dx.get = %b\n",       sinPiPre.io.dx.get)
+//     printf("      cosPiPre.io.dx.get = %b\n",       cosPiPre.io.dx.get)
+//     printf("      acosPre .io.dx.get = %b\n",       acosPre .io.dx.get)
+//     printf("      recPre  .io.dx.get = %b\n",       recPre  .io.dx.get)
+//     printf("atan2Stage2Pre.io.dx.get = %b\n", atan2Stage2Pre.io.dx.get)
+//     printf("      pow2Pre .io.dx.get = %b\n",       pow2Pre .io.dx.get)
+//     printf("      log2Pre .io.dx.get = %b\n",       log2Pre .io.dx.get)
+
+//     polynomialEval.io.dx.get := MuxCase(0.U, Seq(
+//       (io.sel === SelectFunc.Sqrt)        -> sqrtPre .io.dx.get,
+//       (io.sel === SelectFunc.InvSqrt)     -> sqrtPre .io.dx.get, // same as sqrt
+//       (io.sel === SelectFunc.Reciprocal)  -> recPre  .io.dx.get,
+//       (io.sel === SelectFunc.SinPi)       -> sinPiPre.io.dx.get,
+//       (io.sel === SelectFunc.CosPi)       -> cosPiPre.io.dx.get,
+//       (io.sel === SelectFunc.ACos)        -> acosPre .io.dx.get,
+//       (io.sel === SelectFunc.ATan2Stage1) -> recPre  .io.dx.get, // atan2 stage1 calc x/y
+//       (io.sel === SelectFunc.ATan2Stage2) -> atan2Stage2Pre.io.dx.get,
+//       (io.sel === SelectFunc.Pow2)        -> pow2Pre .io.dx.get,
+//       (io.sel === SelectFunc.Exp)         -> pow2Pre .io.dx.get, // same as pow2
+//       (io.sel === SelectFunc.Log2)        -> log2Pre .io.dx.get,
+//       (io.sel === SelectFunc.Log)         -> log2Pre .io.dx.get  // same as log2
+//     ))
   }
+
   polynomialEval.io.coeffs.cs <> MuxCase(nullTab.cs, Seq(
     (io.sel === SelectFunc.Sqrt)        -> sqrtTab   .io.cs.cs,
     (io.sel === SelectFunc.InvSqrt)     -> invsqrtTab.io.cs.cs,

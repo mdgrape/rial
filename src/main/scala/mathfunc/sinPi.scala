@@ -57,13 +57,14 @@ class SinPiPreProcess(
   val order     = polySpec.order
 
   val io = IO(new Bundle {
+    val en  = Input (UInt(1.W))
     val x   = Input (UInt(spec.W.W))
     val adr = Output(UInt((exAdrW+adrW).W))
     val dx  = if(order != 0) { Some(Output(UInt(dxW.W))) } else { None }
     val xConverted = new SinPiPreProcessOutput(spec)
   })
 
-  val (xsgn, xex, xman) = FloatChiselUtil.decompose(spec, io.x)
+  val (xsgn, xex, xman) = FloatChiselUtil.decompose(spec, io.x & Fill(spec.W, io.en))
 
   // --------------------------------------------------------------------------
   // convert everything into [0, 0.5) (ex = [-inf to -2])
@@ -96,15 +97,20 @@ class SinPiPreProcess(
   val exAdr = exOfs.asUInt()(exAdrW-1, 0)
 
   val adr0 = Cat(exAdr, yman(manW-1, manW-adrW)) // concat exAdr + man
-  io.adr   := ShiftRegister(adr0,  nStage)
+  val adr  = adr0 & Fill(adr0.getWidth, io.en)
+  io.adr   := ShiftRegister(adr,  nStage)
 
   if(order != 0) {
     val dx0  = Cat(~yman(manW-adrW-1), yman(manW-adrW-2,0))
-    io.dx.get := ShiftRegister(dx0, nStage)
+    val dx   = dx0 & Fill(dx0.getWidth, io.en) // zeroed if not enabled
+    io.dx.get := ShiftRegister(dx, nStage)
   }
 
-  io.xConverted.xConvertedEx  := ShiftRegister(yex,  nStage)
-  io.xConverted.xConvertedMan := ShiftRegister(yman, nStage)
+  val xConvertedEx  = yex  & Fill(yex .getWidth, io.en)
+  val xConvertedMan = yman & Fill(yman.getWidth, io.en)
+
+  io.xConverted.xConvertedEx  := ShiftRegister(xConvertedEx,  nStage)
+  io.xConverted.xConvertedMan := ShiftRegister(xConvertedMan, nStage)
 }
 
 // -------------------------------------------------------------------------

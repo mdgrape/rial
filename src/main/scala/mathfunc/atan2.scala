@@ -86,6 +86,7 @@ class ATan2Stage1PreProcess(
   val exAdrW = ATan2Sim.calcExAdrW(spec)
 
   val io = IO(new Bundle {
+    val en      = Input (UInt(1.W))
     val x       = Input (new DecomposedRealOutput(spec))
     val y       = Input (new DecomposedRealOutput(spec))
     val special = Output(UInt(ATan2SpecialValue.W.W))
@@ -100,7 +101,7 @@ class ATan2Stage1PreProcess(
   val z1piover4 =  (io.x.inf &&  io.y.inf) &&  xpos
   val z3piover4 =  (io.x.inf &&  io.y.inf) &&  xneg
 
-  val special = MuxCase(ATan2SpecialValue.zNormal, Seq(
+  val special0 = MuxCase(ATan2SpecialValue.zNormal, Seq(
     znan      -> ATan2SpecialValue.zNaN,
     zzero     -> ATan2SpecialValue.zZero,
     zpi       -> ATan2SpecialValue.zPi,
@@ -108,6 +109,7 @@ class ATan2Stage1PreProcess(
     z1piover4 -> ATan2SpecialValue.zQuarterPi,
     z3piover4 -> ATan2SpecialValue.z3QuarterPi
   ))
+  val special = special0 & io.en
 
   io.special := ShiftRegister(special, nStage)
 }
@@ -313,22 +315,25 @@ class ATan2Stage2PreProcess(
   val exAdrW = ATan2Sim.calcExAdrW(spec)
 
   val io = IO(new Bundle {
+    val en  = Input (UInt(1.W))
     val x   = Input (UInt(spec.W.W))
     val adr = Output(UInt((exAdrW+adrW).W))
     val dx  = if(order != 0) { Some(Output(UInt(dxW.W))) } else { None }
   })
 
-  val (xsgn, xex, xman) = FloatChiselUtil.decompose(spec, io.x)
+  val (xsgn, xex, xman) = FloatChiselUtil.decompose(spec, io.x & Fill(spec.W, io.en))
 
   val exAdr0 = (exBias - 1).U(exW.W) - xex
   val exAdr  = exAdr0(exAdrW-1, 0)
 
   val adr0 = Cat(exAdr, xman(manW-1, dxW))
-  io.adr := ShiftRegister(adr0, nStage)
+  val adr  = adr0 & Fill(adr0.getWidth, io.en)
+  io.adr := ShiftRegister(adr, nStage)
 
   if(order != 0) {
     val dx0  = Cat(~xman(manW-adrW-1), xman(manW-adrW-2,0))
-    io.dx.get := ShiftRegister(dx0, nStage)
+    val dx   = dx0 & Fill(dx0.getWidth, io.en)
+    io.dx.get := ShiftRegister(dx, nStage)
   }
 }
 

@@ -49,6 +49,7 @@ class Pow2PreProcess(
   val padding   = extraBits
 
   val io = IO(new Bundle {
+    val en        = Input (UInt(1.W))
     val isexp     = Input (Bool())
     val x         = Input (UInt(spec.W.W))
     val adr       = Output(UInt(adrW.W))
@@ -64,7 +65,7 @@ class Pow2PreProcess(
     val xexd = Output(UInt(1.W))
   })
 
-  val (xsgn, xex0, xman0) = FloatChiselUtil.decompose(spec, io.x)
+  val (xsgn, xex0, xman0) = FloatChiselUtil.decompose(spec, io.x & Fill(spec.W, io.en))
 
   val log2 = (a:Double) => {log(a) / log(2.0)}
   val xExOvfLimit = math.ceil(log2(maskL(exW)-exBias)).toLong // log2(255-127 = 128) = 7
@@ -112,7 +113,7 @@ class Pow2PreProcess(
 
   assert(xprodMoreThan2AfterRounded +& xprodMoreThan2 =/= 2.U)
 
-  val xexd0 = io.isexp & (xprodMoreThan2AfterRounded + xprodMoreThan2)
+  val xexd0 = io.isexp & (xprodMoreThan2AfterRounded + xprodMoreThan2) & io.en
   io.xexd := ShiftRegister(xexd0, nStage)
 
   // ------------------------------------------------------------------------
@@ -136,23 +137,26 @@ class Pow2PreProcess(
 
   // if xsgn == 1, we negate xint to calculate exbias. but we later do that in
   // Pow2OtherPath.
-  val xint = xint0 +& (xsgn.asBool && (xfrac0 =/= 0.U)).asUInt
+  val xint = (xint0 +& (xsgn.asBool && (xfrac0 =/= 0.U)).asUInt) & Fill(xint0.getWidth+1, io.en)
   io.xint := ShiftRegister(xint, nStage)
 
   val xfracNeg = (1<<xFracW).U((xFracW+1).W) - xfrac0
   val xfrac = Mux(xsgn === 0.U, xfrac0, xfracNeg(xFracW-1, 0))
 
   val adr0 = xfrac(xFracW-1, (xFracW-1)-adrW+1)
-  io.adr := ShiftRegister(adr0, nStage)
+  val adr  = adr0 & Fill(adr0.getWidth, io.en)
+  io.adr := ShiftRegister(adr, nStage)
 
   if(order != 0) {
     val dx0  = Cat(~xfrac(xFracW-1-adrW), xfrac(xFracW-1-adrW-1, padding))
-    io.dx.get := ShiftRegister(dx0, nStage)
+    val dx   = dx0 & Fill(dx0.getWidth, io.en)
+    io.dx.get := ShiftRegister(dx, nStage)
   }
 
   if(padding != 0) {
     val xfracLSBs0 = xfrac(padding-1, 0)
-    io.xfracLSBs.get := ShiftRegister(xfracLSBs0, nStage)
+    val xfracLSBs  = xfracLSBs0 & Fill(xfracLSBs0.getWidth, io.en)
+    io.xfracLSBs.get := ShiftRegister(xfracLSBs, nStage)
   }
 }
 

@@ -48,6 +48,7 @@ class ReciprocalPreProcess(
   val order     = polySpec.order
 
   val io = IO(new Bundle {
+    val en  = Input (UInt(1.W))
     val x   = Input (UInt(spec.W.W))
     val adr = Output(UInt(adrW.W))
     val dx  = if (order != 0) { Some(Output(UInt(dxW.W))) } else { None }
@@ -55,11 +56,13 @@ class ReciprocalPreProcess(
 
   // invert x to make all the polynomial coefficients positive
   val adr0 = ~io.x(manW-1, dxW)
+  val adr  = adr0 & Fill(adr0.getWidth, io.en)
   io.adr := ShiftRegister(adr0, nStage)
 
   if(order != 0) {
     val dx0  = Cat(io.x(dxW-1), ~io.x(dxW-2, 0))
-    io.dx.get := ShiftRegister(dx0, nStage)
+    val dx   = dx0 & Fill(dx0.getWidth, io.en)
+    io.dx.get := ShiftRegister(dx, nStage)
   }
 }
 

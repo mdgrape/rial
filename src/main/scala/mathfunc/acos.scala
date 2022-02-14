@@ -47,22 +47,25 @@ class ACosPreProcess(
   val exAdrW    = ACosSim.calcExAdrW(spec)
 
   val io = IO(new Bundle {
+    val en  = Input (UInt(1.W))
     val x   = Input (UInt(spec.W.W))
     val adr = Output(UInt((exAdrW+adrW).W))
     val dx  = if(order != 0) { Some(Output(UInt(dxW.W))) } else { None }
   })
 
-  val (xsgn, xex, xman) = FloatChiselUtil.decompose(spec, io.x)
+  val (xsgn, xex, xman) = FloatChiselUtil.decompose(spec, io.x & Fill(spec.W, io.en))
 
   val exAdr0 = (exBias - 1).U(exW.W) - xex
   val exAdr  = Mux(exAdr0(exW-1), 0.U(exAdrW.W), exAdr0(exAdrW-1, 0))
 
   val adr0 = Cat(exAdr, xman(manW-1, dxW))
-  io.adr := ShiftRegister(adr0, nStage)
+  val adr  = adr0 & Fill(adr0.getWidth, io.en)
+  io.adr := ShiftRegister(adr, nStage)
 
   if(order != 0) {
     val dx0  = Cat(~xman(dxW-1), xman(dxW-2, 0))
-    io.dx.get := ShiftRegister(dx0, nStage)
+    val dx   = dx0 & Fill(dx0.getWidth, io.en)
+    io.dx.get := ShiftRegister(dx, nStage)
   }
 }
 
