@@ -370,6 +370,7 @@ class Pow2PostProcess(
   val zCorrTmpW = 10 // XXX see pow2Sim
 
   val io = IO(new Bundle {
+    val en = Input(UInt(1.W))
     // ex and some flags
     val zother = Flipped(new Pow2NonTableOutput(spec))
     // table interpolation results
@@ -419,5 +420,7 @@ class Pow2PostProcess(
   assert(zMan.getWidth == manW)
   assert(z0  .getWidth == spec.W)
 
-  io.z   := ShiftRegister(z0, nStage)
+  val z = z0 & Fill(z0.getWidth, io.en)
+
+  io.z   := ShiftRegister(z, nStage)
 }

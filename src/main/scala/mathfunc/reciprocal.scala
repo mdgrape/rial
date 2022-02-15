@@ -228,6 +228,7 @@ class ReciprocalPostProcess(
   val extraBits = polySpec.extraBits
 
   val io = IO(new Bundle {
+    val en = Input(UInt(1.W))
     val zother = Flipped(new ReciprocalNonTableOutput(spec))
     val zres   = Input(UInt(fracW.W))
     val z      = Output(UInt(spec.W.W))
@@ -244,6 +245,7 @@ class ReciprocalPostProcess(
   val zman          = Mux(zIsNonTable, zmanNonTable, zmanRounded)
 
   val z0 = Cat(zsgn, zex, zman)
+  val z = z0 & Fill(z0.getWidth, io.en)
 
-  io.z   := ShiftRegister(z0, nStage)
+  io.z   := ShiftRegister(z, nStage)
 }

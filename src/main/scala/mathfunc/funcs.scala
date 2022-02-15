@@ -377,26 +377,33 @@ class MathFunctions(
   //           '--| non-table path (e.g. taylor)   |==+
   //              '--------------------------------'
 
+  sqrtPost.io.en := (io.sel === SelectFunc.Sqrt)
   sqrtPost.io.zother <> sqrtOther.io.zother
   sqrtPost.io.zres   := polynomialEval.io.result
 
+  invsqrtPost.io.en := (io.sel === SelectFunc.InvSqrt)
   invsqrtPost.io.zother <> invsqrtOther.io.zother
   invsqrtPost.io.zres   := polynomialEval.io.result
 
+  recPost.io.en := io.sel === SelectFunc.Reciprocal
   recPost.io.zother <> recOther.io.zother
   recPost.io.zres   := polynomialEval.io.result
 
+  sinPiPost.io.en := (io.sel === SelectFunc.SinPi || io.sel === SelectFunc.CosPi)
   sinPiPost.io.zother := Mux(io.sel === SelectFunc.SinPi,
     sinPiOther.io.zother, cosPiOther.io.zother)
   sinPiPost.io.zres   := polynomialEval.io.result
 
+  acosPost.io.en := (io.sel === SelectFunc.ACos)
   acosPost.io.zother <> acosOther.io.zother
   acosPost.io.zres   := polynomialEval.io.result
 
+  atan2Stage1Post.io.en     := (io.sel === SelectFunc.ATan2Stage1)
   atan2Stage1Post.io.zother <> atan2Stage1Other.io.zother
   atan2Stage1Post.io.zres   := polynomialEval.io.result
   atan2Stage1Post.io.minxy  := Mux(yIsLarger, xdecomp.io.decomp, ydecomp.io.decomp)
 
+  atan2Stage2Post.io.en     := (io.sel === SelectFunc.ATan2Stage2)
   atan2Stage2Post.io.zother <> atan2Stage2Other.io.zother
   atan2Stage2Post.io.zres   := polynomialEval.io.result
   atan2Stage2Post.io.flags  := atan2FlagReg // TODO keep the value in frag reg
@@ -404,27 +411,24 @@ class MathFunctions(
   if(pow2Pre.io.xfracLSBs.isDefined) {
     pow2Post.io.zCorrCoef.get := pow2Other.io.zCorrCoef.get
   }
+  pow2Post.io.en     := (io.sel === SelectFunc.Pow2 || io.sel === SelectFunc.Exp)
   pow2Post.io.zother := pow2Other.io.zother
   pow2Post.io.zres   := polynomialEval.io.result
 
+  log2Post.io.en     := (io.sel === SelectFunc.Log || io.sel === SelectFunc.Log2)
   log2Post.io.zother <> log2Other.io.zother
   log2Post.io.zres   := polynomialEval.io.result
   log2Post.io.isln   := io.sel === SelectFunc.Log
 
-  val z0 = MuxCase(0.U, Seq(
-    (io.sel === SelectFunc.Sqrt)        -> sqrtPost.io.z,
-    (io.sel === SelectFunc.InvSqrt)     -> invsqrtPost.io.z,
-    (io.sel === SelectFunc.Reciprocal)  -> recPost.io.z,
-    (io.sel === SelectFunc.SinPi)       -> sinPiPost.io.z,
-    (io.sel === SelectFunc.CosPi)       -> sinPiPost.io.z, // same as sinPi
-    (io.sel === SelectFunc.ACos)        -> acosPost.io.z,
-    (io.sel === SelectFunc.ATan2Stage1) -> atan2Stage1Post.io.z,
-    (io.sel === SelectFunc.ATan2Stage2) -> atan2Stage2Post.io.z,
-    (io.sel === SelectFunc.Pow2)        -> pow2Post.io.z,
-    (io.sel === SelectFunc.Exp)         -> pow2Post.io.z, // same as pow2
-    (io.sel === SelectFunc.Log2)        -> log2Post.io.z,
-    (io.sel === SelectFunc.Log)         -> log2Post.io.z  // same as log2
-  ))
+  val z0 = sqrtPost.io.z        |
+           invsqrtPost.io.z     |
+           recPost.io.z         |
+           sinPiPost.io.z       |
+           acosPost.io.z        |
+           atan2Stage1Post.io.z |
+           atan2Stage2Post.io.z |
+           pow2Post.io.z        |
+           log2Post.io.z
 
   io.z := ShiftRegister(z0, stage.total)
 }

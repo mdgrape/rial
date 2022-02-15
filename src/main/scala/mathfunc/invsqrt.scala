@@ -186,6 +186,7 @@ class InvSqrtPostProcess(
   val extraBits = polySpec.extraBits
 
   val io = IO(new Bundle {
+    val en  = Input(UInt(1.W))
     // ex and some flags
     val zother = Flipped(new InvSqrtNonTableOutput(spec))
     // table interpolation results
@@ -205,6 +206,7 @@ class InvSqrtPostProcess(
   val zman          = Mux(zIsNonTable, zmanNonTable, zmanRounded)
 
   val z0 = Cat(zsgn, zex, zman)
+  val z = z0 & Fill(z0.getWidth, io.en)
 
-  io.z   := ShiftRegister(z0, nStage)
+  io.z   := ShiftRegister(z, nStage)
 }

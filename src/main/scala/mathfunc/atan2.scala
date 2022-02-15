@@ -221,6 +221,7 @@ class ATan2Stage1PostProcess(
   val extraBits = polySpec.extraBits
 
   val io = IO(new Bundle {
+    val en = Input(UInt(1.W))
     val zother = Flipped(new ATan2Stage1NonTableOutput(spec))
     val zres   = Input(UInt(fracW.W))
     val minxy  = Flipped(new DecomposedRealOutput(spec))
@@ -272,8 +273,9 @@ class ATan2Stage1PostProcess(
              Mux(maxXYMan0, io.minxy.man, zProdRounded(manW-1, 0)))
 
   val z0 = Cat(zsgn, zex, zman)
+  val z = z0 & Fill(z0.getWidth, io.en)
 
-  io.z := ShiftRegister(z0, nStage)
+  io.z := ShiftRegister(z, nStage)
 }
 
 // =========================================================================
@@ -525,6 +527,7 @@ class ATan2Stage2PostProcess(
   val extraBits = polySpec.extraBits
 
   val io = IO(new Bundle {
+    val en = Input(UInt(1.W))
     val zother = Flipped(new ATan2Stage2NonTableOutput(spec))
     val zres   = Input(UInt(fracW.W))
     val flags  = Input(new ATan2Flags()) // need status (|x|<|y|, xsgn)
@@ -695,6 +698,7 @@ class ATan2Stage2PostProcess(
       (special === ATan2SpecialValue.zQuarterPi ) -> Cat(zSgn, quarterPi .ex.U(exW.W), quarterPi .man.toLong.U(manW.W)),
       (special === ATan2SpecialValue.z3QuarterPi) -> Cat(zSgn, quarter3Pi.ex.U(exW.W), quarter3Pi.man.toLong.U(manW.W))
     ))
+  val z = z0 & Fill(z0.getWidth, io.en)
 
-  io.z := ShiftRegister(z0, nStage)
+  io.z := ShiftRegister(z, nStage)
 }

@@ -327,6 +327,7 @@ class SinPiPostProcess(
   val order     = polySpec.order
 
   val io = IO(new Bundle {
+    val en = Input(UInt(1.W))
     val zother = Flipped(new SinPiNonTableOutput(spec))
     val zres   = Input(UInt(fracW.W))
     val z      = Output(UInt(spec.W.W))
@@ -346,5 +347,6 @@ class SinPiPostProcess(
   val zMan = Mux(io.zother.zIsNonTable, io.zother.zman, zManTable)
 
   val z0  = Cat(zSgn, zEx, zMan)
-  io.z   := ShiftRegister(z0, nStage)
+  val z   = z0 & Fill(z0.getWidth, io.en)
+  io.z   := ShiftRegister(z, nStage)
 }

@@ -485,6 +485,7 @@ class Log2PostProcess(
   val log2 = (a:Double) => {log(a) / log(2.0)}
 
   val io = IO(new Bundle {
+    val en = Input(UInt(1.W))
     val isln   = Input(Bool()) // If log_e, true. else if log2, false.
     val x      = Flipped(new DecomposedRealOutput(spec))
     val zother = Flipped(new Log2NonTableOutput(spec, polySpec))
@@ -594,5 +595,7 @@ class Log2PostProcess(
   assert(zMan.getWidth == manW)
   assert(z0  .getWidth == spec.W)
 
-  io.z   := ShiftRegister(z0, nStage)
+  val z = z0 & Fill(z0.getWidth, io.en)
+
+  io.z   := ShiftRegister(z, nStage)
 }
