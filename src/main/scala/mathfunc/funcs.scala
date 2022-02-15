@@ -124,6 +124,13 @@ class MathFunctions(
   sqrtTab.io.adr := sqrtPre.io.adr
   sqrtOther.io.x := xdecomp.io.decomp
 
+  when(!(io.sel === SelectFunc.Sqrt || io.sel === SelectFunc.InvSqrt)) {
+    assert(sqrtPre.io.adr === 0.U)
+    if(sqrtPre.io.dx.isDefined) {
+      assert(sqrtPre.io.dx.get === 0.U)
+    }
+  }
+
   val invsqrtTab   = Module(new InvSqrtTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
   val invsqrtOther = Module(new InvSqrtOtherPath  (spec, polySpec, stage))
   val invsqrtPost  = Module(new InvSqrtPostProcess(spec, polySpec, stage))
@@ -147,6 +154,13 @@ class MathFunctions(
   recTab.io.adr := recPre.io.adr
   recOther.io.x := xdecomp.io.decomp
 
+  when(!((io.sel === SelectFunc.Reciprocal) || (io.sel === SelectFunc.ATan2Stage1))) {
+    assert(recPre.io.adr === 0.U)
+    if(recPre.io.dx.isDefined) {
+      assert(recPre.io.dx.get  === 0.U)
+    }
+  }
+
   val sinPiPre   = Module(new SinPiPreProcess (spec, polySpec, stage))
   val sinPiTab   = Module(new SinPiTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
   val sinPiOther = Module(new SinPiOtherPath  (spec, polySpec, stage))
@@ -169,6 +183,19 @@ class MathFunctions(
   sinPiOther.io.x          := xdecomp.io.decomp
   cosPiOther.io.x          := xdecomp.io.decomp
 
+  when(!(io.sel === SelectFunc.SinPi)) {
+    assert(sinPiPre.io.adr === 0.U)
+    if(sinPiPre.io.dx.isDefined) {
+      assert(sinPiPre.io.dx.get  === 0.U)
+    }
+  }
+  when(!(io.sel === SelectFunc.CosPi)) {
+    assert(cosPiPre.io.adr === 0.U)
+    if(cosPiPre.io.dx.isDefined) {
+      assert(cosPiPre.io.dx.get  === 0.U)
+    }
+  }
+
   val acosPre   = Module(new ACosPreProcess (spec, polySpec, stage))
   val acosTab   = Module(new ACosTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
   val acosOther = Module(new ACosOtherPath  (spec, polySpec, stage))
@@ -179,6 +206,13 @@ class MathFunctions(
   acosTab.io.en  := (io.sel === SelectFunc.ACos)
   acosTab.io.adr := acosPre.io.adr
   acosOther.io.x := xdecomp.io.decomp
+
+  when(!(io.sel === SelectFunc.ACos)) {
+    assert(acosPre.io.adr === 0.U)
+    if(acosPre.io.dx.isDefined) {
+      assert(acosPre.io.dx.get  === 0.U)
+    }
+  }
 
   val atan2Stage1Pre   = Module(new ATan2Stage1PreProcess (spec, polySpec, stage))
   val atan2Stage1Other = Module(new ATan2Stage1OtherPath  (spec, polySpec, stage))
@@ -203,6 +237,13 @@ class MathFunctions(
   atan2Stage2Tab.io.en  := (io.sel === SelectFunc.ATan2Stage2)
   atan2Stage2Tab.io.adr := atan2Stage2Pre.io.adr
   atan2Stage2Other.io.x := xdecomp.io.decomp
+
+  when(!(io.sel === SelectFunc.ATan2Stage2)) {
+    assert(atan2Stage2Pre.io.adr === 0.U)
+    if(atan2Stage2Pre.io.dx.isDefined) {
+      assert(atan2Stage2Pre.io.dx.get  === 0.U)
+    }
+  }
 
   // ------------------------------------------------------------------------
   // atan related status register
@@ -234,6 +275,13 @@ class MathFunctions(
     pow2Other.io.xfracLSBs.get := pow2Pre.io.xfracLSBs.get
   }
 
+  when(!((io.sel === SelectFunc.Exp) || (io.sel === SelectFunc.Pow2))) {
+    assert(pow2Pre.io.adr === 0.U)
+    if(pow2Pre.io.dx.isDefined) {
+      assert(pow2Pre.io.dx.get  === 0.U)
+    }
+  }
+
   val log2Pre   = Module(new Log2PreProcess (spec, polySpec, stage))
   val log2Tab   = Module(new Log2TableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
   val log2Other = Module(new Log2OtherPath  (spec, polySpec, stage))
@@ -248,6 +296,13 @@ class MathFunctions(
   log2Post.io.x      := xdecomp.io.decomp
   log2Post.io.exadr  := log2Pre.io.adr(log2Pre.io.adr.getWidth-1, log2Pre.io.adr.getWidth-2)
   log2Post.io.xmanbp := log2Other.io.xmanbp
+
+  when(!((io.sel === SelectFunc.Log) || (io.sel === SelectFunc.Log2))) {
+    assert(log2Pre.io.adr === 0.U)
+    if(log2Pre.io.dx.isDefined) {
+      assert(log2Pre.io.dx.get  === 0.U)
+    }
+  }
 
   // ------------------------------------------------------------------------
   //                  now we are here
