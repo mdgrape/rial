@@ -130,6 +130,9 @@ class MathFunctions(
       assert(sqrtPre.io.dx.get === 0.U)
     }
   }
+  when(io.sel =/= SelectFunc.Sqrt) {
+    assert(sqrtTab.io.cs.asUInt === 0.U)
+  }
 
   val invsqrtTab   = Module(new InvSqrtTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
   val invsqrtOther = Module(new InvSqrtOtherPath  (spec, polySpec, stage))
@@ -138,6 +141,10 @@ class MathFunctions(
   invsqrtTab.io.en  := io.sel === SelectFunc.InvSqrt
   invsqrtTab.io.adr := sqrtPre.io.adr
   invsqrtOther.io.x := xdecomp.io.decomp
+
+  when(io.sel =/= SelectFunc.InvSqrt) {
+    assert(invsqrtTab.io.cs.asUInt === 0.U)
+  }
 
   val recPre   = Module(new ReciprocalPreProcess (spec, polySpec, stage))
   val recTab   = Module(new ReciprocalTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
@@ -159,6 +166,10 @@ class MathFunctions(
     if(recPre.io.dx.isDefined) {
       assert(recPre.io.dx.get  === 0.U)
     }
+  }
+
+  when(!((io.sel === SelectFunc.Reciprocal) || (io.sel === SelectFunc.ATan2Stage1))) {
+    assert(recTab.io.cs.asUInt === 0.U)
   }
 
   val sinPiPre   = Module(new SinPiPreProcess (spec, polySpec, stage))
@@ -196,6 +207,10 @@ class MathFunctions(
     }
   }
 
+  when(!(io.sel === SelectFunc.SinPi || io.sel === SelectFunc.CosPi)) {
+    assert(sinPiTab.io.cs.asUInt === 0.U)
+  }
+
   val acosPre   = Module(new ACosPreProcess (spec, polySpec, stage))
   val acosTab   = Module(new ACosTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
   val acosOther = Module(new ACosOtherPath  (spec, polySpec, stage))
@@ -212,6 +227,9 @@ class MathFunctions(
     if(acosPre.io.dx.isDefined) {
       assert(acosPre.io.dx.get  === 0.U)
     }
+  }
+  when(io.sel =/= SelectFunc.ACos) {
+    assert(acosTab.io.cs.asUInt === 0.U)
   }
 
   val atan2Stage1Pre   = Module(new ATan2Stage1PreProcess (spec, polySpec, stage))
@@ -244,6 +262,10 @@ class MathFunctions(
       assert(atan2Stage2Pre.io.dx.get  === 0.U)
     }
   }
+  when(io.sel =/= SelectFunc.ATan2Stage2) {
+    assert(atan2Stage2Tab.io.cs.asUInt === 0.U)
+  }
+
 
   // ------------------------------------------------------------------------
   // atan related status register
@@ -282,6 +304,10 @@ class MathFunctions(
     }
   }
 
+  when(!((io.sel === SelectFunc.Exp) || (io.sel === SelectFunc.Pow2))) {
+    assert(pow2Tab.io.cs.asUInt === 0.U)
+  }
+
   val log2Pre   = Module(new Log2PreProcess (spec, polySpec, stage))
   val log2Tab   = Module(new Log2TableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
   val log2Other = Module(new Log2OtherPath  (spec, polySpec, stage))
@@ -302,6 +328,9 @@ class MathFunctions(
     if(log2Pre.io.dx.isDefined) {
       assert(log2Pre.io.dx.get  === 0.U)
     }
+  }
+  when(!((io.sel === SelectFunc.Log) || (io.sel === SelectFunc.Log2))) {
+    assert(log2Tab.io.cs.asUInt === 0.U)
   }
 
   // ------------------------------------------------------------------------
