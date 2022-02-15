@@ -74,7 +74,7 @@ class CosPiPreProcess(
   val shift_ex1 = PriorityEncoder(Reverse(from0_ex1)) + 1.U
   val norm_ex1  = from0_ex1 << shift_ex1
 
-  val align_exmanW = ((1 << manW) - 1 + exBias).U - xex
+  val align_exmanW = (exBias - 1).U - xex
   val from0_exmanW = ((1 << manW).U - (((1<<manW).U + xman) >> align_exmanW))(manW-1, 0)
   val shift_exmanW = PriorityEncoder(Reverse(from0_exmanW)) + 1.U
   val norm_exmanW  = from0_exmanW << shift_exmanW
