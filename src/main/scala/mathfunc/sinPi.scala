@@ -140,6 +140,7 @@ class SinPiTableCoeff(
   val linearThreshold = SinPiSim.calcLinearThreshold(manW)
 
   val io = IO(new Bundle {
+    val en  = Input(UInt(1.W))
     val adr = Input  (UInt(maxAdrW.W))
     val cs  = Flipped(new TableCoeffInput(maxCbit))
   })
@@ -163,7 +164,8 @@ class SinPiTableCoeff(
     assert(maxCbit(0) == fracW)
 
     val c0 = tbl(exAdr)(manAdr)
-    io.cs.cs(0) := ShiftRegister(c0, nStage) // width should be manW + extraBits
+    val c  = c0 & Fill(c0.getWidth, io.en)
+    io.cs.cs(0) := ShiftRegister(c, nStage) // width should be manW + extraBits
 
   } else {
 
@@ -191,7 +193,8 @@ class SinPiTableCoeff(
         coeffs.cs(i) := ci
       }
     }
-    io.cs := ShiftRegister(coeffs, nStage)
+    val cs = coeffs.asUInt & Fill(coeffs.asUInt.getWidth, io.en)
+    io.cs := ShiftRegister(cs.asTypeOf(new TableCoeffInput(maxCbit)), nStage)
   }
 }
 

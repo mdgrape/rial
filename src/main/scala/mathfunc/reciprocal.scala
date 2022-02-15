@@ -57,7 +57,7 @@ class ReciprocalPreProcess(
   // invert x to make all the polynomial coefficients positive
   val adr0 = ~io.x(manW-1, dxW)
   val adr  = adr0 & Fill(adr0.getWidth, io.en)
-  io.adr := ShiftRegister(adr0, nStage)
+  io.adr := ShiftRegister(adr, nStage)
 
   if(order != 0) {
     val dx0  = Cat(io.x(dxW-1), ~io.x(dxW-2, 0))
@@ -89,6 +89,7 @@ class ReciprocalTableCoeff(
   val nStage = stage.total
 
   val io = IO(new Bundle {
+    val en  = Input(UInt(1.W))
     val adr = Input(UInt(adrW.W))
     val cs  = Flipped(new TableCoeffInput(maxCbit))
   })
@@ -113,7 +114,8 @@ class ReciprocalTableCoeff(
     assert(maxCbit(0) == fracW)
 
     val c0 = tbl(~io.adr) // address is inverted in preprocess
-    io.cs.cs(0) := ShiftRegister(c0, nStage)
+    val c  = c0 & Fill(c0.getWidth, io.en)
+    io.cs.cs(0) := ShiftRegister(c, nStage) // width should be manW + extraBits
 
   } else {
     val tableI = ReciprocalSim.reciprocalTableGeneration( order, adrW, manW, fracW )
@@ -129,7 +131,8 @@ class ReciprocalTableCoeff(
       val msb = ci(cbit(i)-1)
       coeffs.cs(i) := Cat(Fill(diffWidth, msb), ci) // sign extension
     }
-    io.cs := ShiftRegister(coeffs, nStage)
+    val cs = coeffs.asUInt & Fill(coeffs.asUInt.getWidth, io.en)
+    io.cs := ShiftRegister(cs.asTypeOf(new TableCoeffInput(maxCbit)), nStage)
   }
 }
 

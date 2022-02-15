@@ -363,6 +363,7 @@ class ATan2Stage2TableCoeff(
   val nStage = stage.total
 
   val io = IO(new Bundle {
+    val en  = Input(UInt(1.W))
     val adr = Input  (UInt((exAdrW+adrW).W))
     val cs  = Flipped(new TableCoeffInput(maxCbit))
   })
@@ -387,7 +388,8 @@ class ATan2Stage2TableCoeff(
     assert(maxCbit(0) == fracW)
 
     val c0 = tbl(exAdr)(adr)
-    io.cs.cs(0) := ShiftRegister(c0, nStage)
+    val c  = c0 & Fill(c0.getWidth, io.en)
+    io.cs.cs(0) := ShiftRegister(c, nStage)
 
   } else {
 
@@ -414,7 +416,9 @@ class ATan2Stage2TableCoeff(
         coeffs.cs(i) := ci
       }
     }
-    io.cs := ShiftRegister(coeffs, nStage)
+
+    val cs = coeffs.asUInt & Fill(coeffs.asUInt.getWidth, io.en)
+    io.cs := ShiftRegister(cs.asTypeOf(new TableCoeffInput(maxCbit)), nStage)
   }
 }
 

@@ -95,7 +95,8 @@ class SqrtTableCoeff(
   val nStage = stage.total
 
   val io = IO(new Bundle {
-    val adr = Input  (UInt((1+adrW).W))
+    val en  = Input(UInt(1.W))
+    val adr = Input(UInt((1+adrW).W))
     val cs  = Flipped(new TableCoeffInput(maxCbit))
   })
 
@@ -120,7 +121,8 @@ class SqrtTableCoeff(
     assert(maxCbit(0) == fracW)
 
     val c0 = tbl(io.adr(adrW, 0))            // here we use LSB of ex
-    io.cs.cs(0) := ShiftRegister(c0, nStage) // width should be manW + extraBits
+    val c  = c0 & Fill(c0.getWidth, io.en)
+    io.cs.cs(0) := ShiftRegister(c, nStage) // width should be manW + extraBits
 
   } else {
     val tableI = SqrtSim.sqrtTableGeneration( order, adrW, manW, fracW )
@@ -136,7 +138,8 @@ class SqrtTableCoeff(
       val msb = ci(cbit(i)-1)
       coeffs.cs(i) := Cat(Fill(diffWidth, msb), ci) // sign extension
     }
-    io.cs := ShiftRegister(coeffs, nStage)
+    val cs = coeffs.asUInt & Fill(coeffs.asUInt.getWidth, io.en)
+    io.cs := ShiftRegister(cs.asTypeOf(new TableCoeffInput(maxCbit)), nStage)
   }
 }
 

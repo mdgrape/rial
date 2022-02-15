@@ -107,6 +107,7 @@ class Log2TableCoeff(
   val nStage    = stage.total
 
   val io = IO(new Bundle {
+    val en  = Input(UInt(1.W))
     val adr = Input  (UInt((2+adrW).W))
     val cs  = Flipped(new TableCoeffInput(maxCbit))
   })
@@ -130,7 +131,8 @@ class Log2TableCoeff(
     assert(maxCbit(0) == fracW)
 
     val c0 = tbl(io.adr(adrW, 0))            // here we use LSB of ex
-    io.cs.cs(0) := ShiftRegister(c0, nStage) // width should be manW + extraBits
+    val c  = c0 & Fill(c0.getWidth, io.en)
+    io.cs.cs(0) := ShiftRegister(c, nStage) // width should be manW + extraBits
 
   } else {
 
@@ -218,7 +220,8 @@ class Log2TableCoeff(
     val coeffs = Mux(exadr === 0.U, outNormal,
                  Mux(exadr === 1.U, outSmallNeg, outSmallPos))
 
-    io.cs.cs := ShiftRegister(coeffs, nStage)
+    val cs = coeffs.asUInt & Fill(coeffs.asUInt.getWidth, io.en)
+    io.cs := ShiftRegister(cs.asTypeOf(new TableCoeffInput(maxCbit)), nStage)
   }
 }
 
