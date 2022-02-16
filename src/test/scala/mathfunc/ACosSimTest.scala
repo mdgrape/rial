@@ -33,8 +33,7 @@ class MathFuncACosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     java.lang.Math.scalb(err, -x.exNorm+x.spec.manW)
   }
 
-  def acosTest(t : Seq[FuncTableInt],
-    tEdge1 : FuncTableInt, tEdge2 : FuncTableInt, tEdge3 : FuncTableInt,
+  def acosTest(t : Seq[FuncTableInt], tSqrt : FuncTableInt,
     spec : RealSpec, n : Int, r : Random,
     generatorStr    : String,
     generator       : ( (RealSpec, Random) => RealGeneric),
@@ -45,7 +44,7 @@ class MathFuncACosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
       var xatMaxError = 0.0
       var zatMaxError = 0.0
 
-      val errs = collection.mutable.Map[Int, (Int, Int)]()
+      val errs = collection.mutable.Map.empty[Long, (Int, Int)]
 
       for(i <- 1 to n) {
         val x  = generator(spec,r)
@@ -54,10 +53,10 @@ class MathFuncACosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         val z0   = acos(x0)
         val z0r  = new RealGeneric(spec, z0)
 
-        val zi   = MathFuncACosSim.acosSimGeneric( t, tEdge1, tEdge2, tEdge3, x )
+        val zi   = MathFuncACosSim.acosSimGeneric( t, tSqrt, x )
         val zd   = zi.toDouble
-        val erri = errorLSB(zi, z0r.toDouble).toInt
-        val errf = zi.toDouble - z0r.toDouble
+        val erri = errorLSB(zi, z0r.toDouble).toLong
+//         val errf = zi.toDouble - z0r.toDouble
 
         if (x0.isInfinity) {
           if(0 < x0) {
@@ -83,9 +82,9 @@ class MathFuncACosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
             val zrefexp = slice(spec.manW, spec.exW, z0r.value)
             val zrefman = z0r.value & maskSL(spec.manW)
 
-            println(f"test: x   = ${x0}(${x.sgn}|${x.ex}(${x.ex-x.spec.exBias})|${x.man.toLong.toBinaryString})")
-            println(f"test: ref = ${z0}(${zrefsgn}|${zrefexp}(${zrefexp-x.spec.exBias})|${zrefman.toLong.toBinaryString})")
-            println(f"test: sim = ${zd}(${zsimsgn}|${zsimexp}(${zsimexp-x.spec.exBias})|${zsimman.toLong.toBinaryString})")
+            println(f"test: x   = ${x0}%20.15g(${x.sgn}|${x.ex}(${x.ex-x.spec.exBias})|${x.man.toLong.toBinaryString})")
+            println(f"test: ref = ${z0}%20.15g(${zrefsgn}|${zrefexp}(${zrefexp-x.spec.exBias})|${zrefman.toLong.toBinaryString})")
+            println(f"test: sim = ${zd}%20.15g(${zsimsgn}|${zsimexp}(${zsimexp-x.spec.exBias})|${zsimman.toLong.toBinaryString})")
             println(f"test: test(${zsimsgn}|${zsimexp}(${zsimexp - spec.exBias})|${zsimman.toLong.toBinaryString}(${zsimman.toLong}%x)) != ref(${zrefsgn}|${zrefexp}(${zrefexp - spec.exBias})|${zrefman.toLong.toBinaryString}(${zrefman.toLong}%x))")
           }
 
@@ -112,8 +111,8 @@ class MathFuncACosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
       println(f"${generatorStr} Summary")
       if(maxError != 0.0) {
         println(f"N=$n%d : largest errors ${maxError.toInt}%d where the value is "
-              + f"${zatMaxError} != ${log(xatMaxError)}, "
-              + f"diff = ${zatMaxError - log(xatMaxError)}, x = ${xatMaxError}")
+              + f"${zatMaxError} != ${acos(xatMaxError)}, "
+              + f"diff = ${zatMaxError - acos(xatMaxError)}, x = ${xatMaxError}")
       }
       for(kv <- errs.toSeq.sortBy(_._1)) {
         val (k, (errPos, errNeg)) = kv
@@ -126,12 +125,24 @@ class MathFuncACosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val acosF32Table = MathFuncACosSim.acosTableGeneration(
     2, 8, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+2)
 
-  val acosEdge1F32Table = MathFuncACosSim.acosTableEdge1(2, 8, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+2)
-  val acosEdge2F32Table = MathFuncACosSim.acosTableEdge2(2, 8, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+2)
-  val acosEdge3F32Table = MathFuncACosSim.acosTableEdge3(2, 8, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+2)
+  val sqrtF32Table = MathFuncACosSim.sqrtTableGeneration(
+    2, 8, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+2)
 
-//   acosTest(acosF32Table, acosEdge1F32Table, acosEdge2F32Table, acosEdge3F32Table, RealSpec.Float32Spec, n, r,
-//     "Test close to 1.0: [0.5, 1.0]", generateRealWithin(0.5, 1.0-pow(2.0, -23),_,_), 2)
-  acosTest(acosF32Table, acosEdge1F32Table, acosEdge2F32Table, acosEdge3F32Table, RealSpec.Float32Spec, n, r,
-    "Test close to 1.0: [1-2^-16, 1.0]", generateRealWithin(1.0 - pow(2.0, -17), 1.0-pow(2.0, -23),_,_), 15)
+  acosTest(acosF32Table, sqrtF32Table, RealSpec.Float32Spec, n, r,
+    "Test Taylor: close to 0.0:  [0.0, -2^-4]", generateRealWithin(-pow(2.0, -4), 0.0,_,_), 3) // 2ULPs
+  acosTest(acosF32Table, sqrtF32Table, RealSpec.Float32Spec, n, r,
+    "Test normal table x < 0.5:  [-2^-4, -0.5]", generateRealWithin(-0.5, -pow(2.0, -4),_,_), 7) // 3ULPs
+  acosTest(acosF32Table, sqrtF32Table, RealSpec.Float32Spec, n, r,
+    "Test normal table x > 0.5:  [-0.5, -1+2^-4]", generateRealWithin(-1.0+pow(2.0, -4)-pow(2.0, -23), -0.5-pow(2.0, -23),_,_), 7) // 3ULPs
+  acosTest(acosF32Table, sqrtF32Table, RealSpec.Float32Spec, n, r,
+    "Test Puiseux: close to 1.0: [-1-2^+4, -1.0]", generateRealWithin(-1.0, -1.0+pow(2.0, -4)-pow(2.0, -23),_,_), 3) // 2ULPs
+
+  acosTest(acosF32Table, sqrtF32Table, RealSpec.Float32Spec, n, r,
+    "Test Taylor: close to 0.0:  [0.0, 2^-4]", generateRealWithin(0.0, pow(2.0, -4),_,_), 3) // 2ULPs
+  acosTest(acosF32Table, sqrtF32Table, RealSpec.Float32Spec, n, r,
+    "Test normal table x < 0.5:  [2^-4, 0.5]", generateRealWithin(pow(2.0, -4), 0.5,_,_), 7) // 3ULPs
+  acosTest(acosF32Table, sqrtF32Table, RealSpec.Float32Spec, n, r,
+    "Test normal table x > 0.5:  [0.5, 1-2^-4]", generateRealWithin(0.5+pow(2.0, -23), 1.0-pow(2.0, -4)+pow(2.0, -23),_,_), 7) // 3ULPs
+  acosTest(acosF32Table, sqrtF32Table, RealSpec.Float32Spec, n, r,
+    "Test Puiseux: close to 1.0: [1-2^-4, 1.0]", generateRealWithin(1.0-pow(2.0, -4)+pow(2.0, -23), 1.0,_,_), 3) // 2ULPs
 }
