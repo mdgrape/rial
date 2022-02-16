@@ -51,6 +51,7 @@ class Log2PreProcess(
   val order     = polySpec.order
 
   val io = IO(new Bundle {
+    val en  = Input (UInt(1.W))
     val x   = Input (UInt(spec.W.W))
     val adr = Output(UInt((2+adrW).W))
     val dx  = if(order != 0) { Some(Output(UInt(dxW.W))) } else { None }
@@ -70,13 +71,15 @@ class Log2PreProcess(
 
   val adr0 = Cat(exAdr,
     Mux(ex === (exBias-1).U, manNeg(manW-1, dxW), manPos(manW-1, dxW)))
-  io.adr := ShiftRegister(adr0, nStage)
+  val adr  = adr0 & Fill(adr0.getWidth, io.en)
+  io.adr := ShiftRegister(adr, nStage)
 
   if(order != 0) {
     val dx0 = Mux(ex === (exBias-1).U,
       Cat(~manNeg(dxW-1), manNeg(dxW-2, 0)),
       Cat(~manPos(dxW-1), manPos(dxW-2, 0)))
-    io.dx.get := ShiftRegister(dx0, nStage)
+    val dx = dx0 & Fill(dx0.getWidth, io.en)
+    io.dx.get := ShiftRegister(dx, nStage)
   }
 }
 
@@ -104,6 +107,7 @@ class Log2TableCoeff(
   val nStage    = stage.total
 
   val io = IO(new Bundle {
+    val en  = Input(UInt(1.W))
     val adr = Input  (UInt((2+adrW).W))
     val cs  = Flipped(new TableCoeffInput(maxCbit))
   })
@@ -127,7 +131,8 @@ class Log2TableCoeff(
     assert(maxCbit(0) == fracW)
 
     val c0 = tbl(io.adr(adrW, 0))            // here we use LSB of ex
-    io.cs.cs(0) := ShiftRegister(c0, nStage) // width should be manW + extraBits
+    val c  = c0 & Fill(c0.getWidth, io.en)
+    io.cs.cs(0) := ShiftRegister(c, nStage) // width should be manW + extraBits
 
   } else {
 
@@ -215,7 +220,8 @@ class Log2TableCoeff(
     val coeffs = Mux(exadr === 0.U, outNormal,
                  Mux(exadr === 1.U, outSmallNeg, outSmallPos))
 
-    io.cs.cs := ShiftRegister(coeffs, nStage)
+    val cs = coeffs.asUInt & Fill(coeffs.asUInt.getWidth, io.en)
+    io.cs := ShiftRegister(cs.asTypeOf(new TableCoeffInput(maxCbit)), nStage)
   }
 }
 
@@ -479,6 +485,7 @@ class Log2PostProcess(
   val log2 = (a:Double) => {log(a) / log(2.0)}
 
   val io = IO(new Bundle {
+    val en = Input(UInt(1.W))
     val isln   = Input(Bool()) // If log_e, true. else if log2, false.
     val x      = Flipped(new DecomposedRealOutput(spec))
     val zother = Flipped(new Log2NonTableOutput(spec, polySpec))
@@ -588,5 +595,7 @@ class Log2PostProcess(
   assert(zMan.getWidth == manW)
   assert(z0  .getWidth == spec.W)
 
-  io.z   := ShiftRegister(z0, nStage)
+  val z = z0 & Fill(z0.getWidth, io.en)
+
+  io.z   := ShiftRegister(z, nStage)
 }

@@ -49,6 +49,7 @@ class Pow2PreProcess(
   val padding   = extraBits
 
   val io = IO(new Bundle {
+    val en        = Input (UInt(1.W))
     val isexp     = Input (Bool())
     val x         = Input (UInt(spec.W.W))
     val adr       = Output(UInt(adrW.W))
@@ -64,7 +65,7 @@ class Pow2PreProcess(
     val xexd = Output(UInt(1.W))
   })
 
-  val (xsgn, xex0, xman0) = FloatChiselUtil.decompose(spec, io.x)
+  val (xsgn, xex0, xman0) = FloatChiselUtil.decompose(spec, io.x & Fill(spec.W, io.en))
 
   val log2 = (a:Double) => {log(a) / log(2.0)}
   val xExOvfLimit = math.ceil(log2(maskL(exW)-exBias)).toLong // log2(255-127 = 128) = 7
@@ -112,7 +113,7 @@ class Pow2PreProcess(
 
   assert(xprodMoreThan2AfterRounded +& xprodMoreThan2 =/= 2.U)
 
-  val xexd0 = io.isexp & (xprodMoreThan2AfterRounded + xprodMoreThan2)
+  val xexd0 = io.isexp & (xprodMoreThan2AfterRounded + xprodMoreThan2) & io.en
   io.xexd := ShiftRegister(xexd0, nStage)
 
   // ------------------------------------------------------------------------
@@ -136,23 +137,26 @@ class Pow2PreProcess(
 
   // if xsgn == 1, we negate xint to calculate exbias. but we later do that in
   // Pow2OtherPath.
-  val xint = xint0 +& (xsgn.asBool && (xfrac0 =/= 0.U)).asUInt
+  val xint = (xint0 +& (xsgn.asBool && (xfrac0 =/= 0.U)).asUInt) & Fill(xint0.getWidth+1, io.en)
   io.xint := ShiftRegister(xint, nStage)
 
   val xfracNeg = (1<<xFracW).U((xFracW+1).W) - xfrac0
   val xfrac = Mux(xsgn === 0.U, xfrac0, xfracNeg(xFracW-1, 0))
 
   val adr0 = xfrac(xFracW-1, (xFracW-1)-adrW+1)
-  io.adr := ShiftRegister(adr0, nStage)
+  val adr  = adr0 & Fill(adr0.getWidth, io.en)
+  io.adr := ShiftRegister(adr, nStage)
 
   if(order != 0) {
     val dx0  = Cat(~xfrac(xFracW-1-adrW), xfrac(xFracW-1-adrW-1, padding))
-    io.dx.get := ShiftRegister(dx0, nStage)
+    val dx   = dx0 & Fill(dx0.getWidth, io.en)
+    io.dx.get := ShiftRegister(dx, nStage)
   }
 
   if(padding != 0) {
     val xfracLSBs0 = xfrac(padding-1, 0)
-    io.xfracLSBs.get := ShiftRegister(xfracLSBs0, nStage)
+    val xfracLSBs  = xfracLSBs0 & Fill(xfracLSBs0.getWidth, io.en)
+    io.xfracLSBs.get := ShiftRegister(xfracLSBs, nStage)
   }
 }
 
@@ -179,6 +183,7 @@ class Pow2TableCoeff(
   val nStage = stage.total
 
   val io = IO(new Bundle {
+    val en  = Input(UInt(1.W))
     val adr = Input  (UInt((1+adrW).W))
     val cs  = Flipped(new TableCoeffInput(maxCbit))
   })
@@ -200,7 +205,8 @@ class Pow2TableCoeff(
     assert(maxCbit(0) == fracW)
 
     val c0 = tbl(io.adr(adrW, 0))            // here we use LSB of ex
-    io.cs.cs(0) := ShiftRegister(c0, nStage) // width should be manW + extraBits
+    val c  = c0 & Fill(c0.getWidth, io.en)
+    io.cs.cs(0) := ShiftRegister(c, nStage) // width should be manW + extraBits
 
   } else {
     // x -> xInt + xFrac
@@ -223,7 +229,8 @@ class Pow2TableCoeff(
       val msb = ci(cbit(i)-1)
       coeffs.cs(i) := Cat(Fill(diffWidth, msb), ci) // sign extension
     }
-    io.cs := ShiftRegister(coeffs, nStage)
+    val cs = coeffs.asUInt & Fill(coeffs.asUInt.getWidth, io.en)
+    io.cs := ShiftRegister(cs.asTypeOf(new TableCoeffInput(maxCbit)), nStage)
   }
 }
 
@@ -363,6 +370,7 @@ class Pow2PostProcess(
   val zCorrTmpW = 10 // XXX see pow2Sim
 
   val io = IO(new Bundle {
+    val en = Input(UInt(1.W))
     // ex and some flags
     val zother = Flipped(new Pow2NonTableOutput(spec))
     // table interpolation results
@@ -412,5 +420,7 @@ class Pow2PostProcess(
   assert(zMan.getWidth == manW)
   assert(z0  .getWidth == spec.W)
 
-  io.z   := ShiftRegister(z0, nStage)
+  val z = z0 & Fill(z0.getWidth, io.en)
+
+  io.z   := ShiftRegister(z, nStage)
 }
