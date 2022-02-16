@@ -23,6 +23,7 @@ import rial.arith.FloatChiselUtil
 import rial.arith._
 
 import rial.math.SinPiSim
+import rial.math.CosPiSim
 import rial.mathfunc._
 
 // -------------------------------------------------------------------------
@@ -180,7 +181,7 @@ class CosPiOtherPath(
   // --------------------------------------------------------------------------
   // linear approximation around zero
 
-  val linearThreshold = SinPiSim.calcLinearThreshold(manW)
+  val linearThreshold = CosPiSim.calcLinearThreshold(manW)
   val pi = new RealGeneric(spec, Pi)
 
   val isLinear = (yex < (linearThreshold + exBias).U)
