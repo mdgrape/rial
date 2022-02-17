@@ -112,6 +112,30 @@ class MathFunctions(
   //            |
   // now we are here
 
+  val acosPre   = Module(new ACosPreProcess (spec, polySpec, stage))
+  val acosTab   = Module(new ACosTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
+  val acosOther = Module(new ACosOtherPath  (spec, polySpec, stage))
+  val acosPost  = Module(new ACosPostProcess(spec, polySpec, stage))
+
+  acosPre.io.en  := (io.sel === SelectFunc.ACos)
+  acosPre.io.x   := io.x
+  acosTab.io.en  := (io.sel === SelectFunc.ACos) && (!acosPre.io.useSqrt)
+  acosTab.io.adr := acosPre.io.adr
+  acosOther.io.x := xdecomp.io.decomp
+  acosOther.io.useSqrt := acosPre.io.useSqrt
+  acosOther.io.yex     := acosPre.io.yex
+  acosOther.io.yman    := acosPre.io.yman
+
+  when(!(io.sel === SelectFunc.ACos)) {
+    assert(acosPre.io.adr === 0.U)
+    if(acosPre.io.dx.isDefined) {
+      assert(acosPre.io.dx.get  === 0.U)
+    }
+  }
+  when(io.sel =/= SelectFunc.ACos) {
+    assert(acosTab.io.cs.asUInt === 0.U)
+  }
+
   val sqrtPre   = Module(new SqrtPreProcess (spec, polySpec, stage))
   val sqrtTab   = Module(new SqrtTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
   val sqrtOther = Module(new SqrtOtherPath  (spec, polySpec, stage))
@@ -120,8 +144,8 @@ class MathFunctions(
   sqrtPre.io.en  := (io.sel === SelectFunc.Sqrt || io.sel === SelectFunc.InvSqrt)
   sqrtPre.io.x   := io.x
   // later we need to add a register here to make it pipe
-  sqrtTab.io.en  := io.sel === SelectFunc.Sqrt
-  sqrtTab.io.adr := sqrtPre.io.adr
+  sqrtTab.io.en  := (io.sel === SelectFunc.Sqrt || acosPre.io.useSqrt)
+  sqrtTab.io.adr := sqrtPre.io.adr | acosPre.io.adr
   sqrtOther.io.x := xdecomp.io.decomp
 
   when(!(io.sel === SelectFunc.Sqrt || io.sel === SelectFunc.InvSqrt)) {
@@ -209,27 +233,6 @@ class MathFunctions(
 
   when(!(io.sel === SelectFunc.SinPi || io.sel === SelectFunc.CosPi)) {
     assert(sinPiTab.io.cs.asUInt === 0.U)
-  }
-
-  val acosPre   = Module(new ACosPreProcess (spec, polySpec, stage))
-  val acosTab   = Module(new ACosTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
-  val acosOther = Module(new ACosOtherPath  (spec, polySpec, stage))
-  val acosPost  = Module(new ACosPostProcess(spec, polySpec, stage))
-
-  acosPre.io.en  := (io.sel === SelectFunc.ACos)
-  acosPre.io.x   := io.x
-  acosTab.io.en  := (io.sel === SelectFunc.ACos)
-  acosTab.io.adr := acosPre.io.adr
-  acosOther.io.x := xdecomp.io.decomp
-
-  when(!(io.sel === SelectFunc.ACos)) {
-    assert(acosPre.io.adr === 0.U)
-    if(acosPre.io.dx.isDefined) {
-      assert(acosPre.io.dx.get  === 0.U)
-    }
-  }
-  when(io.sel =/= SelectFunc.ACos) {
-    assert(acosTab.io.cs.asUInt === 0.U)
   }
 
   val atan2Stage1Pre   = Module(new ATan2Stage1PreProcess (spec, polySpec, stage))
