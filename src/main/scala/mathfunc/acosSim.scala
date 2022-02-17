@@ -248,8 +248,7 @@ object MathFuncACosSim {
 
       val onePlus25over21yExNobias = 0
       val onePlus25over21yManW1    = (1<<manW) +
-        (y25over21ManW1 >> (-y25over21ExNobias + 2)) +
-        bit(-y25over21ExNobias + 2 - 1, y25over21ManW1)
+        (y25over21ManW1 >> (-y25over21ExNobias + 2))
 
       // ----------------------------------------------------------------------
       // (3/5 * y^2) * (1 + 25/21 * 2^-2 * y)
@@ -278,6 +277,7 @@ object MathFuncACosSim {
       val puiseuxTermManW1    = (1<<manW) +
         (yOver3ManW1     >> (-yOver3ExNobias+2))     + bit(-yOver3ExNobias+2-1,     yOver3ManW1) +
         (secondTermManW1 >> (-secondTermExNobias+5)) + bit(-secondTermExNobias+5-1, secondTermManW1)
+      // Here, simple rounding cannot be omitted to achieve error < 3ULPs.
 
       assert(puiseuxTermManW1 < (1<<(manW+1)))
 
