@@ -207,15 +207,6 @@ object MathFuncACosSim {
       // sqrt table returns the mantissa only. we need to add 1<<fracW
       val sqrt2y = tSqrt.interval(adr).eval(d.toLong, dxbp) + (1<<(tSqrt.bp))
 
-      val sqrt2yRounded  = (sqrt2y >> extraBits) + bit(extraBits-1, sqrt2y)
-      val sqrt2yMoreThan2AfterRound = bit(manW+2-1, sqrt2yRounded)
-      val sqrt2yExNobias = ((yexNobias + 1) >> 1) + sqrt2yMoreThan2AfterRound.toInt
-      val sqrt2yManW1    = if(sqrt2yMoreThan2AfterRound == 1) {1<<manW} else {sqrt2yRounded}
-
-//       println(f"sqrt(2y) = ${sqrt(2.0 * (1.0 - x.toDouble.abs))}")
-//       println(f"sqrt2y   = ${(sqrt2yManW1.toDouble / (1<<manW)) * pow(2.0, sqrt2yExNobias)}")
-      assert(bit(manW, sqrt2yManW1) == 1)
-
       // ----------------------------------------------------------------------
       // 2^-5 * 3/5 y^2
 
@@ -284,9 +275,16 @@ object MathFuncACosSim {
       // ----------------------------------------------------------------------
       // sqrt(2y) * (1 + 2^-2 * (1/3 * y) + 2^-5 * (3/5 * y^2) * (1 + 25/21 * 2^-2 * y))
 
-      val (puiseuxExNobias, puiseuxManW1) =
-        MathFuncACosSim.multiply(spec, sqrt2yExNobias,      sqrt2yManW1,
-                                       puiseuxTermExNobias, puiseuxTermManW1)
+      val sqrt2yExNobias   = (yexNobias + 1) >> 1
+      val puiseuxProd      = sqrt2y * puiseuxTermManW1
+      val puiseuxMoreThan2 = bit((manW+1+manW+extraBits+1)-1, puiseuxProd)
+      val puiseuxRounded   = (puiseuxProd >> (manW+extraBits+puiseuxMoreThan2)) +
+                             bit((manW+extraBits+puiseuxMoreThan2-1).toInt, puiseuxProd)
+      val puiseuxMoreThan2AfterRound = bit(manW+2-1, puiseuxRounded)
+      val puiseuxExNobias  = (sqrt2yExNobias + puiseuxTermExNobias +
+                             puiseuxMoreThan2 + puiseuxMoreThan2AfterRound).toInt
+      val puiseuxManW1     = if(puiseuxMoreThan2AfterRound == 1) {1<<manW} else {puiseuxRounded}
+
       assert(puiseuxExNobias < 0)
 
       // ----------------------------------------------------------------------
