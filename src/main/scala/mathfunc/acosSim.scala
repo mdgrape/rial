@@ -417,9 +417,10 @@ object MathFuncACosSim {
   // number of tables depending on the exponent and taylorThreshold
   def calcExAdrW(spec: RealSpec): Int = {
     val taylorThreshold = calcTaylorThreshold(spec.manW)
-    // from -1 to taylorThreshold (-8 in FP32), 126 to 119 if biased.
-    // 0b01111110 to 0b01110111, 4 bits required
-    log2Up(abs(taylorThreshold)+1)
+    val acosRequirements = log2Up(abs(taylorThreshold)+1)
+    val sqrtRequirements = 1 // does not depends on the spec width
+
+    return max(sqrtRequirements, acosRequirements)
   }
 
   def sqrtTableGeneration( order: Int, adrW: Int, manW: Int, fracW: Int,
