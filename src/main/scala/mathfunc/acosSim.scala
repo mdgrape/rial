@@ -496,20 +496,34 @@ object MathFuncACosSim {
         new FuncTableInt( tableD, fracW, Some(maxCalcWidth), cbitSetting )
       })
     } else {
+
       val maxCalcWidth = (-1 to taylorThreshold by -1).map(i => {
-        val tableD = new FuncTableDouble(
-          x => ((Pi * 0.5) - acos(scalb(1.0 + x, i))) * 0.5, order )
+        val tableD = new FuncTableDouble( x => {
+          val s = scalb(1.0 + x, i) // scaled
+          if (1.0 - pow(2.0, -4) < s) {
+            0.0
+          } else {
+            ((Pi * 0.5) - acos(s)) * 0.5
+          }
+        }, order )
         tableD.addRange(0.0, 1.0, 1<<adrW)
         val tableI = new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
         tableI.calcWidth
       }).reduce( (lhs, rhs) => {
         lhs.zip(rhs).map( x => max(x._1, x._2))
       })
+      println(f"acos table width = ${maxCalcWidth}") // 26, 17, 9
 
       // ex == -1 corresponds to the range [0.5, 1).
       (-1 to taylorThreshold by -1).map( i => {
-        val tableD = new FuncTableDouble(
-          x => ((Pi * 0.5) - acos(scalb(1.0 + x, i))) * 0.5, order )
+        val tableD = new FuncTableDouble( x => {
+          val s = scalb(1.0 + x, i) // scaled
+          if (1.0 - pow(2.0, -4) < s) {
+            0.0
+          } else {
+            ((Pi * 0.5) - acos(s)) * 0.5
+          }
+        }, order )
         tableD.addRange(0.0, 1.0, 1<<adrW)
         new FuncTableInt( tableD, fracW, Some(maxCalcWidth), cbitSetting )
       })
