@@ -554,7 +554,7 @@ class ACosPostProcess(
   val piExNobias = 1
   val piManW1    = math.round(Pi * (1<<(manW-piExNobias))).toLong.U((1+manW).W)
 
-  val puiseuxShiftVal = exBias.U(exW.W) - puiseuxEx
+  val puiseuxShiftVal = (exBias+1).U(exW.W) - puiseuxEx
   val puiseuxShiftOut = puiseuxShiftVal(puiseuxShiftVal.getWidth-1, shiftOut).orR
   val puiseuxShift    = Mux(puiseuxShiftOut, Fill(shiftOut, 1.U(1.W)), puiseuxShiftVal(shiftOut-1, 0))
 
