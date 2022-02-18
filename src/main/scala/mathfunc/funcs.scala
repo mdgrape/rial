@@ -126,13 +126,13 @@ class MathFunctions(
   acosOther.io.yex     := acosPre.io.yex
   acosOther.io.yman    := acosPre.io.yman
 
-  when(!(io.sel === SelectFunc.ACos)) {
+  when(io.sel =/= SelectFunc.ACos) {
     assert(acosPre.io.adr === 0.U)
     if(acosPre.io.dx.isDefined) {
       assert(acosPre.io.dx.get  === 0.U)
     }
   }
-  when(io.sel =/= SelectFunc.ACos) {
+  when(io.sel =/= SelectFunc.ACos || acosPre.io.useSqrt) {
     assert(acosTab.io.cs.asUInt === 0.U)
   }
 
@@ -155,7 +155,7 @@ class MathFunctions(
     }
   }
   when(io.sel =/= SelectFunc.Sqrt) {
-    assert(sqrtTab.io.cs.asUInt === 0.U)
+    assert(sqrtTab.io.cs.asUInt === 0.U || (io.sel === SelectFunc.ACos && acosPre.io.useSqrt))
   }
 
   val invsqrtTab   = Module(new InvSqrtTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
