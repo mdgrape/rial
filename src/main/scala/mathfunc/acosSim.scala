@@ -386,7 +386,7 @@ object MathFuncACosSim {
           nOrder
         }
 
-      val (zEx, zman) = if (order == 0) {
+      val (zEx, zMan) = if (order == 0) {
         val adr   = man.toInt
 
         if (sgn == 1) {
@@ -417,7 +417,10 @@ object MathFuncACosSim {
         val halfPiFixed = math.round(Pi * 0.5 * (1<<fracW))
 
         // pi/2 - acos(x)
-        val res0 = t.interval(adr).eval(d.toLong, dxbp) << 1
+        val polynomial = t.interval(adr).eval(d.toLong, dxbp)
+        assert(0 <= polynomial && polynomial < (1<<(fracW+1)))
+
+        val res0 = polynomial << 1
         val res  = if (sgn == 1) {
           halfPiFixed + res0
         } else {
@@ -431,22 +434,16 @@ object MathFuncACosSim {
 //       println(f"zex    = ${zEx}")
 //       println(f"zman   = ${zman.toLong.toBinaryString}")
 
-      val zmanRound = if (extraBits>0) {(zman >> extraBits) + bit(extraBits-1, zman)} else {zman}
+      val zmanRound = if (extraBits>0) {(zMan >> extraBits) + bit(extraBits-1, zMan)} else {zMan}
 
 //       println(f"zmanR  = ${zmanRound.toLong.toBinaryString}")
 
-      val z = if (zman<0) {
-        println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=$x%h")
-        0L
-      } else if (zmanRound >= (1L<<manW)) {
-        println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=$x%h")
-        maskL(manW)
-      } else {
-        zmanRound
-      }
+      val zmanMoreThan2AfterRound = bit(manW, zmanRound)
+      val zman = slice(0, manW, zmanRound)
+      val zex  = zEx + zmanMoreThan2AfterRound + exBias
 //       println(f"Sim: zman = ${z.toBinaryString}")
 
-      return new RealGeneric(x.spec, zSgn, zEx + exBias, SafeLong(z))
+      return new RealGeneric(x.spec, zSgn, zex.toInt, SafeLong(zman))
     }
   }
 
