@@ -134,21 +134,13 @@ object MathFuncExpSim {
         (-xint0, 0L)
       }
     }
-    // 2^(-x) = 2^(-xInt - xFrac)
-    //        = 2^(-xInt - 1 + 1 - xFrac)
-    //        = 2^(-xInt - 1 + (1 - xFrac))
-    //                         ^^^^^^^^^^ positive
-
-    val zex = xint + exBias
-
-    if      (zex>=maskI(exW)) { return RealGeneric.inf (x.spec, 0) }
-    else if (zex<=0)          { return RealGeneric.zero(x.spec) }
 
     val dxbp = manW-adrW-1
     val d    = slice(padding, dxbp+1, xfrac) - (SafeLong(1) << dxbp) // DO NOT round here, because we have correction term
     val adr  = slice(padding+dxbp+1, adrW, xfrac)
 
     val zman = t.interval(adr.toInt).eval(d.toLong, dxbp)
+    assert(0 <= zman && zman < (1<<fracW))
 
     val zmanRound = if(extraBits > 0) {
       (zman >> extraBits) + bit(extraBits-1, zman)
@@ -167,16 +159,19 @@ object MathFuncExpSim {
     assert(0 <= zCorrectionShifted && zCorrectionShifted <= 1)
 
     val zmanCorrected = zmanRound + zCorrectionShifted
+    val zmanMoreThan2AfterCorrection = bit(manW, zmanCorrected)
+    val z = slice(0, manW, zmanCorrected)
 
-    val z = if (zmanCorrected<0) {
-      println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=$x%h")
-      0L
-    } else if (zmanCorrected >= (1L<<manW)) {
-      println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=$x%h")
-      maskL(manW)
-    } else {
-      zmanCorrected.toLong
-    }
+    // 2^(-x) = 2^(-xInt - xFrac)
+    //        = 2^(-xInt - 1 + 1 - xFrac)
+    //        = 2^(-xInt - 1 + (1 - xFrac))
+    //                         ^^^^^^^^^^ positive
+
+    val zex = xint + exBias
+
+    if      (zex>=maskI(exW)) { return RealGeneric.inf (x.spec, 0) }
+    else if (zex<=0)          { return RealGeneric.zero(x.spec) }
+
     new RealGeneric(x.spec, 0, zex.toInt, SafeLong(z))
   }
 }
