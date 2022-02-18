@@ -130,6 +130,8 @@ object MathFuncACosSim {
       val xmanW1    = x.manW1.toLong
       val (xSqExNobias, xSqManW1) =
         MathFuncACosSim.multiply(spec, xexNobias, xmanW1, xexNobias, xmanW1)
+//       println(f"sim: xSqEx    = ${xSqExNobias + exBias }")
+//       println(f"sim: xSqManW1 = ${xSqManW1.toLong.toBinaryString}")
 
       val c1over6ExNobias  = -3
       val c1over6ManW1     = math.round(1.0/6.0 * (1<<(manW+(-c1over6ExNobias))))
@@ -137,11 +139,17 @@ object MathFuncACosSim {
       val (xSq6thExNobias, xSq6thManW1) =
         MathFuncACosSim.multiply(spec, xSqExNobias, xSqManW1, c1over6ExNobias, c1over6ManW1)
 
+//       println(f"sim: xSq6thEx    = ${xSq6thExNobias + exBias }")
+//       println(f"sim: xSq6thManW1 = ${xSq6thManW1.toLong.toBinaryString}")
+
       assert(xSq6thExNobias < 0)
 
       val xSq6thAligned  = xSq6thManW1 >> (-xSq6thExNobias)
       val xSq6thPlusOneExNobias = 0
       val xSq6thPlusOneManW1    = xSq6thAligned + (1<<manW)
+
+//       println(f"sim: xSq6thAligned      = ${xSq6thAligned     .toLong.toBinaryString}%24s")
+//       println(f"sim: xSq6thPlusOneManW1 = ${xSq6thPlusOneManW1.toLong.toBinaryString}%24s")
 
       val (taylorExNobias, taylorManW1) =
         MathFuncACosSim.multiply(spec, xexNobias, xmanW1, xSq6thPlusOneExNobias, xSq6thPlusOneManW1)
@@ -174,6 +182,8 @@ object MathFuncACosSim {
 
       val taylorAligned  = (taylorManW1 << (fracW - manW)) >> (-taylorExNobias)
       assert(taylorAligned < halfPiManW1)
+//       println(f"sim: halfPiManW1    = ${halfPiManW1.toBinaryString}%24s")
+//       println(f"sim: taylorAligned  = ${taylorAligned.toLong.toBinaryString}%24s")
 
       // Let's say we have FP32. For small x < 2^-4,
       //   pi/2 - acos(x) ~ x + x^3/6 < 2^-4 * (1 + 2^-8 / 6) < 2^-3
@@ -213,6 +223,8 @@ object MathFuncACosSim {
       assert(bit(manW, ymanW1) == 1)
       assert(yman < (1<<manW))
       assert(0 < yex)
+//       println(f"sim: yex    = ${yexNobias}")
+//       println(f"sim: ymanW1 = ${ymanW1.toLong.toBinaryString}")
 
 //       println(f"yref = ${1.0 - x.toDouble.abs}")
 //       println(f"ysim = ${ymanW1.toDouble / (1<<manW) * pow(2.0, yexNobias)}")
@@ -295,11 +307,17 @@ object MathFuncACosSim {
         (secondTermManW1 >> (-secondTermExNobias+5)) + bit(-secondTermExNobias+5-1, secondTermManW1)
       // Here, simple rounding cannot be omitted to achieve error < 3ULPs.
 
+//       println(f"sim:  firstTermAligned = ${(yOver3ManW1     >> (-yOver3ExNobias+2)).toLong.toBinaryString}")
+//       println(f"sim: secondTermAligned = ${(secondTermManW1 >> (-secondTermExNobias+5)).toLong.toBinaryString}")
+//       println(f"sim:  firstTermRounded = ${bit(-yOver3ExNobias+2-1,     yOver3ManW1)}")
+//       println(f"sim: secondTermRounded = ${bit(-secondTermExNobias+5-1, secondTermManW1)}")
       assert(puiseuxTermManW1 < (1<<(manW+1)))
 
       // ----------------------------------------------------------------------
       // sqrt(2y) * (1 + 2^-2 * (1/3 * y) + 2^-5 * (3/5 * y^2) * (1 + 25/21 * 2^-2 * y))
 
+//       println(f"sim: sqrt2y           = ${sqrt2y.toLong.toBinaryString}")
+//       println(f"sim: puiseuxTermManW1 = ${puiseuxTermManW1.toLong.toBinaryString}")
       val sqrt2yExNobias   = (yexNobias + 1) >> 1
       val puiseuxProd      = sqrt2y * puiseuxTermManW1
       val puiseuxMoreThan2 = bit((manW+1+manW+extraBits+1)-1, puiseuxProd)
@@ -309,6 +327,8 @@ object MathFuncACosSim {
       val puiseuxExNobias  = (sqrt2yExNobias + puiseuxTermExNobias +
                              puiseuxMoreThan2 + puiseuxMoreThan2AfterRound).toInt
       val puiseuxManW1     = if(puiseuxMoreThan2AfterRound == 1) {1<<manW} else {puiseuxRounded}
+//       println(f"sim: puiseuxTermEx    = ${sqrt2yExNobias + puiseuxTermExNobias + exBias}")
+//       println(f"sim: puiseuxTermManW1 = ${puiseuxTermManW1.toLong.toBinaryString}")
 
       assert(puiseuxExNobias < 0)
 
