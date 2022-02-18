@@ -325,9 +325,16 @@ class ACosOtherPath(
   val xmanW1 = Cat(1.U(1.W), io.x.man)
   val (xSqExInc, xSqManW1) = multiply(xmanW1, xmanW1)
 
+//   printf("cir: xex    = %d\n", xex   )
+//   printf("cir: xmanW1 = %b\n", xmanW1)
+//   printf("cir: xsqEx    = %d\n", xex + xex - exBias.U + xSqExInc   )
+//   printf("cir: xsqManW1 = %b\n", xSqManW1)
+
   val c1over6Ex    = (exBias-3).U(exW.W)
-  val c1over6ManW1 = math.round(1.0/6.0 * (1L<<(manW-3))).U((manW+1).W)
+  val c1over6ManW1 = math.round(1.0/6.0 * (1L<<(manW+3))).U((manW+1).W)
   val (xSq6thExInc, xSq6thManW1) = multiply(xSqManW1, c1over6ManW1)
+//   printf("cir: xsq6thEx    = %d\n", xex + xex - exBias.U + xSqExInc - 3.U + xSq6thExInc)
+//   printf("cir: xsq6thManW1 = %b\n", xSq6thManW1)
 
   val xSq6thEx    = Cat(xex, 0.U(1.W)) - (3 + exBias).U((exW+1).W) + xSqExInc + xSq6thExInc
   val xSq6thShiftVal = (exBias.U - xSq6thEx)
@@ -338,13 +345,18 @@ class ACosOtherPath(
   val xSq6thAligned      = xSq6thManW1 >> xSq6thShift
   val xSq6thPlusOneManW1 = Cat(1.U(1.W), xSq6thAligned(manW-1, 0)) // assuming xSq6thAligned < 1
   assert(xSq6thPlusOneManW1.getWidth == manW+1)
+//   printf("cir: xSq6thAligned      = %b\n", xSq6thAligned     )
+//   printf("cir: xSq6thPlusOneManW1 = %b\n", xSq6thPlusOneManW1)
 
   // in the postprocess, the result will be added/subtracted to pi/2.
   val (taylorExInc, taylorManW1) = multiply(xmanW1, xSq6thPlusOneManW1)
   val taylorEx = xex + taylorExInc
 
-  val zTaylorEx  = Mux(isConstant, 0.U, taylorEx)
-  val zTaylorMan = Mux(isConstant, 0.U, taylorManW1(manW-1, 0))
+  val zTaylorEx  = Mux(isConstant, 0.U(exW.W),  taylorEx)
+  val zTaylorMan = Mux(isConstant, 0.U(manW.W), taylorManW1(manW-1, 0))
+
+//   printf("cir: zTaylorEx    = %d\n", zTaylorEx )
+//   printf("cir: zTaylorManW1 = %b\n", Cat(1.U(1.W), zTaylorMan))
 
   // --------------------------------------------------------------------------
   // Puiseux
@@ -516,14 +528,25 @@ class ACosPostProcess(
 
   val halfPiFixed = math.round(Pi * 0.5 * (1 << fracW)).U((fracW+1).W)
 
-  val res0  = Cat(io.zres, 0.U(1.W))
-  val res   = halfPiFixed + Mux(xsgn === 1.U(1.W), Cat(0.U(1.W), res0), Cat(1.U(1.W), ~res0 + 1.U))
+  val taylorShiftVal = exBias.U(exW.W) - zexNonTable
+  val taylorShiftOut = taylorShiftVal(taylorShiftVal.getWidth-1, shiftOut).orR
+  val taylorShift    = Mux(taylorShiftOut, Fill(shiftOut, 1.U(1.W)), taylorShiftVal(shiftOut-1, 0))
+  val taylorAligned  = Cat(Cat(1.U(1.W), zmanNonTable), 0.U((fracW-manW).W)) >> taylorShift
+  assert(taylorAligned.getWidth == fracW+1)
+
+//   printf("cir: halfPiFixed       = %b\n", halfPiFixed  )
+//   printf("cir: taylorAligned     = %b\n", taylorAligned)
+
+  val res0 = Mux(zIsTaylor, taylorAligned, Cat(io.zres, 0.U(1.W)))
+  val res  = halfPiFixed + Mux(xsgn.asBool, Cat(0.U(1.W), res0), Cat(1.U(1.W), ~res0 + 1.U))
 
   val shift = (fracW+2).U - (res.getWidth.U - PriorityEncoder(Reverse(res)))
   val resShifted = (res << shift)(fracW+1, 1) - (1<<fracW).U
 
   val zexTable  = (exBias+1).U(exW.W) - shift
   val zmanTable = (resShifted >> extraBits) + resShifted(extraBits-1)
+//   printf("cir: zexTable       = %d\n", zexTable )
+//   printf("cir: zmanTable      = %b\n", zmanTable)
 
   // ---------------------------------------------------------------------------
   // Puiseux: (pi - z) or z. Note that if |x| > 1, the zNonTable is 0.
