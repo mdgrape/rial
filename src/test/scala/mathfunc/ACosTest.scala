@@ -4,8 +4,6 @@ import chisel3._
 import chisel3.experimental.BundleLiterals._
 import chiseltest._
 
-
-
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
@@ -14,7 +12,6 @@ import spire.math.SafeLong
 import spire.math.Numeric
 import spire.implicits._
 
-import rial.math.ACosSim
 import rial.mathfunc._
 import rial.arith._
 import rial.table._
@@ -35,7 +32,7 @@ class MathFuncACosTest extends AnyFlatSpec
 
   behavior of "Test acos"
 
-  var n = 1000
+  var n = 10000
 
   override def beforeAll(configMap: ConfigMap) = {
     n = configMap.getOptional[String]("n").getOrElse("1000").toInt
@@ -59,6 +56,7 @@ class MathFuncACosTest extends AnyFlatSpec
   }
 
   private def runtest ( spec : RealSpec,
+      ts : Seq[FuncTableInt], tSqrt : FuncTableInt,
       nOrder : Int, adrW : Int, extraBits : Int, stage : PipelineStageConfig,
       n : Int, r : Random, generatorStr : String,
       generator : ( (RealSpec, Random) => RealGeneric)
@@ -71,8 +69,7 @@ class MathFuncACosTest extends AnyFlatSpec
           val maxCbit    = c.getMaxCbit
           val maxCalcW   = c.getMaxCalcW
           val nstage     = c.getStage
-          val reference  = ACosSim.acosSimGeneric( ACosSim.acosTableGeneration( nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit) ), _ )
-
+          val reference  = MathFuncACosSim.acosSimGeneric( ts, tSqrt, _ )
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
             val xi = generator(spec,r)
@@ -112,16 +109,24 @@ class MathFuncACosTest extends AnyFlatSpec
     }
   }
 
-//   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(),
-//     n, r, "Test Within (-0.95,  -2^-8)",    generateRealWithin(-0.95, -pow(2.0, -8),_,_))
-//   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(),
-//     n, r, "Test Within (-2^-8,  -2^-23)",   generateRealWithin(-pow(2.0, -8),-pow(2.0, -23),_,_))
-//   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(),
-//     n, r, "Test Within (-2^-23, 0)",        generateRealWithin(-pow(2.0, -23),0.0,_,_))
-//   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(),
-//     n, r, "Test Within (     0, 2^-23)",    generateRealWithin(0.0,pow(2.0, -23),_,_))
-//   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(),
-//     n, r, "Test Within ( 2^-23, 2^-8)",     generateRealWithin(pow(2.0, -23),pow(2.0, -8),_,_))
-  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(),
-    n, r, "Test Within ( 2^-8,  0.95)",     generateRealWithin(pow(2.0, -8), 0.95,_,_))
+  val acosF32TableI = MathFuncACosSim.acosTableGeneration(
+    2, 8, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+2,
+    Some(Seq(27, 24, 24)), Some(Seq(27, 24, 24)))
+
+  val sqrtF32TableI = MathFuncACosSim.sqrtTableGeneration(
+    2, 8, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+2,
+    Some(Seq(27, 24, 24)), Some(Seq(27, 24, 24)))
+
+  runtest(RealSpec.Float32Spec, acosF32TableI, sqrtF32TableI, 2, 8, 2, PipelineStageConfig.none(),
+    n, r, "Test Within (-1, -1+2^-4)",     generateRealWithin(-1.0, -1.0+pow(2.0, -4)-pow(2.0, -23),_,_))
+  runtest(RealSpec.Float32Spec, acosF32TableI, sqrtF32TableI, 2, 8, 2, PipelineStageConfig.none(),
+    n, r, "Test Within (-1+2^-4,  -2^-4)",    generateRealWithin(-1.0+pow(2.0, -4), -pow(2.0, -4),_,_))
+  runtest(RealSpec.Float32Spec, acosF32TableI, sqrtF32TableI, 2, 8, 2, PipelineStageConfig.none(),
+    n, r, "Test Within (-2^-4, 0)",   generateRealWithin(-pow(2.0, -4), 0,_,_))
+  runtest(RealSpec.Float32Spec, acosF32TableI, sqrtF32TableI, 2, 8, 2, PipelineStageConfig.none(),
+    n, r, "Test Within ( 0, 2^-4)",     generateRealWithin(0,pow(2.0, -4),_,_))
+  runtest(RealSpec.Float32Spec, acosF32TableI, sqrtF32TableI, 2, 8, 2, PipelineStageConfig.none(),
+    n, r, "Test Within ( 2^-4,  1-2^-4)",     generateRealWithin(pow(2.0, -4), 1.0 - pow(2.0, -4),_,_))
+  runtest(RealSpec.Float32Spec, acosF32TableI, sqrtF32TableI, 2, 8, 2, PipelineStageConfig.none(),
+    n, r, "Test Within (1-2^-4, 1)",     generateRealWithin(1.0-pow(2.0, -4)+pow(2.0, -23), 1.0,_,_))
 }
