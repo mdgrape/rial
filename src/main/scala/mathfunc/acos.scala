@@ -75,7 +75,7 @@ class ACosPreProcess(
   val fracW     = polySpec.fracW
   val dxW       = polySpec.dxW
   val order     = polySpec.order
-  val exAdrW    = ACosSim.calcExAdrW(spec)
+  val exAdrW    = MathFuncACosSim.calcExAdrW(spec)
 
   val io = IO(new Bundle {
     val en  = Input (UInt(1.W))
@@ -103,7 +103,7 @@ class ACosPreProcess(
   //            |  +- 2^-4 bit
   //            +- hidden bit = 2^-1
 
-  val useSqrt = (xex === (exBias-1).U) && xman(manW-1, manW-3).andR && io.en
+  val useSqrt = (xex === (exBias-1).U) && xman(manW-1, manW-3).andR && io.en.asBool
   io.useSqrt := ShiftRegister(useSqrt, nStage)
 
   // To use sqrt table, we need to determine the mantissa and exponent of
@@ -112,16 +112,19 @@ class ACosPreProcess(
   // also be passed to ACosOtherPath.
 
   val oneMinusX     = ~xman + 1.U // 1<<manW - xman
-  val oneMinusXLen  = PriorityEncoder(Reverse(oneMinusX))
+  val oneMinusXLen  = manW.U - PriorityEncoder(Reverse(oneMinusX))
   val oneMinusXSftW = log2UpL(manW)
   val oneMinusXSft  = ((manW+1).U - oneMinusXLen)(oneMinusXSftW-1, 0)
   val ymanW1        = (oneMinusX << oneMinusXSft)(manW, 0)
-  val yex           = oneMinusXLen + (exBias - manW - 2).U
+  val yex           = oneMinusXLen + (exBias - manW - 2).U(exW.W)
 
   io.yex  := ShiftRegister(yex(exW-1, 0),     nStage)
   io.yman := ShiftRegister(ymanW1(manW-1, 0), nStage)
 
-  assert(!io.en || ymanW1(manW) === 1.U)
+//   printf("cir: yex    = %d\n", yex.zext - exBias.S)
+//   printf("cir: ymanW1 = %b\n", ymanW1)
+
+  assert(!io.en || (ymanW1(manW) === 1.U))
 
   val exAdrACos = ((exBias - 1).U(exW.W) - xex)(exAdrW-1, 0)
   val adrACos   = Cat(exAdrACos, xman(manW-1, dxW))
@@ -136,7 +139,9 @@ class ACosPreProcess(
   io.adr := ShiftRegister(adr, nStage)
 
   if(order != 0) {
-    val dx0  = Cat(~xman(dxW-1), xman(dxW-2, 0))
+    val dxACos = Cat(  ~xman(dxW-1),   xman(dxW-2, 0))
+    val dxSqrt = Cat(~ymanW1(dxW-1), ymanW1(dxW-2, 0))
+    val dx0  = Mux(useSqrt, dxSqrt, dxACos)
     val dx   = dx0 & Fill(dx0.getWidth, io.en)
     io.dx.get := ShiftRegister(dx, nStage)
   }
@@ -162,7 +167,7 @@ class ACosTableCoeff(
   val adrW   = polySpec.adrW
   val fracW  = polySpec.fracW
   val order  = polySpec.order
-  val exAdrW = ACosSim.calcExAdrW(spec)
+  val exAdrW = MathFuncACosSim.calcExAdrW(spec)
   val nStage = stage.total
 
   val io = IO(new Bundle {
@@ -174,10 +179,10 @@ class ACosTableCoeff(
   val exAdr = io.adr(exAdrW + adrW - 1, adrW)
   val adr   = io.adr(adrW - 1, 0)
 
-  val linearThreshold = ACosSim.calcLinearThreshold(manW)
+  val taylorThreshold = MathFuncACosSim.calcTaylorThreshold(manW)
 
   if(order == 0) {
-    val tbl = VecInit( (-1 to linearThreshold.toInt by -1).map( exponent => {
+    val tbl = VecInit( (-1 to taylorThreshold.toInt by -1).map( exponent => {
       VecInit( (0L to (1L<<adrW)-1L).map(
         n => {
           val x = scalb(1.0 + n.toDouble/(1L<<adrW), exponent.toInt)
@@ -193,12 +198,12 @@ class ACosTableCoeff(
 
   } else {
 
-    val cbit = ACosSim.acosTableGeneration( order, adrW, manW, fracW )
+    val cbit = MathFuncACosSim.acosTableGeneration( order, adrW, manW, fracW )
       .map( t => {t.getCBitWidth(/*sign mode = */0)} )
       .reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
 
     val tableIs = VecInit(
-      ACosSim.acosTableGeneration( order, adrW, manW, fracW ).map(t => {
+      MathFuncACosSim.acosTableGeneration( order, adrW, manW, fracW ).map(t => {
         t.getVectorWithWidth(cbit, /*sign mode = */ 0)
       })
     )
@@ -299,7 +304,7 @@ class ACosOtherPath(
     val zmanW1     = Mux(zMoreThan2AfterRound, Cat(1.U(1.W), 0.U(manW.W)),
                                                Cat(1.U(1.W), zRounded(manW-1, 0)))
     val zexInc     = zMoreThan2 + zMoreThan2AfterRound
-    return (zexInc, zmanW1)
+    (zexInc, zmanW1)
   }
 
   val shiftOut = log2UpL(manW) // for FP32, log2Up(23) = 5
@@ -310,7 +315,7 @@ class ACosOtherPath(
   // pi/2 - acos(x) = x + x^3/6 + O(x^5)
   //                = x(1 + x^2/6) if x << 1
 
-  val taylorThreshold = ACosSim.calcTaylorThreshold(manW)
+  val taylorThreshold = MathFuncACosSim.calcTaylorThreshold(manW)
   val isTaylor        = io.x.ex < (exBias + taylorThreshold).U
   val isConstant      = io.x.ex < (exBias - manW).U
 
@@ -352,6 +357,8 @@ class ACosOtherPath(
 
   val yex    = io.yex
   val ymanW1 = Cat(1.U(1.W), io.yman)
+//   printf("cir: yex    = %d\n", yex   )
+//   printf("cir: ymanW1 = %b\n", ymanW1)
 
   // ----------------------------------------------------------------------
   // 2^-5 * 3/5 y^2
@@ -361,6 +368,8 @@ class ACosOtherPath(
   val (ySqExInc, ySqManW1) = multiply(ymanW1, ymanW1)
   val (ySq3over5ExInc, ySq3over5ManW1) = multiply(ySqManW1, c3over5)
   val ySq3over5Ex = yex +& yex - (exBias+1).U + ySqExInc + ySq3over5ExInc
+//   printf("cir: ySq3over5Ex    = %d\n", ySq3over5Ex   )
+//   printf("cir: ySq3over5ManW1 = %b\n", ySq3over5ManW1)
 
   // ----------------------------------------------------------------------
   // 1 + 25/21 * 2^-2 * y
@@ -370,7 +379,7 @@ class ACosOtherPath(
 
   val c25over21 = math.round(25.0/21.0 * (1<<manW)).toLong
 
-  val (y25over21ExInc, y25over21ManW1) = multiply(ymanW1, c25over21)
+  val (y25over21ExInc, y25over21ManW1) = multiply(ymanW1, c25over21.U((manW+1).W))
   val y25over21Ex       = yex + y25over21ExInc
   val y25over21ShiftVal = ((exBias + 2).U - y25over21Ex)
   val y25over21ShiftOut = y25over21ShiftVal(y25over21ShiftVal.getWidth-1, shiftOut).orR
@@ -393,7 +402,7 @@ class ACosOtherPath(
 
   val c1over3 = math.round(1.0/3.0 * (1<<(manW+2))).toLong
 
-  val (yOver3ExInc, yOver3ManW1) = multiply(ymanW1, c1over3)
+  val (yOver3ExInc, yOver3ManW1) = multiply(ymanW1, c1over3.U((manW+1).W))
   val yOver3Ex = yex - 2.U + yOver3ExInc
 
   // ----------------------------------------------------------------------
@@ -406,17 +415,22 @@ class ACosOtherPath(
   val firstTermAligned  = yOver3ManW1     >> ((exBias+2-1).U - yOver3Ex)
   val secondTermAligned = secondTermManW1 >> ((exBias+5-1).U - secondTermEx)
 
+//   printf("cir:  firstTermAligned = %b\n", firstTermAligned ( firstTermAligned.getWidth-1, 1))
+//   printf("cir: secondTermAligned = %b\n", secondTermAligned(secondTermAligned.getWidth-1, 1))
+//   printf("cir:  firstTermRounded = %b\n", firstTermAligned (0))
+//   printf("cir: secondTermRounded = %b\n", secondTermAligned(0))
 
   // here we don't add 1<<manW because it will be omitted.
-  val puiseuxMan = firstTermAligned( firstTermAligned.getWidth-1, 1) +  firstTermAligned(0)
+  val puiseuxMan = firstTermAligned( firstTermAligned.getWidth-1, 1) +  firstTermAligned(0) +
                   secondTermAligned(secondTermAligned.getWidth-1, 1) + secondTermAligned(0)
 
   // XXX: Note that, we later multiply sqrt(2y) to this. But the information of
   //      will not be passed to the postprocess. We add the ex to this before
   //      postprocess.
   //      y < 2^-4, so yex < exBias-1.
-  val sqrt2ExNobiasNeg = ((exBias-1).U - yex) >> 1
-  val puiseuxEx  = exBias.U(exW.W) - sqrt2yExNobiasNeg
+  val sqrt2yExNobiasNeg = ((yex.zext - (exBias - 1).S) >> 1)(exW-1, 0)
+  val puiseuxEx         = sqrt2yExNobiasNeg + exBias.U(exW.W)
+//   printf("cir: sqrt2yExNobiasNeg = %d\n", sqrt2yExNobiasNeg)
 
   assert(puiseuxMan.getWidth == manW)
 
@@ -425,11 +439,22 @@ class ACosOtherPath(
   val zPuiseuxEx  = Mux(xMoreThan1, 0.U, puiseuxEx)
   val zPuiseuxMan = Mux(xMoreThan1, 0.U, puiseuxMan)
 
+//   printf("cir: zPuiseuxEx  = %d\n", zPuiseuxEx )
+//   printf("cir: zPuiseuxMan = %b\n", zPuiseuxMan)
+
+  // sim: puiseuxTermManW1 = 100000000011100110011100
+  // cir: zPuiseuxEx  =  1111101 = 127 - 2
+  // cir: zPuiseuxMan =          11100101010110
+  //
+
   // --------------------------------------------------------------------------
   // select Taylor/Puiseux
 
   val zex  = Mux(isTaylor, zTaylorEx,  zPuiseuxEx)
   val zman = Mux(isTaylor, zTaylorMan, zPuiseuxMan)
+
+//   printf("cir: zother.zex  = %d\n", zex )
+//   printf("cir: zother.zman = %b\n", zman)
 
   io.zother.zman := ShiftRegister(zman, nStage)
   io.zother.zex  := ShiftRegister(zex,  nStage)
@@ -453,6 +478,7 @@ class ACosPostProcess(
   val exW    = spec.exW
   val manW   = spec.manW
   val exBias = spec.exBias
+  val shiftOut = log2UpL(manW) // for FP32, log2Up(23) = 5
 
   val nStage = stage.total
   def getStage() = nStage
@@ -478,6 +504,12 @@ class ACosPostProcess(
   val znan         = io.zother.znan
   val zexNonTable  = io.zother.zex
   val zmanNonTable = io.zother.zman
+//   printf("cir: zother.xsgn       = %d\n", xsgn      )
+//   printf("cir: zother.znan       = %d\n", znan      )
+//   printf("cir: zother.zIsTaylor  = %d\n", zIsTaylor )
+//   printf("cir: zother.zIsPuiseux = %d\n", zIsPuiseux)
+//   printf("cir: zexNonTable       = %d\n", zexNonTable )
+//   printf("cir: zmanNonTable      = %b\n", zmanNonTable)
 
   // ---------------------------------------------------------------------------
   // taylor and table (pi/2 +/- z). Note that x < 2^-23, the zNonTable is 0
@@ -498,6 +530,8 @@ class ACosPostProcess(
 
   val sqrt2y = Cat(1.U(1.W), io.zres) // fracW
   val puiseuxTermManW1 = Cat(1.U(1.W), zmanNonTable)
+//   printf("cir: sqrt2y           = %b\n", sqrt2y   )
+//   printf("cir: puiseuxTermManW1 = %b\n", puiseuxTermManW1)
 
   val puiseuxProd = sqrt2y * puiseuxTermManW1
   val puiseuxMoreThan2 = puiseuxProd(manW+1+fracW+1-1)
@@ -512,6 +546,8 @@ class ACosPostProcess(
                              Cat(1.U(1.W), puiseuxRounded(manW-1, 0)))
 
   val puiseuxEx        = zexNonTable + puiseuxMoreThan2 + puiseuxMoreThan2AfterRound
+//   printf("cir: puiseuxEx      = %d\n", puiseuxEx   )
+//   printf("cir: puiseuxManW1   = %b\n", puiseuxManW1)
 
   // pi - z
 
@@ -519,14 +555,16 @@ class ACosPostProcess(
   val piManW1    = math.round(Pi * (1<<(manW-piExNobias))).toLong.U((1+manW).W)
 
   val puiseuxShiftVal = exBias.U(exW.W) - puiseuxEx
-  val puiseuxShiftOut = puiseuxShiftVal(puiseuxShiftVal.getWidth, shiftOut).orR
+  val puiseuxShiftOut = puiseuxShiftVal(puiseuxShiftVal.getWidth-1, shiftOut).orR
   val puiseuxShift    = Mux(puiseuxShiftOut, Fill(shiftOut, 1.U(1.W)), puiseuxShiftVal(shiftOut-1, 0))
 
   val puiseuxAligned = puiseuxManW1 >> puiseuxShift
   val puiseuxSub     = piManW1 - puiseuxAligned
 
-  val zmanPuiseux = Mux(xsgn, puiseuxSub(manW-1, 0),        puiseuxManW1(manW-1, 0))
-  val zexPuiseux  = Mux(xsgn, (piExNobias+exBias).U(exW.W), puiseuxEx)
+  val zexPuiseux  = Mux(xsgn.asBool, (piExNobias+exBias).U(exW.W), puiseuxEx)
+  val zmanPuiseux = Mux(xsgn.asBool, puiseuxSub(manW-1, 0),        puiseuxManW1(manW-1, 0))
+//   printf("cir: zexPuiseux   = %d\n", zexPuiseux )
+//   printf("cir: zmanPuiseux  = %b\n", zmanPuiseux)
 
   // ---------------------------------------------------------------------------
   // select
