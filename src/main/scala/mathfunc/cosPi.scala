@@ -23,6 +23,7 @@ import rial.arith.FloatChiselUtil
 import rial.arith._
 
 import rial.math.SinPiSim
+import rial.math.CosPiSim
 import rial.mathfunc._
 
 // -------------------------------------------------------------------------
@@ -52,13 +53,14 @@ class CosPiPreProcess(
   val order     = polySpec.order
 
   val io = IO(new Bundle {
+    val en  = Input (UInt(1.W))
     val x   = Input (UInt(spec.W.W))
     val adr = Output(UInt((exAdrW+adrW).W))
     val dx  = if(order != 0) { Some(Output(UInt(dxW.W))) } else { None }
     val xConverted = new SinPiPreProcessOutput(spec)
   })
 
-  val (xsgn, xex, xman) = FloatChiselUtil.decompose(spec,  io.x)
+  val (xsgn, xex, xman) = FloatChiselUtil.decompose(spec, io.x & Fill(spec.W, io.en))
 
   // --------------------------------------------------------------------------
   // convert cos to sin
@@ -73,7 +75,7 @@ class CosPiPreProcess(
   val shift_ex1 = PriorityEncoder(Reverse(from0_ex1)) + 1.U
   val norm_ex1  = from0_ex1 << shift_ex1
 
-  val align_exmanW = ((1 << manW) - 1 + exBias).U - xex
+  val align_exmanW = (exBias - 1).U - xex
   val from0_exmanW = ((1 << manW).U - (((1<<manW).U + xman) >> align_exmanW))(manW-1, 0)
   val shift_exmanW = PriorityEncoder(Reverse(from0_exmanW)) + 1.U
   val norm_exmanW  = from0_exmanW << shift_exmanW
@@ -96,15 +98,20 @@ class CosPiPreProcess(
   val exAdr = exOfs.asUInt()(exAdrW-1, 0)
 
   val adr0 = Cat(exAdr, yman(manW-1, manW-adrW)) // concat exAdr + man
-  io.adr   := ShiftRegister(adr0,  nStage)
+  val adr  = adr0 & Fill(adr0.getWidth, io.en)
+  io.adr   := ShiftRegister(adr,  nStage)
 
   if(order != 0) {
     val dx0  = Cat(~yman(manW-adrW-1), yman(manW-adrW-2,0))
-    io.dx.get := ShiftRegister(dx0, nStage)
+    val dx   = dx0 & Fill(dx0.getWidth, io.en)
+    io.dx.get := ShiftRegister(dx, nStage)
   }
 
-  io.xConverted.xConvertedEx  := ShiftRegister(yex,  nStage)
-  io.xConverted.xConvertedMan := ShiftRegister(yman, nStage)
+  val xConvertedEx  = yex  & Fill(yex .getWidth, io.en)
+  val xConvertedMan = yman & Fill(yman.getWidth, io.en)
+
+  io.xConverted.xConvertedEx  := ShiftRegister(xConvertedEx,  nStage)
+  io.xConverted.xConvertedMan := ShiftRegister(xConvertedMan, nStage)
 }
 
 // -------------------------------------------------------------------------
@@ -174,7 +181,7 @@ class CosPiOtherPath(
   // --------------------------------------------------------------------------
   // linear approximation around zero
 
-  val linearThreshold = SinPiSim.calcLinearThreshold(manW)
+  val linearThreshold = CosPiSim.calcLinearThreshold(manW)
   val pi = new RealGeneric(spec, Pi)
 
   val isLinear = (yex < (linearThreshold + exBias).U)

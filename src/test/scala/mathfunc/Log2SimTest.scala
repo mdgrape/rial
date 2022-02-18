@@ -150,6 +150,13 @@ class MathFuncLog2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
     "Test Small More Than 1 [1, 2]",   generateRealWithin(1.0+pow(2.0, -11), 2.0,_,_), 2)
 
+//   log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+//     "Test x = 2.0",   generateRealWithin(2.0, 2.0,_,_), 2)
+//   log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+//     "Test x = 1.0",   generateRealWithin(1.0, 1.0,_,_), 2)
+//   log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+//     "Test x = 0.5",   generateRealWithin(0.5, 0.5,_,_), 2)
+
 //   val smallPositive = (-1 until -23 by -1).map( ex => {
 //     val xmax = 1.0 + pow(2.0, ex)
 //     val xmin = 1.0 + pow(2.0, ex-1)

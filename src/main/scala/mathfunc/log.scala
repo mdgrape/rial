@@ -1,6 +1,6 @@
-//% @file log2.scala
+//% @file log.scala
 //
-// log2 function
+// log2 and ln function
 // Copyright (C) Toru Niina RIKEN BDR 2021
 //
 package rial.mathfunc
@@ -51,6 +51,7 @@ class Log2PreProcess(
   val order     = polySpec.order
 
   val io = IO(new Bundle {
+    val en  = Input (UInt(1.W))
     val x   = Input (UInt(spec.W.W))
     val adr = Output(UInt((2+adrW).W))
     val dx  = if(order != 0) { Some(Output(UInt(dxW.W))) } else { None }
@@ -70,13 +71,15 @@ class Log2PreProcess(
 
   val adr0 = Cat(exAdr,
     Mux(ex === (exBias-1).U, manNeg(manW-1, dxW), manPos(manW-1, dxW)))
-  io.adr := ShiftRegister(adr0, nStage)
+  val adr  = adr0 & Fill(adr0.getWidth, io.en)
+  io.adr := ShiftRegister(adr, nStage)
 
   if(order != 0) {
     val dx0 = Mux(ex === (exBias-1).U,
       Cat(~manNeg(dxW-1), manNeg(dxW-2, 0)),
       Cat(~manPos(dxW-1), manPos(dxW-2, 0)))
-    io.dx.get := ShiftRegister(dx0, nStage)
+    val dx = dx0 & Fill(dx0.getWidth, io.en)
+    io.dx.get := ShiftRegister(dx, nStage)
   }
 }
 
@@ -104,6 +107,7 @@ class Log2TableCoeff(
   val nStage    = stage.total
 
   val io = IO(new Bundle {
+    val en  = Input(UInt(1.W))
     val adr = Input  (UInt((2+adrW).W))
     val cs  = Flipped(new TableCoeffInput(maxCbit))
   })
@@ -127,7 +131,8 @@ class Log2TableCoeff(
     assert(maxCbit(0) == fracW)
 
     val c0 = tbl(io.adr(adrW, 0))            // here we use LSB of ex
-    io.cs.cs(0) := ShiftRegister(c0, nStage) // width should be manW + extraBits
+    val c  = c0 & Fill(c0.getWidth, io.en)
+    io.cs.cs(0) := ShiftRegister(c, nStage) // width should be manW + extraBits
 
   } else {
 
@@ -215,7 +220,8 @@ class Log2TableCoeff(
     val coeffs = Mux(exadr === 0.U, outNormal,
                  Mux(exadr === 1.U, outSmallNeg, outSmallPos))
 
-    io.cs.cs := ShiftRegister(coeffs, nStage)
+    val cs = coeffs.asUInt & Fill(coeffs.asUInt.getWidth, io.en)
+    io.cs := ShiftRegister(cs.asTypeOf(new TableCoeffInput(maxCbit)), nStage)
   }
 }
 
@@ -232,12 +238,15 @@ class Log2TableCoeff(
 // This has two taylor pathes.
 //
 
-class Log2NonTableOutput(val spec: RealSpec) extends Bundle {
+class Log2NonTableOutput(val spec: RealSpec, val polySpec: PolynomialSpec) extends Bundle {
   // always required
   val zsgn  = Output(UInt(1.W))
   val zIsNonTable = Output(Bool())
+  // required by log_e.
+  val xtwo  = Output(Bool())
+  val xhalf = Output(Bool())
   // taylor result & special value result
-  val zman  = Output(UInt(spec.manW.W))
+  val zman  = Output(UInt(polySpec.fracW.W))
   val zex   = Output(UInt(spec.exW.W))
   // default table
   val zint  = Output(UInt(spec.exW.W))
@@ -266,7 +275,7 @@ class Log2OtherPath(
     // exadr = 2: xexNobias ==  0, x in [1, 2)
     // exadr = 0: others
     val exadr  = Input(UInt(2.W))
-    val zother = new Log2NonTableOutput(spec)
+    val zother = new Log2NonTableOutput(spec, polySpec)
     val xmanbp = Output(UInt(log2Up(manW).W))
   })
 
@@ -315,15 +324,15 @@ class Log2OtherPath(
   val resPosProd      = (convTermPos * taylorTermPos) >> xmanbpPos
   val resPosMoreThan2 = resPosProd(fracW*2)
   val resPosShifted   = Mux(resPosMoreThan2,
-    resPosProd(resPosProd.getWidth-1, fracW + extraBits),
-    resPosProd(resPosProd.getWidth-1, fracW + extraBits-1))
+    resPosProd(resPosProd.getWidth-1, fracW    ),
+    resPosProd(resPosProd.getWidth-1, fracW - 1))
   val resPosProdInc   = Mux(resPosMoreThan2,
-    resPosProd(fracW + extraBits-1),
-    resPosProd(fracW + extraBits-2))
-  val resPosProdRounded = resPosShifted + resPosProdInc
-  val resPosShiftedMoreThan2 = resPosProdRounded(manW+1)
+    resPosProd(fracW - 1),
+    resPosProd(fracW - 2))
+  val resPosProdRounded = resPosShifted +& resPosProdInc
+  val resPosShiftedMoreThan2 = resPosProdRounded(fracW+1)
 
-  val zmanTaylorPos = resPosProdRounded(manW-1, 0)
+  val zmanTaylorPos = resPosProdRounded(fracW-1, 0)
   val zexTaylorPos  = (exBias - manW - 1).U + xmanbpPos + resPosMoreThan2 + resPosShiftedMoreThan2
 
   // --------------------------------------------------------------------------
@@ -360,17 +369,17 @@ class Log2OtherPath(
   val resNegProd      = (convTermNeg * taylorTermNeg) >> xmanbpNeg
   val resNegMoreThan2 = resNegProd(fracW + fracW)
   val resNegShifted   = Mux(resNegMoreThan2,
-    resNegProd(resNegProd.getWidth-1, fracW + extraBits),
-    resNegProd(resNegProd.getWidth-1, fracW + extraBits-1))
+    resNegProd(resNegProd.getWidth-1, fracW    ),
+    resNegProd(resNegProd.getWidth-1, fracW - 1))
   val resNegProdInc   = Mux(resNegMoreThan2,
-    resNegProd(fracW + extraBits-1),
-    resNegProd(fracW + extraBits-2))
+    resNegProd(fracW - 1),
+    resNegProd(fracW - 2))
   val resNegProdRounded = resNegShifted + resNegProdInc
-  val resNegShiftedMoreThan2 = resNegProdRounded(manW+1)
+  val resNegShiftedMoreThan2 = resNegProdRounded(fracW+1)
 
 //   printf("cir: resNegProdRounded  = %b\n", resNegProdRounded     )
 
-  val zmanTaylorNeg = resNegProdRounded(manW-1, 0)
+  val zmanTaylorNeg = resNegProdRounded(fracW-1, 0)
   val zexTaylorNeg  = (exBias - manW - 2).U + xmanbpNeg + resNegMoreThan2 + resNegShiftedMoreThan2
 //   printf("cir: zmanTaylor = %b\n", zmanTaylorNeg)
 //   printf("cir: zexTaylor  = %d\n", zexTaylorNeg)
@@ -389,11 +398,11 @@ class Log2OtherPath(
   // log2(ex)     <= zex + log2(1.zman) < log2(ex + 1)
   // log2(ex) - 1 <  zex                < log2(ex + 1)
   //
-  val xexPos = io.x.ex - exBias.U // ==  x
-  val xexNeg = (exBias-1).U - io.x.ex // == -x == abs(x)
+  val xexPos = io.x.ex - exBias.U     // ==  exNobias
+  val xexNeg = (exBias-1).U - io.x.ex // == -exNobias - 1 == -(ex - exBias) - 1 = -ex + exBias - 1
 
   // integer part of z (fractional part is calculated in polynomial module)
-  val zint = Mux(io.x.sgn === 0.U, xexPos, xexNeg)
+  val zint = Mux(io.x.ex >= exBias.U, xexPos, xexNeg)
   io.zother.zint := ShiftRegister(zint, nStage)
 
   // --------------------------------------------------------------------------
@@ -411,27 +420,31 @@ class Log2OtherPath(
   val znan  = io.x.nan || io.x.sgn === 1.U
   val zinf  = io.x.inf || io.x.zero
   val zzero = xmanAllZero && io.x.ex === exBias.U
-  val zone  = xmanAllZero && io.x.ex === (exBias+1).U
-  val zhalf = xmanAllZero && io.x.ex === (exBias-1).U
+  val xtwo  = xmanAllZero && io.x.ex === (exBias+1).U
+  val xhalf = xmanAllZero && io.x.ex === (exBias-1).U
 
-  val zIsNonTable = znan || zinf || zzero || zone || zhalf ||
+  io.zother.xtwo  := ShiftRegister(xtwo , nStage)
+  io.zother.xhalf := ShiftRegister(xhalf, nStage)
+
+  val zIsNonTable = znan || zinf || zzero || xtwo || xhalf ||
                     isTaylorSmallPos || isTaylorSmallNeg
+  io.zother.zIsNonTable := ShiftRegister(zIsNonTable, nStage)
 
   val zsgn = io.x.ex < exBias.U
   io.zother.zsgn := ShiftRegister(zsgn,  nStage)
 
-  io.zother.zIsNonTable := ShiftRegister(zIsNonTable, nStage)
-
   // --------------------------------------------------------------------------
   // merge Taylor results and special values
 
-  val zman0 = Mux(isTaylorSmallPos, zmanTaylorPos,
-              Mux(isTaylorSmallNeg, zmanTaylorNeg, Cat(znan, 0.U((manW-1).W))))
   val zex0  = Mux(isTaylorSmallPos, zexTaylorPos,
               Mux(isTaylorSmallNeg, zexTaylorNeg,
               Mux(znan || zinf, Fill(exW, 1.U(1.W)),
               Mux(zzero, 0.U(exW.W),
-              Mux(zone,  exBias.U(exW.W), /*zhalf = */ (exBias-1).U(exW.W))))))
+              Mux(xtwo,  exBias.U(exW.W), /*xhalf = */ (exBias-1).U(exW.W))))))
+  val zman0 = Mux(isTaylorSmallPos, zmanTaylorPos,
+              Mux(isTaylorSmallNeg, zmanTaylorNeg, Cat(znan, 0.U((fracW-1).W))))
+  // here, adding 0es at the LSB of nan/inf/zero does not affect to the result
+  // because postprocess only does rounding. zero bits does not change rounding.
 
 //   printf("cir: zman0 = %b\n", zman0)
 //   printf("cir: zex0  = %d\n", zex0)
@@ -472,8 +485,10 @@ class Log2PostProcess(
   val log2 = (a:Double) => {log(a) / log(2.0)}
 
   val io = IO(new Bundle {
+    val en = Input(UInt(1.W))
+    val isln   = Input(Bool()) // If log_e, true. else if log2, false.
     val x      = Flipped(new DecomposedRealOutput(spec))
-    val zother = Flipped(new Log2NonTableOutput(spec))
+    val zother = Flipped(new Log2NonTableOutput(spec, polySpec))
     val exadr  = Input(UInt(2.W))
     val xmanbp = Input(UInt(log2Up(manW).W))
     val zres   = Input(UInt(fracW.W)) // polynomial
@@ -495,58 +510,92 @@ class Log2PostProcess(
   val zSmallMan0 = Mux(io.zres(fracW-1) === 1.U, zSmallManBase(fracW+2-1, 2),
                    Mux(io.zres(fracW-2) === 1.U, zSmallManBase(fracW+1-1, 1),
                                                  zSmallManBase(fracW+0-1, 0)))
-  assert(zSmallMan0.getWidth == fracW)
-
 //   printf("cir: zSmallManBase = %b\n", zSmallManBase)
-
-  val zSmallManRound = zSmallMan0(fracW-1, extraBits) +& zSmallMan0(extraBits-1)
-  val zSmallManMoreThan2 = zSmallManRound(manW)
-  val zSmallMan = zSmallManRound(manW-1, 0)
-
-//   printf("cir: zSmallManRound     = %b\n", zSmallManRound    )
-//   printf("cir: zSmallManMoreThan2 = %b\n", zSmallManMoreThan2)
-//   printf("cir: zSmallMan          = %b\n", zSmallMan         )
-
+  assert(zSmallMan0.getWidth == fracW)
   // exadr = 1: xexNobias == -1, x in [1/2, 1)
   // exadr = 2: xexNobias ==  0, x in [1, 2)
   // exadr = 0: others
-  val zSmallEx  = Mux(io.exadr === 2.U, zSmallPosEx, zSmallNegEx) + zSmallManMoreThan2
-//   printf("cir: zSmallEx           = %b\n", zSmallEx         )
+  val zSmallEx0 = Mux(io.exadr === 2.U, zSmallPosEx, zSmallNegEx)
 
   // --------------------------------------------------------------------------
   // postprocess polynomial result; x is in [2, inf) or (0, 1/2]
 
   val zLargeInt   = io.zother.zint
-  val zLargeFrac0 = io.zres
-  val zLargeFrac  = Mux(io.x.ex >= exBias.U, zLargeFrac0, (~zLargeFrac0) + 1.U)
+  val zLargeFracPos = io.zres
+  val zLargeFracNeg = ~io.zres + 1.U
+  val zLargeFrac  = Mux(io.x.ex >= exBias.U, zLargeFracPos, zLargeFracNeg)
+
+//   printf("cir: zLargeInt  = %b\n", zLargeInt)
+//   printf("cir: zLargeFrac = %b\n", zLargeFrac)
 
   // z = log2(2^xex * 1.xman)
   //   = xex + log2(1.xman)
   // if xex < 0, we need to subtract log2(1.xman) from |xex| and set sgn to 1
 
-  val zLargeFull    = Cat(zLargeInt, zLargeFrac)
-  val zLargeShiftW  = Mux(zLargeFull(exW+fracW-1) === 1.U, 0.U, PriorityEncoder(Reverse(zLargeFull)))
-  val zLargeShifted = zLargeFull << zLargeShiftW
+  val zLargeFull     = Cat(zLargeInt, zLargeFrac)
+  val zLargeFullPrec = PriorityEncoder(Reverse(zLargeFull)) // 0es at the MSBs
+  val zLargeShiftW   = Mux(zLargeFull(exW+fracW-1) === 1.U, 0.U, zLargeFullPrec)
+  val zLargeShifted  = zLargeFull << zLargeShiftW // W = fracW+exW
+  // here we multiplied zInt + zFrac by 8 - zLargeShiftW.
+
+//   printf("cir: zLargeFull    = %b\n", zLargeFull   )
+//   printf("cir: zLargeShiftW  = %b\n", zLargeShiftW )
+//   printf("cir: zLargeShifted = %b\n", zLargeShifted)
 
   assert(zLargeShifted(fracW+exW-1) === 1.U)
 
-  val zLargeManRound = zLargeShifted(fracW+exW-2, fracW+exW-1-manW) +& zLargeShifted(fracW+exW-1-manW-1)
-  val zLargeManMoreThan2 = zLargeManRound(manW)
+  assert(extraBits < exW) // normally this holds. normally.
+  val zLargeMan0 = zLargeShifted(fracW+exW-2, exW-1)
+  val zLargeEx0  = (exBias + exW - 1).U - zLargeShiftW
 
-  val zLargeMan = zLargeManRound(manW-1, 0)
-  val zLargeEx  = (exBias + exW - 1).U - zLargeShiftW + zLargeManMoreThan2
+  // --------------------------------------------------------------------------
+  // rounding
+
+  val log2xEx0  = Mux(io.zother.zIsNonTable, io.zother.zex ,
+                  Mux(io.exadr === 0.U, zLargeEx0,  zSmallEx0))
+  val log2xMan0 = Mux(io.zother.zIsNonTable, io.zother.zman,
+                  Mux(io.exadr === 0.U, zLargeMan0, zSmallMan0))
+//   printf("log2xEx0  = %b\n", log2xEx0 )
+//   printf("log2xMan0 = %b\n", log2xMan0)
+
+  // -------------------------------------------------------------------------
+  // ln(x)
+
+  // ln2 = 0.6931... < 1
+  val ln2 = math.round(log(2.0) * (1<<(fracW+1))).toLong.U((fracW+1).W)
+  assert(ln2(fracW) === 1.U)
+
+  val lnxProd      = Cat(1.U(1.W), log2xMan0) * ln2
+  val lnxMoreThan2 = lnxProd((1+fracW)*2-1).asBool
+  val lnxShifted   = Mux(lnxMoreThan2, lnxProd(fracW*2,   fracW+extraBits+1),
+                                       lnxProd(fracW*2-1, fracW+extraBits  ))
+  val lnxInc       = Mux(lnxMoreThan2, lnxProd(fracW+extraBits),
+                                       lnxProd(fracW+extraBits-1))
+  val lnxRounded   = lnxShifted +& lnxInc
+  val lnxMoreThan2AfterRound = lnxRounded(manW)
+  val lnxEx0       = log2xEx0 - 1.U + lnxMoreThan2 + lnxMoreThan2AfterRound
+
+  // -------------------------------------------------------------------------
+  // log2(x)
+
+  val log2xManRound  = log2xMan0(fracW-1, extraBits) +& log2xMan0(extraBits-1)
+  val log2xMoreThan2 = log2xManRound(manW)
+  val log2xEx        = log2xEx0 + log2xMoreThan2
+
+  val zMan = Mux(io.isln, lnxRounded(manW-1, 0), log2xManRound(manW-1, 0))
+  val zEx  = Mux(io.isln, lnxEx0,                log2xEx                 )
 
   // --------------------------------------------------------------------------
   // select the correct result
 
   val zSgn = io.zother.zsgn
-  val zEx  = Mux(io.zother.zIsNonTable, io.zother.zex,  Mux(io.exadr === 0.U, zLargeEx,  zSmallEx ))
-  val zMan = Mux(io.zother.zIsNonTable, io.zother.zman, Mux(io.exadr === 0.U, zLargeMan, zSmallMan))
   val z0   = Cat(zSgn, zEx, zMan)
 
   assert(zEx .getWidth == exW)
   assert(zMan.getWidth == manW)
   assert(z0  .getWidth == spec.W)
 
-  io.z   := ShiftRegister(z0, nStage)
+  val z = z0 & Fill(z0.getWidth, io.en)
+
+  io.z   := ShiftRegister(z, nStage)
 }

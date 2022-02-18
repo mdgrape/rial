@@ -27,13 +27,13 @@ import scala.collection.mutable.Queue
 import scala.language.reflectiveCalls
 
 //
-// Testing Log2 using ChiselTest
+// Testing Log using ChiselTest
 //
 
-class MathFuncLog2Test extends AnyFlatSpec
+class MathFuncLogTest extends AnyFlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
-  behavior of "Test log2"
+  behavior of "Test log"
 
   var n = 10000
 
@@ -68,7 +68,7 @@ class MathFuncLog2Test extends AnyFlatSpec
   ) = {
     val total = stage.total
     val pipeconfig = stage.getString
-    it should f"log2(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
+    it should f"log(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
       test( new MathFunctions(spec, nOrder, adrW, extraBits, stage, false, false)) { c =>
         {
           // To avoid timeoutException while testing z == neg.
@@ -79,7 +79,7 @@ class MathFuncLog2Test extends AnyFlatSpec
           // chiseltest fails after 1000 idle cycles. This is a reasonable
           // behavior in most cases. However, unfortunately, the definition of
           // "an idle cycle" is like: a cycle where input or output does not
-          // change. Since we are testing log2 function, if we take a negative
+          // change. Since we are testing log function, if we take a negative
           // value, the result becomes nan. So, the test case [-inf, 0] fails
           // after 1000 cycles. The behavior, returning nan, is the correct,
           // expected behavior. But it is indistinguishable from doing nothing
@@ -92,7 +92,7 @@ class MathFuncLog2Test extends AnyFlatSpec
           val maxCalcW   = c.getMaxCalcW
           val nstage     = c.getStage
 
-          val reference  = MathFuncLog2Sim.log2SimGeneric(t, tSmallPos, tSmallNeg, _ )
+          val reference  = MathFuncLogSim.logSimGeneric(t, tSmallPos, tSmallNeg, _ )
 
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
@@ -100,7 +100,7 @@ class MathFuncLog2Test extends AnyFlatSpec
             val xi = generator(spec,r)
             val z0r= reference(xi)
             q += ((xi.value.toBigInt,z0r.value.toBigInt))
-            c.io.sel.poke(SelectFunc.Log2)
+            c.io.sel.poke(SelectFunc.Log)
             c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
             c.io.y.poke(0.U(spec.W.W))
             val zi = c.io.z.peek().litValue.toBigInt
@@ -132,6 +132,7 @@ class MathFuncLog2Test extends AnyFlatSpec
     }
   }
 
+  // tables are the same.
   val log2F32TableI = Log2Sim.log2TableGeneration(
     2, 8, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+2,
     Some(Seq(27, 24, 24)), Some(Seq(27, 24, 24)))
@@ -159,9 +160,9 @@ class MathFuncLog2Test extends AnyFlatSpec
     RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
     "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5-pow(2.0, -24),_,_))
 
-  runtest(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI,
-    RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
-    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_),
-    /*disableTimeout = */ true)
+//   runtest(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI,
+//     RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
+//     "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_),
+//     /*disableTimeout = */ true)
 }
 

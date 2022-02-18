@@ -86,6 +86,7 @@ class ATan2Stage1PreProcess(
   val exAdrW = ATan2Sim.calcExAdrW(spec)
 
   val io = IO(new Bundle {
+    val en      = Input (UInt(1.W))
     val x       = Input (new DecomposedRealOutput(spec))
     val y       = Input (new DecomposedRealOutput(spec))
     val special = Output(UInt(ATan2SpecialValue.W.W))
@@ -100,7 +101,7 @@ class ATan2Stage1PreProcess(
   val z1piover4 =  (io.x.inf &&  io.y.inf) &&  xpos
   val z3piover4 =  (io.x.inf &&  io.y.inf) &&  xneg
 
-  val special = MuxCase(ATan2SpecialValue.zNormal, Seq(
+  val special0 = MuxCase(ATan2SpecialValue.zNormal, Seq(
     znan      -> ATan2SpecialValue.zNaN,
     zzero     -> ATan2SpecialValue.zZero,
     zpi       -> ATan2SpecialValue.zPi,
@@ -108,6 +109,7 @@ class ATan2Stage1PreProcess(
     z1piover4 -> ATan2SpecialValue.zQuarterPi,
     z3piover4 -> ATan2SpecialValue.z3QuarterPi
   ))
+  val special = special0 & io.en
 
   io.special := ShiftRegister(special, nStage)
 }
@@ -219,6 +221,7 @@ class ATan2Stage1PostProcess(
   val extraBits = polySpec.extraBits
 
   val io = IO(new Bundle {
+    val en = Input(UInt(1.W))
     val zother = Flipped(new ATan2Stage1NonTableOutput(spec))
     val zres   = Input(UInt(fracW.W))
     val minxy  = Flipped(new DecomposedRealOutput(spec))
@@ -270,8 +273,9 @@ class ATan2Stage1PostProcess(
              Mux(maxXYMan0, io.minxy.man, zProdRounded(manW-1, 0)))
 
   val z0 = Cat(zsgn, zex, zman)
+  val z = z0 & Fill(z0.getWidth, io.en)
 
-  io.z := ShiftRegister(z0, nStage)
+  io.z := ShiftRegister(z, nStage)
 }
 
 // =========================================================================
@@ -313,22 +317,25 @@ class ATan2Stage2PreProcess(
   val exAdrW = ATan2Sim.calcExAdrW(spec)
 
   val io = IO(new Bundle {
+    val en  = Input (UInt(1.W))
     val x   = Input (UInt(spec.W.W))
     val adr = Output(UInt((exAdrW+adrW).W))
     val dx  = if(order != 0) { Some(Output(UInt(dxW.W))) } else { None }
   })
 
-  val (xsgn, xex, xman) = FloatChiselUtil.decompose(spec, io.x)
+  val (xsgn, xex, xman) = FloatChiselUtil.decompose(spec, io.x & Fill(spec.W, io.en))
 
   val exAdr0 = (exBias - 1).U(exW.W) - xex
   val exAdr  = exAdr0(exAdrW-1, 0)
 
   val adr0 = Cat(exAdr, xman(manW-1, dxW))
-  io.adr := ShiftRegister(adr0, nStage)
+  val adr  = adr0 & Fill(adr0.getWidth, io.en)
+  io.adr := ShiftRegister(adr, nStage)
 
   if(order != 0) {
     val dx0  = Cat(~xman(manW-adrW-1), xman(manW-adrW-2,0))
-    io.dx.get := ShiftRegister(dx0, nStage)
+    val dx   = dx0 & Fill(dx0.getWidth, io.en)
+    io.dx.get := ShiftRegister(dx, nStage)
   }
 }
 
@@ -358,6 +365,7 @@ class ATan2Stage2TableCoeff(
   val nStage = stage.total
 
   val io = IO(new Bundle {
+    val en  = Input(UInt(1.W))
     val adr = Input  (UInt((exAdrW+adrW).W))
     val cs  = Flipped(new TableCoeffInput(maxCbit))
   })
@@ -382,7 +390,8 @@ class ATan2Stage2TableCoeff(
     assert(maxCbit(0) == fracW)
 
     val c0 = tbl(exAdr)(adr)
-    io.cs.cs(0) := ShiftRegister(c0, nStage)
+    val c  = c0 & Fill(c0.getWidth, io.en)
+    io.cs.cs(0) := ShiftRegister(c, nStage)
 
   } else {
 
@@ -409,7 +418,9 @@ class ATan2Stage2TableCoeff(
         coeffs.cs(i) := ci
       }
     }
-    io.cs := ShiftRegister(coeffs, nStage)
+
+    val cs = coeffs.asUInt & Fill(coeffs.asUInt.getWidth, io.en)
+    io.cs := ShiftRegister(cs.asTypeOf(new TableCoeffInput(maxCbit)), nStage)
   }
 }
 
@@ -516,6 +527,7 @@ class ATan2Stage2PostProcess(
   val extraBits = polySpec.extraBits
 
   val io = IO(new Bundle {
+    val en = Input(UInt(1.W))
     val zother = Flipped(new ATan2Stage2NonTableOutput(spec))
     val zres   = Input(UInt(fracW.W))
     val flags  = Input(new ATan2Flags()) // need status (|x|<|y|, xsgn)
@@ -686,6 +698,7 @@ class ATan2Stage2PostProcess(
       (special === ATan2SpecialValue.zQuarterPi ) -> Cat(zSgn, quarterPi .ex.U(exW.W), quarterPi .man.toLong.U(manW.W)),
       (special === ATan2SpecialValue.z3QuarterPi) -> Cat(zSgn, quarter3Pi.ex.U(exW.W), quarter3Pi.man.toLong.U(manW.W))
     ))
+  val z = z0 & Fill(z0.getWidth, io.en)
 
-  io.z := ShiftRegister(z0, nStage)
+  io.z := ShiftRegister(z, nStage)
 }

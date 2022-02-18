@@ -57,13 +57,14 @@ class SinPiPreProcess(
   val order     = polySpec.order
 
   val io = IO(new Bundle {
+    val en  = Input (UInt(1.W))
     val x   = Input (UInt(spec.W.W))
     val adr = Output(UInt((exAdrW+adrW).W))
     val dx  = if(order != 0) { Some(Output(UInt(dxW.W))) } else { None }
     val xConverted = new SinPiPreProcessOutput(spec)
   })
 
-  val (xsgn, xex, xman) = FloatChiselUtil.decompose(spec, io.x)
+  val (xsgn, xex, xman) = FloatChiselUtil.decompose(spec, io.x & Fill(spec.W, io.en))
 
   // --------------------------------------------------------------------------
   // convert everything into [0, 0.5) (ex = [-inf to -2])
@@ -96,15 +97,20 @@ class SinPiPreProcess(
   val exAdr = exOfs.asUInt()(exAdrW-1, 0)
 
   val adr0 = Cat(exAdr, yman(manW-1, manW-adrW)) // concat exAdr + man
-  io.adr   := ShiftRegister(adr0,  nStage)
+  val adr  = adr0 & Fill(adr0.getWidth, io.en)
+  io.adr   := ShiftRegister(adr,  nStage)
 
   if(order != 0) {
     val dx0  = Cat(~yman(manW-adrW-1), yman(manW-adrW-2,0))
-    io.dx.get := ShiftRegister(dx0, nStage)
+    val dx   = dx0 & Fill(dx0.getWidth, io.en) // zeroed if not enabled
+    io.dx.get := ShiftRegister(dx, nStage)
   }
 
-  io.xConverted.xConvertedEx  := ShiftRegister(yex,  nStage)
-  io.xConverted.xConvertedMan := ShiftRegister(yman, nStage)
+  val xConvertedEx  = yex  & Fill(yex .getWidth, io.en)
+  val xConvertedMan = yman & Fill(yman.getWidth, io.en)
+
+  io.xConverted.xConvertedEx  := ShiftRegister(xConvertedEx,  nStage)
+  io.xConverted.xConvertedMan := ShiftRegister(xConvertedMan, nStage)
 }
 
 // -------------------------------------------------------------------------
@@ -134,6 +140,7 @@ class SinPiTableCoeff(
   val linearThreshold = SinPiSim.calcLinearThreshold(manW)
 
   val io = IO(new Bundle {
+    val en  = Input(UInt(1.W))
     val adr = Input  (UInt(maxAdrW.W))
     val cs  = Flipped(new TableCoeffInput(maxCbit))
   })
@@ -157,7 +164,8 @@ class SinPiTableCoeff(
     assert(maxCbit(0) == fracW)
 
     val c0 = tbl(exAdr)(manAdr)
-    io.cs.cs(0) := ShiftRegister(c0, nStage) // width should be manW + extraBits
+    val c  = c0 & Fill(c0.getWidth, io.en)
+    io.cs.cs(0) := ShiftRegister(c, nStage) // width should be manW + extraBits
 
   } else {
 
@@ -185,7 +193,8 @@ class SinPiTableCoeff(
         coeffs.cs(i) := ci
       }
     }
-    io.cs := ShiftRegister(coeffs, nStage)
+    val cs = coeffs.asUInt & Fill(coeffs.asUInt.getWidth, io.en)
+    io.cs := ShiftRegister(cs.asTypeOf(new TableCoeffInput(maxCbit)), nStage)
   }
 }
 
@@ -318,6 +327,7 @@ class SinPiPostProcess(
   val order     = polySpec.order
 
   val io = IO(new Bundle {
+    val en = Input(UInt(1.W))
     val zother = Flipped(new SinPiNonTableOutput(spec))
     val zres   = Input(UInt(fracW.W))
     val z      = Output(UInt(spec.W.W))
@@ -337,5 +347,6 @@ class SinPiPostProcess(
   val zMan = Mux(io.zother.zIsNonTable, io.zother.zman, zManTable)
 
   val z0  = Cat(zSgn, zEx, zMan)
-  io.z   := ShiftRegister(z0, nStage)
+  val z   = z0 & Fill(z0.getWidth, io.en)
+  io.z   := ShiftRegister(z, nStage)
 }

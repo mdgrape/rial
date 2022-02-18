@@ -155,10 +155,10 @@ object MathFuncLog2Sim {
     if(x.man == 0 && x.ex == exBias) {
       return RealGeneric.zero(x.spec)
     }
+    // XXX table for x in (0.5, 1] fails if x == 0.5
     if(x.man == 0 && x.ex == exBias-1) {
       return new RealGeneric(x.spec, 1, exBias, 0)
     }
-
 
     val zsgn = if(x.ex < exBias) {1} else {0}
 
@@ -170,16 +170,16 @@ object MathFuncLog2Sim {
 //     println(f"xexNobias = ${xexNobias}")
 //     println(f"zint0     = ${zint0}")
 
-    // --------------------------------------------------------------------------
-    // taylor
-    //
-    // log(1+x) = x/ln(2) - x^2/2ln(2) + x^3/3ln(2) + O(x^4)
-    //          = x(1 - x/2 + x^2/3) / ln(2)
-    //
-
     val taylorThreshold = calcTaylorThreshold(x.spec)
 
-    if(xexNobias == 0 && x.man.toLong < (1L << (manW-taylorThreshold))) {
+    val (zex0, zman0) = if(xexNobias == 0 && x.man.toLong < (1L << (manW-taylorThreshold))) {
+      // ----------------------------------------------------------------------
+      // taylor
+      //
+      // log(1+x) = x/ln(2) - x^2/2ln(2) + x^3/3ln(2) + O(x^4)
+      //          = x(1 - x/2 + x^2/3) / ln(2)
+      //
+
       val xman   = x.man // x - 1
       val xmanbp = xman.toLong.toBinaryString.length
 
@@ -202,24 +202,24 @@ object MathFuncLog2Sim {
       // x < x/ln2 * (1 - x/2 + x^2/3) < 2x
       val resProd      = convTerm * taylorTerm  // W = 2*fracW + xmanbp
       val resMoreThan2 = bit(xmanbp + fracW*2, resProd)
-      val resShifted   = (resProd >> (fracW+xmanbp-1 + resMoreThan2 + extraBits)) +
-                         bit(fracW+xmanbp-1 + resMoreThan2 + extraBits-1, resProd)
-      val resShiftedMoreThan2 = bit(manW+1, resShifted) // resShifted includes 1 at 2^0.
+      val resShifted   = (resProd >> (fracW+xmanbp-1 + resMoreThan2)) +
+                         bit(fracW+xmanbp-1 + resMoreThan2-1, resProd)
+      val resShiftedMoreThan2 = bit(fracW+1, resShifted) // resShifted includes 1 at 2^0.
 
-      val zmanTaylor = slice(0, manW, resShifted)
+      val zmanTaylor = slice(0, fracW, resShifted)
       val zexTaylor = -(manW - (xmanbp-1)) + resMoreThan2 + resShiftedMoreThan2
 
-      return new RealGeneric(x.spec, zsgn, zexTaylor.toInt + exBias, zmanTaylor)
-    }
+      (zexTaylor.toInt + exBias, zmanTaylor)
 
-    // --------------------------------------------------------------------------
-    //
-    // log(1-x) = -x/ln(2) - x^2/2ln(2) - x^3/3ln(2) - O(x^4)
-    //          = -x(1 + x/2 + x^2/3) * (1 / ln(2))
-    //
-    // the exponent is -1, so xman is "multiplied" by 2. So the threshold and
-    // exponent calculation become different
-    if(xexNobias == -1 && (((1L<<manW) - x.man.toLong) < (1L << (manW-taylorThreshold+1)))) {
+    } else if(xexNobias == -1 && (((1L<<manW) - x.man.toLong) < (1L << (manW-taylorThreshold+1)))) {
+
+      // --------------------------------------------------------------------------
+      //
+      // log(1-x) = -x/ln(2) - x^2/2ln(2) - x^3/3ln(2) - O(x^4)
+      //          = -x(1 + x/2 + x^2/3) * (1 / ln(2))
+      //
+      // the exponent is -1, so xman is "multiplied" by 2. So the threshold and
+      // exponent calculation become different
       val xman   = ((1L<<manW) - x.man.toLong).toBigInt
       val xmanbp = xman.toLong.toBinaryString.length
 
@@ -239,135 +239,148 @@ object MathFuncLog2Sim {
 
       val resProd = convTerm * taylorTerm
       val resMoreThan2 = bit(xmanbp + fracW + fracW, resProd)
-      val resShifted   = (resProd >> (xmanbp - 1 + fracW + resMoreThan2 + extraBits)) +
-                         bit(xmanbp - 1 + fracW + resMoreThan2 + extraBits - 1, resProd)
+      val resShifted   = (resProd >> (xmanbp - 1 + fracW + resMoreThan2)) +
+                         bit(xmanbp - 1 + fracW + resMoreThan2 - 1, resProd)
                          // resShifted include 1 at 2^0.
-      val resMoreThan2AfterRound = bit(manW+1, resShifted)
+      val resMoreThan2AfterRound = bit(fracW+1, resShifted)
 
-      val zmanTaylor = slice(0, manW, resShifted)
+      val zmanTaylor = slice(0, fracW, resShifted)
       val zexTaylor = -(manW - (xmanbp-1)) - 1 + resMoreThan2 + resMoreThan2AfterRound
 
-      return new RealGeneric(x.spec, zsgn, zexTaylor.toInt + exBias, zmanTaylor)
-    }
+      (zexTaylor.toInt + exBias, SafeLong(zmanTaylor))
 
-    // --------------------------------------------------------------------------
-    // polynomial (x is in [1, 2))
-    //
-    // if x == 0,
-    // log2(x) = log2(2^ex * 1.man)
-    //         = ex + log2(1.man)
-    //         = log2(1.man)
-    //
-    // log2 table should return full precision
-    //
-    if(xexNobias == 0) {
+    } else if(xexNobias == 0) {
+
+      // --------------------------------------------------------------------------
+      // polynomial (x is in [1, 2))
+      //
+      // if x == 0,
+      // log2(x) = log2(2^ex * 1.man)
+      //         = ex + log2(1.man)
+      //         = log2(1.man)
+      //
+      // log2 table should return full precision
+      //
       val xman  = x.man.toLong
       val xex   = -(manW - xman.toBinaryString.length)
 
-      val spAdrW  = tSmallPos.adrW
-      val spFracW = tSmallPos.bp
-      val spExtraBits = spFracW - manW
+      assert(tSmallPos.adrW == t.adrW)
+      assert(tSmallPos.bp   == t.bp)
 
-      val dxbp = manW - spAdrW - 1
+      val dxbp = manW - adrW - 1
       val d    = slice(0,      dxbp+1, xman) - (SafeLong(1) << dxbp)
-      val adr  = slice(dxbp+1, spAdrW, xman)
-      val z0   = tSmallPos.interval(adr.toInt).eval(d.toLong, dxbp)
+      val adr  = slice(dxbp+1, adrW, xman)
 
-      val (zex0, zman0) = if(bit(spFracW-1, z0) == 1) {
-        (xex   + exBias, z0 << 1) // the result from table < 1, but manW1 should be >1
-      } else if (bit(spFracW-2, z0) == 1) {
-        (xex-1 + exBias, z0 << 2)
+      val z00  = tSmallPos.interval(adr.toInt).eval(d.toLong, dxbp)
+      val z0 = if (z00<0) {
+        println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=${x.value.toLong.toBinaryString}(${x.toDouble})")
+        0L
+      } else if (z00 >= (1L<<fracW)) {
+        println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=${x.value.toLong.toBinaryString}(${x.toDouble})")
+        maskL(fracW)
       } else {
-        assert(bit(spFracW-3, z0) == 1)
-        (xex-2 + exBias, z0 << 3)
+        z00.toLong
       }
 
-      val zRound = (zman0 >> spExtraBits) + bit(spExtraBits-1, zman0)
+      val (zex0, zman0) = if(bit(fracW-1, z0) == 1) {
+        (xex   + exBias, z0 << 1) // the result from table < 1, but manW1 should be >1
+      } else if (bit(fracW-2, z0) == 1) {
+        (xex-1 + exBias, z0 << 2)
+      } else {
+        assert(bit(fracW-3, z0) == 1)
+        (xex-2 + exBias, z0 << 3)
+      }
+      assert(bit(fracW, zman0) == 1)
+      assert(zman0 < (1<<(fracW+1))) // zman0.getWidth == 1+fracW
 
-      val zman   = slice(0, manW, zRound)
-      val zex    = zex0 + bit(manW+1, zRound)
+      (zex0.toInt, SafeLong(zman0))
 
-      return new RealGeneric(x.spec, zsgn, zex.toInt, zman.toLong)
-    }
+    } else if(xexNobias == -1) {
 
-    // --------------------------------------------------------------------------
-    // polynomial (x is in [0.5, 1))
-    //
-    if(xexNobias == -1) {
+      // --------------------------------------------------------------------------
+      // polynomial (x is in [0.5, 1))
+      //
       val xman  = ((1L<<manW) - x.man.toLong) // 1-x
       val xex   = -(manW - xman.toBinaryString.length)
 
-      val snAdrW  = tSmallNeg.adrW
-      val snFracW = tSmallNeg.bp
-      val snExtraBits = snFracW - manW
+      assert(tSmallNeg.adrW  == t.adrW)
+      assert(tSmallNeg.bp    == t.bp)
 
-      val dxbp = manW - snAdrW - 1
+      val dxbp = manW - adrW - 1
       val d    = slice(0,      dxbp+1, xman) - (SafeLong(1) << dxbp)
-      val adr  = slice(dxbp+1, snAdrW, xman)
+      val adr  = slice(dxbp+1, adrW, xman)
 
-      val z0 = tSmallNeg.interval(adr.toInt).eval(d.toLong, dxbp)
-
-      val (zex0, zman0) = if(bit(snFracW-1, z0) == 1) {
-        (xex-1 + exBias, z0 << 1) // the result from table < 1, but manW1 should be >1
-      } else if (bit(snFracW-2, z0) == 1) {
-        (xex-2 + exBias, z0 << 2)
+      val z00 = tSmallNeg.interval(adr.toInt).eval(d.toLong, dxbp)
+      val z0 = if (z00<0) {
+        println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=${x.value.toLong.toBinaryString}(${x.toDouble})")
+        0L
+      } else if (z00 >= (1L<<fracW)) {
+        println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=${x.value.toLong.toBinaryString}(${x.toDouble})")
+        maskL(fracW)
       } else {
-        assert(bit(snFracW-3, z0) == 1)
-        (xex-3 + exBias, z0 << 3)
+        z00.toLong
       }
 
-      val zRound = (zman0 >> snExtraBits) + bit(snExtraBits-1, zman0)
+      val (zex0, zman0) = if(bit(fracW-1, z0) == 1) {
+        (xex-1 + exBias, z0 << 1) // the result from table < 1, but manW1 should be >1
+      } else if (bit(fracW-2, z0) == 1) {
+        (xex-2 + exBias, z0 << 2)
+      } else {
+        assert(bit(fracW-3, z0) == 1)
+        (xex-3 + exBias, z0 << 3)
+      }
+      assert(bit(fracW, zman0) == 1)
+      assert(zman0 < (1<<(fracW+1))) // zman0.getWidth == 1+fracW
 
-      val zman   = slice(0, manW, zRound)
-      val zex    = zex0 + bit(manW+1, zRound)
+      (zex0.toInt, SafeLong(zman0))
 
-      return new RealGeneric(x.spec, zsgn, zex.toInt, zman.toLong)
-    }
-
-    // --------------------------------------------------------------------------
-    // polynomial (0.0 < x < 0.5, 2.0 < x < inf)
-
-    val dxbp = manW-adrW-1
-    val d    = slice(0,      dxbp+1, x.man) - (SafeLong(1) << dxbp)
-    val adr  = slice(dxbp+1, adrW,   x.man)
-
-    val zfrac0Pos = t.interval(adr.toInt).eval(d.toLong, dxbp)
-    val zfrac0 = if(xexNobias >= 0) {zfrac0Pos} else {(1<<fracW) - zfrac0Pos}
-    val zfrac  = zfrac0 & maskL(fracW)
-    val zfull0 = (zint0 << fracW) + zfrac0.toLong
-
-    assert(0L <= zfrac && zfrac < (1L<<fracW)) // avoid overflow in polynomial
-    assert(0 <= zfull0)
-
-    val zfullW  = zfull0.toBinaryString.length
-    val zShiftW = exW + fracW - zfullW
-//     println(f"s: zfullW  = ${zfullW }")
-//     println(f"s: zShiftW = ${zShiftW}")
-    assert(0 <= zShiftW)
-
-    val zShifted = zfull0 << zShiftW
-//     println(f"s: zShifted = ${zShifted.toBinaryString }")
-    assert(bit(exW + fracW - 1, zShifted) == 1)
-
-    val zman0       = slice(exW-1, fracW, zShifted) // -1 for the hidden bit
-    val zmanRounded = slice(extraBits, manW, zman0) + bit(extraBits-1, zman0)
-//     println(f"s: zman0 = ${slice(extraBits, manW, zman0).toBinaryString } + ${bit(extraBits-1, zman0)}")
-//     println(f"zman0 = ${zman0.toBinaryString }")
-//     println(f"zmanR = ${zmanRounded.toBinaryString }")
-
-    val zex0  = exBias + (exW-1) - zShiftW
-
-    val zman = if (zmanRounded<0) {
-      println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=$x%h")
-      0L
-    } else if (zmanRounded >= (1L<<manW)) {
-      println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=$x%h")
-      maskL(manW)
     } else {
-      zmanRounded.toLong
-    }
-    val zex = zex0.toInt
+      // --------------------------------------------------------------------------
+      // polynomial (0.0 < x < 0.5, 2.0 < x < inf)
 
-    new RealGeneric(x.spec, zsgn, zex, SafeLong(zman))
+      val dxbp = manW-adrW-1
+      val d    = slice(0,      dxbp+1, x.man) - (SafeLong(1) << dxbp)
+      val adr  = slice(dxbp+1, adrW,   x.man)
+
+      val zfrac0Pos0 = t.interval(adr.toInt).eval(d.toLong, dxbp)
+
+      // overflow check
+      val zfrac0Pos = if (zfrac0Pos0<0) {
+        println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=${x.value.toLong.toBinaryString}(${x.toDouble})")
+        0L
+      } else if (zfrac0Pos0 >= (1L<<fracW)) {
+        println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=${x.value.toLong.toBinaryString}(${x.toDouble})")
+        maskL(fracW)
+      } else {
+        zfrac0Pos0.toLong
+      }
+
+      val zfrac0 = if(xexNobias >= 0) {zfrac0Pos} else {(1<<fracW) - zfrac0Pos}
+      val zfrac  = zfrac0 & maskL(fracW)
+      val zfull0 = (zint0 << fracW) + zfrac0.toLong
+      assert(0L <= zfrac && zfrac < (1L<<fracW)) // avoid overflow in polynomial
+      assert(0 <= zfull0)
+
+      val zfullW  = zfull0.toBinaryString.length
+      val zShiftW = exW + fracW - zfullW
+      assert(0 <= zShiftW)
+
+      val zShifted = zfull0 << zShiftW
+      assert(bit(exW + fracW - 1, zShifted) == 1)
+
+      val zman0 = slice(exW-1, fracW, zShifted) // -1 for the hidden bit
+      val zex0  = exBias + (exW-1) - zShiftW
+      (zex0.toInt, SafeLong(zman0))
+    }
+
+    //
+    // now, zman0 has `fracW` prec. round it to manW
+    //
+    val zmanRounded = slice(extraBits, manW, zman0) + bit(extraBits-1, zman0)
+    val zmanMoreThan2 = bit(manW, zmanRounded)
+    val zman = slice(0, manW, zmanRounded)
+    val zex  = zex0 + zmanMoreThan2
+
+    new RealGeneric(x.spec, zsgn, zex, zman)
   }
 }
