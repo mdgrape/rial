@@ -147,11 +147,32 @@ object MathFuncACosSim {
         MathFuncACosSim.multiply(spec, xexNobias, xmanW1, xSq6thPlusOneExNobias, xSq6thPlusOneManW1)
       assert(taylorExNobias < 0)
 
-      val halfPiExNobias = 0
-      val halfPiManW1    = math.round(Pi * 0.5 * (1<<manW)).toLong
-      assert(bit(manW, halfPiManW1) == 1)
+//       println(f"sim: taylorTermEx    = ${taylorExNobias + exBias }")
+//       println(f"sim: taylorTermManW1 = ${taylorManW1.toLong.toBinaryString}")
 
-      val taylorAligned  = taylorManW1 >> (-taylorExNobias)
+      // ----------------------------------------------------------------------
+      // check x.sgn and calculate acos(x) from pi/2 - acos(x)
+      //
+      // In the corresponding circuit, this part is shared with polynomial that
+      // approximates the same formula. Since the precision of polynomial is
+      // `extraBits`-bits larger, we need to extend taylor result to avoid
+      // rounding error while comparison.
+      // The result of taylor expansion is (currently) rounded to `manW`. It is
+      // possible to extend the result of Taylor and Puiseux series expansion to
+      // fracW. But, to gain the expected precision (<2ULPs), `manW` precision
+      // for Taylor and Puiseux series is enough. Normally, the result of those
+      // series expansion has small exponent < 0, it might be possible to reduce
+      // the precision less than `manW`. But for clarity, we don't do that
+      // unless the area and wiring becomes a problem.
+
+      val fracW = ts(0).bp
+      val extraBits = fracW - manW
+
+      val halfPiExNobias = 0
+      val halfPiManW1    = math.round(Pi * 0.5 * (1<<fracW)).toLong
+      assert(bit(fracW, halfPiManW1) == 1)
+
+      val taylorAligned  = (taylorManW1 << (fracW - manW)) >> (-taylorExNobias)
       assert(taylorAligned < halfPiManW1)
 
       // Let's say we have FP32. For small x < 2^-4,
@@ -164,8 +185,12 @@ object MathFuncACosSim {
         halfPiManW1 - taylorAligned
       }
 
+      val taylorRounded = (taylorSum >> extraBits) + bit(extraBits-1, taylorSum)
+
       val taylorEx  = halfPiExNobias + exBias
-      val taylorMan = slice(0, manW, taylorSum)
+      val taylorMan = slice(0, manW, taylorRounded)
+//       println(f"sim: taylorEx  = ${taylorEx}")
+//       println(f"sim: taylorMan = ${taylorMan.toLong.toBinaryString}")
 
       return new RealGeneric(spec, zSgn, taylorEx, taylorMan)
 
