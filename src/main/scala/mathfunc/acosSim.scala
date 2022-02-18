@@ -355,7 +355,7 @@ object MathFuncACosSim {
       val nOrder    = t.nOrder
       val bp        = t.bp
       val extraBits = bp - manW
-      val calcW     = manW + extraBits
+      val fracW     = manW + extraBits
 
       val order =
         if (adrW>=manW) {
@@ -370,20 +370,20 @@ object MathFuncACosSim {
         val adr   = man.toInt
 
         if (sgn == 1) {
-          val piFixed = (math.round(Pi * (1<<calcW))).toLong
+          val piFixed = (math.round(Pi * (1<<fracW))).toLong
           val res0    = piFixed - t.interval(adr).eval(0L, 0)
           // res0 range is [1.57, 3.14]. exponent should be 0 or 1
 
-          val shift = bit(calcW+1, res0)
+          val shift = bit(fracW+1, res0)
           val resShifted = res0 >> shift
-          val res = resShifted - (1<<calcW)
+          val res = resShifted - (1<<fracW)
 
           (shift.toInt, res)
         } else {
           val res0  = t.interval(adr).eval(0L, 0)
-          val shift      = calcW+1 - res0.toLong.toBinaryString.length
+          val shift      = fracW+1 - res0.toLong.toBinaryString.length
           val resShifted = if(shift > 0) {res0 << shift} else {res0}
-          val res = resShifted - (1<<calcW)
+          val res = resShifted - (1<<fracW)
 
           (-shift.toInt, res)
         }
@@ -394,7 +394,7 @@ object MathFuncACosSim {
         val d    = slice(0, dxbp+1, man) - (SafeLong(1)<<dxbp)
         val adr  = slice(dxbp+1, adrW, man).toInt
 
-        val halfPiFixed = math.round(Pi * 0.5 * (1<<calcW))
+        val halfPiFixed = math.round(Pi * 0.5 * (1<<fracW))
 
         // pi/2 - acos(x)
         val res0 = t.interval(adr).eval(d.toLong, dxbp) << 1
@@ -403,10 +403,10 @@ object MathFuncACosSim {
         } else {
           halfPiFixed - res0
         }
-        val shift = calcW+2 - res.toLong.toBinaryString.length
+        val shift = fracW+2 - res.toLong.toBinaryString.length
         val resShifted = ((res << shift).toLong) >> 1
 
-        ((-shift+1).toInt, resShifted - (1 << calcW))
+        ((-shift+1).toInt, resShifted - (1 << fracW))
       }
 //       println(f"zex    = ${zEx}")
 //       println(f"zman   = ${zman.toLong.toBinaryString}")
