@@ -435,3 +435,13 @@ class MathFunctions(
 
   io.z := ShiftRegister(z0, stage.total)
 }
+
+class MathFuncUnit( stage : PipelineStageConfig )
+    extends MathFunctions( RealSpec.Float32Spec, 2, 8, 2, stage) {
+}
+
+object MathFuncUnit_driver extends App {
+  (new chisel3.stage.ChiselStage).execute(args,
+    Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new MathFuncUnit(PipelineStageConfig.none)) ) )
+}
+
