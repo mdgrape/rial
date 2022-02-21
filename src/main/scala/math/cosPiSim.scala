@@ -102,21 +102,27 @@ object CosPiSim {
 
     } else if (xexNobias >= -manW) { // 0 ~ 0.5
 
-      val from0 = (1 << manW) - (((1<<manW) + x.man) >> (-1 - xexNobias))
-      val shift = (manW+1) - from0.toLong.toBinaryString.length
-      val norm  = from0 << shift
+      val halfAligned = (1 << (manW+2))
+      val xmanAligned = ((1 << (manW+2)) + (x.man << 2)) >> (-1 - xexNobias)
+      val from0       = halfAligned - xmanAligned
+      val shift       = (manW+1+2) - from0.toLong.toBinaryString.length
+      val normalized  = from0 << shift
+      val rounded     = (normalized >> 2) + bit(1, normalized)
 
       val newex  = if(from0 == 0) {-exBias.toLong} else {(-shift-1).toLong}
-      val newman = if(from0 == 0) { 0     .toLong} else {(norm - (1 << manW)).toLong}
+      val newman = if(from0 == 0) { 0     .toLong} else {(rounded - (1 << manW)).toLong}
 
       (0, newex, newman)
     } else {
       (0, -2.toLong, ((1<<manW)-1).toLong)
     }
-//     println(f"x      = ${x.toDouble}")
+//     println(f"x       = ${x.toDouble}")
 //     println(f"xexNobias = ${xexNobias}")
 //     println(f"xman      = ${x.man.toInt.toBinaryString}")
-//     println(f"newx   = ${new RealGeneric(x.spec, 0, xex.toInt + exBias, xman).toDouble}")
+//     println(f"newx    = ${new RealGeneric(x.spec, 0, xex.toInt + exBias, xman).manW1.toLong.toBinaryString}%24s")
+//     println(f"0.5 - x = ${new RealGeneric(x.spec, 0.5f - x.toFloat).manW1.toLong.toBinaryString}%24s")
+
+
 //     println(f"newex  = ${xex}")
 //     println(f"newman = ${xman.toInt.toBinaryString}")
     assert(xex  <= -1)
