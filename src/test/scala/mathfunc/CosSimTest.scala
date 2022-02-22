@@ -15,6 +15,11 @@ import rial.testUtil.ScalaTestUtil._ // errorLSB
 import rial.arith._
 import rial.table._
 
+import com.sun.jna._
+trait libc extends Library {
+  def cosf(x: Float):Float
+}
+
 class MathFuncCosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   var n = 1000000
 
@@ -36,6 +41,8 @@ class MathFuncCosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     tolerance       : Int ) = {
     test(s"cos(x), format ${spec.toStringShort}, ${generatorStr}") {
 
+//       val libc = Native.loadLibrary("c", classOf[libc]).asInstanceOf[libc]
+
       var maxError    = SafeLong(0)
       var xatMaxError = 0.0
       var zatMaxError = 0.0
@@ -46,8 +53,10 @@ class MathFuncCosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         val x  = generator(spec,r)
         val x0 = x.toDouble
 
-        val z0   = cos(x0)
+        val z0  = cos(x0)
         val z0r  = new RealGeneric(spec, z0)
+//         val z0f  = libc.cosf(x.toFloat)
+//         assert(z0f.toDouble - pow(2.0, -22) < z0 && z0 < z0f.toDouble + pow(2.0, -22))
 
         val zi   = MathFuncCosSim.cosSimGeneric( ts, x )
         val zd   = zi.toDouble
@@ -75,14 +84,14 @@ class MathFuncCosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
             val zrefexp = slice(spec.manW, spec.exW, z0r.value)
             val zrefman = z0r.value & maskSL(spec.manW)
 
-              println(f"z0  = ${z0}")
-              println(f"z0r = ${z0r.sgn}| ${z0r.ex}| ${z0r.man.toLong.toBinaryString}")
-              println(f"zi  = ${zi.sgn }| ${zi .ex}| ${zi .man.toLong.toBinaryString}")
-              println(f"zd  = ${zd}")
-              println(f"test: x   = ${x0}(${x.sgn}|${x.ex}(${x.ex-x.spec.exBias})|${x.man.toLong.toBinaryString})")
-              println(f"test: ref = ${z0}(${zrefsgn}|${zrefexp}(${zrefexp-x.spec.exBias})|${zrefman.toLong.toBinaryString})")
-              println(f"test: sim = ${zd}(${zsimsgn}|${zsimexp}(${zsimexp-x.spec.exBias})|${zsimman.toLong.toBinaryString})")
-              println(f"test: test(${zsimsgn}|${zsimexp}(${zsimexp - spec.exBias})|${zsimman.toLong.toBinaryString}(${zsimman.toLong}%x)) != ref(${zrefsgn}|${zrefexp}(${zrefexp - spec.exBias})|${zrefman.toLong.toBinaryString}(${zrefman.toLong}%x))")
+            println(f"z0  = ${z0}")
+            println(f"z0r = ${z0r.sgn}| ${z0r.ex}| ${z0r.man.toLong.toBinaryString}")
+            println(f"zi  = ${zi.sgn }| ${zi .ex}| ${zi .man.toLong.toBinaryString}")
+            println(f"zd  = ${zd}")
+            println(f"test: x   = ${x0}(${x.sgn}|${x.ex}(${x.ex-x.spec.exBias})|${x.man.toLong.toBinaryString})")
+            println(f"test: ref = ${z0}(${zrefsgn}|${zrefexp}(${zrefexp-x.spec.exBias})|${zrefman.toLong.toBinaryString})")
+            println(f"test: sim = ${zd}(${zsimsgn}|${zsimexp}(${zsimexp-x.spec.exBias})|${zsimman.toLong.toBinaryString})")
+            println(f"test: test(${zsimsgn}|${zsimexp}(${zsimexp - spec.exBias})|${zsimman.toLong.toBinaryString}(${zsimman.toLong}%x)) != ref(${zrefsgn}|${zrefexp}(${zrefexp - spec.exBias})|${zrefman.toLong.toBinaryString}(${zrefman.toLong}%x))")
           }
 
           if(erri != 0) {
@@ -109,8 +118,8 @@ class MathFuncCosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
       println(f"${generatorStr} Summary")
       if(maxError != 0.0) {
         println(f"N=$n%d : largest errors ${maxError.toInt}%d where the value is "
-              + f"${zatMaxError} != ${log(xatMaxError)}, "
-              + f"diff = ${zatMaxError - log(xatMaxError)}, x = ${xatMaxError}")
+              + f"${zatMaxError} != ${cos(xatMaxError)}, "
+              + f"diff = ${zatMaxError - cos(xatMaxError)}, x = ${xatMaxError}")
       }
       for(kv <- errs.toSeq.sortBy(_._1)) {
         val (k, (errPos, errNeg)) = kv
@@ -123,6 +132,13 @@ class MathFuncCosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val cosPiF32TableI = CosPiSim.cosPiTableGeneration( 2, 8, 23, 23+3 )
 
   //XXX allowing error in 2ULPs
+
+  cosTest(cosPiF32TableI, RealSpec.Float32Spec, n, r,
+    "Test Within [-10pi, -2pi]", generateRealWithin(-10 * Pi, -2 * Pi,_,_), 3)
+  cosTest(cosPiF32TableI, RealSpec.Float32Spec, n, r,
+    "Test Within [-2pi, -1.5pi]", generateRealWithin(-2 * Pi, -1.5 * Pi,_,_), 3)
+  cosTest(cosPiF32TableI, RealSpec.Float32Spec, n, r,
+    "Test Within [-1.5pi, -pi]", generateRealWithin(-1.5 * Pi, -Pi,_,_), 3)
   cosTest(cosPiF32TableI, RealSpec.Float32Spec, n, r,
     "Test Within [-pi, -pi/2]", generateRealWithin(-Pi, -0.5 * Pi,_,_), 3)
   cosTest(cosPiF32TableI, RealSpec.Float32Spec, n, r,
@@ -139,6 +155,8 @@ class MathFuncCosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     "Test Within [pi, 3/2pi]", generateRealWithin(Pi, 1.5*Pi,_,_), 3)
   cosTest(cosPiF32TableI, RealSpec.Float32Spec, n, r,
     "Test Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 3)
+  cosTest(cosPiF32TableI, RealSpec.Float32Spec, n, r,
+    "Test Within [2pi, 10pi]", generateRealWithin(2.0 * Pi, 10.0 * Pi,_,_), 3)
 
 //   cosTest(cosPiF32TableI, RealSpec.Float32Spec, n, r,
 //     "Test Within [-1,    -0.5]",   generateRealWithin(-1.0, -0.5,_,_), 2, true)
