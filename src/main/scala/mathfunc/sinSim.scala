@@ -32,316 +32,356 @@ object MathFuncSinSim {
     useCubicTerm: Boolean = false
   ) : RealGeneric = {
 
-    val expW = x.spec.exW
+    val spec = x.spec
+    val exW  = x.spec.exW
     val manW = x.spec.manW
     val exBias = x.spec.exBias
 
-    if (x.isNaN)      return RealGeneric.nan(x.spec)
-    if (x.isInfinite) return RealGeneric.nan(x.spec)
+    if (x.isNaN)      {return RealGeneric.nan(spec)}
+    if (x.isInfinite) {return RealGeneric.nan(spec)}
 
     // ------------------------------------------------------------------------
-    // round everything into ex = -inf to -2
+    // calc x/pi
 
-    // 1/2 > 1/pi > 1/4, (1/pi).exNobias == -2
-    val oneOverPi = (1.0 / math.Pi * (1L << (manW+2))).toLong
+    val oneOverPiPad = 23
+    // 1/2 > 1/pi > 1/4, (1/pi).exNobias == -2, and 2 extra bits for rounding
+    val oneOverPi = math.round(1.0 / math.Pi * (1L << (manW+2+oneOverPiPad))).toBigInt
+    assert(bit(manW+oneOverPiPad, oneOverPi) == 1L)
 
-    val xOverPiProd = x.manW1 * oneOverPi
-    val xOverPiProdMoreThan2 = bit((manW+1)*2-1, xOverPiProd)
-    val xOverPiRounded = (xOverPiProd >> (manW + xOverPiProdMoreThan2)) +
-                         bit(manW + xOverPiProdMoreThan2 - 1, xOverPiProd)
-    val xOverPiProdMoreThan2AfterRound = bit(manW+1, xOverPiRounded)
+    // no rounding! We will subtract 0.5 or 1.5 from this x/pi.
+    // To keep precision, we should have enough bits here.
+    val xOverPiProd          = x.manW1.toBigInt * oneOverPi
+    val xOverPiProdMoreThan2 = bit((1+manW)+(1+manW+oneOverPiPad)-1, xOverPiProd)
+    val xOverPiEx            = x.ex - 2 + xOverPiProdMoreThan2
 
-    assert((xOverPiProdMoreThan2AfterRound == 1) || (bit(manW, xOverPiRounded) == 1))
+    // here we extend the fraction part one more bit.
+    val xOverPi              = xOverPiProd << (1 - xOverPiProdMoreThan2)
+    val xOverPiFracW         = (1+manW) + (1+manW+oneOverPiPad) - 1
+    //                              remove the top, hidden bit  ^^^
 
-    val xOverPiMan      = slice(0, manW, xOverPiRounded)
-    val xOverPiExNobias = x.ex - x.spec.exBias - 2 +
-      xOverPiProdMoreThan2 + xOverPiProdMoreThan2AfterRound
-
-//     println(f"x = ${x.toDouble}, x/pi = ${x.toDouble/Pi}, " +
-//             f"x/pi sim = ${new RealGeneric(x.spec, 0, xOverPiExNobias + exBias, xOverPiMan).toDouble}")
-//     println(f"x/pi mantissa = ${xOverPiMan.toLong.toBinaryString}")
+    assert((1.toBigInt << (xOverPiFracW)) < xOverPi && xOverPi < (1.toBigInt << (xOverPiFracW+1)))
+//     println(f"xOverPi   = ${xOverPi.toDouble * pow(2.0, -xOverPiFracW) * pow(2.0, xOverPiEx-exBias)}")
+//     println(f"|x|/Pi    = ${x.toDouble.abs / Pi}")
+//     println(f"xOverPiEx = ${xOverPiEx}")
 
     // ------------------------------------------------------------------------
-    // check its value
+    // convert full range x/pi into (0, 2)
 
-    // skip large x (2 <= x)
-    if (1 <= xOverPiExNobias) {
-      if (xOverPiExNobias == 1 && xOverPiMan == 0) { // x = 2.0
-        return RealGeneric.zero(x.spec)
+    // now this is in [0, 2)
+    val xOverPiAligned = if(xOverPiEx >= exBias) {
+      // remove bits that represents larger than 2
+      slice(0, 1+xOverPiFracW, xOverPi << (xOverPiEx - exBias))
+    } else {
+      xOverPi >> (exBias - xOverPiEx)
+    }
+//     println(f"xOverPi        = ${xOverPi}, W = ${log2Up(xOverPi)}")
+//     println(f"xOverPiAligned = ${xOverPiAligned}, W = ${log2Up(xOverPiAligned)}")
+
+    val xOverPiAligned2MSBs = slice(1+xOverPiFracW-2, 2, xOverPiAligned)
+    val xOverPiAlignedMoreThan3over2 = xOverPiAligned2MSBs == 3
+    val xOverPiAlignedMoreThan1      = xOverPiAligned2MSBs == 2
+    val xOverPiAlignedMoreThan1over2 = xOverPiAligned2MSBs == 1
+//     println(f"xOverPiAligned2MSBs = ${xOverPiAligned2MSBs}")
+
+    // we can already calculate the sign of return value from its position in [0, 2pi)
+    val zSgnXAbs = if(xOverPiAlignedMoreThan1 || xOverPiAlignedMoreThan3over2) {1} else {0}
+    val zSgn = if(x.sgn == 1) {
+      1 - zSgnXAbs
+    } else {
+      zSgnXAbs
+    }
+
+    // ------------------------------------------------------------------------
+    // convert full range x/pi into (0, 1/2)
+
+    // TODO
+    val (yex, yman) = if (xOverPiAlignedMoreThan3over2 || xOverPiAlignedMoreThan1over2) { // 1.5 ~ 2 or 0.5~1
+      // y = 1 - x (if 1/2 < x < 1), 2 - x (if 3/2 < x < 2)
+      // The only difference between those two cases are the 1 bit at the MSB
+      // that will be canceled out when subtracting a constant.
+
+      val yman0 = (1.toBigInt << (1+xOverPiFracW-1)) -
+                  slice(0, 1+xOverPiFracW-1, xOverPiAligned)
+
+      if (yman0 == 0) {
+        (0, 0L)
       } else {
-        return RealGeneric.nan(x.spec)
+        val yman0W        = log2Up(yman0) //.toBinaryString.length
+        val yman0Shift    = 1+xOverPiFracW - yman0W
+        val yman0Shifted  = yman0 << yman0Shift
+        val yman0RoundBit = xOverPiFracW - manW
+        val yman0Rounded  = (yman0Shifted >> yman0RoundBit) + bit(yman0RoundBit-1, yman0Shifted)
+        val yman0MoreThan2 = bit(manW+1, yman0Rounded)
+        assert((yman0MoreThan2 == 1) || (bit(manW, yman0Rounded) == 1))
+
+        ((exBias-yman0Shift+yman0MoreThan2).toInt, slice(0, manW, yman0Rounded).toLong)
+      }
+    } else { // 0 ~ 0.5 or 1 ~ 1.5
+      // y = x (if 0 < x < 1/2), x - 1 (if 1 < x < 3/2)
+      val yman0 = slice(0, 1+xOverPiFracW-1, xOverPiAligned)
+
+      if (yman0 == 0) {
+        (0, 0L)
+      } else {
+        val yman0W        = log2Up(yman0)
+        val yman0Shift    = 1+xOverPiFracW - yman0W
+        val yman0Shifted  = yman0 << yman0Shift
+        val yman0RoundBit = xOverPiFracW - manW
+        val yman0Rounded  = (yman0Shifted >> yman0RoundBit) + bit(yman0RoundBit-1, yman0Shifted)
+        val yman0MoreThan2 = bit(manW+1, yman0Rounded)
+        assert((yman0MoreThan2 == 1) || (bit(manW, yman0Rounded) == 1))
+
+        ((exBias-yman0Shift+yman0MoreThan2).toInt, slice(0, manW, yman0Rounded).toLong)
       }
     }
 
-    if(0 <= xOverPiExNobias && xOverPiMan == 0) {
-      return RealGeneric.zero(x.spec)
-    }
+    assert(yex  <= exBias-1)
+    assert(yex  != exBias-1 || yman == 0)
+    assert(yman < (1<<manW))
 
-    //         y
-    //         ^
-    //         | .--.
-    // _.______|'____'.______.__ x
-    // -1'.__.'|      1'.__.' 2
-    //         |
-    //           '-'--'------'
-    //            | -1  ex=0
-    //            -2
+//     println(f"yex      = ${yex}")
+//     println(f"yman     = ${yman.toLong.toBinaryString}")
+//     println(f"y        = ${new RealGeneric(x.spec, 0, yex, yman).toDouble}")
+//     println(f"|x|/pi   = ${x.toDouble.abs / Pi}")
+// 
+//     println(f"0.5 - |x|/pi = ${(0.5 - x.toDouble.abs / Pi)}")
+//     println(f"|x|/pi - 0.5 = ${(x.toDouble.abs / Pi - 0.5)}")
+//     println(f"|x|/pi - 0.5 = ${(x.toFloat.abs / Pi.toFloat - 0.5f)}")
+//     println(f"1.5 - |x|/pi = ${(1.5 - x.toDouble.abs / Pi)}")
+//     println(f"|x|/pi - 1.5 = ${(x.toDouble.abs / Pi - 1.5)}")
+// 
+//     println(f"cos(x)   = ${cos(x.toDouble)}")
+//     println(f"cos(yPi) = ${(if(zSgn == 1) {-1} else {1}) * sin(new RealGeneric(x.spec, 0, yex, yman).toFloat * Pi.toFloat)}")
 
-    val zSgn = if ((x.sgn == 1) || (xOverPiExNobias == 0)) { 1 } else { 0 }
 
-    // ------------------------------------------------------------------------
-    // round everything into ex = -inf to -2
-    //
-    // here, we use pi-x or pi + x and it sometimes causes loss of precision.
-
-    val (xex, xman) = if (xOverPiExNobias == 0) { // 1 ~ 2
-
-      assert(xOverPiMan != 0)
-
-      val halfrange = if (bit(manW-1, xOverPiMan) == 1) {
-        (1 << manW) - xOverPiMan
-      } else {
-        xOverPiMan
-      }
-      assert(0 <= halfrange && halfrange <= (1<<manW))
-
-      // normalize
-      val halfrangeMSB = halfrange.toLong.toBinaryString.length()
-      val shiftW = manW + 1 - halfrangeMSB
-      // if xOverPiMan == 1, we need 1<<manW for normalization
-      assert((1 <= shiftW && shiftW <= manW))
-
-      val newex  = if(halfrange == 0) { -exBias } else { -shiftW }
-      val newmanW1 = (halfrange << shiftW)
-      val newman   = newmanW1 - (1 << manW)
-
-      assert((1<<manW) <= newmanW1)
-
-      (newex.toLong, newman.toLong)
-
-    } else if (xOverPiExNobias == -1) { // 0.5 ~ 1
-
-      val halfrange = (1 << manW) - xOverPiMan
-      assert(0 <= halfrange && halfrange <= (1<<manW))
-
-      val halfrangeMSB = halfrange.toLong.toBinaryString.length()
-      val shiftW = manW+1 - halfrangeMSB
-
-      // here, man can be zero. if man==0, halfrange == 1<<manW and
-      // no shift will be required.
-      assert(0 <= shiftW && shiftW <= manW)
-
-      val newex  = -1-shiftW
-      val newman = (halfrange << shiftW) - (1 << manW)
-
-      (newex.toLong, newman.toLong)
-
-    } else { // already small enough
-      (xOverPiExNobias.toLong, xOverPiMan.toLong)
-    }
-
-    assert(xex  <= -1)
-    assert(xman <  (1<<manW))
-    if (xex == -1) {assert(xman == 0)}
-
-//     println(f"x' = ${new RealGeneric(x.spec, 0, xex.toInt+exBias, xman).toDouble}, " +
-//             f"1 - x/pi = ${1 - x.toDouble / Pi}")
 
     // ------------------------------------------------------------------------
-    // now, {xex, xman} is in [0, 1/2].
-    // Do polynomial or taylor approximation.
+    // calculate sin(y*Pi).
 
-    val linearThreshold = calcLinearThreshold(manW).toLong // -12
-    val cubicThreshold  = calcCubicThreshold(manW).toLong  // -6
-    val pi = new RealGeneric(x.spec, Pi)
+    val taylorThreshold = calcTaylorThreshold(manW)
 
-    if (xex == -exBias && xman == 0) { // sin(0) = 0
+    if (yex == 0) { // sin(0) = 0
+//       println(f"x = ${x.toDouble}, y = ${x.toDouble / Pi} equiv 0")
 
       return RealGeneric.zero(x.spec)
 
-    } else if (xex == -1 && xman == 0) { // sin(pi/2) = 1
+    } else if (yex == exBias-1 && yman == 0) { // sin(pi/2) = 1
+//       println(f"x = ${x.toDouble}, y = ${x.toDouble / Pi} equiv 1/2")
 
       return new RealGeneric(x.spec, zSgn, exBias, 0)
 
-    } else if (useCubicTerm && linearThreshold < xex && xex < cubicThreshold) {
+    } else if (yex - exBias < taylorThreshold) {
+//       println("using Taylor")
       //
-      // sin(pi*x) = pi*x - pi^3 * x^3 / 3!
-      //           = pi*x * (1 - pi^2 * x^2 / 6)
+      // sin(pi*y) = pi*y - pi^3 * y^3 / 6 + pi^5y^5/120
+      //           = pi*y * (1 - pi^2 * x^2 / 6 + pi^4y^4/120)
       //
-      val coef1 = pi
-      val coef3 = new RealGeneric(x.spec, Pi * Pi / 6.0)
-      assert(xex < cubicThreshold)
+      val coefPad    = 2 // for precision after rounding
+      val fracW      = manW+coefPad
+      val coef1Ex    = 1 + exBias
+      val coef1ManW1 = math.round(Pi * (1<<(fracW-(coef1Ex-exBias)))).toLong
+      val coef3Ex    = 0 + exBias
+      val coef3ManW1 = math.round(Pi * Pi / 6.0 * (1<<(fracW-(coef3Ex-exBias)))).toLong
+      val coef5Ex    = -1 + exBias
+      val coef5ManW1 = math.round(pow(Pi, 4) / 120.0 * (1<<(fracW-(coef5Ex-exBias)))).toLong
+      assert(bit(fracW, coef1ManW1) == 1)
+      assert(bit(fracW, coef3ManW1) == 1)
+      assert(bit(fracW, coef5ManW1) == 1)
 
-      // TODO
-      // pi^2 / 6 ~ 1.5, and x < cubicThreshold, we can reduce the width of term2
-
-      val xmanW1  = xman + (1<<manW)
-      val xsqMan0 = (xmanW1 * xmanW1)
-      val (xsqMan, xsqEx)  = if(bit(manW + manW + 1, xsqMan0) == 1L) {
-        ((xsqMan0 >> (manW+1)) + bit(manW, xsqMan0), xex + xex + 1)
-      } else {
-        ((xsqMan0 >>  manW) + bit(manW-1, xsqMan0), xex + xex)
-      }
-      assert(xsqEx < cubicThreshold * 2)
-
-      val term2Prod = coef3.manW1 * xsqMan
-      val (term2Man, term2Ex) = if(bit(manW+manW+1, term2Prod) == 1L) {
-        ((term2Prod >> (manW+1)) + bit(manW, term2Prod), xsqEx + coef3.exNorm + 1)
-      } else {
-        ((term2Prod >>  manW) + bit(manW-1, term2Prod),  xsqEx + coef3.exNorm)
-      }
-      assert(term2Ex <= cubicThreshold*2)
-
-      val term2Shifted = term2Man >> (abs(term2Ex)-1).toInt
-      val term2SubMan0 = (1 << (manW+1)) - term2Shifted
-      val (term2SubMan, term2SubEx) = if(term2Shifted == 0) {
-        ((1L<<manW), 0)
-      } else {
-        (term2SubMan0.toLong, -1)
+      // returning W = 1+fracW
+      val multiply = (xFracW: Int, xmanW1: Long, yFracW: Int, ymanW1: Long) => {
+        assert(bit(xFracW, xmanW1) == 1)
+        assert(bit(yFracW, ymanW1) == 1)
+        val zProd          = xmanW1 * ymanW1
+        val zProdMoreThan2 = bit((1+xFracW)+(1+yFracW)-1, zProd)
+        val zProdShift     = (xFracW + yFracW - fracW + zProdMoreThan2).toInt
+        val zProdRounded   = (zProd >> zProdShift) + bit(zProdShift-1, zProd)
+        val zProdMoreThan2AfterRound = bit(2+fracW-1, zProdRounded)
+        val zExInc = zProdMoreThan2 + zProdMoreThan2AfterRound
+        val zManW1 = if(zProdMoreThan2AfterRound == 1) {1 << fracW} else {zProdRounded}
+        assert(bit(fracW, zManW1) == 1)
+        assert(zExInc == 1 || zExInc == 0)
+        (zExInc.toInt, zManW1.toLong)
       }
 
-      val pixMan0 = pi.manW1.toLong * (xman + (1<<manW)).toLong
-      val (pixMan, pixEx) = if(bit(manW+manW+1, pixMan0) == 1L) {
-        ((pixMan0 >> (manW+1)) + bit(manW, pixMan0), pi.ex - exBias + xex + 1)
-      } else {
-        ((pixMan0 >> manW) + bit(manW-1, pixMan0), pi.ex - exBias + xex)
+      // 8 ops in 5 steps:
+      //
+      // y-+-> y^2 -+-> y^4       -> pi^4y^4/120 -+-> 1-pi^2y^2/6+pi^4y^4/120 -+->
+      //   |        +-> pi^2y^2/6 -> 1-pi^2y^2/6 -+                            |
+      //   +-> piy  -----------------------------------------------------------+
+      //
+
+//       println("y^2")
+      // y^2
+      val (ySqExInc, ySqManW1) = multiply(manW, (1<<manW) + yman, manW, (1<<manW) + yman)
+      val ySqEx = yex + yex - exBias + ySqExInc
+      assert(bit(fracW, ySqManW1) == 1)
+
+//       println("piy")
+      // pi*y
+      val (piyExInc, piyManW1) = multiply(manW, (1<<manW) + yman, fracW, coef1ManW1)
+      val piyEx = yex + coef1Ex - exBias + piyExInc
+      assert(bit(fracW, piyManW1) == 1)
+
+//       println("y^4")
+      // y^4
+      val (yQdExInc, yQdManW1) = multiply(fracW, ySqManW1, fracW, ySqManW1)
+      val yQdEx = ySqEx + ySqEx - exBias + yQdExInc
+      assert(bit(fracW, yQdManW1) == 1)
+
+//       println("pi^2y^2/6")
+      // pi^2y^2/6
+      val (c3ExInc, c3ManW1) = multiply(fracW, ySqManW1, fracW, coef3ManW1) // XXX
+      val c3Ex = ySqEx + coef3Ex - exBias + c3ExInc
+      assert(bit(fracW, c3ManW1) == 1)
+
+//       println("pi^4y^4/120")
+      // pi^4y^4/120
+      val (c5ExInc, c5ManW1) = multiply(fracW, yQdManW1, fracW, coef5ManW1)
+      val c5Ex = yQdEx + coef5Ex - exBias + c5ExInc
+      assert(bit(fracW, c5ManW1) == 1)
+
+//       println("1 - pi^2y^2/6")
+      // 1 - pi^2y^2/6
+      assert(c3Ex < exBias)
+      val c3Shift = exBias - c3Ex
+      val c3Aligned = if(c3Shift > 63) { 0 } else {
+        (c3ManW1 >> c3Shift) + bit(c3Shift-1, c3ManW1)
       }
+      val oneMinusC3 = (1<<fracW) - c3Aligned
 
-      val cubicApproxMan0 = term2SubMan * pixMan
-      val (cubicApproxMan, cubicApproxEx) = if(bit(manW+manW+1, cubicApproxMan0) == 1L) {
-        ((cubicApproxMan0 >> (manW+1)) + bit(manW, cubicApproxMan0), pixEx + term2SubEx + 1)
-      } else {
-        ((cubicApproxMan0 >> manW) + bit(manW-1, cubicApproxMan0),   pixEx + term2SubEx)
+//       println("1 - pi^2y^2/6 + pi^4y^4/120")
+      // 1 - pi^2y^2/6 + pi^4y^4/120
+      // ~ 1 - 1.645y^2 + 0.8117y^4
+      assert(c5Ex < exBias)
+      val c5Shift = exBias - c5Ex
+      val c5Aligned = if(c5Shift > 63) { 0 } else {
+        (c5ManW1 >> c5Shift) + bit(c5Shift-1, c5ManW1)
       }
+      val oneMinusC3PlusC5 = oneMinusC3 + c5Aligned
+      assert(c3Aligned >= c5Aligned)
+      assert(oneMinusC3PlusC5 <= (1<<fracW)) // 1 - pi^2y^2/6 + pi^4y^4/120 <= 1
 
-      return new RealGeneric(x.spec, zSgn, cubicApproxEx.toInt + x.spec.exBias, cubicApproxMan)
+      val oneMinusC3PlusC5MoreThan1 = bit(fracW, oneMinusC3PlusC5)
+      val oneMinusC3PlusC5ManW1 = oneMinusC3PlusC5 << (1 - oneMinusC3PlusC5MoreThan1)
+      val oneMinusC3PlusC5Ex = exBias - 1 + oneMinusC3PlusC5MoreThan1
 
-    } else if (xex < linearThreshold) { // sin(pix) = pix
+      // piy * (1 - pi^2y^2/6 + pi^4y^4/120)
+      val (taylorExInc, taylorManW1) = multiply(fracW, piyManW1, fracW, oneMinusC3PlusC5ManW1)
+      val taylorManW1Rounded = (taylorManW1 >> coefPad) + bit(coefPad-1, taylorManW1)
+      val taylorManW1MoreThan2AfterRound = bit(2+fracW-1, taylorManW1Rounded)
 
-      // 2-bit error here!
+      val taylorEx  = piyEx + oneMinusC3PlusC5Ex - exBias + taylorExInc + taylorManW1MoreThan2AfterRound
+      val taylorMan = slice(0, manW, taylorManW1Rounded)
 
-      val prodEx        = pi.ex-exBias + xex
-      val prodMan       = (pi.man + (1<<manW)).toLong * (xman + (1<<manW)).toLong
-      val prodbp        = manW + manW
-      val prodMoreThan2 = bit(prodbp+1, prodMan)
-      val prodRoundBits = prodbp - manW + prodMoreThan2
-      val prodRound     = roundBySpec(RoundSpec.roundToEven, prodRoundBits.toInt, SafeLong(prodMan))
-      val prodMoreThan2AfterRound = bit(manW + 1, prodRound)
-      val prodExInc     = if(prodMoreThan2 == 1 || prodMoreThan2AfterRound == 1) {1} else {0}
-
-      val zMan = if (prodMoreThan2AfterRound == 1) {prodRound >> 1} else {prodRound}
-      val zEx  = prodEx + exBias + prodExInc
-      return new RealGeneric(x.spec, zSgn, zEx.toInt, zMan)
+      return new RealGeneric(x.spec, zSgn, taylorEx.toInt, taylorMan)
 
     } else { // table interpolation
+      assert(taylorThreshold <= yex - exBias)
+//       println("using table")
 
       // table interpolate for x in [0, 1/2) (x.ex = -2, -3, -4, -5 if FP32)
-      val exadr = (-xex - 2).toInt
+      val exadr = (exBias - yex - 2).toInt
       val t = ts(exadr)
 
       val adrW      = t.adrW
       val nOrder    = t.nOrder
       val bp        = t.bp
       val extraBits = bp - manW
-      val calcW     = manW + extraBits
+      val fracW     = manW + extraBits
+      val order     = if(adrW >= manW) { 0 } else { nOrder }
 
-      val order = if(adrW >= manW) {
-          if (nOrder != 0)
-            println("WARNING: table address width >= mantissa width, but polynomial order is not zero. Polynomial order is set to zero.")
-          0
-        } else {
-          nOrder
-        }
+      if(manW <= adrW && nOrder != 0) {
+        println("WARNING: table address width >= mantissa width, but polynomial order is not zero. Polynomial order is set to zero.")
+      }
 
       val (zEx, zman) = if (order == 0) {
-        val adr   = xman.toInt
+        val adr   = yman.toInt
         val res0  = t.interval(adr).eval(0L, 0)
         val res = if (res0<0) {
             println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x = ${x.toDouble}, sin(x) = ${sin(x.toDouble)}")
             0L
-          } else if (res0 >= (1L<<calcW)) {
+          } else if (res0 >= (1L<<fracW)) {
             println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x = ${x.toDouble}, sin(x) = ${sin(x.toDouble)}")
-            maskL(calcW)
+            maskL(fracW)
           } else {
             res0
           }
 
-        val lessThanHalf = if(bit(calcW-1, res) == 0) { 1 } else { 0 }
-        val ex    = xex+2-lessThanHalf
-        val man   = (res << (1+lessThanHalf)).toLong - (1 << calcW)
+        val lessThanHalf = if(bit(fracW-1, res) == 0) { 1 } else { 0 }
+        val ex    = yex+2-lessThanHalf
+        val man   = (res << (1+lessThanHalf)).toLong - (1 << fracW)
 
         (ex.toInt, man)
 
       } else {
         val dxbp = manW-adrW-1
-        val d    = slice(0, manW-adrW, xman) - (SafeLong(1)<<dxbp)
-        val adr  = slice(manW-adrW, adrW, xman).toInt
+        val d    = slice(0, manW-adrW, yman) - (SafeLong(1)<<dxbp)
+        val adr  = slice(manW-adrW, adrW, yman).toInt
 
         val res0 = t.interval(adr).eval(d.toLong, dxbp)
-        val res = if (res0<0) {
+        val res = if (res0 < 0) {
             println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x = ${x.toDouble}, sin(x) = ${sin(x.toDouble)}")
             0L
-          } else if (res0 >= (1L<<calcW)) {
+          } else if (res0 >= (1L<<fracW)) {
             println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x = ${x.toDouble}, sin(x) = ${sin(x.toDouble)}")
-            maskL(calcW)
+            maskL(fracW)
           } else {
             res0
           }
-
-        val lessThanHalf = if(bit(calcW-1, res) == 0) { 1 } else { 0 }
-        ((xex+2-lessThanHalf).toInt, (res << (1+lessThanHalf)).toLong - (1L<<calcW))
+        val lessThanHalf = if(bit(fracW-1, res) == 0) { 1 } else { 0 }
+        ((yex+2-lessThanHalf).toInt, (res << (1+lessThanHalf)).toLong - (1L<<fracW))
       }
+
       val zmanRound = if (extraBits>0) {(zman>>extraBits) + bit(extraBits-1, zman)} else {zman}
       val zMan = slice(0, manW, zmanRound)
       val zManMoreThan2 = bit(manW, zmanRound).toInt
 
-      new RealGeneric(x.spec, zSgn, zEx + exBias + zManMoreThan2, SafeLong(zMan))
+      new RealGeneric(x.spec, zSgn, zEx + zManMoreThan2, SafeLong(zMan))
     }
   }
 
-  // sin(pi x) = pi x - pi^3 x^3 / 3! + pi^5 x^5 / 5! + O(x^7)
-  def calcLinearThreshold(manW: Int): Int = {
-    // sin(pi*x) = pi*x - pi^3 * x^3 / 6
-    // so the condition is:
-    //               pi*x * 2^-manW     > pi^3 * x^3 / 6
-    //                      2^-manW     > pi^2 * x^2 / 6
-    //           6 / pi^2 * 2^-manW     > x^2
-    //   log2(6) - 2log2(pi) - manW     > 2*log2(x)
-    //   log2(6) - 2log2(pi) - manW     > 2*(log2(2^x.ex) + log2(1.0 + x.man))
-    //   log2(6) - 2log2(pi) - manW / 2 > x.ex + log2(1.0 + x.man)
-    //
-    // Here, the maximum value of log2(1.0+x.man) is log2(2.0 - 2^-manW).
-    //   Thus the result is
-    //
-    //   log2(6) - 2log2(pi) - manW / 2 - log2(2.0 - 2^-manW) > x.ex
-    //
-    // The left hand side value is the linear-threshold. In case of FP32, the
-    // value is approximately -12.859.
-    //
-    math.floor(
-      (log2D(6.0) - 2 * log2D(Pi) - manW) / 2 - log2D(2.0 - math.pow(2.0, -manW))
-    ).toInt
+  def calcTaylorThreshold(manW: Int): Int = {
+    // sin(pix) = pix - pi^3x^3 / 6 + pi^5x^5 / 120 - pi^7x^7/7!
+    //          = pix (1 - pi^2x^2 / 6 + pi^4x^4 / 120 - pi^6x^6/7!)
+    // pi^6x^6 / 5040 < 2^-manW
+    // pi^6x^6 / 5040 < 0.190x^6 < 2^-2 x^6 < 2^-manW
+    // x < 2^(-(manW+2)/6)
+    math.floor(-(manW+2) / 6).toInt
+    // this value will be used as xexNobias < taylorThreshold.
   }
-  def calcCubicThreshold(manW: Int): Int = {
-    // sin(pi*x) = pi*x - pi^3 * x^3 / 6 + pi^5 * x^5 / 120
-    // so the condition is:
-    //                 pi*x * 2^-manW     > pi^5 * x^5 / 120
-    //                        2^-manW     > pi^4 * x^4 / 120
-    //           120 / pi^4 * 2^-manW     > x^4
-    //   log2(120) - 4log2(pi) - manW     > 4*log2(x)
-    //   log2(120) - 4log2(pi) - manW     > 4*(log2(2^x.ex) + log2(1.0 + x.man))
-    //   log2(120) - 4log2(pi) - manW / 4 > x.ex + log2(1.0 + x.man)
-    //
-    // Here, the maximum value of log2(1.0+x.man) is log2(2.0 - 2^-manW).
-    //   Thus the result is
-    //
-    //   log2(120) - 4log2(pi) - manW / 4 - log2(2.0 - 2^-manW) > x.ex
-    //
-    // The left hand side value is the linear-threshold. In case of FP32, the
-    // value is approximately -6.674.
 
-    math.floor(
-      (log2D(120.0) - 4 * log2D(Pi) - manW) / 4 - log2D(2.0 - math.pow(2.0, -manW))
-    ).toInt
+  // number of tables depending on the exponent and linearThreshold
+  def calcExAdrW(spec: RealSpec, allowCubicInterpolation: Boolean = false): Int = {
+    //      .--- table interp --. .-----taylor------.
+    // ex = -2 ~ taylorThreshold, taylorThreshold-1 ~ 0
+
+    val taylorThreshold = calcTaylorThreshold(spec.manW)
+    val nTables = -2 - taylorThreshold + 1
+    log2Up(nTables)
+  }
+
+  def sinTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int,
+      calcWidthSetting: Option[Seq[Int]] = None,
+      cbitSetting: Option[Seq[Int]] = None
+    ) = {
+    val taylorThreshold = calcTaylorThreshold(manW)
+
+    if(adrW >= manW) {assert(order == 0)}
+
+    val maxCalcWidth = (-2 to taylorThreshold by -1).map(exponent => {
+        val tableD = new FuncTableDouble( x => scalb(sin(Pi * scalb(1.0 + x, exponent)), -exponent-3), order )
+        tableD.addRange(0.0, 1.0, 1<<adrW)
+      val tableI = new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
+        tableI.calcWidth
+      }).reduce( (lhs, rhs) => {
+        lhs.zip(rhs).map( x => max(x._1, x._2))
+      })
+
+    (-2 to taylorThreshold by -1).map( i => {
+      val tableD = new FuncTableDouble( x => scalb(sin(Pi * scalb(1.0+x, i)), -i-3), order )
+      tableD.addRange(0.0, 1.0, 1<<adrW)
+      new FuncTableInt( tableD, fracW, Some(maxCalcWidth), cbitSetting )
+    })
   }
 }
