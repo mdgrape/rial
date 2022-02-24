@@ -23,8 +23,8 @@ object SelectFunc {
   val Sqrt        =  1.U(W.W)
   val InvSqrt     =  2.U(W.W)
   val Reciprocal  =  3.U(W.W)
-  val SinPi       =  4.U(W.W)
-  val CosPi       =  5.U(W.W)
+  val Sin         =  4.U(W.W)
+  val Cos         =  5.U(W.W)
   val ACos        =  6.U(W.W)
   val ATan2Stage1 =  7.U(W.W)
   val ATan2Stage2 =  8.U(W.W)
@@ -196,43 +196,30 @@ class MathFunctions(
     assert(recTab.io.cs.asUInt === 0.U)
   }
 
-  val sinPiPre   = Module(new SinPiPreProcess (spec, polySpec, stage))
-  val sinPiTab   = Module(new SinPiTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
-  val sinPiOther = Module(new SinPiOtherPath  (spec, polySpec, stage))
-  val sinPiPost  = Module(new SinPiPostProcess(spec, polySpec, stage))
+  val sincosPre   = Module(new SinCosPreProcess (spec, polySpec, stage))
+  val sincosTab   = Module(new SinCosTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
+  val sincosOther = Module(new SinCosOtherPath  (spec, polySpec, stage))
+  val sincosPost  = Module(new SinCosPostProcess(spec, polySpec, stage))
 
-  val cosPiPre   = Module(new CosPiPreProcess (spec, polySpec, stage))
-  val cosPiOther = Module(new CosPiOtherPath  (spec, polySpec, stage))
+  sincosPre.io.en          := (io.sel === SelectFunc.Sin) || (io.sel === SelectFunc.Cos)
+  sincosPre.io.isSin       := (io.sel === SelectFunc.Sin)
+  sincosPre.io.x           := io.x
 
-  sinPiPre.io.en           := (io.sel === SelectFunc.SinPi)
-  cosPiPre.io.en           := (io.sel === SelectFunc.CosPi)
-  sinPiPre.io.x            := io.x
-  cosPiPre.io.x            := io.x
+  sincosTab.io.en           := (io.sel === SelectFunc.Sin) || (io.sel === SelectFunc.Cos)
+  sincosTab.io.adr          := sincosPre.io.adr
 
-  sinPiTab.io.en           := (io.sel === SelectFunc.SinPi) || (io.sel === SelectFunc.CosPi)
-  sinPiTab.io.adr          := sinPiPre.io.adr | cosPiPre.io.adr
+  sincosOther.io.xConverted := sincosPre.io.xConverted
+  sincosOther.io.x          := xdecomp.io.decomp
 
-  sinPiOther.io.xConverted := sinPiPre.io.xConverted
-  cosPiOther.io.xConverted := cosPiPre.io.xConverted
-
-  sinPiOther.io.x          := xdecomp.io.decomp
-  cosPiOther.io.x          := xdecomp.io.decomp
-
-  when(!(io.sel === SelectFunc.SinPi)) {
-    assert(sinPiPre.io.adr === 0.U)
-    if(sinPiPre.io.dx.isDefined) {
-      assert(sinPiPre.io.dx.get  === 0.U)
-    }
-  }
-  when(!(io.sel === SelectFunc.CosPi)) {
-    assert(cosPiPre.io.adr === 0.U)
-    if(cosPiPre.io.dx.isDefined) {
-      assert(cosPiPre.io.dx.get  === 0.U)
+  when(!(io.sel === SelectFunc.Sin)) {
+    assert(sincosPre.io.adr === 0.U)
+    if(sincosPre.io.dx.isDefined) {
+      assert(sincosPre.io.dx.get  === 0.U)
     }
   }
 
-  when(!(io.sel === SelectFunc.SinPi || io.sel === SelectFunc.CosPi)) {
-    assert(sinPiTab.io.cs.asUInt === 0.U)
+  when(!(io.sel === SelectFunc.Sin || io.sel === SelectFunc.Cos)) {
+    assert(sincosTab.io.cs.asUInt === 0.U)
   }
 
   val atan2Stage1Pre   = Module(new ATan2Stage1PreProcess (spec, polySpec, stage))
@@ -352,8 +339,7 @@ class MathFunctions(
   if(order != 0) {
     polynomialEval.io.dx.get := sqrtPre .io.dx.get |
                                 recPre  .io.dx.get |
-                                sinPiPre.io.dx.get |
-                                cosPiPre.io.dx.get |
+                               sincosPre.io.dx.get |
                                 acosPre .io.dx.get |
                                 recPre  .io.dx.get |
                           atan2Stage2Pre.io.dx.get |
@@ -364,7 +350,7 @@ class MathFunctions(
   polynomialEval.io.coeffs.cs := (sqrtTab   .io.cs.cs.asUInt |
                                   invsqrtTab.io.cs.cs.asUInt |
                                   recTab    .io.cs.cs.asUInt |
-                                  sinPiTab  .io.cs.cs.asUInt |
+                                  sincosTab .io.cs.cs.asUInt |
                                   acosTab   .io.cs.cs.asUInt |
                               atan2Stage2Tab.io.cs.cs.asUInt |
                                   pow2Tab   .io.cs.cs.asUInt |
@@ -392,10 +378,9 @@ class MathFunctions(
   recPost.io.zother <> recOther.io.zother
   recPost.io.zres   := polynomialEval.io.result
 
-  sinPiPost.io.en := (io.sel === SelectFunc.SinPi || io.sel === SelectFunc.CosPi)
-  sinPiPost.io.zother := Mux(io.sel === SelectFunc.SinPi,
-    sinPiOther.io.zother, cosPiOther.io.zother)
-  sinPiPost.io.zres   := polynomialEval.io.result
+  sincosPost.io.en     := (io.sel === SelectFunc.Sin || io.sel === SelectFunc.Cos)
+  sincosPost.io.zother := sincosOther.io.zother
+  sincosPost.io.zres   := polynomialEval.io.result
 
   acosPost.io.en := (io.sel === SelectFunc.ACos)
   acosPost.io.zother <> acosOther.io.zother
@@ -426,7 +411,7 @@ class MathFunctions(
   val z0 = sqrtPost.io.z        |
            invsqrtPost.io.z     |
            recPost.io.z         |
-           sinPiPost.io.z       |
+           sincosPost.io.z      |
            acosPost.io.z        |
            atan2Stage1Post.io.z |
            atan2Stage2Post.io.z |
