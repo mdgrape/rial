@@ -88,68 +88,27 @@ object MathFuncCosSim {
     // we can already calculate the sign of return value from its position in [0, 2pi)
     val zSgn = if(xOverPiAlignedMoreThan1 || xOverPiAlignedMoreThan1over2) {1} else {0}
 
-    // convert cos(0~2pi) to sin(0~pi/2)
-    val (yex, yman) = if (xOverPiAlignedMoreThan3over2 || xOverPiAlignedMoreThan1over2) { // 1.5 ~ 2 or 0.5~1
-      // y = x - 1.5 (if 1.5 < x < 2) or x - 0.5 (if 0.5 < x < 1).
-      // The only difference between those two cases are the 1 bit at the MSB
-      // that will be canceled out when subtracting a constant.
-
-      val yman0 = slice(0, 1+xOverPiFracW-2, xOverPiAligned)
-//       println(f"                9         8         7         6         5         4         3         2         1         ")
-//       println(f"          654321098765432109876543210987654321098765432109876543210987654321098765432109876543210987654321")
-//       println(f"xOverPi = ${xOverPiAligned.toLong.toBinaryString}%96s")
-//       println(f"yman0   = ${yman0.toLong.toBinaryString}%96s")
-
-      if (yman0 == 0) {
-        (0, 0L)
-      } else {
-        val yman0W        = log2Up(yman0) //.toBinaryString.length
-        val yman0Shift    = 1+xOverPiFracW - yman0W
-        val yman0Shifted  = yman0 << yman0Shift
-        val yman0RoundBit = xOverPiFracW - manW
-        val yman0Rounded  = (yman0Shifted >> yman0RoundBit) + bit(yman0RoundBit-1, yman0Shifted)
-        val yman0MoreThan2 = bit(manW+1, yman0Rounded)
-        assert((yman0MoreThan2 == 1) || (bit(manW, yman0Rounded) == 1))
-
-//         println(f"yman0W        = ${yman0W}")
-//         println(f"yman0Shift    = ${yman0Shift}")
-//         println(f"yman0RoundBit = ${yman0RoundBit}")
-
-        ((exBias-yman0Shift+yman0MoreThan2).toInt, slice(0, manW, yman0Rounded).toLong)
-      }
-
-    } else { // 0 ~ 0.5 or 1 ~ 1.5
-      // y = 1.5 - x if 1 < x < 1.5, 0.5 - x if 0 < x < 0.5
-//       val yman0 = slice(0, 1+xOverPiFracW-2, ~xOverPiAligned + 1)
-      val yman0 = (1.toBigInt << (1+xOverPiFracW-2)) -
-                  slice(0, 1+xOverPiFracW-2, xOverPiAligned)
-//       println(f"              6         5         4         3         2         1         ")
-//       println(f"          4321098765432109876543210987654321098765432109876543210987654321")
-//       println(f"xOverPi = ${xOverPiAligned.toLong.toBinaryString}%64s")
-//       println(f"X.5     = ${(1.toBigInt << (1+xOverPiFracW-2)).toLong.toBinaryString}%64s")
-//       println(f"sliced  = ${slice(0, 1+xOverPiFracW-2, xOverPiAligned).toLong.toBinaryString}%64s")
-//       println(f"yman0   = ${yman0.toLong.toBinaryString}%64s")
-
-      if (yman0 == 0) {
-        (0, 0L)
-      } else {
-        val yman0W        = log2Up(yman0)
-        val yman0Shift    = 1+xOverPiFracW - yman0W
-        val yman0Shifted  = yman0 << yman0Shift
-        val yman0RoundBit = xOverPiFracW - manW
-        val yman0Rounded  = (yman0Shifted >> yman0RoundBit) + bit(yman0RoundBit-1, yman0Shifted)
-        val yman0MoreThan2 = bit(manW+1, yman0Rounded)
-        assert((yman0MoreThan2 == 1) || (bit(manW, yman0Rounded) == 1))
-
-//         println(f"xOverPiFracW  = ${xOverPiFracW}")
-//         println(f"yman0W        = ${yman0W}")
-//         println(f"yman0Shift    = ${yman0Shift}")
-//         println(f"yman0RoundBit = ${yman0RoundBit}")
-
-        ((exBias-yman0Shift+yman0MoreThan2).toInt, slice(0, manW, yman0Rounded).toLong)
-      }
+    // 1.5 ~ 2 or 0.5~1
+    val yman0 =if (xOverPiAlignedMoreThan3over2 || xOverPiAlignedMoreThan1over2) {
+      slice(0, 1+xOverPiFracW-2, xOverPiAligned)
+    } else {
+      (1.toBigInt << (1+xOverPiFracW-2)) - slice(0, 1+xOverPiFracW-2, xOverPiAligned)
     }
 
+    // convert cos(0~2pi) to sin(0~pi/2)
+    val (yex, yman) = if (yman0 == 0) {
+      (0, 0L)
+    } else {
+      val yman0W        = log2Up(yman0) //.toBinaryString.length
+      val yman0Shift    = 1+xOverPiFracW - yman0W
+      val yman0Shifted  = yman0 << yman0Shift
+      val yman0RoundBit = xOverPiFracW - manW
+      val yman0Rounded  = (yman0Shifted >> yman0RoundBit) + bit(yman0RoundBit-1, yman0Shifted)
+      val yman0MoreThan2 = bit(manW+1, yman0Rounded)
+      assert((yman0MoreThan2 == 1) || (bit(manW, yman0Rounded) == 1))
+
+      ((exBias-yman0Shift+yman0MoreThan2).toInt, slice(0, manW, yman0Rounded).toLong)
+    }
     assert(yex  <= exBias-1)
     assert(yex  != exBias-1 || yman == 0)
     assert(yman < (1<<manW))

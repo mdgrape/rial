@@ -94,45 +94,24 @@ object MathFuncSinSim {
     // ------------------------------------------------------------------------
     // convert full range x/pi into (0, 1/2)
 
-    // TODO
-    val (yex, yman) = if (xOverPiAlignedMoreThan3over2 || xOverPiAlignedMoreThan1over2) { // 1.5 ~ 2 or 0.5~1
-      // y = 1 - x (if 1/2 < x < 1), 2 - x (if 3/2 < x < 2)
-      // The only difference between those two cases are the 1 bit at the MSB
-      // that will be canceled out when subtracting a constant.
+    val yman0 = if (xOverPiAlignedMoreThan3over2 || xOverPiAlignedMoreThan1over2) {
+      (1.toBigInt << (1+xOverPiFracW-1)) - slice(0, 1+xOverPiFracW-1, xOverPiAligned)
+    } else {
+      slice(0, 1+xOverPiFracW-1, xOverPiAligned)
+    }
 
-      val yman0 = (1.toBigInt << (1+xOverPiFracW-1)) -
-                  slice(0, 1+xOverPiFracW-1, xOverPiAligned)
+    val (yex, yman) = if (yman0 == 0) {
+      (0, 0L)
+    } else {
+      val yman0W        = log2Up(yman0) //.toBinaryString.length
+      val yman0Shift    = 1+xOverPiFracW - yman0W
+      val yman0Shifted  = yman0 << yman0Shift
+      val yman0RoundBit = xOverPiFracW - manW
+      val yman0Rounded  = (yman0Shifted >> yman0RoundBit) + bit(yman0RoundBit-1, yman0Shifted)
+      val yman0MoreThan2 = bit(manW+1, yman0Rounded)
+      assert((yman0MoreThan2 == 1) || (bit(manW, yman0Rounded) == 1))
 
-      if (yman0 == 0) {
-        (0, 0L)
-      } else {
-        val yman0W        = log2Up(yman0) //.toBinaryString.length
-        val yman0Shift    = 1+xOverPiFracW - yman0W
-        val yman0Shifted  = yman0 << yman0Shift
-        val yman0RoundBit = xOverPiFracW - manW
-        val yman0Rounded  = (yman0Shifted >> yman0RoundBit) + bit(yman0RoundBit-1, yman0Shifted)
-        val yman0MoreThan2 = bit(manW+1, yman0Rounded)
-        assert((yman0MoreThan2 == 1) || (bit(manW, yman0Rounded) == 1))
-
-        ((exBias-yman0Shift+yman0MoreThan2).toInt, slice(0, manW, yman0Rounded).toLong)
-      }
-    } else { // 0 ~ 0.5 or 1 ~ 1.5
-      // y = x (if 0 < x < 1/2), x - 1 (if 1 < x < 3/2)
-      val yman0 = slice(0, 1+xOverPiFracW-1, xOverPiAligned)
-
-      if (yman0 == 0) {
-        (0, 0L)
-      } else {
-        val yman0W        = log2Up(yman0)
-        val yman0Shift    = 1+xOverPiFracW - yman0W
-        val yman0Shifted  = yman0 << yman0Shift
-        val yman0RoundBit = xOverPiFracW - manW
-        val yman0Rounded  = (yman0Shifted >> yman0RoundBit) + bit(yman0RoundBit-1, yman0Shifted)
-        val yman0MoreThan2 = bit(manW+1, yman0Rounded)
-        assert((yman0MoreThan2 == 1) || (bit(manW, yman0Rounded) == 1))
-
-        ((exBias-yman0Shift+yman0MoreThan2).toInt, slice(0, manW, yman0Rounded).toLong)
-      }
+      ((exBias-yman0Shift+yman0MoreThan2).toInt, slice(0, manW, yman0Rounded).toLong)
     }
 
     assert(yex  <= exBias-1)
@@ -152,8 +131,6 @@ object MathFuncSinSim {
 // 
 //     println(f"cos(x)   = ${cos(x.toDouble)}")
 //     println(f"cos(yPi) = ${(if(zSgn == 1) {-1} else {1}) * sin(new RealGeneric(x.spec, 0, yex, yman).toFloat * Pi.toFloat)}")
-
-
 
     // ------------------------------------------------------------------------
     // calculate sin(y*Pi).
