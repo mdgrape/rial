@@ -28,8 +28,7 @@ object MathFuncCosSim {
 
   def cosSimGeneric(
     ts: Seq[FuncTableInt],
-    x:  RealGeneric,
-    useCubicTerm: Boolean = false
+    x:  RealGeneric
   ) : RealGeneric = {
 
 //     println("--------------------------------------------------------------------")

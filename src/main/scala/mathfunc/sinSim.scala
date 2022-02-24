@@ -28,8 +28,7 @@ object MathFuncSinSim {
 
   def sinSimGeneric(
     ts: Seq[FuncTableInt],
-    x:  RealGeneric,
-    useCubicTerm: Boolean = false
+    x:  RealGeneric
   ) : RealGeneric = {
 
     val spec = x.spec
