@@ -329,7 +329,7 @@ object MathFuncSinSim {
   }
 
   // number of tables depending on the exponent and linearThreshold
-  def calcExAdrW(spec: RealSpec, allowCubicInterpolation: Boolean = false): Int = {
+  def calcExAdrW(spec: RealSpec): Int = {
     //      .--- table interp --. .-----taylor------.
     // ex = -2 ~ taylorThreshold, taylorThreshold-1 ~ 0
 
