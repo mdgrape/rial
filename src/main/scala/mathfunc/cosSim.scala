@@ -171,7 +171,7 @@ object MathFuncCosSim {
     // ------------------------------------------------------------------------
     // calculate sin(y*Pi).
 
-    val taylorThreshold = calcTaylorThreshold(manW)
+    val taylorThreshold = MathFuncSinSim.calcTaylorThreshold(manW)
 
     if (yex == 0) { // sin(0) = 0
 //       println(f"x = ${x.toDouble}, y = ${x.toDouble / Pi} equiv 0")
@@ -354,31 +354,11 @@ object MathFuncCosSim {
     }
   }
 
-  def calcTaylorThreshold(manW: Int): Int = {
-    // sin(pix) = pix - pi^3x^3 / 6 + pi^5x^5 / 120 - pi^7x^7/7!
-    //          = pix (1 - pi^2x^2 / 6 + pi^4x^4 / 120 - pi^6x^6/7!)
-    // pi^6x^6 / 5040 < 2^-manW
-    // pi^6x^6 / 5040 < 0.190x^6 < 2^-2 x^6 < 2^-manW
-    // x < 2^(-(manW+2)/6)
-    math.floor(-(manW+2) / 6).toInt
-    // this value will be used as xexNobias < taylorThreshold.
-  }
-
-  // number of tables depending on the exponent and linearThreshold
-  def calcExAdrW(spec: RealSpec, allowCubicInterpolation: Boolean = false): Int = {
-    //      .--- table interp --. .-----taylor------.
-    // ex = -2 ~ taylorThreshold, taylorThreshold-1 ~ 0
-
-    val taylorThreshold = calcTaylorThreshold(spec.manW)
-    val nTables = -2 - taylorThreshold + 1
-    log2Up(nTables)
-  }
-
   def sinTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int,
       calcWidthSetting: Option[Seq[Int]] = None,
       cbitSetting: Option[Seq[Int]] = None
     ) = {
-    val taylorThreshold = calcTaylorThreshold(manW)
+    val taylorThreshold = MathFuncSinSim.calcTaylorThreshold(manW)
 
     if(adrW >= manW) {assert(order == 0)}
 
