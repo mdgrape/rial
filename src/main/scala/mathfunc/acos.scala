@@ -246,7 +246,7 @@ object ACosTableCoeff {
         reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
     }
   }
-  def getCalcWidth(
+  def getCalcW(
     spec:     RealSpec,
     polySpec: PolynomialSpec
   ): Seq[Int] = {
