@@ -57,6 +57,9 @@ object MathFuncLog2Sim {
     return new FuncTableInt(tableNormalD, fracW, calcWidthSetting, cbitSetting)
   }
 
+  // XXX:  these special tables has extremely large c2 width.
+  // TODO: reduce the bitwidth by removing taylor part from this table range
+
   // table for [1.0, 2.0)
   def log2SmallPositiveTableGeneration(spec: RealSpec,
       order:     Int =  2,

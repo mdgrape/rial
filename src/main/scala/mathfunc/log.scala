@@ -222,6 +222,27 @@ class Log2TableCoeff(
     val cs = coeffs.asUInt & Fill(coeffs.asUInt.getWidth, io.en)
     io.cs := ShiftRegister(cs.asTypeOf(new TableCoeffInput(maxCbit)), nStage)
   }
+
+  def getCBits(): Seq[Int] = {
+    if(order == 0) {
+      return Seq(fracW)
+    } else {
+      val tableNormalI = MathFuncLog2Sim.log2NormalTableGeneration(
+        spec, order, adrW, extraBits)
+      val cbitNormal   = tableNormalI.cbit
+
+      val tableSmallPos = MathFuncLog2Sim.log2SmallPositiveTableGeneration(
+        spec, order, adrW, extraBits)
+      val cbitSmallPos = tableSmallPos.cbit
+
+      val tableSmallNeg = MathFuncLog2Sim.log2SmallNegativeTableGeneration(
+        spec, order, adrW, extraBits)
+      val cbitSmallNeg = tableSmallNeg.cbit
+
+      return Seq(cbitNormal, cbitSmallPos, cbitSmallNeg).
+        reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
+    }
+  }
 }
 
 // -------------------------------------------------------------------------

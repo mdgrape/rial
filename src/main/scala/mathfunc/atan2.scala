@@ -422,6 +422,16 @@ class ATan2Stage2TableCoeff(
     val cs = coeffs.asUInt & Fill(coeffs.asUInt.getWidth, io.en)
     io.cs := ShiftRegister(cs.asTypeOf(new TableCoeffInput(maxCbit)), nStage)
   }
+
+  def getCBits(): Seq[Int] = {
+    if(order == 0) {
+      return Seq(fracW)
+    } else {
+      return ATan2Sim.atanTableGeneration( order, adrW, manW, fracW ).
+        map( t => {t.getCBitWidth(/*sign mode = */0)} ).
+        reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
+    }
+  }
 }
 
 

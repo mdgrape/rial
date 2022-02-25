@@ -134,6 +134,14 @@ class ReciprocalTableCoeff(
     val cs = coeffs.asUInt & Fill(coeffs.asUInt.getWidth, io.en)
     io.cs := ShiftRegister(cs.asTypeOf(new TableCoeffInput(maxCbit)), nStage)
   }
+
+  def getCBits(): Seq[Int] = {
+    if(order == 0) {
+      return Seq(fracW)
+    } else {
+      return ReciprocalSim.reciprocalTableGeneration( order, adrW, manW, fracW ).cbit
+    }
+  }
 }
 
 // -------------------------------------------------------------------------

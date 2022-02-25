@@ -232,6 +232,16 @@ class Pow2TableCoeff(
     val cs = coeffs.asUInt & Fill(coeffs.asUInt.getWidth, io.en)
     io.cs := ShiftRegister(cs.asTypeOf(new TableCoeffInput(maxCbit)), nStage)
   }
+
+  def getCBits(): Seq[Int] = {
+    if(order == 0) {
+      return Seq(fracW)
+    } else {
+      val tableD = new FuncTableDouble( x => pow(2.0,x)-1.0, order )
+      tableD.addRange(0.0, 1.0, 1<<adrW)
+      return new FuncTableInt(tableD, fracW).cbit
+    }
+  }
 }
 
 // -------------------------------------------------------------------------
