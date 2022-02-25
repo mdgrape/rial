@@ -340,8 +340,11 @@ class SinCosOtherPath(
   //     pi^2/6 y^2 < 2^(-fracW-1)
   //     pi^2/6 y^2 < 2 y^2 < 2^(-fracW-1)
   //                    y^2 < 2^(-fracW-2)
+  //                    y   < 2^floor((-fracW-2)/2)
+  //                    yex < floor((-fracW-2)/2) - 1 (because: 1 <= man < 2)
   //
-  val linearThreshold = math.floor(-(fracW+2)/2).toInt
+  //
+  val linearThreshold = math.floor(-(fracW+2)/2).toInt - 1
   val isLinear        = yex < (linearThreshold + exBias).U(exW.W)
 //   printf("cir: isLinear        = %b\n", isLinear)
 //   printf("cir: linearThreshold = %d\n", (linearThreshold + exBias).U(exW.W))
