@@ -150,7 +150,7 @@ class SinCosPreProcess(
   val yman0Shift0   = PriorityEncoder(Reverse(yman0))
   val yman0ShiftW   = log2Up(yman0.getWidth)
   val yman0Shift    = yman0Shift0(yman0ShiftW-1, 0)
-  val yman0Shifted  = yman0 << yman0Shift
+  val yman0Shifted  = (yman0 << yman0Shift)(1+xOverPiFracW-1, 0)
   val yman0RoundBit = xOverPiFracW - manW
   val yman0Rounded  = yman0Shifted(1+xOverPiFracW-1, yman0RoundBit) +&
                       yman0Shifted(yman0RoundBit-1)
@@ -177,6 +177,9 @@ class SinCosPreProcess(
 
   val xConvertedEx  = yex  & Fill(yex .getWidth, io.en)
   val xConvertedMan = yman & Fill(yman.getWidth, io.en)
+
+//   printf("cir:yex  = %d\n", yex)
+//   printf("cir:yman = %b\n", yman)
 
   io.xConverted.xConvertedEx  := ShiftRegister(xConvertedEx,  nStage)
   io.xConverted.xConvertedMan := ShiftRegister(xConvertedMan, nStage)
@@ -314,6 +317,35 @@ class SinCosOtherPath(
   val zzero = yex === 0.U
   val zone  = yex === (exBias-1).U && yman === 0.U
 
+  val coefPad    = 2 // for precision after rounding
+  val fracW      = manW+coefPad
+
+  // -------------------------------------------------------------------------
+  // Here, we also check if the linear approx is available.
+  // Since taylorExpansion uses 5th order term, the exponent might overflows
+  // while calculation. But with FP32, fortunately, linear approx becomes
+  // usable (x^2 < -(fracW+2) <=> x.ex < -14) before exponent overflow
+  // (x^5 < -exBias <=> x < -127/5 ~ -25). This holds for most of the "normal"
+  // floating point spec. Like: in case of FP64, (x^2 < -(manW+1) <=> x.ex < -27)
+  // and (x^5 < -exBias <=> x < -1023 / 5 ~ -200).
+  //     This quick workaround will be broken if we have an abnormal FP spec
+  // something like exponent has extremely narrower bit width than that of
+  // mantissa.
+  //     Note that, pi * y does not underflow because pi > 2. Its exponent is
+  // positive (without exBias), so it never overflows but underflows. And here,
+  // y is rounded into [0, 1/2) range. In this range, pi * y never overflows.
+  // So here we don't need to be afraid of over/under flow of exponent.
+  //     The threshold exponent is the maximum y such that y^2 does not affect
+  // to the rounding bit of 1 - pi^2/6 y^2. That means that
+  //     pi^2/6 y^2 < 2^(-fracW-1)
+  //     pi^2/6 y^2 < 2 y^2 < 2^(-fracW-1)
+  //                    y^2 < 2^(-fracW-2)
+  //
+  val linearThreshold = math.floor(-(fracW+2)/2).toInt
+  val isLinear        = yex < (linearThreshold + exBias).U(exW.W)
+//   printf("cir: isLinear        = %b\n", isLinear)
+//   printf("cir: linearThreshold = %d\n", (linearThreshold + exBias).U(exW.W))
+
   // --------------------------------------------------------------------------
   // taylor expansion
 
@@ -323,8 +355,6 @@ class SinCosOtherPath(
   // XXX if y does not use Taylor path, should we need to zero clear yex and
   // yman to avoid needless voltage change for the sake of energy efficiency?
 
-  val coefPad    = 2 // for precision after rounding
-  val fracW      = manW+coefPad
   val coef1Ex    = 1 + exBias
   val coef1ManW1 = math.round(Pi * (1<<(fracW-(coef1Ex-exBias)))).toLong
   val coef3Ex    = 0 + exBias
@@ -370,12 +400,16 @@ class SinCosOtherPath(
   val (ySqExInc, ySqManW1) = multiply(manW, ymanW1, manW, ymanW1)
   val ySqEx = yex +& yex - exBias.U + ySqExInc
   assert(ySqManW1(fracW) === 1.U)
+//   printf("cir:ySqEx    = %d\n", ySqEx)
+//   printf("cir:ySqManW1 = %b\n", ySqManW1)
 
   // pi*y
   val (piyExInc, piyManW1) = multiply(manW, ymanW1, fracW, coef1ManW1.U((1+fracW).W))
   val piyEx = yex +& (coef1Ex - exBias).U + piyExInc
   assert(coef1Ex > exBias)
   assert(piyManW1(fracW) === 1.U)
+//   printf("cir:piyEx    = %d\n", piyEx)
+//   printf("cir:piyManW1 = %b\n", piyManW1)
 
   // .........................................................................
   // 2nd step
@@ -384,11 +418,15 @@ class SinCosOtherPath(
   val (yQdExInc, yQdManW1) = multiply(fracW, ySqManW1, fracW, ySqManW1)
   val yQdEx = ySqEx + ySqEx - exBias.U + yQdExInc
   assert(yQdManW1(fracW) === 1.U)
+//   printf("cir:yQdEx    = %d\n", yQdEx)
+//   printf("cir:yQdManW1 = %b\n", yQdManW1)
 
   // pi^2y^2/6
   val (c3ExInc, c3ManW1) = multiply(fracW, ySqManW1, fracW, coef3ManW1.U((1+fracW).W))
   val c3Ex = ySqEx + (coef3Ex - exBias).U + c3ExInc
   assert(c3ManW1(fracW) === 1.U)
+//   printf("cir:c3Ex    = %d\n", c3Ex)
+//   printf("cir:c3ManW1 = %b\n", c3ManW1)
 
   // .........................................................................
   // 3rd step
@@ -398,9 +436,11 @@ class SinCosOtherPath(
   val c5Ex = yQdEx - (exBias - coef5Ex).U + c5ExInc
   assert(coef5Ex < exBias)
   assert(c5ManW1(fracW) === 1.U)
+//   printf("cir:c5Ex    = %d\n", c5Ex)
+//   printf("cir:c5ManW1 = %b\n", c5ManW1)
 
   // 1 - pi^2y^2/6
-  assert(c3Ex+1.U < exBias.U) // detect ex overflow
+  assert(c3Ex+1.U < exBias.U || isLinear) // detect ex overflow
   assert(exBias - (1+fracW) > 0)
   val c3Shift0   = ((exBias-1).U - c3Ex)
   val c3ShiftOut = c3Shift0(exW-1, log2Up(1+fracW)).orR
@@ -412,12 +452,14 @@ class SinCosOtherPath(
   val oneMinusC3 = (1L << fracW).U((fracW+1).W) - c3Aligned
   assert(oneMinusC3(fracW) === 0.U || oneMinusC3(fracW-1,0).orR === 0.U)
 
+//   printf("cir:1-c3 = %b\n", oneMinusC3)
+
   // .........................................................................
   // 4th step
 
   // 1 - pi^2y^2/6 + pi^4y^4/120
   // ~ 1 - 1.645y^2 + 0.8117y^4 <= 1
-  assert(c5Ex+1.U < exBias.U)
+  assert(c5Ex+1.U < exBias.U || isLinear)
   val c5Shift0   = ((exBias-1).U - c5Ex)
   val c5ShiftOut = c5Shift0(exW-1, log2Up(1+fracW)).orR
   val c5Shift    = c5Shift0(log2Up(1+fracW)-1, 0)
@@ -428,12 +470,17 @@ class SinCosOtherPath(
   val oneMinusC3PlusC5 = oneMinusC3 + c5Aligned
   assert(oneMinusC3PlusC5 <= (1<<fracW).U)
 
+//   printf("cir:1-c3+c5 = %b\n", oneMinusC3PlusC5)
+
   // in case of x < 2^-manW, the result just 1
   val oneMinusC3PlusC5MoreThan1 = oneMinusC3PlusC5(fracW)
   val oneMinusC3PlusC5ManW1 = Mux(oneMinusC3PlusC5MoreThan1, oneMinusC3PlusC5,
     Cat(oneMinusC3PlusC5(fracW-1, 0), 0.U(1.W))) // normalize
   val oneMinusC3PlusC5Ex = (exBias - 1).U + oneMinusC3PlusC5MoreThan1
   assert(oneMinusC3PlusC5ManW1.getWidth == fracW+1)
+
+//   printf("cir:1-c3+c5 Ex    = %d\n", oneMinusC3PlusC5Ex)
+//   printf("cir:1-c3+c5 ManW1 = %b\n", oneMinusC3PlusC5ManW1)
 
   // .........................................................................
   // 5th step
@@ -445,27 +492,11 @@ class SinCosOtherPath(
 
   val zExTaylor  = piyEx + oneMinusC3PlusC5Ex - exBias.U + taylorExInc + taylorManW1MoreThan2AfterRound
   val zManTaylor = taylorManW1Rounded(manW-1, 0)
+//   printf("cir:taylorEx  = %d\n", zExTaylor)
+//   printf("cir:taylorMan = %b\n", zManTaylor)
 
   // --------------------------------------------------------------------------
   // linear approx
-
-  // Here, we also check if the linear approx is enough.
-  // Since taylorExpansion uses 5th order term, the exponent might overflows
-  // while calculation. But with FP32, fortunately, linear approx becomes
-  // usable (x^2 < -manW <=> x.ex < -10) before exponent overflow (x^5 < -exBias
-  // <=> x < -127/5 ~ -25). This holds for most of the "normal" floating point
-  // spec. Like: in case of FP64, (x^2 < -manW <=> x.ex < -26) and
-  // (x^5 < -exBias <=> x < -1023 / 5 ~ -200).
-  //     This quick workaround will be broken if we have an abnormal FP spec
-  // something like exponent has extremely narrower bit width than that of
-  // mantissa.
-  //     Note that, pi * y does not underflow because pi > 2. Its exponent is
-  // positive (without exBias), so it never overflows but underflows. And here,
-  // y is rounded into [0, 1/2) range. In this range, pi * y never overflows.
-  // So here we don't need to be afraid of over/under flow of exponent.
-
-  // means sin(piy) = piy.
-  val isLinear = yex < (math.floor(-(manW+1) / 2).toLong + exBias).U(exW.W)
 
   val zManLinear0 = piyManW1(fracW-1, coefPad) +& piyManW1(coefPad-1)
   assert(zManLinear0.getWidth == 1+manW)
