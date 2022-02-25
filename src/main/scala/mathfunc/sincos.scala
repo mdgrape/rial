@@ -139,15 +139,19 @@ class SinCosPreProcess(
   // --------------------------------------------------------------------------
   // calculate x/pi in sin/cos [0, 2) into sin [0, 1/2)
 
-  val ymanPos0 =  xOverPiAligned(1+xOverPiFracW-1, 0)
-  val ymanNeg0 = (BigInt(1)<<(1+xOverPiFracW-1)).U - xOverPiAligned(1+xOverPiFracW-1, 0)
+  val ymanPos0 =  xOverPiAligned(1+xOverPiFracW-2, 0)
+  val ymanNeg0 = ((BigInt(1)<<(1+xOverPiFracW-1)).U - xOverPiAligned(1+xOverPiFracW-2, 0))(1+xOverPiFracW-2, 0)
   val ymanPos  = Cat(ymanPos0.head(1) & io.isSin, ymanPos0.tail(1))
   val ymanNeg  = Cat(ymanNeg0.head(1) & io.isSin, ymanNeg0.tail(1))
   val yman0    = Mux(xOverPiAligned2MSBs(0) ^ io.isSin, ymanPos, ymanNeg)
   val ymanIsNonZero = yman0.orR
 
   // TODO here we can reduce the area by checking yman0Shift and roundbit
-  val yman0Shift0   = PriorityEncoder(Reverse(yman0))
+
+  // yman0 removes its MSB, so here the width becomes xOverPiFracW,
+  // not xOverPiFracW+1. But yman0 should be aligned to xOverPiFracW+1.
+  // So here we need to add 1.
+  val yman0Shift0   = PriorityEncoder(Reverse(yman0)) + 1.U
   val yman0ShiftW   = log2Up(yman0.getWidth)
   val yman0Shift    = yman0Shift0(yman0ShiftW-1, 0)
   val yman0Shifted  = (yman0 << yman0Shift)(1+xOverPiFracW-1, 0)
