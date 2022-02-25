@@ -142,9 +142,8 @@ class Log2TableCoeff(
 
     // -----------------------------------------------------------------------
     // default table
-    val tableNormalD = new FuncTableDouble( x => log2(1.0 + x), order)
-    tableNormalD.addRange(0.0, 1.0, 1<<adrW)
-    val tableNormalI = new FuncTableInt(tableNormalD, fracW)
+    val tableNormalI = MathFuncLog2Sim.log2NormalTableGeneration(
+      spec, order, adrW, extraBits)
     val cbitNormal   = tableNormalI.cbit
 
     // both 1st and 2nd derivative of 2^x is larger than 0

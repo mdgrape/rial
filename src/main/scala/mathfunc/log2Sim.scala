@@ -41,6 +41,22 @@ object MathFuncLog2Sim {
     // the condition is the same
   }
 
+  def log2NormalTableGeneration(spec: RealSpec,
+    order:     Int =  2,
+    adrW:      Int =  8,
+    extraBits: Int =  2,
+    calcWidthSetting: Option[Seq[Int]] = None,
+    cbitSetting: Option[Seq[Int]] = None
+    ): FuncTableInt = {
+
+    val log2 = (a:Double) => {log(a) / log(2.0)}
+    val fracW = spec.manW + extraBits
+
+    val tableNormalD = new FuncTableDouble( x => log2(1.0 + x), order)
+    tableNormalD.addRange(0.0, 1.0, 1<<adrW)
+    return new FuncTableInt(tableNormalD, fracW, calcWidthSetting, cbitSetting)
+  }
+
   // table for [1.0, 2.0)
   def log2SmallPositiveTableGeneration(spec: RealSpec,
       order:     Int =  2,
