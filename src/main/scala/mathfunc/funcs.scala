@@ -98,8 +98,6 @@ class MathFunctions(
   println(f"pow2        calcW = ${Pow2TableCoeff.getCalcW(spec, polySpec)}")
   println(f"log2        calcW = ${Log2TableCoeff.getCalcW(spec, polySpec)}")
 
-  val maxAdrW  = adrW + 4 // TODO automatically calculate this from spec
-
   val maxCbit  = Seq(
     ACosTableCoeff.getCBits(spec, polySpec),
     SqrtTableCoeff.getCBits(spec, polySpec),
@@ -122,7 +120,6 @@ class MathFunctions(
     Log2TableCoeff.getCalcW(spec, polySpec)
     ).reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
 
-  def getMaxAdrW()  = maxAdrW
   def getMaxCbit()  = maxCbit
   def getMaxCalcW() = maxCalcW
 
@@ -151,7 +148,7 @@ class MathFunctions(
   // now we are here
 
   val acosPre   = Module(new ACosPreProcess (spec, polySpec, stage))
-  val acosTab   = Module(new ACosTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
+  val acosTab   = Module(new ACosTableCoeff (spec, polySpec, maxCbit, stage))
   val acosOther = Module(new ACosOtherPath  (spec, polySpec, stage))
   val acosPost  = Module(new ACosPostProcess(spec, polySpec, stage))
 
@@ -175,7 +172,7 @@ class MathFunctions(
   }
 
   val sqrtPre   = Module(new SqrtPreProcess (spec, polySpec, stage))
-  val sqrtTab   = Module(new SqrtTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
+  val sqrtTab   = Module(new SqrtTableCoeff (spec, polySpec, maxCbit, stage))
   val sqrtOther = Module(new SqrtOtherPath  (spec, polySpec, stage))
   val sqrtPost  = Module(new SqrtPostProcess(spec, polySpec, stage))
 
@@ -196,7 +193,7 @@ class MathFunctions(
     assert(sqrtTab.io.cs.asUInt === 0.U || (io.sel === SelectFunc.ACos && acosPre.io.useSqrt))
   }
 
-  val invsqrtTab   = Module(new InvSqrtTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
+  val invsqrtTab   = Module(new InvSqrtTableCoeff (spec, polySpec, maxCbit, stage))
   val invsqrtOther = Module(new InvSqrtOtherPath  (spec, polySpec, stage))
   val invsqrtPost  = Module(new InvSqrtPostProcess(spec, polySpec, stage))
 
@@ -209,7 +206,7 @@ class MathFunctions(
   }
 
   val recPre   = Module(new ReciprocalPreProcess (spec, polySpec, stage))
-  val recTab   = Module(new ReciprocalTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
+  val recTab   = Module(new ReciprocalTableCoeff (spec, polySpec, maxCbit, stage))
   val recOther = Module(new ReciprocalOtherPath  (spec, polySpec, stage))
   val recPost  = Module(new ReciprocalPostProcess(spec, polySpec, stage))
 
@@ -235,7 +232,7 @@ class MathFunctions(
   }
 
   val sincosPre   = Module(new SinCosPreProcess (spec, polySpec, stage))
-  val sincosTab   = Module(new SinCosTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
+  val sincosTab   = Module(new SinCosTableCoeff (spec, polySpec, maxCbit, stage))
   val sincosOther = Module(new SinCosOtherPath  (spec, polySpec, stage))
   val sincosPost  = Module(new SinCosPostProcess(spec, polySpec, stage))
 
@@ -275,7 +272,7 @@ class MathFunctions(
   atan2Stage1Other.io.yIsLarger := yIsLarger
 
   val atan2Stage2Pre   = Module(new ATan2Stage2PreProcess (spec, polySpec, stage))
-  val atan2Stage2Tab   = Module(new ATan2Stage2TableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
+  val atan2Stage2Tab   = Module(new ATan2Stage2TableCoeff (spec, polySpec, maxCbit, stage))
   val atan2Stage2Other = Module(new ATan2Stage2OtherPath  (spec, polySpec, stage))
   val atan2Stage2Post  = Module(new ATan2Stage2PostProcess(spec, polySpec, stage))
   atan2Stage2Pre.io.en  := (io.sel === SelectFunc.ATan2Stage2)
@@ -308,7 +305,7 @@ class MathFunctions(
   atan2Stage2Other.io.flags := atan2FlagReg
 
   val pow2Pre   = Module(new Pow2PreProcess (spec, polySpec, stage))
-  val pow2Tab   = Module(new Pow2TableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
+  val pow2Tab   = Module(new Pow2TableCoeff (spec, polySpec, maxCbit, stage))
   val pow2Other = Module(new Pow2OtherPath  (spec, polySpec, stage))
   val pow2Post  = Module(new Pow2PostProcess(spec, polySpec, stage))
 
@@ -337,7 +334,7 @@ class MathFunctions(
   }
 
   val log2Pre   = Module(new Log2PreProcess (spec, polySpec, stage))
-  val log2Tab   = Module(new Log2TableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
+  val log2Tab   = Module(new Log2TableCoeff (spec, polySpec, maxCbit, stage))
   val log2Other = Module(new Log2OtherPath  (spec, polySpec, stage))
   val log2Post  = Module(new Log2PostProcess(spec, polySpec, stage))
 

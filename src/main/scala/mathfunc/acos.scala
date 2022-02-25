@@ -158,7 +158,6 @@ class ACosPreProcess(
 class ACosTableCoeff(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
-  val maxAdrW  : Int,      // max address width among all math funcs
   val maxCbit  : Seq[Int], // max coeff width among all math funcs
   val stage    : PipelineStageConfig,
 ) extends Module {
