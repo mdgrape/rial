@@ -509,7 +509,6 @@ object MathFuncACosSim {
       }).reduce( (lhs, rhs) => {
         lhs.zip(rhs).map( x => max(x._1, x._2))
       })
-      println(f"acos table width = ${maxCalcWidth}") // 26, 17, 9
 
       // ex == -1 corresponds to the range [0.5, 1).
       (-1 to taylorThreshold by -1).map( i => {
