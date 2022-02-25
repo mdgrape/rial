@@ -80,6 +80,15 @@ class MathFunctions(
 
   val order = polySpec.order
 
+  println(f"acos        cbits = ${ACosTableCoeff.getCBits(spec, polySpec)}")
+  println(f"sqrt        cbits = ${SqrtTableCoeff.getCBits(spec, polySpec)}")
+  println(f"invsqrt     cbits = ${InvSqrtTableCoeff.getCBits(spec, polySpec)}")
+  println(f"rec         cbits = ${ReciprocalTableCoeff.getCBits(spec, polySpec)}")
+  println(f"sincos      cbits = ${SinCosTableCoeff.getCBits(spec, polySpec)}")
+  println(f"atan2Stage2 cbits = ${ATan2Stage2TableCoeff.getCBits(spec, polySpec)}")
+  println(f"pow2        cbits = ${Pow2TableCoeff.getCBits(spec, polySpec)}")
+  println(f"log2        cbits = ${Log2TableCoeff.getCBits(spec, polySpec)}")
+
   val maxAdrW  = adrW + 4        // TODO automatically calculate this from spec
   val maxCbit  = Seq(27, 24, 24) // TODO ditto
   val maxCalcW = Seq(27, 24, 24) // TODO ditto
@@ -117,8 +126,6 @@ class MathFunctions(
   val acosOther = Module(new ACosOtherPath  (spec, polySpec, stage))
   val acosPost  = Module(new ACosPostProcess(spec, polySpec, stage))
 
-  println(f"acosTab cbits = ${acosTab.getCBits}")
-
   acosPre.io.en  := (io.sel === SelectFunc.ACos)
   acosPre.io.x   := io.x
   acosTab.io.en  := (io.sel === SelectFunc.ACos) && (!acosPre.io.useSqrt)
@@ -142,7 +149,6 @@ class MathFunctions(
   val sqrtTab   = Module(new SqrtTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
   val sqrtOther = Module(new SqrtOtherPath  (spec, polySpec, stage))
   val sqrtPost  = Module(new SqrtPostProcess(spec, polySpec, stage))
-  println(f"sqrtTab cbits = ${sqrtTab.getCBits}")
 
   sqrtPre.io.en  := (io.sel === SelectFunc.Sqrt || io.sel === SelectFunc.InvSqrt)
   sqrtPre.io.x   := io.x
@@ -164,7 +170,6 @@ class MathFunctions(
   val invsqrtTab   = Module(new InvSqrtTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
   val invsqrtOther = Module(new InvSqrtOtherPath  (spec, polySpec, stage))
   val invsqrtPost  = Module(new InvSqrtPostProcess(spec, polySpec, stage))
-  println(f"invsqrtTab cbits = ${invsqrtTab.getCBits}")
 
   invsqrtTab.io.en  := io.sel === SelectFunc.InvSqrt
   invsqrtTab.io.adr := sqrtPre.io.adr
@@ -178,7 +183,6 @@ class MathFunctions(
   val recTab   = Module(new ReciprocalTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
   val recOther = Module(new ReciprocalOtherPath  (spec, polySpec, stage))
   val recPost  = Module(new ReciprocalPostProcess(spec, polySpec, stage))
-  println(f"recTab cbits = ${recTab.getCBits}")
 
   // atan2 uses reciprocal 1/max(x,y) to calculate min(x,y)/max(x,y).
   val recUseY = (io.sel === SelectFunc.ATan2Stage1) && yIsLarger
@@ -205,7 +209,6 @@ class MathFunctions(
   val sincosTab   = Module(new SinCosTableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
   val sincosOther = Module(new SinCosOtherPath  (spec, polySpec, stage))
   val sincosPost  = Module(new SinCosPostProcess(spec, polySpec, stage))
-  println(f"sincosTab cbits = ${sincosTab.getCBits}")
 
   sincosPre.io.en    := (io.sel === SelectFunc.Sin) || (io.sel === SelectFunc.Cos)
   sincosPre.io.isSin := (io.sel === SelectFunc.Sin)
@@ -246,7 +249,6 @@ class MathFunctions(
   val atan2Stage2Tab   = Module(new ATan2Stage2TableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
   val atan2Stage2Other = Module(new ATan2Stage2OtherPath  (spec, polySpec, stage))
   val atan2Stage2Post  = Module(new ATan2Stage2PostProcess(spec, polySpec, stage))
-  println(f"atan2Stage2Tab cbits = ${atan2Stage2Tab.getCBits}")
   atan2Stage2Pre.io.en  := (io.sel === SelectFunc.ATan2Stage2)
   atan2Stage2Pre.io.x   := io.x
   atan2Stage2Tab.io.en  := (io.sel === SelectFunc.ATan2Stage2)
@@ -280,7 +282,6 @@ class MathFunctions(
   val pow2Tab   = Module(new Pow2TableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
   val pow2Other = Module(new Pow2OtherPath  (spec, polySpec, stage))
   val pow2Post  = Module(new Pow2PostProcess(spec, polySpec, stage))
-  println(f"pow2Tab cbits = ${pow2Tab.getCBits}")
 
   pow2Pre.io.en     := (io.sel === SelectFunc.Exp) || (io.sel === SelectFunc.Pow2)
   pow2Pre.io.isexp  := (io.sel === SelectFunc.Exp)
@@ -310,7 +311,6 @@ class MathFunctions(
   val log2Tab   = Module(new Log2TableCoeff (spec, polySpec, maxAdrW, maxCbit, stage))
   val log2Other = Module(new Log2OtherPath  (spec, polySpec, stage))
   val log2Post  = Module(new Log2PostProcess(spec, polySpec, stage))
-  println(f"log2Tab cbits = ${log2Tab.getCBits}")
 
   log2Pre.io.en      := (io.sel === SelectFunc.Log) || (io.sel === SelectFunc.Log2)
   log2Pre.io.x       := io.x

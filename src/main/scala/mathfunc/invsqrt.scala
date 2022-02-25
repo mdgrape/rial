@@ -100,12 +100,22 @@ class InvSqrtTableCoeff(
     val cs = coeffs.asUInt & Fill(coeffs.asUInt.getWidth, io.en)
     io.cs := ShiftRegister(cs.asTypeOf(new TableCoeffInput(maxCbit)), nStage)
   }
+}
+object InvSqrtTableCoeff {
+  def getCBits(
+    spec:     RealSpec,
+    polySpec: PolynomialSpec
+  ): Seq[Int] = {
 
-  def getCBits(): Seq[Int] = {
+    val order     = polySpec.order
+    val adrW      = polySpec.adrW
+    val extraBits = polySpec.extraBits
+    val fracW     = polySpec.fracW
+
     if(order == 0) {
       return Seq(fracW)
     } else {
-      return InvSqrtSim.invsqrtTableGeneration( order, adrW, manW, fracW ).cbit
+      return InvSqrtSim.invsqrtTableGeneration( order, adrW, spec.manW, fracW ).cbit
     }
   }
 }
