@@ -134,9 +134,15 @@ class SqrtTableCoeff(
     val coeffs = Wire(new TableCoeffInput(maxCbit))
     for (i <- 0 to order) {
       val diffWidth = maxCbit(i) - cbit(i)
-      val ci  = coeff(i)
-      val msb = ci(cbit(i)-1)
-      coeffs.cs(i) := Cat(Fill(diffWidth, msb), ci) // sign extension
+      assert(0 <= diffWidth)
+
+      if(diffWidth != 0) {
+        val ci  = coeff(i)
+        val msb = ci(cbit(i)-1)
+        coeffs.cs(i) := Cat(Fill(diffWidth, msb), ci) // sign extension
+      } else {
+        coeffs.cs(i) := coeff(i)
+      }
     }
     val cs = coeffs.asUInt & Fill(coeffs.asUInt.getWidth, io.en)
     io.cs := ShiftRegister(cs.asTypeOf(new TableCoeffInput(maxCbit)), nStage)

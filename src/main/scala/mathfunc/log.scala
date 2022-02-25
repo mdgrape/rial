@@ -157,6 +157,7 @@ class Log2TableCoeff(
     val outNormal = Wire(MixedVec(maxCbit.map{w => UInt(w.W)}))
     for (i <- 0 to order) {
       val diffWidth = maxCbit(i) - cbitNormal(i)
+      assert(0 <= diffWidth)
       val ci  = coeffNormal(i)
       if(diffWidth == 0) {
         outNormal(i) := ci
@@ -181,6 +182,7 @@ class Log2TableCoeff(
     val outSmallPos = Wire(MixedVec(maxCbit.map{w => UInt(w.W)}))
     for (i <- 0 to order) {
       val diffWidth = maxCbit(i) - cbitSmallPos(i)
+      assert(0 <= diffWidth)
       val ci  = coeffSmallPos(i)
       if(diffWidth == 0) {
         outSmallPos(i) := ci
@@ -206,6 +208,7 @@ class Log2TableCoeff(
     for (i <- 0 to order) {
       val diffWidth = maxCbit(i) - cbitSmallNeg(i)
       val ci  = coeffSmallNeg(i)
+      assert(0 <= diffWidth)
       if(diffWidth == 0) {
         outSmallNeg(i) := ci
       } else {

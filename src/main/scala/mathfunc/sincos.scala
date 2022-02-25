@@ -283,12 +283,13 @@ class SinCosTableCoeff(
     for (i <- 0 to order) {
       val diffWidth = maxCbit(i) - cbit(i)
       assert(cbit(i) <= maxCbit(i))
-      val ci  = coeff(i)
-      val msb = ci(cbit(i)-1)
+
       if(0 < diffWidth) {
+        val ci  = coeff(i)
+        val msb = ci(cbit(i)-1)
         coeffs.cs(i) := Cat(Fill(diffWidth, msb), ci) // sign extension
       } else {
-        coeffs.cs(i) := ci
+        coeffs.cs(i) := coeff(i)
       }
     }
     val cs = coeffs.asUInt & Fill(coeffs.asUInt.getWidth, io.en)

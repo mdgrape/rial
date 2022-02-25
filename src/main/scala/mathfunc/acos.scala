@@ -213,6 +213,8 @@ class ACosTableCoeff(
     val coeffs = Wire(new TableCoeffInput(maxCbit))
     for (i <- 0 to order) {
       val diffWidth = maxCbit(i) - cbit(i)
+      assert(0 <= diffWidth)
+
       val ci  = if(diffWidth != 0) {
         Cat(0.U(diffWidth.W), coeff(i))
       } else {
