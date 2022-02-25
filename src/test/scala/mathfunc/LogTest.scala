@@ -59,7 +59,6 @@ class MathFuncLogTest extends AnyFlatSpec
   }
 
   private def runtest (
-      t : FuncTableInt, tSmallPos : FuncTableInt, tSmallNeg : FuncTableInt,
       spec : RealSpec,
       nOrder : Int, adrW : Int, extraBits : Int, stage : PipelineStageConfig,
       n : Int, r : Random, generatorStr : String,
@@ -71,6 +70,22 @@ class MathFuncLogTest extends AnyFlatSpec
     it should f"log(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
       test( new MathFunctions(spec, nOrder, adrW, extraBits, stage, false, false)) { c =>
         {
+          // since table result depends on these values, it is unavoidable to
+          // construct tables multiple times.
+          val maxCbits   = c.getMaxCbit
+          val maxCalcW   = c.getMaxCalcW
+
+          val log2F32TableI = Log2Sim.log2TableGeneration(
+            2, 8, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+2,
+            Some(maxCalcW), Some(maxCbits))
+          val log2F32SmallPositiveTableI = MathFuncLog2Sim.log2SmallPositiveTableGeneration(
+            RealSpec.Float32Spec, 2, 8, 2, Some(maxCalcW), Some(maxCbits))
+          val log2F32SmallNegativeTableI = MathFuncLog2Sim.log2SmallNegativeTableGeneration(
+            RealSpec.Float32Spec, 2, 8, 2, Some(maxCalcW), Some(maxCbits))
+
+          val reference  = MathFuncLogSim.logSimGeneric(
+            log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, _ )
+
           // To avoid timeoutException while testing z == neg.
           // Detailed explanation follows.
           if(disableTimeout) { c.clock.setTimeout(0) }
@@ -88,11 +103,7 @@ class MathFuncLogTest extends AnyFlatSpec
           // return nan. Note that, assertion and `io.expect` still works so
           // there is no problem in the testing functionality.
 
-          val maxCbit    = c.getMaxCbit
-          val maxCalcW   = c.getMaxCalcW
           val nstage     = c.getStage
-
-          val reference  = MathFuncLogSim.logSimGeneric(t, tSmallPos, tSmallNeg, _ )
 
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
@@ -132,32 +143,18 @@ class MathFuncLogTest extends AnyFlatSpec
     }
   }
 
-  // tables are the same.
-  val log2F32TableI = Log2Sim.log2TableGeneration(
-    2, 8, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+2,
-    Some(Seq(27, 24, 24)), Some(Seq(27, 24, 24)))
-
-  val log2F32SmallPositiveTableI = MathFuncLog2Sim.log2SmallPositiveTableGeneration(RealSpec.Float32Spec)
-  val log2F32SmallNegativeTableI = MathFuncLog2Sim.log2SmallNegativeTableGeneration(RealSpec.Float32Spec)
-
-  runtest(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI,
-    RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
     "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))
-  runtest(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI,
-    RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
     "Test Small More Than 1 [1, 2]",   generateRealWithin(1.0 + pow(2.0, -8), 2.0,_,_))
-  runtest(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI,
-    RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
     "Test Taylor More Than 1 [1, 2]",   generateRealWithin(1.0, 1.0 + pow(2.0, -8),_,_))
 
-  runtest(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI,
-    RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
     "Test Taylor Less Than 1 [0.5, 1]", generateRealWithin(1.0-pow(2.0, -8.0),1.0,_,_))
-  runtest(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI,
-    RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
     "Test Small Less Than 1 [0.5, 1]", generateRealWithin(0.5,1.0-pow(2.0, -8.0),_,_))
-  runtest(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI,
-    RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
     "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5-pow(2.0, -24),_,_))
 
 //   runtest(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI,
