@@ -211,14 +211,14 @@ class MathFunctions(
   sincosOther.io.xConverted := sincosPre.io.xConverted
   sincosOther.io.x          := xdecomp.io.decomp
 
-  when(!(io.sel === SelectFunc.Sin)) {
+  when(io.sel =/= SelectFunc.Sin && io.sel =/= SelectFunc.Cos) {
     assert(sincosPre.io.adr === 0.U)
     if(sincosPre.io.dx.isDefined) {
       assert(sincosPre.io.dx.get  === 0.U)
     }
   }
 
-  when(!(io.sel === SelectFunc.Sin || io.sel === SelectFunc.Cos)) {
+  when(io.sel =/= SelectFunc.Sin && io.sel =/= SelectFunc.Cos) {
     assert(sincosTab.io.cs.asUInt === 0.U)
   }
 
