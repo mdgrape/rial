@@ -140,9 +140,9 @@ class SinCosPreProcess(
   // calculate x/pi in sin/cos [0, 2) into sin [0, 1/2)
 
   val ymanPos0 =  xOverPiAligned(1+xOverPiFracW-1, 0)
-  val ymanNeg0 = ~xOverPiAligned(1+xOverPiFracW-1, 0) + 1.U
+  val ymanNeg0 = (BigInt(1)<<(1+xOverPiFracW-1)).U - xOverPiAligned(1+xOverPiFracW-1, 0)
   val ymanPos  = Cat(ymanPos0.head(1) & io.isSin, ymanPos0.tail(1))
-  val ymanNeg  = Cat(ymanPos0.head(1) & io.isSin, ymanPos0.tail(1))
+  val ymanNeg  = Cat(ymanNeg0.head(1) & io.isSin, ymanNeg0.tail(1))
   val yman0    = Mux(xOverPiAligned2MSBs(0) ^ io.isSin, ymanPos, ymanNeg)
   val ymanIsNonZero = yman0.orR
 
