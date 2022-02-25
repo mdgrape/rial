@@ -95,6 +95,9 @@ class SinCosPreProcess(
   val xOverPiFracW         = (1+manW) + oneOverPiW - 1
   assert(xOverPi.getWidth == xOverPiFracW+1) // fraction bits + 1 integer bit
 
+//   printf("xOverPi      = %d\n", xOverPi)
+//   printf("xOverPiFracW = %d\n", xOverPiFracW.U)
+
   // --------------------------------------------------------------------------
     // convert full range x/pi into (0, 2)
 
@@ -106,6 +109,9 @@ class SinCosPreProcess(
   val xOverPiAlignNeg = xOverPi >> xOverPiExNobiasNeg
   val xOverPiAligned = Mux(xOverPiExMoreThan1, xOverPiAlignPos(xOverPiFracW, 0),
                                                xOverPiAlignNeg(xOverPiFracW, 0))
+//   printf("cir: xOverPiAlignPos = %d\n", xOverPiAlignPos)
+//   printf("cir: xOverPiAlignNeg = %d\n", xOverPiAlignNeg)
+//   printf("cir: xOverPiAligned  = %d\n", xOverPiAligned )
 
   // --------------------------------------------------------------------------
   // calculate zsgn from aligned x/pi
@@ -113,6 +119,7 @@ class SinCosPreProcess(
   // this determines the range of x.
   // 0 -> [0,0.5), 1 -> [0.5, 1), 2 -> [1, 1.5), 3 -> [1.5, 2)
   val xOverPiAligned2MSBs = xOverPiAligned.head(2)
+//   printf("cir:xOverPiAligned2MSBs = %b\n", xOverPiAligned2MSBs)
 
   // we can already calculate the sign of return value from the value of x/pi.
   //
@@ -146,6 +153,12 @@ class SinCosPreProcess(
   val yman0    = Mux(xOverPiAligned2MSBs(0) ^ io.isSin, ymanPos, ymanNeg)
   val ymanIsNonZero = yman0.orR
 
+//   printf("cir: ymanPos0 = %d\n", ymanPos0)
+//   printf("cir: ymanNeg0 = %d\n", ymanNeg0)
+//   printf("cir: ymanPos  = %d\n", ymanPos )
+//   printf("cir: ymanNeg  = %d\n", ymanNeg )
+//   printf("cir: yman0    = %d\n", yman0   )
+
   // TODO here we can reduce the area by checking yman0Shift and roundbit
 
   // yman0 removes its MSB, so here the width becomes xOverPiFracW,
@@ -159,6 +172,13 @@ class SinCosPreProcess(
   val yman0Rounded  = yman0Shifted(1+xOverPiFracW-1, yman0RoundBit) +&
                       yman0Shifted(yman0RoundBit-1)
   val yman0MoreThan2 = yman0Rounded(manW+1)
+
+//   printf("cir:yman0Shift0  = %d\n", yman0Shift0)
+//   printf("cir:yman0.W      = %d\n", yman0.getWidth.U)
+//   printf("cir:yman0ShiftW  = %d\n", yman0ShiftW.U)
+//   printf("cir:yman0Shift   = %d\n", yman0Shift)
+//   printf("cir:yman0Shifted = %d\n", yman0Shifted)
+//   printf("cir:yman0Rounded = %b\n", yman0Rounded)
 
   val ymanNonZero = yman0Rounded(manW-1, 0)
   val yexNonZero = exBias.U(exW.W) - yman0Shift + yman0MoreThan2
@@ -262,6 +282,7 @@ class SinCosTableCoeff(
     val coeffs = Wire(new TableCoeffInput(maxCbit))
     for (i <- 0 to order) {
       val diffWidth = maxCbit(i) - cbit(i)
+      assert(cbit(i) <= maxCbit(i))
       val ci  = coeff(i)
       val msb = ci(cbit(i)-1)
       if(0 < diffWidth) {
@@ -415,6 +436,9 @@ class SinCosOtherPath(
   val piyEx = yex +& (coef1Ex - exBias).U + piyExInc
   assert(coef1Ex > exBias)
   assert(piyManW1(fracW) === 1.U)
+//   printf("cir:yex      = %d\n", yex)
+//   printf("cir:coef1ex  = %d\n", coef1Ex.U)
+//   printf("cir:piyExInc = %d\n", piyExInc)
 //   printf("cir:piyEx    = %d\n", piyEx)
 //   printf("cir:piyManW1 = %b\n", piyManW1)
 
@@ -510,6 +534,8 @@ class SinCosOtherPath(
   val zManLinearMoreThan2AfterRound = zManLinear0(manW)
   val zManLinear = zManLinear0(manW-1, 0)
   val zExLinear  = piyEx + zManLinearMoreThan2AfterRound
+//   printf("cir:linearEx  = %d\n", zExLinear)
+//   printf("cir:linearMan = %b\n", zManLinear)
 
   // --------------------------------------------------------------------------
   // merge the results (special value or taylor expansion)
@@ -573,6 +599,7 @@ class SinCosPostProcess(
   // postprocess the polynomial result.
 
   val resLessThanHalf = io.zres(fracW-1) === 0.U
+//   printf("cir:zres = %b\n", io.zres)
 
   val zEx0Table  = Mux(resLessThanHalf, io.zother.zex + 1.U, io.zother.zex + 2.U)
   val zExTable   = zEx0Table(exW-1, 0)
@@ -580,6 +607,7 @@ class SinCosPostProcess(
   val zMan0Table = Mux(resLessThanHalf, Cat(io.zres, 0.U(2.W))(fracW-1, 0),
                                         Cat(io.zres, 0.U(1.W))(fracW-1, 0))
   val zManTable  = zMan0Table(fracW-1, fracW-manW) + zMan0Table(fracW-manW-1)
+//   printf("cir:zmanTable = %b\n", zManTable)
 
   // --------------------------------------------------------------------------
   // merge with the result from non-table path

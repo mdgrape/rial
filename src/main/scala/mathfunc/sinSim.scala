@@ -74,13 +74,14 @@ object MathFuncSinSim {
       xOverPi >> (exBias - xOverPiEx)
     }
 //     println(f"xOverPi        = ${xOverPi}, W = ${log2Up(xOverPi)}")
+//     println(f"xOverPiFracW   = ${xOverPiFracW}")
 //     println(f"xOverPiAligned = ${xOverPiAligned}, W = ${log2Up(xOverPiAligned)}")
 
     val xOverPiAligned2MSBs = slice(1+xOverPiFracW-2, 2, xOverPiAligned)
+//     println(f"xOverPiAligned2MSBs = ${xOverPiAligned2MSBs.toLong.toBinaryString}")
     val xOverPiAlignedMoreThan3over2 = xOverPiAligned2MSBs == 3
     val xOverPiAlignedMoreThan1      = xOverPiAligned2MSBs == 2
     val xOverPiAlignedMoreThan1over2 = xOverPiAligned2MSBs == 1
-//     println(f"xOverPiAligned2MSBs = ${xOverPiAligned2MSBs}")
 
     // we can already calculate the sign of return value from its position in [0, 2pi)
     val zSgnXAbs = if(xOverPiAlignedMoreThan1 || xOverPiAlignedMoreThan3over2) {1} else {0}
@@ -93,11 +94,16 @@ object MathFuncSinSim {
     // ------------------------------------------------------------------------
     // convert full range x/pi into (0, 1/2)
 
+//     println(f"sim:xOverPiAligned = ${xOverPiAligned}")
+    // than3/2: 11, than1: 10, than1/2: 01, else: 00
     val yman0 = if (xOverPiAlignedMoreThan3over2 || xOverPiAlignedMoreThan1over2) {
       (1.toBigInt << (1+xOverPiFracW-1)) - slice(0, 1+xOverPiFracW-1, xOverPiAligned)
     } else {
       slice(0, 1+xOverPiFracW-1, xOverPiAligned)
     }
+//     println(f"sim:ymanPos0 = ${slice(0, 1+xOverPiFracW-1, xOverPiAligned)}")
+//     println(f"sim:ymanNeg0 = ${(1.toBigInt << (1+xOverPiFracW-1)) - slice(0, 1+xOverPiFracW-1, xOverPiAligned)}")
+//     println(f"sim:yman0 = ${yman0}")
 
     val (yex, yman) = if (yman0 == 0) {
       (0, 0L)
@@ -109,6 +115,10 @@ object MathFuncSinSim {
       val yman0Rounded  = (yman0Shifted >> yman0RoundBit) + bit(yman0RoundBit-1, yman0Shifted)
       val yman0MoreThan2 = bit(manW+1, yman0Rounded)
       assert((yman0MoreThan2 == 1) || (bit(manW, yman0Rounded) == 1))
+//       println(f"sim:yman0W       = ${yman0W}")
+//       println(f"sim:yman0Shift   = ${yman0Shift}")
+//       println(f"sim:yman0Shifted = ${yman0Shifted}")
+//       println(f"sim:yman0Rounded = ${yman0Rounded.toLong.toBinaryString}")
 
       ((exBias-yman0Shift+yman0MoreThan2).toInt, slice(0, manW, yman0Rounded).toLong)
     }
@@ -117,8 +127,8 @@ object MathFuncSinSim {
     assert(yex  != exBias-1 || yman == 0)
     assert(yman < (1<<manW))
 
-//     println(f"yex      = ${yex}")
-//     println(f"yman     = ${yman.toLong.toBinaryString}")
+//     println(f"sim:yex  = ${yex}")
+//     println(f"sim:yman = ${yman.toLong.toBinaryString}")
 //     println(f"y        = ${new RealGeneric(x.spec, 0, yex, yman).toDouble}")
 //     println(f"|x|/pi   = ${x.toDouble.abs / Pi}")
 // 
@@ -187,37 +197,42 @@ object MathFuncSinSim {
       //   +-> piy  -----------------------------------------------------------+
       //
 
-//       println("y^2")
       // y^2
       val (ySqExInc, ySqManW1) = multiply(manW, (1<<manW) + yman, manW, (1<<manW) + yman)
       val ySqEx = yex + yex - exBias + ySqExInc
       assert(bit(fracW, ySqManW1) == 1)
+//       println(f"sim:ySqEx    = ${ySqEx}")
+//       println(f"sim:ySqManW1 = ${ySqManW1.toLong.toBinaryString}%25s")
 
 //       println("piy")
       // pi*y
       val (piyExInc, piyManW1) = multiply(manW, (1<<manW) + yman, fracW, coef1ManW1)
       val piyEx = yex + coef1Ex - exBias + piyExInc
       assert(bit(fracW, piyManW1) == 1)
+//       println(f"sim:piyEx    = ${piyEx}")
+//       println(f"sim:piyManW1 = ${piyManW1.toLong.toBinaryString}%25s")
 
-//       println("y^4")
       // y^4
       val (yQdExInc, yQdManW1) = multiply(fracW, ySqManW1, fracW, ySqManW1)
       val yQdEx = ySqEx + ySqEx - exBias + yQdExInc
       assert(bit(fracW, yQdManW1) == 1)
+//       println(f"sim:yQdEx    = ${yQdEx}")
+//       println(f"sim:yQdManW1 = ${yQdManW1.toLong.toBinaryString}%25s")
 
-//       println("pi^2y^2/6")
       // pi^2y^2/6
       val (c3ExInc, c3ManW1) = multiply(fracW, ySqManW1, fracW, coef3ManW1) // XXX
       val c3Ex = ySqEx + coef3Ex - exBias + c3ExInc
       assert(bit(fracW, c3ManW1) == 1)
+//       println(f"sim:c3Ex    = ${c3Ex}")
+//       println(f"sim:c3ManW1 = ${c3ManW1.toLong.toBinaryString}%25s")
 
-//       println("pi^4y^4/120")
       // pi^4y^4/120
       val (c5ExInc, c5ManW1) = multiply(fracW, yQdManW1, fracW, coef5ManW1)
       val c5Ex = yQdEx + coef5Ex - exBias + c5ExInc
       assert(bit(fracW, c5ManW1) == 1)
+//       println(f"sim:c5Ex    = ${c5Ex}")
+//       println(f"sim:c5ManW1 = ${c5ManW1.toLong.toBinaryString}%25s")
 
-//       println("1 - pi^2y^2/6")
       // 1 - pi^2y^2/6
       assert(c3Ex < exBias)
       val c3Shift = exBias - c3Ex
@@ -225,8 +240,8 @@ object MathFuncSinSim {
         (c3ManW1 >> c3Shift) + bit(c3Shift-1, c3ManW1)
       }
       val oneMinusC3 = (1<<fracW) - c3Aligned
+//       println(f"sim:1-c3 = ${oneMinusC3.toLong.toBinaryString}")
 
-//       println("1 - pi^2y^2/6 + pi^4y^4/120")
       // 1 - pi^2y^2/6 + pi^4y^4/120
       // ~ 1 - 1.645y^2 + 0.8117y^4
       assert(c5Ex < exBias)
@@ -238,9 +253,14 @@ object MathFuncSinSim {
       assert(c3Aligned >= c5Aligned)
       assert(oneMinusC3PlusC5 <= (1<<fracW)) // 1 - pi^2y^2/6 + pi^4y^4/120 <= 1
 
+//       println(f"sim:1-c3+c5 = ${oneMinusC3PlusC5.toLong.toBinaryString}")
+
       val oneMinusC3PlusC5MoreThan1 = bit(fracW, oneMinusC3PlusC5)
       val oneMinusC3PlusC5ManW1 = oneMinusC3PlusC5 << (1 - oneMinusC3PlusC5MoreThan1)
       val oneMinusC3PlusC5Ex = exBias - 1 + oneMinusC3PlusC5MoreThan1
+
+//       println(f"sim:1-c3+c5 Ex    = ${oneMinusC3PlusC5Ex}")
+//       println(f"sim:1-c3+c5 ManW1 = ${oneMinusC3PlusC5ManW1.toLong.toBinaryString}")
 
       // piy * (1 - pi^2y^2/6 + pi^4y^4/120)
       val (taylorExInc, taylorManW1) = multiply(fracW, piyManW1, fracW, oneMinusC3PlusC5ManW1)
@@ -249,6 +269,9 @@ object MathFuncSinSim {
 
       val taylorEx  = piyEx + oneMinusC3PlusC5Ex - exBias + taylorExInc + taylorManW1MoreThan2AfterRound
       val taylorMan = slice(0, manW, taylorManW1Rounded)
+
+//       println(f"sim:taylorEx    = ${taylorEx}")
+//       println(f"sim:taylorManW1 = ${taylorMan.toLong.toBinaryString}")
 
       return new RealGeneric(x.spec, zSgn, taylorEx.toInt, taylorMan)
 
@@ -295,6 +318,9 @@ object MathFuncSinSim {
         val d    = slice(0, manW-adrW, yman) - (SafeLong(1)<<dxbp)
         val adr  = slice(manW-adrW, adrW, yman).toInt
 
+//         println(f"sim:dx  = ${d.toLong.toBinaryString}")
+//         println(f"sim:adr = ${exadr.toBinaryString}|${adr.toBinaryString}")
+
         val res0 = t.interval(adr).eval(d.toLong, dxbp)
         val res = if (res0 < 0) {
             println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x = ${x.toDouble}, sin(x) = ${sin(x.toDouble)}")
@@ -305,6 +331,7 @@ object MathFuncSinSim {
           } else {
             res0
           }
+//         println(f"sim:zres = ${res.toLong.toBinaryString}")
         val lessThanHalf = if(bit(fracW-1, res) == 0) { 1 } else { 0 }
         ((yex+2-lessThanHalf).toInt, (res << (1+lessThanHalf)).toLong - (1L<<fracW))
       }
@@ -312,6 +339,7 @@ object MathFuncSinSim {
       val zmanRound = if (extraBits>0) {(zman>>extraBits) + bit(extraBits-1, zman)} else {zman}
       val zMan = slice(0, manW, zmanRound)
       val zManMoreThan2 = bit(manW, zmanRound).toInt
+//       println(f"sim:zmanRound = ${zmanRound.toLong.toBinaryString}")
 
       new RealGeneric(x.spec, zSgn, zEx + zManMoreThan2, SafeLong(zMan))
     }
