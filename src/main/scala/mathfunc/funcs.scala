@@ -90,7 +90,16 @@ class MathFunctions(
   println(f"log2        cbits = ${Log2TableCoeff.getCBits(spec, polySpec)}")
 
   val maxAdrW  = adrW + 4        // TODO automatically calculate this from spec
-  val maxCbit  = Seq(27, 24, 24) // TODO ditto
+  val maxCbit  = Seq(
+    ACosTableCoeff.getCBits(spec, polySpec),
+    SqrtTableCoeff.getCBits(spec, polySpec),
+    InvSqrtTableCoeff.getCBits(spec, polySpec),
+    ReciprocalTableCoeff.getCBits(spec, polySpec),
+    SinCosTableCoeff.getCBits(spec, polySpec),
+    ATan2Stage2TableCoeff.getCBits(spec, polySpec),
+    Pow2TableCoeff.getCBits(spec, polySpec),
+    Log2TableCoeff.getCBits(spec, polySpec)
+    ).reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
   val maxCalcW = Seq(27, 24, 24) // TODO ditto
 
   def getMaxAdrW()  = maxAdrW
