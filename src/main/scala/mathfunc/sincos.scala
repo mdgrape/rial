@@ -373,7 +373,8 @@ class SinCosOtherPath(
 
   // pi*y
   val (piyExInc, piyManW1) = multiply(manW, ymanW1, fracW, coef1ManW1.U((1+fracW).W))
-  val piyEx = yex -& (exBias - coef1Ex).U + piyExInc
+  val piyEx = yex +& (coef1Ex - exBias).U + piyExInc
+  assert(coef1Ex > exBias)
   assert(piyManW1(fracW) === 1.U)
 
   // .........................................................................
@@ -394,19 +395,22 @@ class SinCosOtherPath(
 
   // pi^4y^4/120
   val (c5ExInc, c5ManW1) = multiply(fracW, yQdManW1, fracW, coef5ManW1.U((1+fracW).W))
-  val c5Ex = yQdEx + (coef5Ex - exBias).U + c5ExInc
+  val c5Ex = yQdEx - (exBias - coef5Ex).U + c5ExInc
+  assert(coef5Ex < exBias)
   assert(c5ManW1(fracW) === 1.U)
 
   // 1 - pi^2y^2/6
   assert(c3Ex+1.U < exBias.U) // detect ex overflow
   assert(exBias - (1+fracW) > 0)
-  val c3Shift    = ((exBias-1).U - c3Ex)(log2Up(1+fracW)-1, 0)
-  val c3Aligned0 = c3ManW1 >> c3Shift
+  val c3Shift0   = ((exBias-1).U - c3Ex)
+  val c3ShiftOut = c3Shift0(exW-1, log2Up(1+fracW)).orR
+  val c3Shift    = c3Shift0(log2Up(1+fracW)-1, 0)
+  val c3Aligned0 = Fill(fracW+1, ~c3ShiftOut) & (c3ManW1 >> c3Shift) // if shiftout, fill 0.
   val c3Aligned  = c3Aligned0(c3Aligned0.getWidth-1, 1) +& c3Aligned0(0)
   assert(c3Aligned(fracW) === 0.U)
 
   val oneMinusC3 = (1L << fracW).U((fracW+1).W) - c3Aligned
-  assert(oneMinusC3(fracW) === 0.U)
+  assert(oneMinusC3(fracW) === 0.U || oneMinusC3(fracW-1,0).orR === 0.U)
 
   // .........................................................................
   // 4th step
@@ -414,8 +418,10 @@ class SinCosOtherPath(
   // 1 - pi^2y^2/6 + pi^4y^4/120
   // ~ 1 - 1.645y^2 + 0.8117y^4 <= 1
   assert(c5Ex+1.U < exBias.U)
-  val c5Shift    = ((exBias-1).U - c5Ex)(log2Up(1+fracW)-1, 0)
-  val c5Aligned0 = c5ManW1 >> c5Shift
+  val c5Shift0   = ((exBias-1).U - c5Ex)
+  val c5ShiftOut = c5Shift0(exW-1, log2Up(1+fracW)).orR
+  val c5Shift    = c5Shift0(log2Up(1+fracW)-1, 0)
+  val c5Aligned0 = Fill(fracW+1, ~c5ShiftOut) & (c5ManW1 >> c5Shift)
   val c5Aligned  = c5Aligned0(c5Aligned0.getWidth-1, 1) +& c5Aligned0(0)
   assert(c3Aligned >= c5Aligned)
 
@@ -424,8 +430,10 @@ class SinCosOtherPath(
 
   // in case of x < 2^-manW, the result just 1
   val oneMinusC3PlusC5MoreThan1 = oneMinusC3PlusC5(fracW)
-  val oneMinusC3PlusC5ManW1 = oneMinusC3PlusC5 << (~oneMinusC3PlusC5MoreThan1)
+  val oneMinusC3PlusC5ManW1 = Mux(oneMinusC3PlusC5MoreThan1, oneMinusC3PlusC5,
+    Cat(oneMinusC3PlusC5(fracW-1, 0), 0.U(1.W))) // normalize
   val oneMinusC3PlusC5Ex = (exBias - 1).U + oneMinusC3PlusC5MoreThan1
+  assert(oneMinusC3PlusC5ManW1.getWidth == fracW+1)
 
   // .........................................................................
   // 5th step
@@ -433,7 +441,7 @@ class SinCosOtherPath(
   // piy * (1 - pi^2y^2/6 + pi^4y^4/120)
   val (taylorExInc, taylorManW1) = multiply(fracW, piyManW1, fracW, oneMinusC3PlusC5ManW1)
   val taylorManW1Rounded = taylorManW1(fracW, coefPad) +& taylorManW1(coefPad-1)
-  val taylorManW1MoreThan2AfterRound = taylorManW1Rounded(2+fracW-1)
+  val taylorManW1MoreThan2AfterRound = taylorManW1Rounded(2+manW-1)
 
   val zExTaylor  = piyEx + oneMinusC3PlusC5Ex - exBias.U + taylorExInc + taylorManW1MoreThan2AfterRound
   val zManTaylor = taylorManW1Rounded(manW-1, 0)
@@ -474,7 +482,11 @@ class SinCosOtherPath(
   val zEx = Mux(isLinear, zExLinear,
             Mux(isTaylor, zExTaylor,
             Mux(znan,     Fill(exW, 1.U(1.W)),
-            Mux(zone,     exBias.U, 0.U)))) // the last case (0): zzero or isTable
+            Mux(zone,     exBias.U,
+            Mux(zzero,    0.U,
+                          yex)))))
+  // polynomial uses yex as the starting point and add some correction later.
+  // If `y` does not match any of special cases, return yex.
 
   val zMan = Mux(isLinear, zManLinear,
              Mux(isTaylor, zManTaylor,
