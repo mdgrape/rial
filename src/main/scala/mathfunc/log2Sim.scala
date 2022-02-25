@@ -84,13 +84,20 @@ object MathFuncLog2Sim {
     // 1              < log2(1+x) * 2^-xex   < 2^2
     // 0.25           < log2(1+x) * 2^-xex-2 < 1
 
+    val taylorThreshold = -calcTaylorThreshold(spec)
+
     val f = (x: Double) => {
       val f64      = RealSpec.Float64Spec
       val xi       = java.lang.Double.doubleToRawLongBits(x)
       val xex      = slice(f64.manW, f64.exW, xi) - f64.exBias.toLong
-      val baseline = pow(2.0, -xex-2)
-      val z        = log2(1.0 + x)
-      z * baseline
+      val res      = if(xex < taylorThreshold) {
+        0.0
+      } else {
+        val baseline = pow(2.0, -xex-2)
+        val z        = log2(1.0 + x)
+        z * baseline
+      }
+      res
     }
     val tableD = new FuncTableDouble( f, order )
     tableD.addRange(0.0, 1.0, 1<<adrW)
@@ -109,13 +116,20 @@ object MathFuncLog2Sim {
     val log2 = (a:Double) => {log(a) / log(2.0)}
     val fracW = spec.manW + extraBits
 
+    val taylorThreshold = -calcTaylorThreshold(spec)
+
     val f = (x: Double) => {
       val f64      = RealSpec.Float64Spec
       val xi       = java.lang.Double.doubleToRawLongBits(x)
       val xex      = slice(f64.manW, f64.exW, xi) - f64.exBias.toLong
-      val baseline = pow(2.0, -xex-1)
-      val z        = -log2(1.0 - x*0.5)
-      z * baseline
+      val res      = if(xex < taylorThreshold) {
+        0.0
+      } else {
+        val baseline = pow(2.0, -xex-1)
+        val z        = -log2(1.0 - x*0.5)
+        z * baseline
+      }
+      res
     }
 
     val tableD = new FuncTableDouble( f, order )
