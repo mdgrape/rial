@@ -64,6 +64,7 @@ class MathFuncSinTest extends AnyFlatSpec
 
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
+//             println("------------------")
             val xi = generator(spec,r)
             val z0r= reference(xi)
             q += ((xi.value.toBigInt,z0r.value.toBigInt))
@@ -100,23 +101,27 @@ class MathFuncSinTest extends AnyFlatSpec
       }
     }
   }
-  val extraBits = 3
-  val sinF32TableI = MathFuncSinSim.sinTableGeneration( 2, 8, 23, 23+extraBits )
+  val extraBits = 2
+  val sinF32TableI = MathFuncSinSim.sinTableGeneration( 2, 8, 23, 23+extraBits,
+    Some(Seq(27, 24, 24)), Some(Seq(27, 24, 24)) )
 
   runtest(sinF32TableI, RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
-    "Test Within (    -1, 0)",     generateRealWithin(-1.0,0.0,_,_))
+    "Test Within (-2pi, -pi)",     generateRealWithin(-2.0*Pi,-1.0*Pi,_,_))
   runtest(sinF32TableI, RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
-    "Test Within (     0, 2^-13)", generateRealWithin(0.0,pow(2.0, -13) - pow(2.0, -36),_,_))
+    "Test Within (-pi, 0)",     generateRealWithin(-1.0*Pi,0.0,_,_))
   runtest(sinF32TableI, RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
-    "Test Within ( 2^-13, 0.5)",   generateRealWithin(pow(2.0, -13),0.5,_,_))
+    "Test Within (     0, 2^-6)", generateRealWithin(0.0,pow(2.0, -6),_,_))
   runtest(sinF32TableI, RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
-    "Test Within (0.5, 1.0)",      generateRealWithin(0.5,1.0,_,_))
+    "Test Within ( 2^-6, pi/2)",   generateRealWithin(pow(2.0, -6),0.5*Pi,_,_))
   runtest(sinF32TableI, RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
-    "Test Within (1.0, 2.0)",      generateRealWithin(1.0,2.0,_,_))
+    "Test Within (pi/2, pi)",      generateRealWithin(0.5*Pi,1.0*Pi,_,_))
   runtest(sinF32TableI, RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
-    "Test Out of range (2.0, inf)", generateRealWithin(2.0, 1e34,_,_))
+    "Test Within (pi, 2pi)",      generateRealWithin(1.0*Pi,2.0*Pi,_,_))
+
   runtest(sinF32TableI, RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
-    "Test Out of range (-inf, -1)", generateRealWithin(-1e34, -1.0,_,_))
+    "Test Out of range (2pi, 10pi)", generateRealWithin(2.0*Pi, 10.0*Pi,_,_))
+  runtest(sinF32TableI, RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
+    "Test Out of range (-10pi, -pi)", generateRealWithin(-10.0*Pi, -1.0*Pi,_,_))
 }
 
 
@@ -197,8 +202,9 @@ class MathFuncCosTest extends AnyFlatSpec
       }
     }
   }
-  val extraBits = 3
-  val sinF32TableI = MathFuncSinSim.sinTableGeneration( 2, 8, 23, 23+extraBits )
+  val extraBits = 2
+  val sinF32TableI = MathFuncSinSim.sinTableGeneration( 2, 8, 23, 23+extraBits,
+    Some(Seq(27, 24, 24)), Some(Seq(27, 24, 24)) )
   // cos path re-uses sin table.
 
   runtest(sinF32TableI, RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
