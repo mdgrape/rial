@@ -8,7 +8,6 @@ import spire.math.SafeLong
 import spire.math.Numeric
 import spire.implicits._
 
-import rial.math.SinPiSim
 import rial.mathfunc._
 import rial.util.ScalaUtil._
 import rial.testUtil.ScalaTestUtil._ // errorLSB
@@ -116,31 +115,31 @@ class MathFuncSinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     }
   }
 
-  val sinPiF32TableI = SinPiSim.sinPiTableGeneration( 2, 8, 23, 23+3 )
+  val sinF32TableI = MathFuncSinSim.sinTableGeneration( 2, 8, 23, 23+3 )
 
   //XXX error
-  sinTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
+  sinTest(sinF32TableI, RealSpec.Float32Spec, n, r,
     "Test Within [-10pi, -2pi]", generateRealWithin(-10 * Pi, -2 * Pi,_,_), 3)
-  sinTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
+  sinTest(sinF32TableI, RealSpec.Float32Spec, n, r,
     "Test Within [-2pi, -1.5pi]", generateRealWithin(-2 * Pi, -1.5 * Pi,_,_), 3)
-  sinTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
+  sinTest(sinF32TableI, RealSpec.Float32Spec, n, r,
     "Test Within [-1.5pi, -pi]", generateRealWithin(-1.5 * Pi, -Pi,_,_), 3)
-  sinTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
+  sinTest(sinF32TableI, RealSpec.Float32Spec, n, r,
     "Test Within [-pi, -pi/2]", generateRealWithin(-Pi, -0.5 * Pi,_,_), 3)
-  sinTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
+  sinTest(sinF32TableI, RealSpec.Float32Spec, n, r,
     "Test Within [-pi/2, -2^-12pi]", generateRealWithin(-0.5*Pi, -pow(2.0, -12)*Pi,_,_), 3)
-  sinTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
+  sinTest(sinF32TableI, RealSpec.Float32Spec, n, r,
     "Test Within [-2^-12pi, 0]", generateRealWithin(-pow(2.0, -12)*Pi, 0.0,_,_), 3)
-  sinTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
+  sinTest(sinF32TableI, RealSpec.Float32Spec, n, r,
     "Test Within [0, 2^-12pi]", generateRealWithin(0.0, pow(2.0, -12)*Pi,_,_), 3)
-  sinTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
+  sinTest(sinF32TableI, RealSpec.Float32Spec, n, r,
     "Test Within [2^-12pi, pi/2]", generateRealWithin(pow(2.0, -12)*Pi, 0.5*Pi,_,_), 3)
-  sinTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
+  sinTest(sinF32TableI, RealSpec.Float32Spec, n, r,
     "Test Within [pi/2, pi]", generateRealWithin(0.5*Pi, Pi,_,_), 3)
-  sinTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
+  sinTest(sinF32TableI, RealSpec.Float32Spec, n, r,
     "Test Within [pi, 3/2pi]", generateRealWithin(Pi, 1.5*Pi,_,_), 3)
-  sinTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
+  sinTest(sinF32TableI, RealSpec.Float32Spec, n, r,
     "Test Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 3)
-  sinTest(sinPiF32TableI, RealSpec.Float32Spec, n, r,
+  sinTest(sinF32TableI, RealSpec.Float32Spec, n, r,
     "Test Within [2pi, 10pi]", generateRealWithin(2.0 * Pi, 10.0 * Pi,_,_), 3)
 }
