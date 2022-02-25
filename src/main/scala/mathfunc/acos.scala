@@ -246,6 +246,24 @@ object ACosTableCoeff {
         reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
     }
   }
+  def getCalcWidth(
+    spec:     RealSpec,
+    polySpec: PolynomialSpec
+  ): Seq[Int] = {
+
+    val order     = polySpec.order
+    val adrW      = polySpec.adrW
+    val extraBits = polySpec.extraBits
+    val fracW     = polySpec.fracW
+
+    if(order == 0) {
+      return Seq(fracW)
+    } else {
+      return MathFuncACosSim.acosTableGeneration( order, adrW, spec.manW, fracW ).
+        map( t => {t.calcWidth} ).
+        reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
+    }
+  }
 }
 
 // -------------------------------------------------------------------------

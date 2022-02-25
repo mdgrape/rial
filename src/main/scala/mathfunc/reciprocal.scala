@@ -157,6 +157,22 @@ object ReciprocalTableCoeff {
       return ReciprocalSim.reciprocalTableGeneration( order, adrW, spec.manW, fracW ).cbit
     }
   }
+  def getCalcW(
+    spec:     RealSpec,
+    polySpec: PolynomialSpec
+  ): Seq[Int] = {
+
+    val order     = polySpec.order
+    val adrW      = polySpec.adrW
+    val extraBits = polySpec.extraBits
+    val fracW     = polySpec.fracW
+
+    if(order == 0) {
+      return Seq(fracW)
+    } else {
+      return ReciprocalSim.reciprocalTableGeneration( order, adrW, spec.manW, fracW ).calcWidth
+    }
+  }
 }
 
 // -------------------------------------------------------------------------

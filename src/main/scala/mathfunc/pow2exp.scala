@@ -258,6 +258,24 @@ object Pow2TableCoeff {
       return new FuncTableInt(tableD, fracW).cbit
     }
   }
+  def getCalcW(
+    spec:     RealSpec,
+    polySpec: PolynomialSpec
+  ): Seq[Int] = {
+
+    val order     = polySpec.order
+    val adrW      = polySpec.adrW
+    val extraBits = polySpec.extraBits
+    val fracW     = polySpec.fracW
+
+    if(order == 0) {
+      return Seq(fracW)
+    } else {
+      val tableD = new FuncTableDouble( x => pow(2.0,x)-1.0, order )
+      tableD.addRange(0.0, 1.0, 1<<adrW)
+      return new FuncTableInt(tableD, fracW).calcWidth
+    }
+  }
 }
 
 // -------------------------------------------------------------------------

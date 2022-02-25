@@ -257,6 +257,36 @@ object Log2TableCoeff {
         reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
     }
   }
+
+  def getCalcW(
+    spec:     RealSpec,
+    polySpec: PolynomialSpec
+  ): Seq[Int] = {
+
+    val order     = polySpec.order
+    val adrW      = polySpec.adrW
+    val extraBits = polySpec.extraBits
+    val fracW     = polySpec.fracW
+
+    if(order == 0) {
+      return Seq(fracW)
+    } else {
+      val tableNormalI = MathFuncLog2Sim.log2NormalTableGeneration(
+        spec, order, adrW, extraBits)
+      val calcWidthNormal   = tableNormalI.calcWidth
+
+      val tableSmallPos = MathFuncLog2Sim.log2SmallPositiveTableGeneration(
+        spec, order, adrW, extraBits)
+      val calcWidthSmallPos = tableSmallPos.calcWidth
+
+      val tableSmallNeg = MathFuncLog2Sim.log2SmallNegativeTableGeneration(
+        spec, order, adrW, extraBits)
+      val calcWidthSmallNeg = tableSmallNeg.calcWidth
+
+      return Seq(calcWidthNormal, calcWidthSmallPos, calcWidthSmallNeg).
+        reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
+    }
+  }
 }
 
 // -------------------------------------------------------------------------

@@ -89,7 +89,17 @@ class MathFunctions(
   println(f"pow2        cbits = ${Pow2TableCoeff.getCBits(spec, polySpec)}")
   println(f"log2        cbits = ${Log2TableCoeff.getCBits(spec, polySpec)}")
 
-  val maxAdrW  = adrW + 4        // TODO automatically calculate this from spec
+  println(f"acos        calcW = ${ACosTableCoeff.getCalcW(spec, polySpec)}")
+  println(f"sqrt        calcW = ${SqrtTableCoeff.getCalcW(spec, polySpec)}")
+  println(f"invsqrt     calcW = ${InvSqrtTableCoeff.getCalcW(spec, polySpec)}")
+  println(f"rec         calcW = ${ReciprocalTableCoeff.getCalcW(spec, polySpec)}")
+  println(f"sincos      calcW = ${SinCosTableCoeff.getCalcW(spec, polySpec)}")
+  println(f"atan2Stage2 calcW = ${ATan2Stage2TableCoeff.getCalcW(spec, polySpec)}")
+  println(f"pow2        calcW = ${Pow2TableCoeff.getCalcW(spec, polySpec)}")
+  println(f"log2        calcW = ${Log2TableCoeff.getCalcW(spec, polySpec)}")
+
+  val maxAdrW  = adrW + 4 // TODO automatically calculate this from spec
+
   val maxCbit  = Seq(
     ACosTableCoeff.getCBits(spec, polySpec),
     SqrtTableCoeff.getCBits(spec, polySpec),
@@ -100,7 +110,17 @@ class MathFunctions(
     Pow2TableCoeff.getCBits(spec, polySpec),
     Log2TableCoeff.getCBits(spec, polySpec)
     ).reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
-  val maxCalcW = Seq(27, 24, 24) // TODO ditto
+
+  val maxCalcW = Seq(
+    ACosTableCoeff.getCalcW(spec, polySpec),
+    SqrtTableCoeff.getCalcW(spec, polySpec),
+    InvSqrtTableCoeff.getCalcW(spec, polySpec),
+    ReciprocalTableCoeff.getCalcW(spec, polySpec),
+    SinCosTableCoeff.getCalcW(spec, polySpec),
+    ATan2Stage2TableCoeff.getCalcW(spec, polySpec),
+    Pow2TableCoeff.getCalcW(spec, polySpec),
+    Log2TableCoeff.getCalcW(spec, polySpec)
+    ).reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
 
   def getMaxAdrW()  = maxAdrW
   def getMaxCbit()  = maxCbit
