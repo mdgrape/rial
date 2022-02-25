@@ -234,17 +234,16 @@ class SinCosTableCoeff(
   val order     = polySpec.order
 
   val taylorThreshold = MathFuncSinSim.calcTaylorThreshold(manW)
+  val exAdrW = MathFuncSinSim.calcExAdrW(spec)
 
   val io = IO(new Bundle {
     val en  = Input(UInt(1.W))
-    val adr = Input  (UInt(maxAdrW.W))
+    val adr = Input  (UInt((exAdrW+adrW).W))
     val cs  = Flipped(new TableCoeffInput(maxCbit))
   })
 
-  val exAdrW = MathFuncSinSim.calcExAdrW(spec)
   val exAdr  = io.adr(adrW+exAdrW-1, adrW)
   val manAdr = io.adr(adrW-1, 0)
-  assert(adrW+exAdrW <= maxAdrW)
 
   if(order == 0) {
     val tbl = VecInit( (-2 to taylorThreshold by -1).map( exponent => {
