@@ -72,7 +72,9 @@ class MathFuncInvSqrtTest extends AnyFlatSpec
           val maxCbit    = c.getMaxCbit
           val maxCalcW   = c.getMaxCalcW
           val nstage     = c.getStage
-          val reference  = InvSqrtSim.invsqrtSimGeneric( InvSqrtSim.invsqrtTableGeneration( nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit) ), _ )
+          val invsqrtTable = InvSqrtSim.invsqrtTableGeneration(
+            nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit) )
+          val reference  = InvSqrtSim.invsqrtSimGeneric( invsqrtTable, _ )
 
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
@@ -104,7 +106,9 @@ class MathFuncInvSqrtTest extends AnyFlatSpec
                 c.clock.step(1)
               }
 
-              assert(zi == z0d, f"x = (${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman.toLong.toBinaryString}), test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString}) != ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})")
+              assert(zi == z0d, f"x = (${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman.toLong.toBinaryString}), " +
+                                f"test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString}) != " +
+                                f"ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})")
             }
             c.clock.step(1)
           }
@@ -113,14 +117,12 @@ class MathFuncInvSqrtTest extends AnyFlatSpec
     }
   }
 
-//   runtest(RealSpec.BFloat16Spec, 0, 7, 0, PipelineStageConfig.none(),
-//     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-//   runtest(RealSpec.BFloat16Spec, 0, 7, 0, PipelineStageConfig.none(),
-//     n, r, "Test All range",generateRealFull(_,_) )
-
-  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(),
+  val nOrder = 2
+  val adrW = 8
+  val extraBits = 3
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(),
     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(),
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(),
     n, r, "Test All range",generateRealFull(_,_) )
 }
 

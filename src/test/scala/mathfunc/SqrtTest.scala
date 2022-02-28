@@ -72,7 +72,8 @@ class MathFuncSqrtTest extends AnyFlatSpec
           val maxCbit    = c.getMaxCbit
           val maxCalcW   = c.getMaxCalcW
           val nstage     = c.getStage
-          val reference  = SqrtSim.sqrtSimGeneric( SqrtSim.sqrtTableGeneration( nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit) ), _ )
+          val sqrtTable  = SqrtSim.sqrtTableGeneration( nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit) )
+          val reference  = SqrtSim.sqrtSimGeneric( sqrtTable, _ )
 
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
@@ -113,14 +114,13 @@ class MathFuncSqrtTest extends AnyFlatSpec
     }
   }
 
-//   runtest(RealSpec.BFloat16Spec, 0, 7, 0, PipelineStageConfig.none(),
-//     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-//   runtest(RealSpec.BFloat16Spec, 0, 7, 0, PipelineStageConfig.none(),
-//     n, r, "Test All range",generateRealFull(_,_) )
+  val nOrder = 2
+  val adrW = 8
+  val extraBits = 3
 
-  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(),
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(),
     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(),
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(),
     n, r, "Test All range",generateRealFull(_,_) )
 }
 
