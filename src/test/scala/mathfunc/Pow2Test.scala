@@ -90,7 +90,8 @@ class MathFuncPow2Test extends AnyFlatSpec
           val maxCbit    = c.getMaxCbit
           val maxCalcW   = c.getMaxCalcW
           val nstage     = c.getStage
-          val reftable   = ExponentialSim.pow2TableGeneration( nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit) )
+          val reftable   = ExponentialSim.pow2TableGeneration(
+            nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit) )
           val reference  = MathFuncPow2Sim.pow2SimGeneric(reftable, _ )
 
           val q  = new Queue[(BigInt,BigInt)]
@@ -119,7 +120,9 @@ class MathFuncPow2Test extends AnyFlatSpec
               val z0dman = z0d & maskSL(spec.manW)
 
               c.io.z.expect(z0d.U(spec.W.W))
-              assert(zi == z0d, f"x = (${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman.toLong.toBinaryString}), test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString}) != ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})")
+              assert(zi == z0d, f"x = ${new RealGeneric(spec, xid).toDouble}(${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman.toLong.toBinaryString}), " +
+                                f"test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString}) != " +
+                                f"ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})")
             }
             c.clock.step(1)
           }
@@ -128,24 +131,28 @@ class MathFuncPow2Test extends AnyFlatSpec
     }
   }
 
-  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
+  val nOrder = 2
+  val adrW = 8
+  val extraBits = 3
+
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r,
     "Test Safe Positive [1, 128]", generateRealWithin(1.0, 129.0,_,_))
-  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r,
     "Test Safe Negative [-127, -1]", generateRealWithin(-129.0, -1.0,_,_))
 
-  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r,
     "Test Large Positive [127, inf]", generateRealWithin(127.0, Double.PositiveInfinity,_,_), /*disableTimeout = */ true)
-  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r,
     "Test Large Negative [-inf, -126]", generateRealWithin(Double.NegativeInfinity, -126.0,_,_), true)
 
-  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r,
     "Test Small Positive [2^-7, 1]", generateRealWithin(pow(2.0, -7),1.0,_,_))
-  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r,
     "Test Small Negative [-1, -2^-7]", generateRealWithin(-1.0, -pow(2.0, -7),_,_))
 
-  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r,
     "Test Tiny Positive [0, 2^-7]", generateRealWithin(0.0, pow(2.0, -7),_,_))
-  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r,
     "Test Tiny Negative [-2^-7, 0]", generateRealWithin(-pow(2.0, -7), 0.0,_,_))
 
 }

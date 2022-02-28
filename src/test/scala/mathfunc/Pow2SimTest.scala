@@ -149,8 +149,12 @@ class MathFuncPow2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     }
   }
 
+  val nOrder = 2
+  val adrW = 8
+  val extraBits = 3
+
   val pow2F32TableI = ExponentialSim.pow2TableGeneration(
-    2, 8, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+2)
+    nOrder, adrW, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBits)
 
   pow2Test(pow2F32TableI, RealSpec.Float32Spec, n, r,
     "Test Safe Positive [1, 127]", generateRealWithin(1.0, 127.0,_,_), 2)
