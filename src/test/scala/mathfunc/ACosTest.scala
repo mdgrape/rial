@@ -56,7 +56,6 @@ class MathFuncACosTest extends AnyFlatSpec
   }
 
   private def runtest ( spec : RealSpec,
-      ts : Seq[FuncTableInt], tSqrt : FuncTableInt,
       nOrder : Int, adrW : Int, extraBits : Int, stage : PipelineStageConfig,
       n : Int, r : Random, generatorStr : String,
       generator : ( (RealSpec, Random) => RealGeneric)
@@ -69,7 +68,14 @@ class MathFuncACosTest extends AnyFlatSpec
           val maxCbit    = c.getMaxCbit
           val maxCalcW   = c.getMaxCalcW
           val nstage     = c.getStage
-          val reference  = MathFuncACosSim.acosSimGeneric( ts, tSqrt, _ )
+          val acosF32TableI = MathFuncACosSim.acosTableGeneration(nOrder, adrW,
+            RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBits,
+            Some(maxCalcW), Some(maxCbit))
+          val sqrtF32TableI = MathFuncACosSim.sqrtTableGeneration(nOrder, adrW,
+            RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBits,
+            Some(maxCalcW), Some(maxCbit))
+
+          val reference  = MathFuncACosSim.acosSimGeneric(acosF32TableI, sqrtF32TableI, _ )
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
             val xi = generator(spec,r)
@@ -109,24 +115,19 @@ class MathFuncACosTest extends AnyFlatSpec
     }
   }
 
-  val acosF32TableI = MathFuncACosSim.acosTableGeneration(
-    2, 8, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+2,
-    Some(Seq(27, 24, 24)), Some(Seq(27, 24, 24)))
-
-  val sqrtF32TableI = MathFuncACosSim.sqrtTableGeneration(
-    2, 8, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+2,
-    Some(Seq(27, 24, 24)), Some(Seq(27, 24, 24)))
-
-  runtest(RealSpec.Float32Spec, acosF32TableI, sqrtF32TableI, 2, 8, 2, PipelineStageConfig.none(),
+  val nOrder = 2
+  val adrW = 8
+  val extraBits = 3
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(),
     n, r, "Test Within (-1, -1+2^-4)",     generateRealWithin(-1.0, -1.0+pow(2.0, -4)-pow(2.0, -23),_,_))
-  runtest(RealSpec.Float32Spec, acosF32TableI, sqrtF32TableI, 2, 8, 2, PipelineStageConfig.none(),
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(),
     n, r, "Test Within (-1+2^-4,  -2^-4)",    generateRealWithin(-1.0+pow(2.0, -4), -pow(2.0, -4),_,_))
-  runtest(RealSpec.Float32Spec, acosF32TableI, sqrtF32TableI, 2, 8, 2, PipelineStageConfig.none(),
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(),
     n, r, "Test Within (-2^-4, 0)",   generateRealWithin(-pow(2.0, -4), 0,_,_))
-  runtest(RealSpec.Float32Spec, acosF32TableI, sqrtF32TableI, 2, 8, 2, PipelineStageConfig.none(),
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(),
     n, r, "Test Within ( 0, 2^-4)",     generateRealWithin(0,pow(2.0, -4),_,_))
-  runtest(RealSpec.Float32Spec, acosF32TableI, sqrtF32TableI, 2, 8, 2, PipelineStageConfig.none(),
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(),
     n, r, "Test Within ( 2^-4,  1-2^-4)",     generateRealWithin(pow(2.0, -4), 1.0 - pow(2.0, -4),_,_))
-  runtest(RealSpec.Float32Spec, acosF32TableI, sqrtF32TableI, 2, 8, 2, PipelineStageConfig.none(),
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(),
     n, r, "Test Within (1-2^-4, 1)",     generateRealWithin(1.0-pow(2.0, -4)+pow(2.0, -23), 1.0,_,_))
 }

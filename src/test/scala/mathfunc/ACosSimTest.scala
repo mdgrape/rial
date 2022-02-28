@@ -122,11 +122,12 @@ class MathFuncACosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     }
   }
 
-  val acosF32Table = MathFuncACosSim.acosTableGeneration(
-    2, 8, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+2)
+  val extraBits    = 3
 
+  val acosF32Table = MathFuncACosSim.acosTableGeneration(
+    2, 8, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBits)
   val sqrtF32Table = MathFuncACosSim.sqrtTableGeneration(
-    2, 8, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+2)
+    2, 8, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBits)
 
   acosTest(acosF32Table, sqrtF32Table, RealSpec.Float32Spec, n, r,
     "Test Taylor: close to 0.0:  [0.0, -2^-4]", generateRealWithin(-pow(2.0, -4), 0.0,_,_), 3) // 2ULPs
