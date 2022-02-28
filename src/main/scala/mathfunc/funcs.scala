@@ -57,10 +57,44 @@ class DecomposeReal(val spec: RealSpec) extends Module {
   io.decomp.nan  := nan
 }
 
+class MathFuncPipelineConfig(
+  val preProcessStage: PipelineStageConfig,
+  val polynomialStage: PipelineStageConfig,
+  val postProcessStage: PipelineStageConfig,
+  val prePolyGap: Boolean,
+  val polyPostGap: Boolean,
+  ) {
+
+  def total = {
+    preProcessStage.total +
+    polynomialStage.total +
+    postProcessStage.total +
+    (if(prePolyGap){1} else {0}) +
+    (if(polyPostGap){1} else {0})
+  }
+  def getString() = {
+    f"pre:${preProcessStage.getString()}, " +
+    f"polynomial:${polynomialStage.getString()}, " +
+    f"post: ${postProcessStage.getString}, " +
+    f"pre-poly: ${prePolyGap}, poly-post: ${polyPostGap}"
+  }
+}
+
+object MathFuncPipelineConfig {
+  def none(): MathFuncPipelineConfig = {
+    new MathFuncPipelineConfig(
+      PipelineStageConfig.none,
+      PipelineStageConfig.none,
+      PipelineStageConfig.none,
+      false,
+      false)
+  }
+}
+
 class MathFunctions(
   val spec : RealSpec, // Input / Output floating spec
   val nOrder: Int, val adrW : Int, val extraBits : Int, // Polynomial spec
-  val stage : PipelineStageConfig,
+  val stage : MathFuncPipelineConfig,
   val enableRangeCheck : Boolean = true,
   val enablePolynomialRounding : Boolean = false,
 ) extends Module {
@@ -137,10 +171,10 @@ class MathFunctions(
   //            |
   // now we are here
 
-  val acosPre   = Module(new ACosPreProcess (spec, polySpec, stage))
+  val acosPre   = Module(new ACosPreProcess (spec, polySpec, stage.preProcessStage))
   val acosTab   = Module(new ACosTableCoeff (spec, polySpec, maxCbit))
-  val acosOther = Module(new ACosOtherPath  (spec, polySpec, stage))
-  val acosPost  = Module(new ACosPostProcess(spec, polySpec, stage))
+  val acosOther = Module(new ACosOtherPath  (spec, polySpec, stage.polynomialStage))
+  val acosPost  = Module(new ACosPostProcess(spec, polySpec, stage.postProcessStage))
 
   acosPre.io.en        := (io.sel === SelectFunc.ACos)
   acosPre.io.x         := xdecomp.io.decomp
@@ -161,10 +195,10 @@ class MathFunctions(
     assert(acosTab.io.cs.asUInt === 0.U)
   }
 
-  val sqrtPre   = Module(new SqrtPreProcess (spec, polySpec, stage))
+  val sqrtPre   = Module(new SqrtPreProcess (spec, polySpec, stage.preProcessStage))
   val sqrtTab   = Module(new SqrtTableCoeff (spec, polySpec, maxCbit))
-  val sqrtOther = Module(new SqrtOtherPath  (spec, polySpec, stage))
-  val sqrtPost  = Module(new SqrtPostProcess(spec, polySpec, stage))
+  val sqrtOther = Module(new SqrtOtherPath  (spec, polySpec, stage.polynomialStage))
+  val sqrtPost  = Module(new SqrtPostProcess(spec, polySpec, stage.postProcessStage))
 
   sqrtPre.io.en  := (io.sel === SelectFunc.Sqrt || io.sel === SelectFunc.InvSqrt)
   sqrtPre.io.x   := xdecomp.io.decomp
@@ -184,8 +218,8 @@ class MathFunctions(
   }
 
   val invsqrtTab   = Module(new InvSqrtTableCoeff (spec, polySpec, maxCbit))
-  val invsqrtOther = Module(new InvSqrtOtherPath  (spec, polySpec, stage))
-  val invsqrtPost  = Module(new InvSqrtPostProcess(spec, polySpec, stage))
+  val invsqrtOther = Module(new InvSqrtOtherPath  (spec, polySpec, stage.polynomialStage))
+  val invsqrtPost  = Module(new InvSqrtPostProcess(spec, polySpec, stage.postProcessStage))
 
   invsqrtTab.io.en  := io.sel === SelectFunc.InvSqrt
   invsqrtTab.io.adr := sqrtPre.io.adr
@@ -195,10 +229,10 @@ class MathFunctions(
     assert(invsqrtTab.io.cs.asUInt === 0.U)
   }
 
-  val recPre   = Module(new ReciprocalPreProcess (spec, polySpec, stage))
+  val recPre   = Module(new ReciprocalPreProcess (spec, polySpec, stage.preProcessStage))
   val recTab   = Module(new ReciprocalTableCoeff (spec, polySpec, maxCbit))
-  val recOther = Module(new ReciprocalOtherPath  (spec, polySpec, stage))
-  val recPost  = Module(new ReciprocalPostProcess(spec, polySpec, stage))
+  val recOther = Module(new ReciprocalOtherPath  (spec, polySpec, stage.polynomialStage))
+  val recPost  = Module(new ReciprocalPostProcess(spec, polySpec, stage.postProcessStage))
 
   // atan2 uses reciprocal 1/max(x,y) to calculate min(x,y)/max(x,y).
   val recUseY = (io.sel === SelectFunc.ATan2Stage1) && yIsLarger
@@ -221,10 +255,10 @@ class MathFunctions(
     assert(recTab.io.cs.asUInt === 0.U)
   }
 
-  val sincosPre   = Module(new SinCosPreProcess (spec, polySpec, stage))
+  val sincosPre   = Module(new SinCosPreProcess (spec, polySpec, stage.preProcessStage))
   val sincosTab   = Module(new SinCosTableCoeff (spec, polySpec, maxCbit))
-  val sincosOther = Module(new SinCosOtherPath  (spec, polySpec, stage))
-  val sincosPost  = Module(new SinCosPostProcess(spec, polySpec, stage))
+  val sincosOther = Module(new SinCosOtherPath  (spec, polySpec, stage.polynomialStage))
+  val sincosPost  = Module(new SinCosPostProcess(spec, polySpec, stage.postProcessStage))
 
   sincosPre.io.en    := (io.sel === SelectFunc.Sin) || (io.sel === SelectFunc.Cos)
   sincosPre.io.isSin := (io.sel === SelectFunc.Sin)
@@ -247,9 +281,9 @@ class MathFunctions(
     assert(sincosTab.io.cs.asUInt === 0.U)
   }
 
-  val atan2Stage1Pre   = Module(new ATan2Stage1PreProcess (spec, polySpec, stage))
-  val atan2Stage1Other = Module(new ATan2Stage1OtherPath  (spec, polySpec, stage))
-  val atan2Stage1Post  = Module(new ATan2Stage1PostProcess(spec, polySpec, stage))
+  val atan2Stage1Pre   = Module(new ATan2Stage1PreProcess (spec, polySpec, stage.preProcessStage))
+  val atan2Stage1Other = Module(new ATan2Stage1OtherPath  (spec, polySpec, stage.polynomialStage))
+  val atan2Stage1Post  = Module(new ATan2Stage1PostProcess(spec, polySpec, stage.postProcessStage))
 
   // atan2Stage1Pre checks if x and y are special values.
   // for calculation, reciprocal is re-used.
@@ -261,10 +295,10 @@ class MathFunctions(
   atan2Stage1Other.io.y := ydecomp.io.decomp
   atan2Stage1Other.io.yIsLarger := yIsLarger
 
-  val atan2Stage2Pre   = Module(new ATan2Stage2PreProcess (spec, polySpec, stage))
+  val atan2Stage2Pre   = Module(new ATan2Stage2PreProcess (spec, polySpec, stage.preProcessStage))
   val atan2Stage2Tab   = Module(new ATan2Stage2TableCoeff (spec, polySpec, maxCbit))
-  val atan2Stage2Other = Module(new ATan2Stage2OtherPath  (spec, polySpec, stage))
-  val atan2Stage2Post  = Module(new ATan2Stage2PostProcess(spec, polySpec, stage))
+  val atan2Stage2Other = Module(new ATan2Stage2OtherPath  (spec, polySpec, stage.polynomialStage))
+  val atan2Stage2Post  = Module(new ATan2Stage2PostProcess(spec, polySpec, stage.postProcessStage))
   atan2Stage2Pre.io.en  := (io.sel === SelectFunc.ATan2Stage2)
   atan2Stage2Pre.io.x   := xdecomp.io.decomp
   atan2Stage2Tab.io.en  := (io.sel === SelectFunc.ATan2Stage2)
@@ -295,10 +329,10 @@ class MathFunctions(
   }
   atan2Stage2Other.io.flags := atan2FlagReg
 
-  val pow2Pre   = Module(new Pow2PreProcess (spec, polySpec, stage))
+  val pow2Pre   = Module(new Pow2PreProcess (spec, polySpec, stage.preProcessStage))
   val pow2Tab   = Module(new Pow2TableCoeff (spec, polySpec, maxCbit))
-  val pow2Other = Module(new Pow2OtherPath  (spec, polySpec, stage))
-  val pow2Post  = Module(new Pow2PostProcess(spec, polySpec, stage))
+  val pow2Other = Module(new Pow2OtherPath  (spec, polySpec, stage.polynomialStage))
+  val pow2Post  = Module(new Pow2PostProcess(spec, polySpec, stage.postProcessStage))
 
   pow2Pre.io.en     := (io.sel === SelectFunc.Exp) || (io.sel === SelectFunc.Pow2)
   pow2Pre.io.isexp  := (io.sel === SelectFunc.Exp)
@@ -324,10 +358,10 @@ class MathFunctions(
     assert(pow2Tab.io.cs.asUInt === 0.U)
   }
 
-  val log2Pre   = Module(new Log2PreProcess (spec, polySpec, stage))
+  val log2Pre   = Module(new Log2PreProcess (spec, polySpec, stage.preProcessStage))
   val log2Tab   = Module(new Log2TableCoeff (spec, polySpec, maxCbit))
-  val log2Other = Module(new Log2OtherPath  (spec, polySpec, stage))
-  val log2Post  = Module(new Log2PostProcess(spec, polySpec, stage))
+  val log2Other = Module(new Log2OtherPath  (spec, polySpec, stage.polynomialStage))
+  val log2Post  = Module(new Log2PostProcess(spec, polySpec, stage.postProcessStage))
 
   log2Pre.io.en      := (io.sel === SelectFunc.Log) || (io.sel === SelectFunc.Log2)
   log2Pre.io.x       := xdecomp.io.decomp
@@ -360,7 +394,7 @@ class MathFunctions(
   //           '--| non-table path (e.g. taylor)   |-'
   //              '--------------------------------'
 
-  val polynomialEval = Module(new PolynomialEval(spec, polySpec, maxCbit, stage))
+  val polynomialEval = Module(new PolynomialEval(spec, polySpec, maxCbit, stage.polynomialStage))
 
   if(order != 0) {
     polynomialEval.io.dx.get := sqrtPre.io.dx.get |
@@ -447,12 +481,12 @@ class MathFunctions(
   io.z := ShiftRegister(z0, stage.total)
 }
 
-class MathFuncUnit( stage : PipelineStageConfig )
+class MathFuncUnit( stage : MathFuncPipelineConfig )
     extends MathFunctions( RealSpec.Float32Spec, 2, 8, 3, stage) {
 }
 
 object MathFuncUnit_driver extends App {
   (new chisel3.stage.ChiselStage).execute(args,
-    Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new MathFuncUnit(PipelineStageConfig.none)) ) )
+    Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new MathFuncUnit(MathFuncPipelineConfig.none())) ) )
 }
 

@@ -60,7 +60,7 @@ class MathFuncSqrtTest extends AnyFlatSpec
   }
 
   private def runtest ( spec : RealSpec,
-      nOrder : Int, adrW : Int, extraBits : Int, stage : PipelineStageConfig,
+      nOrder : Int, adrW : Int, extraBits : Int, stage: MathFuncPipelineConfig,
       n : Int, r : Random, generatorStr : String,
       generator : ( (RealSpec, Random) => RealGeneric)
   ) = {
@@ -118,9 +118,9 @@ class MathFuncSqrtTest extends AnyFlatSpec
   val adrW = 8
   val extraBits = 3
 
-  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(),
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, MathFuncPipelineConfig.none(),
     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(),
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, MathFuncPipelineConfig.none(),
     n, r, "Test All range",generateRealFull(_,_) )
 }
 

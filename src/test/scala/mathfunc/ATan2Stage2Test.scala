@@ -60,7 +60,7 @@ class MathFuncATan2Stage2Test extends AnyFlatSpec
   }
 
   private def runtest ( spec : RealSpec,
-      nOrder : Int, adrW : Int, extraBits : Int, stage : PipelineStageConfig,
+      nOrder : Int, adrW : Int, extraBits : Int, stage: MathFuncPipelineConfig,
       n : Int, r : Random, generatorStr : String,
       generatorYoverX : ( (RealSpec, Random) => RealGeneric)
   ) = {
@@ -165,10 +165,10 @@ class MathFuncATan2Stage2Test extends AnyFlatSpec
   val adrW   = 8
   val extraBits = 3
 
-  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r, "Test Within 2^24  < y/x < inf",   generateRealWithin(pow(2.0,  24), pow(2.0, 128),_,_))
-  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r, "Test Within 2^12  < y/x < 2^24",  generateRealWithin(pow(2.0,  12), pow(2.0,  24),_,_))
-  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r, "Test Within 1     < y/x < 2^12",  generateRealWithin(pow(2.0,   0), pow(2.0,  12),_,_))
-  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r, "Test Within 2^-12 < y/x < 1",     generateRealWithin(pow(2.0, -12), pow(2.0,   0),_,_))
-  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r, "Test Within 0     < y/x < 2^-12", generateRealWithin(         0.0 , pow(2.0, -12),_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, MathFuncPipelineConfig.none(), n, r, "Test Within 2^24  < y/x < inf",   generateRealWithin(pow(2.0,  24), pow(2.0, 128),_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, MathFuncPipelineConfig.none(), n, r, "Test Within 2^12  < y/x < 2^24",  generateRealWithin(pow(2.0,  12), pow(2.0,  24),_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, MathFuncPipelineConfig.none(), n, r, "Test Within 1     < y/x < 2^12",  generateRealWithin(pow(2.0,   0), pow(2.0,  12),_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, MathFuncPipelineConfig.none(), n, r, "Test Within 2^-12 < y/x < 1",     generateRealWithin(pow(2.0, -12), pow(2.0,   0),_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, MathFuncPipelineConfig.none(), n, r, "Test Within 0     < y/x < 2^-12", generateRealWithin(         0.0 , pow(2.0, -12),_,_))
 }
 
