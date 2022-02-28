@@ -74,13 +74,12 @@ class MathFuncLog2Test extends AnyFlatSpec
           val maxCbits   = c.getMaxCbit
           val maxCalcW   = c.getMaxCalcW
 
-          val log2F32TableI = Log2Sim.log2TableGeneration(
-            2, 8, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+2,
-            Some(maxCalcW), Some(maxCbits))
+          val log2F32TableI = MathFuncLog2Sim.log2NormalTableGeneration(
+            RealSpec.Float32Spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
           val log2F32SmallPositiveTableI = MathFuncLog2Sim.log2SmallPositiveTableGeneration(
-            RealSpec.Float32Spec, 2, 8, 2, Some(maxCalcW), Some(maxCbits))
+            RealSpec.Float32Spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
           val log2F32SmallNegativeTableI = MathFuncLog2Sim.log2SmallNegativeTableGeneration(
-            RealSpec.Float32Spec, 2, 8, 2, Some(maxCalcW), Some(maxCbits))
+            RealSpec.Float32Spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
 
           val reference  = MathFuncLog2Sim.log2SimGeneric(
             log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, _ )
@@ -142,21 +141,23 @@ class MathFuncLog2Test extends AnyFlatSpec
     }
   }
 
-  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
+  val extraBits = 3
+
+  runtest(RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
     "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))
-  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
     "Test Small More Than 1 [1+2^-8, 2]",   generateRealWithin(1.0 + pow(2.0, -8), 2.0,_,_))
-  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
     "Test Taylor More Than 1 [1, 1+2^-8]",   generateRealWithin(1.0, 1.0 + pow(2.0, -8),_,_))
 
-  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
     "Test Taylor Less Than 1 [1-2^-8, 1]", generateRealWithin(1.0-pow(2.0, -8.0),1.0,_,_))
-  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
     "Test Small Less Than 1 [0.5, 1-2^-8]", generateRealWithin(0.5,1.0-pow(2.0, -8.0),_,_))
-  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
     "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5-pow(2.0, -24),_,_))
 
-  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
     "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_),
     /*disableTimeout = */ true)
 }

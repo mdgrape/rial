@@ -122,12 +122,10 @@ class MathFuncLogSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     }
   }
 
-  val log2F32TableI = Log2Sim.log2TableGeneration(
-    2, 8, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+3,
-    Some(Seq(27, 21, 20)), Some(Seq(27, 22, 20)))
-
-  val log2F32SmallPositiveTableI = MathFuncLog2Sim.log2SmallPositiveTableGeneration(RealSpec.Float32Spec, 2,8,3)
-  val log2F32SmallNegativeTableI = MathFuncLog2Sim.log2SmallNegativeTableGeneration(RealSpec.Float32Spec, 2,8,3)
+  val extraBits = 3
+  val log2F32TableI              = MathFuncLog2Sim.log2NormalTableGeneration(RealSpec.Float32Spec, 2,8,extraBits)
+  val log2F32SmallPositiveTableI = MathFuncLog2Sim.log2SmallPositiveTableGeneration(RealSpec.Float32Spec, 2,8,extraBits)
+  val log2F32SmallNegativeTableI = MathFuncLog2Sim.log2SmallNegativeTableGeneration(RealSpec.Float32Spec, 2,8,extraBits)
 
   logTest(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
     "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_), 3)
