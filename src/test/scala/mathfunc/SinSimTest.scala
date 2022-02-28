@@ -115,9 +115,12 @@ class MathFuncSinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     }
   }
 
-  val sinF32TableI = MathFuncSinSim.sinTableGeneration( 2, 8, 23, 23+3 )
+  val nOrder = 2
+  val adrW = 8
+  val extraBits = 3
+  val sinF32TableI = MathFuncSinSim.sinTableGeneration(
+    nOrder, adrW, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBits)
 
-  //XXX error
   sinTest(sinF32TableI, RealSpec.Float32Spec, n, r,
     "Test Within [-10pi, -2pi]", generateRealWithin(-10 * Pi, -2 * Pi,_,_), 3)
   sinTest(sinF32TableI, RealSpec.Float32Spec, n, r,

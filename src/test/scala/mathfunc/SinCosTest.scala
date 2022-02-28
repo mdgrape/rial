@@ -47,7 +47,7 @@ class MathFuncSinTest extends AnyFlatSpec
     java.lang.Math.scalb(err, -x.exNorm+x.spec.manW)
   }
 
-  private def runtest ( table: Seq[FuncTableInt], spec : RealSpec,
+  private def runtest (spec : RealSpec,
       nOrder : Int, adrW : Int, extraBits : Int, stage : PipelineStageConfig,
       n : Int, r : Random, generatorStr : String,
       generator : ( (RealSpec, Random) => RealGeneric)
@@ -60,7 +60,11 @@ class MathFuncSinTest extends AnyFlatSpec
           val maxCbit    = c.getMaxCbit
           val maxCalcW   = c.getMaxCalcW
           val nstage     = c.getStage
-          val reference  = MathFuncSinSim.sinSimGeneric(table, _ )
+
+          val sinF32TableI = MathFuncSinSim.sinTableGeneration(
+            nOrder, adrW, spec.manW, spec.manW+extraBits,
+            Some(maxCalcW), Some(maxCbit) )
+          val reference  = MathFuncSinSim.sinSimGeneric(sinF32TableI, _ )
 
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
@@ -93,7 +97,9 @@ class MathFuncSinTest extends AnyFlatSpec
                 c.clock.step(1)
               }
 
-              assert(zi == z0d, f"x = (${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman.toLong.toBinaryString}), test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString}) != ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})")
+              assert(zi == z0d, f"x =  ${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman.toLong.toBinaryString}(${new RealGeneric(spec, xidsgn, xidexp.toInt, xidman).toDouble}), " +
+                                f"test ${zisgn }|${ziexp }(${ziexp  - spec.exBias})|${ziman.toLong.toBinaryString }(${new RealGeneric(spec, zisgn , ziexp .toInt, ziman ).toDouble}) != " +
+                                f"ref  ${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString}(${new RealGeneric(spec, z0dsgn, z0dexp.toInt, z0dman).toDouble})")
             }
             c.clock.step(1)
           }
@@ -101,26 +107,26 @@ class MathFuncSinTest extends AnyFlatSpec
       }
     }
   }
-  val extraBits = 2
-  val sinF32TableI = MathFuncSinSim.sinTableGeneration( 2, 8, 23, 23+extraBits,
-    Some(Seq(27, 24, 24)), Some(Seq(27, 24, 24)) )
+  val nOrder = 2
+  val adrW = 8
+  val extraBits = 3
 
-  runtest(sinF32TableI, RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r,
     "Test Within (-2pi, -pi)",     generateRealWithin(-2.0*Pi,-1.0*Pi,_,_))
-  runtest(sinF32TableI, RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r,
     "Test Within (-pi, 0)",     generateRealWithin(-1.0*Pi,0.0,_,_))
-  runtest(sinF32TableI, RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r,
     "Test Within (     0, 2^-6)", generateRealWithin(0.0,pow(2.0, -6),_,_))
-  runtest(sinF32TableI, RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r,
     "Test Within ( 2^-6, pi/2)",   generateRealWithin(pow(2.0, -6),0.5*Pi,_,_))
-  runtest(sinF32TableI, RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r,
     "Test Within (pi/2, pi)",      generateRealWithin(0.5*Pi,1.0*Pi,_,_))
-  runtest(sinF32TableI, RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r,
     "Test Within (pi, 2pi)",      generateRealWithin(1.0*Pi,2.0*Pi,_,_))
 
-  runtest(sinF32TableI, RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r,
     "Test Out of range (2pi, 10pi)", generateRealWithin(2.0*Pi, 10.0*Pi,_,_))
-  runtest(sinF32TableI, RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r,
     "Test Out of range (-10pi, -pi)", generateRealWithin(-10.0*Pi, -1.0*Pi,_,_))
 }
 
@@ -149,7 +155,7 @@ class MathFuncCosTest extends AnyFlatSpec
     java.lang.Math.scalb(err, -x.exNorm+x.spec.manW)
   }
 
-  private def runtest ( table: Seq[FuncTableInt], spec : RealSpec,
+  private def runtest (spec : RealSpec,
       nOrder : Int, adrW : Int, extraBits : Int, stage : PipelineStageConfig,
       n : Int, r : Random, generatorStr : String,
       generator : ( (RealSpec, Random) => RealGeneric)
@@ -162,7 +168,11 @@ class MathFuncCosTest extends AnyFlatSpec
           val maxCbit    = c.getMaxCbit
           val maxCalcW   = c.getMaxCalcW
           val nstage     = c.getStage
-          val reference  = MathFuncCosSim.cosSimGeneric(table, _ )
+
+          val sinF32TableI = MathFuncSinSim.sinTableGeneration(
+            nOrder, adrW, spec.manW, spec.manW+extraBits,
+            Some(maxCalcW), Some(maxCbit) )
+          val reference  = MathFuncCosSim.cosSimGeneric(sinF32TableI, _ )
 
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
@@ -194,7 +204,9 @@ class MathFuncCosTest extends AnyFlatSpec
                 c.clock.step(1)
               }
 
-              assert(zi == z0d, f"x = (${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman.toLong.toBinaryString}), test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString}) != ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})")
+              assert(zi == z0d, f"x =  ${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman.toLong.toBinaryString}(${new RealGeneric(spec, xidsgn, xidexp.toInt, xidman).toDouble}), " +
+                                f"test ${zisgn }|${ziexp }(${ziexp  - spec.exBias})|${ziman.toLong.toBinaryString }(${new RealGeneric(spec, zisgn , ziexp .toInt, ziman ).toDouble}) != " +
+                                f"ref  ${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString}(${new RealGeneric(spec, z0dsgn, z0dexp.toInt, z0dman).toDouble})")
             }
             c.clock.step(1)
           }
@@ -202,26 +214,26 @@ class MathFuncCosTest extends AnyFlatSpec
       }
     }
   }
-  val extraBits = 2
-  val sinF32TableI = MathFuncSinSim.sinTableGeneration( 2, 8, 23, 23+extraBits,
-    Some(Seq(27, 24, 24)), Some(Seq(27, 24, 24)) )
+  val nOrder = 2
+  val adrW = 8
+  val extraBits = 3
   // cos path re-uses sin table.
 
-  runtest(sinF32TableI, RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r,
     "Test Within (-2pi, -pi)",     generateRealWithin(-2.0*Pi,-1.0*Pi,_,_))
-  runtest(sinF32TableI, RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r,
     "Test Within (-pi, 0)",     generateRealWithin(-1.0*Pi,0.0,_,_))
-  runtest(sinF32TableI, RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r,
     "Test Within (     0, 2^-6)", generateRealWithin(0.0,pow(2.0, -6),_,_))
-  runtest(sinF32TableI, RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r,
     "Test Within ( 2^-6, pi/2)",   generateRealWithin(pow(2.0, -6),0.5*Pi,_,_))
-  runtest(sinF32TableI, RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r,
     "Test Within (pi/2, pi)",      generateRealWithin(0.5*Pi,1.0*Pi,_,_))
-  runtest(sinF32TableI, RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r,
     "Test Within (pi, 2pi)",      generateRealWithin(1.0*Pi,2.0*Pi,_,_))
 
-  runtest(sinF32TableI, RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r,
     "Test Out of range (2pi, 10pi)", generateRealWithin(2.0*Pi, 10.0*Pi,_,_))
-  runtest(sinF32TableI, RealSpec.Float32Spec, 2, 8, extraBits, PipelineStageConfig.none(), n, r,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r,
     "Test Out of range (-10pi, -pi)", generateRealWithin(-10.0*Pi, -1.0*Pi,_,_))}
 

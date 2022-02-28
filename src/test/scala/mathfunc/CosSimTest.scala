@@ -128,7 +128,11 @@ class MathFuncCosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     }
   }
 
-  val sinF32TableI = MathFuncSinSim.sinTableGeneration( 2, 8, 23, 23+3 )
+  val nOrder = 2
+  val adrW = 8
+  val extraBits = 3
+  val sinF32TableI = MathFuncSinSim.sinTableGeneration(
+    nOrder, adrW, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBits)
 
   //XXX allowing error in 2ULPs
 
