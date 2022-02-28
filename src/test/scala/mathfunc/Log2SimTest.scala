@@ -144,11 +144,11 @@ class MathFuncLog2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
     "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_), 1)
   log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
-    "Test Small More Than 1 [1, 1+2^-11]",   generateRealWithin(1.0, 1.0+pow(2.0, -11) - pow(2.0,-23),_,_), 1)
+    "Test Small More Than 1 [1, 1+2^-8]",   generateRealWithin(1.0, 1.0+pow(2.0, -8) - pow(2.0,-23),_,_), 1)
   log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
-    "Test Small More Than 1 [1-2^-11, 1]",   generateRealWithin(1.0-pow(2.0, -11) + pow(2.0,-23), 1.0,_,_), 1)
+    "Test Small More Than 1 [1-2^-8, 1]",   generateRealWithin(1.0-pow(2.0, -8) + pow(2.0,-23), 1.0,_,_), 1)
   log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
-    "Test Small More Than 1 [1, 2]",   generateRealWithin(1.0+pow(2.0, -11), 2.0,_,_), 2)
+    "Test Small More Than 1 [1, 2]",   generateRealWithin(1.0+pow(2.0, -8), 2.0,_,_), 2)
 
 //   log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
 //     "Test x = 2.0",   generateRealWithin(2.0, 2.0,_,_), 2)

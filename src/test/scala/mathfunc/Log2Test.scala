@@ -58,9 +58,7 @@ class MathFuncLog2Test extends AnyFlatSpec
     java.lang.Math.scalb(err, -x.exNorm+x.spec.manW)
   }
 
-  private def runtest (
-      t : FuncTableInt, tSmallPos : FuncTableInt, tSmallNeg : FuncTableInt,
-      spec : RealSpec,
+  private def runtest (spec : RealSpec,
       nOrder : Int, adrW : Int, extraBits : Int, stage : PipelineStageConfig,
       n : Int, r : Random, generatorStr : String,
       generator : ( (RealSpec, Random) => RealGeneric),
@@ -147,14 +145,14 @@ class MathFuncLog2Test extends AnyFlatSpec
   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
     "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))
   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
-    "Test Small More Than 1 [1, 2]",   generateRealWithin(1.0 + pow(2.0, -8), 2.0,_,_))
+    "Test Small More Than 1 [1+2^-8, 2]",   generateRealWithin(1.0 + pow(2.0, -8), 2.0,_,_))
   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
-    "Test Taylor More Than 1 [1, 2]",   generateRealWithin(1.0, 1.0 + pow(2.0, -8),_,_))
+    "Test Taylor More Than 1 [1, 1+2^-8]",   generateRealWithin(1.0, 1.0 + pow(2.0, -8),_,_))
 
   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
-    "Test Taylor Less Than 1 [0.5, 1]", generateRealWithin(1.0-pow(2.0, -8.0),1.0,_,_))
+    "Test Taylor Less Than 1 [1-2^-8, 1]", generateRealWithin(1.0-pow(2.0, -8.0),1.0,_,_))
   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
-    "Test Small Less Than 1 [0.5, 1]", generateRealWithin(0.5,1.0-pow(2.0, -8.0),_,_))
+    "Test Small Less Than 1 [0.5, 1-2^-8]", generateRealWithin(0.5,1.0-pow(2.0, -8.0),_,_))
   runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r,
     "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5-pow(2.0, -24),_,_))
 
