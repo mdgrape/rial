@@ -162,7 +162,6 @@ class ACosTableCoeff(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val maxCbit  : Seq[Int], // max coeff width among all math funcs
-  val stage    : PipelineStageConfig,
 ) extends Module {
 
   val manW   = spec.manW
@@ -170,7 +169,6 @@ class ACosTableCoeff(
   val fracW  = polySpec.fracW
   val order  = polySpec.order
   val exAdrW = MathFuncACosSim.calcExAdrW(spec)
-  val nStage = stage.total
 
   val io = IO(new Bundle {
     val en  = Input(UInt(1.W))
@@ -196,7 +194,7 @@ class ACosTableCoeff(
 
     val c0 = tbl(exAdr)(adr)
     val c  = c0 & Fill(c0.getWidth, io.en)
-    io.cs.cs(0) := ShiftRegister(c, nStage) // width should be manW + extraBits
+    io.cs.cs(0) := c
 
   } else {
 
@@ -225,7 +223,7 @@ class ACosTableCoeff(
       coeffs.cs(i) := ci
     }
     val cs = coeffs.asUInt & Fill(coeffs.asUInt.getWidth, io.en)
-    io.cs := ShiftRegister(cs.asTypeOf(new TableCoeffInput(maxCbit)), nStage)
+    io.cs := cs.asTypeOf(new TableCoeffInput(maxCbit))
   }
 }
 

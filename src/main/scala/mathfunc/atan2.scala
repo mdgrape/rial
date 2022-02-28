@@ -355,7 +355,6 @@ class ATan2Stage2TableCoeff(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val maxCbit  : Seq[Int], // max coeff width among all math funcs
-  val stage    : PipelineStageConfig,
 ) extends Module {
 
   val manW   = spec.manW
@@ -363,7 +362,6 @@ class ATan2Stage2TableCoeff(
   val fracW  = polySpec.fracW
   val order  = polySpec.order
   val exAdrW = ATan2Sim.calcExAdrW(spec)
-  val nStage = stage.total
 
   val io = IO(new Bundle {
     val en  = Input(UInt(1.W))
@@ -392,7 +390,7 @@ class ATan2Stage2TableCoeff(
 
     val c0 = tbl(exAdr)(adr)
     val c  = c0 & Fill(c0.getWidth, io.en)
-    io.cs.cs(0) := ShiftRegister(c, nStage)
+    io.cs.cs(0) := c
 
   } else {
 
@@ -422,7 +420,7 @@ class ATan2Stage2TableCoeff(
     }
 
     val cs = coeffs.asUInt & Fill(coeffs.asUInt.getWidth, io.en)
-    io.cs := ShiftRegister(cs.asTypeOf(new TableCoeffInput(maxCbit)), nStage)
+    io.cs := cs.asTypeOf(new TableCoeffInput(maxCbit))
   }
 }
 
@@ -619,7 +617,6 @@ class ATan2Stage2PostProcess(
   //          ^^^^^^^^^^^^^^^^^^^
   //          this part is always positive
   //
-  // 1067712929 did not equal 1074921680 x = (1|124(-3)|11111011001001010000001), y = (0|125(-2)|100110101101101000011), test(0|127(0)|1001000000000110100001) != ref(0|128(1)|100100000000011010000) (ATan2Stage2Test.scala:152)
 
   val pi         = new RealGeneric(spec, Pi)
   val halfPi     = new RealGeneric(spec, Pi * 0.5)

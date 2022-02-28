@@ -223,11 +223,9 @@ class SinCosTableCoeff(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val maxCbit  : Seq[Int], // max coeff width among all math funcs
-  val stage    : PipelineStageConfig
 ) extends Module {
 
   val manW   = spec.manW
-  val nStage = stage.total
 
   val adrW      = polySpec.adrW
   val fracW     = polySpec.fracW
@@ -262,7 +260,7 @@ class SinCosTableCoeff(
 
     val c0 = tbl(exAdr)(manAdr)
     val c  = c0 & Fill(c0.getWidth, io.en)
-    io.cs.cs(0) := ShiftRegister(c, nStage) // width should be manW + extraBits
+    io.cs.cs(0) := c // width should be manW + extraBits
 
   } else {
 
@@ -293,7 +291,7 @@ class SinCosTableCoeff(
       }
     }
     val cs = coeffs.asUInt & Fill(coeffs.asUInt.getWidth, io.en)
-    io.cs := ShiftRegister(cs.asTypeOf(new TableCoeffInput(maxCbit)), nStage)
+    io.cs := cs.asTypeOf(new TableCoeffInput(maxCbit))
   }
 }
 object SinCosTableCoeff {

@@ -174,14 +174,12 @@ class Pow2TableCoeff(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val maxCbit  : Seq[Int], // max coeff width among all math funcs
-  val stage    : PipelineStageConfig,
 ) extends Module {
 
   val manW   = spec.manW
   val adrW   = polySpec.adrW
   val fracW  = polySpec.fracW
   val order  = polySpec.order
-  val nStage = stage.total
 
   val io = IO(new Bundle {
     val en  = Input(UInt(1.W))
@@ -207,7 +205,7 @@ class Pow2TableCoeff(
 
     val c0 = tbl(io.adr(adrW, 0))            // here we use LSB of ex
     val c  = c0 & Fill(c0.getWidth, io.en)
-    io.cs.cs(0) := ShiftRegister(c, nStage) // width should be manW + extraBits
+    io.cs.cs(0) := c // width should be manW + extraBits
 
   } else {
     // x -> xInt + xFrac
@@ -237,7 +235,7 @@ class Pow2TableCoeff(
       }
     }
     val cs = coeffs.asUInt & Fill(coeffs.asUInt.getWidth, io.en)
-    io.cs := ShiftRegister(cs.asTypeOf(new TableCoeffInput(maxCbit)), nStage)
+    io.cs := cs.asTypeOf(new TableCoeffInput(maxCbit))
   }
 }
 object Pow2TableCoeff {
