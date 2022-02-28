@@ -638,13 +638,14 @@ class SinCosPostProcess(
   val resLessThanHalf = io.zres(fracW-1) === 0.U
 //   printf("cir:zres = %b\n", io.zres)
 
-  val zEx0Table  = Mux(resLessThanHalf, io.zother.zex + 1.U, io.zother.zex + 2.U)
-  val zExTable   = zEx0Table(exW-1, 0)
-
   val zMan0Table = Mux(resLessThanHalf, Cat(io.zres, 0.U(2.W))(fracW-1, 0),
                                         Cat(io.zres, 0.U(1.W))(fracW-1, 0))
-  val zManTable  = zMan0Table(fracW-1, fracW-manW) + zMan0Table(fracW-manW-1)
-//   printf("cir:zmanTable = %b\n", zManTable)
+  val zManTableRounded = zMan0Table(fracW-1, fracW-manW) +& zMan0Table(fracW-manW-1)
+  val zManTableMoreThan2AfterRound = zManTableRounded(manW)
+  val zManTable = zManTableRounded(manW-1, 0)
+
+  val zEx0Table  = io.zother.zex + 2.U - resLessThanHalf.asUInt + zManTableMoreThan2AfterRound
+  val zExTable   = zEx0Table(exW-1, 0)
 
   // --------------------------------------------------------------------------
   // merge with the result from non-table path
