@@ -167,9 +167,13 @@ class MathFuncATan2Stage2SimTest extends AnyFunSuite with BeforeAndAfterAllConfi
     }
   }
 
-  val atan2F32ReciprocalTableI = ReciprocalSim.reciprocalF32TableI
-  val atan2F32ATanTableI       = ATan2Sim.atanTableGeneration( 2, 8, 23, 23+3 ) // +3
-//   val atan2F32ATanTableI       = ATan2Sim.atan2F32ATanTableI
+  val nOrder = 2
+  val adrW = 8
+  val extraBits = 3
+  val atan2F32ReciprocalTableI = ReciprocalSim.reciprocalTableGeneration(
+        nOrder, adrW, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBits)
+  val atan2F32ATanTableI       = ATan2Sim.atanTableGeneration(
+        nOrder, adrW, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBits)
 
   atan2Test(atan2F32ReciprocalTableI, atan2F32ATanTableI, RealSpec.Float32Spec, n, r,
     "Test Within y/x > 2^24", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, 24), pow(2.0, 128),_,_), 1)

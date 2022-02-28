@@ -72,12 +72,12 @@ class MathFuncATan2Stage2Test extends AnyFlatSpec
           val maxCbit    = c.getMaxCbit
           val maxCalcW   = c.getMaxCalcW
           val nstage     = c.getStage
-          val refstage1  = ATan2Stage1Sim.atan2Stage1SimGeneric(
-            ReciprocalSim.reciprocalTableGeneration( nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit) ),
-            _, _)
-          val refstage2  = ATan2Stage2Sim.atan2Stage2SimGeneric(
-            ATan2Sim.atanTableGeneration( nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit) ),
-            _, _, _, _)
+
+          val recTable  = ReciprocalSim.reciprocalTableGeneration( nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit))
+          val atanTable = ATan2Sim.atanTableGeneration( nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit) )
+
+          val refstage1  = ATan2Stage1Sim.atan2Stage1SimGeneric(recTable, _, _)
+          val refstage2  = ATan2Stage2Sim.atan2Stage2SimGeneric(atanTable, _, _, _, _)
 
           val generatorX = generateRealWithin(-1.0, 1.0, _, _)
 
@@ -161,15 +161,14 @@ class MathFuncATan2Stage2Test extends AnyFlatSpec
     }
   }
 
-//   runtest(RealSpec.BFloat16Spec, 0, 7, 0, PipelineStageConfig.none(),
-//     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-//   runtest(RealSpec.BFloat16Spec, 0, 7, 0, PipelineStageConfig.none(),
-//     n, r, "Test All range",generateRealFull(_,_) )
+  val nOrder = 2
+  val adrW   = 8
+  val extraBits = 3
 
-  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r, "Test Within 2^24  < y/x < inf",   generateRealWithin(pow(2.0,  24), pow(2.0, 128),_,_))
-  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r, "Test Within 2^12  < y/x < 2^24",  generateRealWithin(pow(2.0,  12), pow(2.0,  24),_,_))
-  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r, "Test Within 1     < y/x < 2^12",  generateRealWithin(pow(2.0,   0), pow(2.0,  12),_,_))
-  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r, "Test Within 2^-12 < y/x < 1",     generateRealWithin(pow(2.0, -12), pow(2.0,   0),_,_))
-  runtest(RealSpec.Float32Spec, 2, 8, 2, PipelineStageConfig.none(), n, r, "Test Within 0     < y/x < 2^-12", generateRealWithin(         0.0 , pow(2.0, -12),_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r, "Test Within 2^24  < y/x < inf",   generateRealWithin(pow(2.0,  24), pow(2.0, 128),_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r, "Test Within 2^12  < y/x < 2^24",  generateRealWithin(pow(2.0,  12), pow(2.0,  24),_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r, "Test Within 1     < y/x < 2^12",  generateRealWithin(pow(2.0,   0), pow(2.0,  12),_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r, "Test Within 2^-12 < y/x < 1",     generateRealWithin(pow(2.0, -12), pow(2.0,   0),_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, PipelineStageConfig.none(), n, r, "Test Within 0     < y/x < 2^-12", generateRealWithin(         0.0 , pow(2.0, -12),_,_))
 }
 
