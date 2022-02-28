@@ -583,7 +583,7 @@ class Log2PostProcess(
   // --------------------------------------------------------------------------
   // postprocess polynomial result; x is in [2, inf) or (0, 1/2]
 
-  val zLargeInt   = io.zother.zint
+  val zLargeInt     = io.zother.zint
   val zLargeFracPos = io.zres
   val zLargeFracNeg = ~io.zres + 1.U
   val zLargeFrac  = Mux(io.x.ex >= exBias.U, zLargeFracPos, zLargeFracNeg)
@@ -605,7 +605,10 @@ class Log2PostProcess(
 //   printf("cir: zLargeShiftW  = %b\n", zLargeShiftW )
 //   printf("cir: zLargeShifted = %b\n", zLargeShifted)
 
-  assert(zLargeShifted(fracW+exW-1) === 1.U)
+  // if log is active && exadr == 0 && it uses table, zLargeShifted should have
+  // a value.
+  assert(zLargeShifted(fracW+exW-1) === 1.U || io.exadr =/= 0.U ||
+         io.zother.zIsNonTable || !io.en)
 
   assert(extraBits < exW) // normally this holds. normally.
   val zLargeMan0 = zLargeShifted(fracW+exW-2, exW-1)
