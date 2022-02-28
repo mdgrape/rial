@@ -457,7 +457,7 @@ class MathFunctions(
 }
 
 class MathFuncUnit( stage : PipelineStageConfig )
-    extends MathFunctions( RealSpec.Float32Spec, 2, 8, 2, stage) {
+    extends MathFunctions( RealSpec.Float32Spec, 2, 8, 3, stage) {
 }
 
 object MathFuncUnit_driver extends App {
