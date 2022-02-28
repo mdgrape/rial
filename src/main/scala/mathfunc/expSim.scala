@@ -167,7 +167,7 @@ object MathFuncExpSim {
     //        = 2^(-xInt - 1 + (1 - xFrac))
     //                         ^^^^^^^^^^ positive
 
-    val zex = xint + exBias
+    val zex = xint + exBias + zmanMoreThan2AfterCorrection
 
     if      (zex>=maskI(exW)) { return RealGeneric.inf (x.spec, 0) }
     else if (zex<=0)          { return RealGeneric.zero(x.spec) }
