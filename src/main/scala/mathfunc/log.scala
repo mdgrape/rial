@@ -52,7 +52,7 @@ class Log2PreProcess(
 
   val io = IO(new Bundle {
     val en  = Input (UInt(1.W))
-    val x   = Input (UInt(spec.W.W))
+    val x   = Flipped(new DecomposedRealOutput(spec))
     val adr = Output(UInt((2+adrW).W))
     val dx  = if(order != 0) { Some(Output(UInt(dxW.W))) } else { None }
   })
@@ -61,13 +61,13 @@ class Log2PreProcess(
   // 1: xexNobias == ex - exBias == -1 <=> ex == exBias - 1
   // 2: xexNobias == ex - exBias ==  0 <=> ex == exBias
 
-  val ex = io.x(manW+exW-1, manW)
+  val ex = io.x.ex
   val exAdr = Mux(ex === exBias.U, 2.U, (ex === (exBias - 1).U).asUInt)
 
   // if xexNobias == -1, (x is in [1/2,1)), use 1<<manW - x.man.
   // otherwise, use x.man.
-  val manPos = io.x(manW-1, 0)
-  val manNeg = ~(manPos) + 1.U // === (1<<manW).U - x.man
+  val manPos = io.x.man
+  val manNeg = ~(io.x.man) + 1.U // === (1<<manW).U - x.man
 
   val adr0 = Cat(exAdr,
     Mux(ex === (exBias-1).U, manNeg(manW-1, dxW), manPos(manW-1, dxW)))

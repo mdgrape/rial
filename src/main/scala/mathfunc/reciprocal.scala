@@ -49,18 +49,18 @@ class ReciprocalPreProcess(
 
   val io = IO(new Bundle {
     val en  = Input (UInt(1.W))
-    val x   = Input (UInt(spec.W.W))
+    val x   = Flipped(new DecomposedRealOutput(spec))
     val adr = Output(UInt(adrW.W))
     val dx  = if (order != 0) { Some(Output(UInt(dxW.W))) } else { None }
   })
 
   // invert x to make all the polynomial coefficients positive
-  val adr0 = ~io.x(manW-1, dxW)
+  val adr0 = ~io.x.man(manW-1, dxW)
   val adr  = adr0 & Fill(adr0.getWidth, io.en)
   io.adr := ShiftRegister(adr, nStage)
 
   if(order != 0) {
-    val dx0  = Cat(io.x(dxW-1), ~io.x(dxW-2, 0))
+    val dx0  = Cat(io.x.man(dxW-1), ~io.x.man(dxW-2, 0))
     val dx   = dx0 & Fill(dx0.getWidth, io.en)
     io.dx.get := ShiftRegister(dx, nStage)
   }

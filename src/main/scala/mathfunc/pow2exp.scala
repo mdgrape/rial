@@ -51,7 +51,7 @@ class Pow2PreProcess(
   val io = IO(new Bundle {
     val en        = Input (UInt(1.W))
     val isexp     = Input (Bool())
-    val x         = Input (UInt(spec.W.W))
+    val x         = Flipped(new DecomposedRealOutput(spec))
     val adr       = Output(UInt(adrW.W))
     val dx        = if(order != 0) { Some(Output(UInt(dxW.W))) } else { None }
 
@@ -65,7 +65,9 @@ class Pow2PreProcess(
     val xexd = Output(UInt(1.W))
   })
 
-  val (xsgn, xex0, xman0) = FloatChiselUtil.decompose(spec, io.x & Fill(spec.W, io.en))
+  val xsgn  = io.x.sgn & io.en
+  val xex0  = io.x.ex  & Fill(spec.exW, io.en)
+  val xman0 = io.x.man & Fill(spec.manW, io.en)
 
   val log2 = (a:Double) => {log(a) / log(2.0)}
   val xExOvfLimit = math.ceil(log2(maskL(exW)-exBias)).toLong // log2(255-127 = 128) = 7

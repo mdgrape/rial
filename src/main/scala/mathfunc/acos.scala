@@ -79,7 +79,7 @@ class ACosPreProcess(
 
   val io = IO(new Bundle {
     val en  = Input (UInt(1.W))
-    val x   = Input (UInt(spec.W.W))
+    val x   = Flipped(new DecomposedRealOutput(spec))
     val adr = Output(UInt((exAdrW+adrW).W))
     val dx  = if(order != 0) { Some(Output(UInt(dxW.W))) } else { None }
 
@@ -91,7 +91,9 @@ class ACosPreProcess(
     val yman    = Output(UInt(spec.manW.W))
   })
 
-  val (xsgn, xex, xman) = FloatChiselUtil.decompose(spec, io.x & Fill(spec.W, io.en))
+  val xsgn = io.x.sgn & io.en
+  val xex  = io.x.ex  & Fill(spec.exW, io.en)
+  val xman = io.x.man & Fill(spec.manW, io.en)
 
   // useSqrt condition is:
   //   0          < 1-x < 2^-4
@@ -129,7 +131,8 @@ class ACosPreProcess(
   val exAdrACos = ((exBias - 1).U(exW.W) - xex)(exAdrW-1, 0)
   val adrACos   = Cat(exAdrACos, xman(manW-1, dxW))
 
-  // we need sqrt(2y). To pass yex+1, the last bit is inverted.
+  // we need sqrt(2y). Sqrt requires only 1 LSB to distinguish x in 1~2 and 2~4.
+  // To pass yex+1, the last bit is inverted.
   val exAdrSqrt = Cat(Fill(exAdrW-1, 0.U(1.W)), ~yex(0))
   val adrSqrt   = Cat(exAdrSqrt, ymanW1(manW-1, dxW))
 

@@ -68,13 +68,15 @@ class SinCosPreProcess(
   val io = IO(new Bundle {
     val en    = Input (UInt(1.W))
     val isSin = Input(Bool())
-    val x     = Input (UInt(spec.W.W))
+    val x     = Flipped(new DecomposedRealOutput(spec))
     val adr   = Output(UInt((exAdrW+adrW).W))
     val dx    = if(order != 0) { Some(Output(UInt(dxW.W))) } else { None }
     val xConverted = new SinCosPreProcessOutput(spec)
   })
 
-  val (xsgn, xex, xman) = FloatChiselUtil.decompose(spec, io.x & Fill(spec.W, io.en))
+  val xsgn = io.x.sgn & io.en
+  val xex  = io.x.ex  & Fill(spec.exW, io.en)
+  val xman = io.x.man & Fill(spec.manW, io.en)
 
   // --------------------------------------------------------------------------
   // calc x/pi
