@@ -448,26 +448,31 @@ class MathFunctions(
   val polynomialEval = Module(new PolynomialEval(spec, polySpec, maxCbit, stage.calcStage))
 
   if(order != 0) {
-    polynomialEval.io.dx.get := ShiftRegister(sqrtPre.io.dx.get |
-                                               recPre.io.dx.get |
-                                            sincosPre.io.dx.get |
-                                              acosPre.io.dx.get |
-                                               recPre.io.dx.get |
-                                       atan2Stage2Pre.io.dx.get |
-                                              pow2Pre.io.dx.get |
-                                              log2Pre.io.dx.get, pcGap)
+    val polynomialDx = ShiftRegister(sqrtPre.io.dx.get |
+                                      recPre.io.dx.get |
+                                   sincosPre.io.dx.get |
+                                     acosPre.io.dx.get |
+                                      recPre.io.dx.get |
+                              atan2Stage2Pre.io.dx.get |
+                                     pow2Pre.io.dx.get |
+                                     log2Pre.io.dx.get, pcGap)
+//     printf("polynomialEval.io.dx.get    = %b\n", polynomialDx)
+    polynomialEval.io.dx.get := polynomialDx
   }
 
-  polynomialEval.io.coeffs.cs := ShiftRegister(
-           (sqrtTab.io.cs.cs.asUInt |
-         invsqrtTab.io.cs.cs.asUInt |
-             recTab.io.cs.cs.asUInt |
-          sincosTab.io.cs.cs.asUInt |
-            acosTab.io.cs.cs.asUInt |
-     atan2Stage2Tab.io.cs.cs.asUInt |
-            pow2Tab.io.cs.cs.asUInt |
-            log2Tab.io.cs.cs.asUInt
-            ).asTypeOf(new MixedVec(maxCbit.map{w => UInt(w.W)})), pcGap)
+  // table is accessed combinationally. There is no delay.
+  val polynomialCoef = (sqrtTab.io.cs.cs.asUInt |
+                     invsqrtTab.io.cs.cs.asUInt |
+                         recTab.io.cs.cs.asUInt |
+                      sincosTab.io.cs.cs.asUInt |
+                        acosTab.io.cs.cs.asUInt |
+                 atan2Stage2Tab.io.cs.cs.asUInt |
+                        pow2Tab.io.cs.cs.asUInt |
+                        log2Tab.io.cs.cs.asUInt
+                        ).asTypeOf(new MixedVec(maxCbit.map{w => UInt(w.W)}))
+
+//   printf("polynomialEval.io.coeffs.cs = %b\n", polynomialCoef.asUInt)
+  polynomialEval.io.coeffs.cs := polynomialCoef
 
   //                                         we are here
   // .-------. .-----------------.   .-------------.  |
