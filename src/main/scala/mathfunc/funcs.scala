@@ -487,15 +487,15 @@ class MathFunctions(
   acosPost.io.zother := ShiftRegister(acosOther.io.zother, cpGap)
   acosPost.io.zres   := ShiftRegister(polynomialEval.io.result, cpGap)
 
-  sqrtPost.io.en     := (ShiftRegister(io.sel, cpGap) === SelectFunc.Sqrt)
+  sqrtPost.io.en     := (ShiftRegister(selCPReg, cpGap) === SelectFunc.Sqrt)
   sqrtPost.io.zother := ShiftRegister(sqrtOther.io.zother, cpGap)
   sqrtPost.io.zres   := ShiftRegister(polynomialEval.io.result, cpGap)
 
-  invsqrtPost.io.en     := (ShiftRegister(io.sel, cpGap) === SelectFunc.InvSqrt)
+  invsqrtPost.io.en     := (ShiftRegister(selCPReg, cpGap) === SelectFunc.InvSqrt)
   invsqrtPost.io.zother := ShiftRegister(invsqrtOther.io.zother, cpGap)
   invsqrtPost.io.zres   := ShiftRegister(polynomialEval.io.result, cpGap)
 
-  recPost.io.en     := ShiftRegister(io.sel, cpGap) === SelectFunc.Reciprocal
+  recPost.io.en     := ShiftRegister(selCPReg, cpGap) === SelectFunc.Reciprocal
   recPost.io.zother := ShiftRegister(recOther.io.zother, cpGap)
   recPost.io.zres   := ShiftRegister(polynomialEval.io.result, cpGap)
 
