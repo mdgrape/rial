@@ -532,7 +532,7 @@ class MathFunctions(
            pow2Post.io.z        |
            log2Post.io.z
 
-  io.z := ShiftRegister(z0, stage.total)
+  io.z := z0
 }
 
 class MathFuncUnit( stage : MathFuncPipelineConfig )
