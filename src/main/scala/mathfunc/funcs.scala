@@ -224,7 +224,9 @@ class MathFunctions(
     assert(acosPre.io.adr === 0.U)
     assert(acosPre.io.dx.getOrElse(0.U) === 0.U)
   }
-  when(selPCReg =/= SelectFunc.ACos || acosPre.io.useSqrt) {
+  // table takes input from preprocess, so table output is delayed compared to acos input.
+  when(ShiftRegister(selPCReg, pcGap) =/= SelectFunc.ACos ||
+       ShiftRegister(acosPre.io.useSqrt, pcGap)) {
     assert(acosTab.io.cs.asUInt === 0.U)
   }
 
@@ -249,7 +251,7 @@ class MathFunctions(
     assert(sqrtPre.io.adr === 0.U)
     assert(sqrtPre.io.dx.getOrElse(0.U) === 0.U)
   }
-  when(selPCReg =/= SelectFunc.Sqrt) {
+  when(ShiftRegister(selPCReg, pcGap) =/= SelectFunc.Sqrt) {
     assert(sqrtTab.io.cs.asUInt === 0.U || (selPCReg === SelectFunc.ACos && acosPre.io.useSqrt))
   }
 
@@ -266,7 +268,7 @@ class MathFunctions(
   invsqrtTab.io.adr := ShiftRegister(sqrtPre.io.adr, pcGap)
   invsqrtOther.io.x := ShiftRegister(xdecPCReg, pcGap)
 
-  when(selPCReg =/= SelectFunc.InvSqrt) {
+  when(ShiftRegister(selPCReg, pcGap) =/= SelectFunc.InvSqrt) {
     assert(invsqrtTab.io.cs.asUInt === 0.U)
   }
 
@@ -296,7 +298,8 @@ class MathFunctions(
     }
   }
 
-  when(io.sel =/= SelectFunc.Reciprocal && io.sel =/= SelectFunc.ATan2Stage1) {
+  when(ShiftRegister(io.sel, pcGap) =/= SelectFunc.Reciprocal &&
+       ShiftRegister(io.sel, pcGap) =/= SelectFunc.ATan2Stage1) {
     assert(recTab.io.cs.asUInt === 0.U)
   }
 
