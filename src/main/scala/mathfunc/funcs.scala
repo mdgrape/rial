@@ -112,6 +112,10 @@ class MathFunctions(
   val nCalcStage = stage.calcStage.total
   val nPostStage = stage.postStage.total
 
+  println(f"nPreStage  = ${nPreStage }")
+  println(f"nCalcStage = ${nCalcStage}")
+  println(f"nPostStage = ${nPostStage}")
+
   val nStage = stage.total
   def getStage() = nStage
 
