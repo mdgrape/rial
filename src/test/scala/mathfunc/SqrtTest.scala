@@ -130,15 +130,15 @@ class MathFuncSqrtTest extends AnyFlatSpec
   runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline,
     n, r, "Test All range",generateRealFull(_,_) )
 
-//   val complexPipeline = new MathFuncPipelineConfig(
-//       PipelineStageConfig.atOut(1),
-//       PipelineStageConfig.atOut(3),
-//       PipelineStageConfig.atOut(2),
-//       true, true)
-// 
-//   runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline,
-//     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-//   runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline,
-//     n, r, "Test All range",generateRealFull(_,_) )
+  val complexPipeline = new MathFuncPipelineConfig(
+      PipelineStageConfig.atOut(1),
+      PipelineStageConfig.atOut(3),
+      PipelineStageConfig.atOut(2),
+      true, true)
+
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline,
+    n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline,
+    n, r, "Test All range",generateRealFull(_,_) )
 }
 
