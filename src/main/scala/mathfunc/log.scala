@@ -303,6 +303,8 @@ class Log2NonTableOutput(val spec: RealSpec, val polySpec: PolynomialSpec) exten
   // always required
   val zsgn  = Output(UInt(1.W))
   val zIsNonTable = Output(Bool())
+  val znan  = Output(Bool())
+  val zinf  = Output(Bool())
   // taylor result & special value result
   val zman  = Output(UInt(polySpec.fracW.W))
   val zex   = Output(UInt(spec.exW.W))
@@ -481,7 +483,10 @@ class Log2OtherPath(
   val xtwo  = xmanAllZero && io.x.ex === (exBias+1).U
   val xhalf = xmanAllZero && io.x.ex === (exBias-1).U
 
-  val zIsNonTable = znan || zinf || zzero || xtwo || xhalf ||
+  io.zother.znan := ShiftRegister(znan, nStage)
+  io.zother.zinf := ShiftRegister(zinf, nStage)
+
+  val zIsNonTable = zzero || xtwo || xhalf ||
                     isTaylorSmallPos || isTaylorSmallNeg
   io.zother.zIsNonTable := ShiftRegister(zIsNonTable, nStage)
 
@@ -493,11 +498,9 @@ class Log2OtherPath(
 
   val zex0  = Mux(isTaylorSmallPos, zexTaylorPos,
               Mux(isTaylorSmallNeg, zexTaylorNeg,
-              Mux(znan || zinf, Fill(exW, 1.U(1.W)),
               Mux(zzero, 0.U(exW.W),
-              Mux(xtwo,  exBias.U(exW.W), /*xhalf = */ (exBias-1).U(exW.W))))))
-  val zman0 = Mux(isTaylorSmallPos, zmanTaylorPos,
-              Mux(isTaylorSmallNeg, zmanTaylorNeg, Cat(znan, 0.U((fracW-1).W))))
+              Mux(xtwo,  exBias.U(exW.W), /*xhalf = */ (exBias-1).U(exW.W)))))
+  val zman0 = Mux(isTaylorSmallPos, zmanTaylorPos, zmanTaylorNeg)
   // here, adding 0es at the LSB of nan/inf/zero does not affect to the result
   // because postprocess only does rounding. zero bits does not change rounding.
 
@@ -640,8 +643,12 @@ class Log2PostProcess(
   val log2xMoreThan2 = log2xManRound(manW)
   val log2xEx        = log2xEx0 + log2xMoreThan2
 
-  val zMan = Mux(io.isln, lnxRounded(manW-1, 0), log2xManRound(manW-1, 0))
-  val zEx  = Mux(io.isln, lnxEx0,                log2xEx                 )
+  val zMan = Mux(io.zother.znan || io.zother.zinf,
+                 Cat(io.zother.znan.asUInt, Fill(manW-1, 0.U)),
+                 Mux(io.isln, lnxRounded(manW-1, 0), log2xManRound(manW-1, 0)))
+  val zEx  = Mux(io.zother.znan || io.zother.zinf,
+                 Fill(exW, 1.U(1.W)),
+                 Mux(io.isln, lnxEx0, log2xEx))
 
   // --------------------------------------------------------------------------
   // select the correct result
