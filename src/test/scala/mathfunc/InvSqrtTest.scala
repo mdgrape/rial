@@ -100,12 +100,6 @@ class MathFuncInvSqrtTest extends AnyFlatSpec
               val z0dexp = slice(spec.manW, spec.exW, z0d)
               val z0dman = z0d & maskSL(spec.manW)
 
-              if (zi != z0d) {
-                c.io.x.poke(xid.U(64.W))
-                for(i <- 1 to nstage) c.clock.step(1)
-                c.clock.step(1)
-              }
-
               assert(zi == z0d, f"x = (${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman.toLong.toBinaryString}), " +
                                 f"test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString}) != " +
                                 f"ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})")
@@ -123,6 +117,28 @@ class MathFuncInvSqrtTest extends AnyFlatSpec
   runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, MathFuncPipelineConfig.none(),
     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
   runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, MathFuncPipelineConfig.none(),
+    n, r, "Test All range",generateRealFull(_,_) )
+
+  val simplePipeline = new MathFuncPipelineConfig(
+      PipelineStageConfig.none,
+      PipelineStageConfig.none,
+      PipelineStageConfig.none,
+      true, true)
+
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline,
+    n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline,
+    n, r, "Test All range",generateRealFull(_,_) )
+
+  val complexPipeline = new MathFuncPipelineConfig(
+      PipelineStageConfig.atOut(1),
+      PipelineStageConfig.atOut(3),
+      PipelineStageConfig.atOut(2),
+      true, true)
+
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline,
+    n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline,
     n, r, "Test All range",generateRealFull(_,_) )
 }
 
