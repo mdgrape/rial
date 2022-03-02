@@ -291,15 +291,12 @@ class MathFunctions(
   recTab.io.adr := ShiftRegister(recPre.io.adr, pcGap)
   recOther.io.x := ShiftRegister(xdecPCReg, pcGap)
 
-  when(io.sel =/= SelectFunc.Reciprocal && io.sel =/= SelectFunc.ATan2Stage1) {
+  when(selPCReg =/= SelectFunc.Reciprocal && selPCReg =/= SelectFunc.ATan2Stage1) {
     assert(recPre.io.adr === 0.U)
-    if(recPre.io.dx.isDefined) {
-      assert(recPre.io.dx.get  === 0.U)
-    }
+    assert(recPre.io.dx.getOrElse(0.U) === 0.U)
   }
-
-  when(ShiftRegister(io.sel, pcGap) =/= SelectFunc.Reciprocal &&
-       ShiftRegister(io.sel, pcGap) =/= SelectFunc.ATan2Stage1) {
+  when(ShiftRegister(selPCReg, pcGap) =/= SelectFunc.Reciprocal &&
+       ShiftRegister(selPCReg, pcGap) =/= SelectFunc.ATan2Stage1) {
     assert(recTab.io.cs.asUInt === 0.U)
   }
 
