@@ -303,9 +303,6 @@ class Log2NonTableOutput(val spec: RealSpec, val polySpec: PolynomialSpec) exten
   // always required
   val zsgn  = Output(UInt(1.W))
   val zIsNonTable = Output(Bool())
-  // required by log_e.
-  val xtwo  = Output(Bool())
-  val xhalf = Output(Bool())
   // taylor result & special value result
   val zman  = Output(UInt(polySpec.fracW.W))
   val zex   = Output(UInt(spec.exW.W))
@@ -483,9 +480,6 @@ class Log2OtherPath(
   val zzero = xmanAllZero && io.x.ex === exBias.U
   val xtwo  = xmanAllZero && io.x.ex === (exBias+1).U
   val xhalf = xmanAllZero && io.x.ex === (exBias-1).U
-
-  io.zother.xtwo  := ShiftRegister(xtwo , nStage)
-  io.zother.xhalf := ShiftRegister(xhalf, nStage)
 
   val zIsNonTable = znan || zinf || zzero || xtwo || xhalf ||
                     isTaylorSmallPos || isTaylorSmallNeg
