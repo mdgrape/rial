@@ -349,7 +349,6 @@ class MathFunctions(
   atan2Stage1Pre.io.x  := xdecomp.io.decomp
   atan2Stage1Pre.io.y  := ydecomp.io.decomp
   // ------ Preprocess-Calculate ------
-  atan2Stage1Other.io.en := ShiftRegister(selPCReg, pcGap) === SelectFunc.ATan2Stage1
   atan2Stage1Other.io.x  := ShiftRegister(xdecPCReg, pcGap)
   atan2Stage1Other.io.y  := ShiftRegister(ydecPCReg, pcGap)
   atan2Stage1Other.io.yIsLarger := ShiftRegister(yIsLargerPCReg, pcGap)
