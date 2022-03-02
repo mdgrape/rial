@@ -155,5 +155,59 @@ class MathFuncPow2Test extends AnyFlatSpec
   runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, MathFuncPipelineConfig.none(), n, r,
     "Test Tiny Negative [-2^-7, 0]", generateRealWithin(-pow(2.0, -7), 0.0,_,_))
 
+  val simplePipeline = new MathFuncPipelineConfig(
+      PipelineStageConfig.none,
+      PipelineStageConfig.none,
+      PipelineStageConfig.none,
+      true, true)
+
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline, n, r,
+    "Test Safe Positive [1, 128]", generateRealWithin(1.0, 129.0,_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline, n, r,
+    "Test Safe Negative [-127, -1]", generateRealWithin(-129.0, -1.0,_,_))
+
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline, n, r,
+    "Test Large Positive [127, inf]", generateRealWithin(127.0, Double.PositiveInfinity,_,_), /*disableTimeout = */ true)
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline, n, r,
+    "Test Large Negative [-inf, -126]", generateRealWithin(Double.NegativeInfinity, -126.0,_,_), true)
+
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline, n, r,
+    "Test Small Positive [2^-7, 1]", generateRealWithin(pow(2.0, -7),1.0,_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline, n, r,
+    "Test Small Negative [-1, -2^-7]", generateRealWithin(-1.0, -pow(2.0, -7),_,_))
+
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline, n, r,
+    "Test Tiny Positive [0, 2^-7]", generateRealWithin(0.0, pow(2.0, -7),_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline, n, r,
+    "Test Tiny Negative [-2^-7, 0]", generateRealWithin(-pow(2.0, -7), 0.0,_,_))
+
+  val complexPipeline = new MathFuncPipelineConfig(
+      PipelineStageConfig.atOut(1),
+      PipelineStageConfig.atOut(3),
+      PipelineStageConfig.atOut(2),
+      true, true)
+
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline, n, r,
+    "Test Safe Positive [1, 128]", generateRealWithin(1.0, 129.0,_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline, n, r,
+    "Test Safe Negative [-127, -1]", generateRealWithin(-129.0, -1.0,_,_))
+
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline, n, r,
+    "Test Large Positive [127, inf]", generateRealWithin(127.0, Double.PositiveInfinity,_,_), /*disableTimeout = */ true)
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline, n, r,
+    "Test Large Negative [-inf, -126]", generateRealWithin(Double.NegativeInfinity, -126.0,_,_), true)
+
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline, n, r,
+    "Test Small Positive [2^-7, 1]", generateRealWithin(pow(2.0, -7),1.0,_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline, n, r,
+    "Test Small Negative [-1, -2^-7]", generateRealWithin(-1.0, -pow(2.0, -7),_,_))
+
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline, n, r,
+    "Test Tiny Positive [0, 2^-7]", generateRealWithin(0.0, pow(2.0, -7),_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline, n, r,
+    "Test Tiny Negative [-2^-7, 0]", generateRealWithin(-pow(2.0, -7), 0.0,_,_))
+
+
+
 }
 

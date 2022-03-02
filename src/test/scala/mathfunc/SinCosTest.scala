@@ -128,6 +128,54 @@ class MathFuncSinTest extends AnyFlatSpec
     "Test Out of range (2pi, 10pi)", generateRealWithin(2.0*Pi, 10.0*Pi,_,_))
   runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, MathFuncPipelineConfig.none(), n, r,
     "Test Out of range (-10pi, -pi)", generateRealWithin(-10.0*Pi, -1.0*Pi,_,_))
+
+  val simplePipeline = new MathFuncPipelineConfig(
+      PipelineStageConfig.none,
+      PipelineStageConfig.none,
+      PipelineStageConfig.none,
+      true, true)
+
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline, n, r,
+    "Test Within (-2pi, -pi)",     generateRealWithin(-2.0*Pi,-1.0*Pi,_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline, n, r,
+    "Test Within (-pi, 0)",     generateRealWithin(-1.0*Pi,0.0,_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline, n, r,
+    "Test Within (     0, 2^-6)", generateRealWithin(0.0,pow(2.0, -6),_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline, n, r,
+    "Test Within ( 2^-6, pi/2)",   generateRealWithin(pow(2.0, -6),0.5*Pi,_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline, n, r,
+    "Test Within (pi/2, pi)",      generateRealWithin(0.5*Pi,1.0*Pi,_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline, n, r,
+    "Test Within (pi, 2pi)",      generateRealWithin(1.0*Pi,2.0*Pi,_,_))
+
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline, n, r,
+    "Test Out of range (2pi, 10pi)", generateRealWithin(2.0*Pi, 10.0*Pi,_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline, n, r,
+    "Test Out of range (-10pi, -pi)", generateRealWithin(-10.0*Pi, -1.0*Pi,_,_))
+
+  val complexPipeline = new MathFuncPipelineConfig(
+      PipelineStageConfig.atOut(1),
+      PipelineStageConfig.atOut(3),
+      PipelineStageConfig.atOut(2),
+      true, true)
+
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline, n, r,
+    "Test Within (-2pi, -pi)",     generateRealWithin(-2.0*Pi,-1.0*Pi,_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline, n, r,
+    "Test Within (-pi, 0)",     generateRealWithin(-1.0*Pi,0.0,_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline, n, r,
+    "Test Within (     0, 2^-6)", generateRealWithin(0.0,pow(2.0, -6),_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline, n, r,
+    "Test Within ( 2^-6, pi/2)",   generateRealWithin(pow(2.0, -6),0.5*Pi,_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline, n, r,
+    "Test Within (pi/2, pi)",      generateRealWithin(0.5*Pi,1.0*Pi,_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline, n, r,
+    "Test Within (pi, 2pi)",      generateRealWithin(1.0*Pi,2.0*Pi,_,_))
+
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline, n, r,
+    "Test Out of range (2pi, 10pi)", generateRealWithin(2.0*Pi, 10.0*Pi,_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline, n, r,
+    "Test Out of range (-10pi, -pi)", generateRealWithin(-10.0*Pi, -1.0*Pi,_,_))
 }
 
 
@@ -198,12 +246,6 @@ class MathFuncCosTest extends AnyFlatSpec
               val z0dexp = slice(spec.manW, spec.exW, z0d)
               val z0dman = z0d & maskSL(spec.manW)
 
-              if (zi != z0d) {
-                c.io.x.poke(xid.U(64.W))
-                for(i <- 1 to nstage) c.clock.step(1)
-                c.clock.step(1)
-              }
-
               assert(zi == z0d, f"x =  ${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman.toLong.toBinaryString}(${new RealGeneric(spec, xidsgn, xidexp.toInt, xidman).toDouble}), " +
                                 f"test ${zisgn }|${ziexp }(${ziexp  - spec.exBias})|${ziman.toLong.toBinaryString }(${new RealGeneric(spec, zisgn , ziexp .toInt, ziman ).toDouble}) != " +
                                 f"ref  ${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString}(${new RealGeneric(spec, z0dsgn, z0dexp.toInt, z0dman).toDouble})")
@@ -217,7 +259,6 @@ class MathFuncCosTest extends AnyFlatSpec
   val nOrder = 2
   val adrW = 8
   val extraBits = 3
-  // cos path re-uses sin table.
 
   runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, MathFuncPipelineConfig.none(), n, r,
     "Test Within (-2pi, -pi)",     generateRealWithin(-2.0*Pi,-1.0*Pi,_,_))
@@ -235,5 +276,55 @@ class MathFuncCosTest extends AnyFlatSpec
   runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, MathFuncPipelineConfig.none(), n, r,
     "Test Out of range (2pi, 10pi)", generateRealWithin(2.0*Pi, 10.0*Pi,_,_))
   runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, MathFuncPipelineConfig.none(), n, r,
-    "Test Out of range (-10pi, -pi)", generateRealWithin(-10.0*Pi, -1.0*Pi,_,_))}
+    "Test Out of range (-10pi, -pi)", generateRealWithin(-10.0*Pi, -1.0*Pi,_,_))
 
+  val simplePipeline = new MathFuncPipelineConfig(
+      PipelineStageConfig.none,
+      PipelineStageConfig.none,
+      PipelineStageConfig.none,
+      true, true)
+
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline, n, r,
+    "Test Within (-2pi, -pi)",     generateRealWithin(-2.0*Pi,-1.0*Pi,_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline, n, r,
+    "Test Within (-pi, 0)",     generateRealWithin(-1.0*Pi,0.0,_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline, n, r,
+    "Test Within (     0, 2^-6)", generateRealWithin(0.0,pow(2.0, -6),_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline, n, r,
+    "Test Within ( 2^-6, pi/2)",   generateRealWithin(pow(2.0, -6),0.5*Pi,_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline, n, r,
+    "Test Within (pi/2, pi)",      generateRealWithin(0.5*Pi,1.0*Pi,_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline, n, r,
+    "Test Within (pi, 2pi)",      generateRealWithin(1.0*Pi,2.0*Pi,_,_))
+
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline, n, r,
+    "Test Out of range (2pi, 10pi)", generateRealWithin(2.0*Pi, 10.0*Pi,_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline, n, r,
+    "Test Out of range (-10pi, -pi)", generateRealWithin(-10.0*Pi, -1.0*Pi,_,_))
+
+
+
+  val complexPipeline = new MathFuncPipelineConfig(
+      PipelineStageConfig.atOut(1),
+      PipelineStageConfig.atOut(3),
+      PipelineStageConfig.atOut(2),
+      true, true)
+
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline, n, r,
+    "Test Within (-2pi, -pi)",     generateRealWithin(-2.0*Pi,-1.0*Pi,_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline, n, r,
+    "Test Within (-pi, 0)",     generateRealWithin(-1.0*Pi,0.0,_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline, n, r,
+    "Test Within (     0, 2^-6)", generateRealWithin(0.0,pow(2.0, -6),_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline, n, r,
+    "Test Within ( 2^-6, pi/2)",   generateRealWithin(pow(2.0, -6),0.5*Pi,_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline, n, r,
+    "Test Within (pi/2, pi)",      generateRealWithin(0.5*Pi,1.0*Pi,_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline, n, r,
+    "Test Within (pi, 2pi)",      generateRealWithin(1.0*Pi,2.0*Pi,_,_))
+
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline, n, r,
+    "Test Out of range (2pi, 10pi)", generateRealWithin(2.0*Pi, 10.0*Pi,_,_))
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline, n, r,
+    "Test Out of range (-10pi, -pi)", generateRealWithin(-10.0*Pi, -1.0*Pi,_,_))
+}

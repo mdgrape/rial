@@ -113,7 +113,6 @@ class MathFuncLog2Test extends AnyFlatSpec
             c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
             c.io.y.poke(0.U(spec.W.W))
             val zi = c.io.z.peek().litValue.toBigInt
-            c.clock.step(1)
             if (i > nstage) {
 
               val (xid,z0d) = q.dequeue()
@@ -135,6 +134,7 @@ class MathFuncLog2Test extends AnyFlatSpec
                                 f"ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})")
               c.io.z.expect(z0d.U(spec.W.W))
             }
+            c.clock.step(1)
           }
         }
       }
@@ -160,5 +160,54 @@ class MathFuncLog2Test extends AnyFlatSpec
   runtest(RealSpec.Float32Spec, 2, 8, extraBits, MathFuncPipelineConfig.none(), n, r,
     "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_),
     /*disableTimeout = */ true)
+
+  val simplePipeline = new MathFuncPipelineConfig(
+      PipelineStageConfig.none,
+      PipelineStageConfig.none,
+      PipelineStageConfig.none,
+      true, true)
+
+  runtest(RealSpec.Float32Spec, 2, 8, extraBits, simplePipeline, n, r,
+    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))
+  runtest(RealSpec.Float32Spec, 2, 8, extraBits, simplePipeline, n, r,
+    "Test Small More Than 1 [1+2^-8, 2]",   generateRealWithin(1.0 + pow(2.0, -8), 2.0,_,_))
+  runtest(RealSpec.Float32Spec, 2, 8, extraBits, simplePipeline, n, r,
+    "Test Taylor More Than 1 [1, 1+2^-8]",   generateRealWithin(1.0, 1.0 + pow(2.0, -8),_,_))
+
+  runtest(RealSpec.Float32Spec, 2, 8, extraBits, simplePipeline, n, r,
+    "Test Taylor Less Than 1 [1-2^-8, 1]", generateRealWithin(1.0-pow(2.0, -8.0),1.0,_,_))
+  runtest(RealSpec.Float32Spec, 2, 8, extraBits, simplePipeline, n, r,
+    "Test Small Less Than 1 [0.5, 1-2^-8]", generateRealWithin(0.5,1.0-pow(2.0, -8.0),_,_))
+  runtest(RealSpec.Float32Spec, 2, 8, extraBits, simplePipeline, n, r,
+    "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5-pow(2.0, -24),_,_))
+
+  runtest(RealSpec.Float32Spec, 2, 8, extraBits, simplePipeline, n, r,
+    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_),
+    /*disableTimeout = */ true)
+
+  val complexPipeline = new MathFuncPipelineConfig(
+      PipelineStageConfig.atOut(1),
+      PipelineStageConfig.atOut(3),
+      PipelineStageConfig.atOut(2),
+      true, true)
+
+  runtest(RealSpec.Float32Spec, 2, 8, extraBits, complexPipeline, n, r,
+    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))
+  runtest(RealSpec.Float32Spec, 2, 8, extraBits, complexPipeline, n, r,
+    "Test Small More Than 1 [1+2^-8, 2]",   generateRealWithin(1.0 + pow(2.0, -8), 2.0,_,_))
+  runtest(RealSpec.Float32Spec, 2, 8, extraBits, complexPipeline, n, r,
+    "Test Taylor More Than 1 [1, 1+2^-8]",   generateRealWithin(1.0, 1.0 + pow(2.0, -8),_,_))
+
+  runtest(RealSpec.Float32Spec, 2, 8, extraBits, complexPipeline, n, r,
+    "Test Taylor Less Than 1 [1-2^-8, 1]", generateRealWithin(1.0-pow(2.0, -8.0),1.0,_,_))
+  runtest(RealSpec.Float32Spec, 2, 8, extraBits, complexPipeline, n, r,
+    "Test Small Less Than 1 [0.5, 1-2^-8]", generateRealWithin(0.5,1.0-pow(2.0, -8.0),_,_))
+  runtest(RealSpec.Float32Spec, 2, 8, extraBits, complexPipeline, n, r,
+    "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5-pow(2.0, -24),_,_))
+
+  runtest(RealSpec.Float32Spec, 2, 8, extraBits, complexPipeline, n, r,
+    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_),
+    /*disableTimeout = */ true)
+
 }
 
