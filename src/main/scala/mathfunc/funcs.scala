@@ -495,6 +495,8 @@ class MathFunctions(
 //   printf("polynomialEval.io.coeffs.cs = %b\n", polynomialCoef.asUInt)
   polynomialEval.io.coeffs.cs := polynomialCoef
 
+  val polynomialResultCPGapReg = ShiftRegister(polynomialEval.io.result, cpGap)
+
   // ------------------------------------------------------------------------
   //                                         we are here
   // .-------. .-----------------.   .-------------.  |
@@ -507,33 +509,33 @@ class MathFunctions(
 
   acosPost.io.en     := (selCPGapReg === SelectFunc.ACos)
   acosPost.io.zother := ShiftRegister(acosOther.io.zother, cpGap)
-  acosPost.io.zres   := ShiftRegister(polynomialEval.io.result, cpGap)
+  acosPost.io.zres   := polynomialResultCPGapReg
 
   sqrtPost.io.en     := (selCPGapReg === SelectFunc.Sqrt)
   sqrtPost.io.zother := ShiftRegister(sqrtOther.io.zother, cpGap)
-  sqrtPost.io.zres   := ShiftRegister(polynomialEval.io.result, cpGap)
+  sqrtPost.io.zres   := polynomialResultCPGapReg
 
   invsqrtPost.io.en     := (selCPGapReg === SelectFunc.InvSqrt)
   invsqrtPost.io.zother := ShiftRegister(invsqrtOther.io.zother, cpGap)
-  invsqrtPost.io.zres   := ShiftRegister(polynomialEval.io.result, cpGap)
+  invsqrtPost.io.zres   := polynomialResultCPGapReg
 
   recPost.io.en     := selCPGapReg === SelectFunc.Reciprocal
   recPost.io.zother := ShiftRegister(recOther.io.zother, cpGap)
-  recPost.io.zres   := ShiftRegister(polynomialEval.io.result, cpGap)
+  recPost.io.zres   := polynomialResultCPGapReg
 
   sincosPost.io.en     := selCPGapReg === SelectFunc.Sin ||
                           selCPGapReg === SelectFunc.Cos
   sincosPost.io.zother := ShiftRegister(sincosOther.io.zother, cpGap)
-  sincosPost.io.zres   := ShiftRegister(polynomialEval.io.result, cpGap)
+  sincosPost.io.zres   := polynomialResultCPGapReg
 
   atan2Stage1Post.io.en     := (selCPGapReg === SelectFunc.ATan2Stage1)
   atan2Stage1Post.io.zother := ShiftRegister(atan2Stage1Other.io.zother, cpGap)
-  atan2Stage1Post.io.zres   := ShiftRegister(polynomialEval.io.result, cpGap)
+  atan2Stage1Post.io.zres   := polynomialResultCPGapReg
   atan2Stage1Post.io.minxy  := Mux(yIsLargerCPGapReg, xdecCPGapReg, ydecCPGapReg)
 
   atan2Stage2Post.io.en     := (selCPGapReg === SelectFunc.ATan2Stage2)
   atan2Stage2Post.io.zother := ShiftRegister(atan2Stage2Other.io.zother, cpGap)
-  atan2Stage2Post.io.zres   := ShiftRegister(polynomialEval.io.result, cpGap)
+  atan2Stage2Post.io.zres   := polynomialResultCPGapReg
 
   if(pow2Pre.io.xfracLSBs.isDefined) {
     pow2Post.io.zCorrCoef.get := ShiftRegister(pow2Other.io.zCorrCoef.get, cpGap)
@@ -541,12 +543,12 @@ class MathFunctions(
   pow2Post.io.en     := selCPGapReg === SelectFunc.Pow2 ||
                         selCPGapReg === SelectFunc.Exp
   pow2Post.io.zother := ShiftRegister(pow2Other.io.zother, cpGap)
-  pow2Post.io.zres   := ShiftRegister(polynomialEval.io.result, cpGap)
+  pow2Post.io.zres   := polynomialResultCPGapReg
 
   log2Post.io.en     := selCPGapReg === SelectFunc.Log ||
                         selCPGapReg === SelectFunc.Log2
   log2Post.io.zother := ShiftRegister(log2Other.io.zother, cpGap)
-  log2Post.io.zres   := ShiftRegister(polynomialEval.io.result, cpGap)
+  log2Post.io.zres   := polynomialResultCPGapReg
   log2Post.io.isln   := selCPGapReg === SelectFunc.Log
   log2Post.io.x      := xdecCPGapReg
                         // save preprocess result throughout the calc stage
