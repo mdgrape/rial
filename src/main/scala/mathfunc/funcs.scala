@@ -252,7 +252,8 @@ class MathFunctions(
     assert(sqrtPre.io.dx.getOrElse(0.U) === 0.U)
   }
   when(ShiftRegister(selPCReg, pcGap) =/= SelectFunc.Sqrt) {
-    assert(sqrtTab.io.cs.asUInt === 0.U || (selPCReg === SelectFunc.ACos && acosPre.io.useSqrt))
+    assert(sqrtTab.io.cs.asUInt === 0.U ||
+           (ShiftRegister(selPCReg, pcGap) === SelectFunc.ACos && ShiftRegister(acosPre.io.useSqrt, pcGap)))
   }
 
   // --------------------------------------------------------------------------
