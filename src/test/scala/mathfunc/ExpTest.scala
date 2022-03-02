@@ -35,7 +35,7 @@ class MathFuncExpTest extends AnyFlatSpec
 
   behavior of "Test exp"
 
-  var n = 10000
+  var n = 1000
 
   override def beforeAll(configMap: ConfigMap) = {
     n = configMap.getOptional[String]("n").getOrElse("1000").toInt
