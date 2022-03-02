@@ -173,8 +173,8 @@ class Log2TableCoeff(
     val (cTableSmallPos, cWidthSmallPos) = tableSmallPos.getVectorUnified(/*sign mode =*/0)
     val coeffSmallPos = getSlices(cTableSmallPos(adr), cWidthSmallPos)
 
-    println(f"maxCbit      = ${maxCbit}")
-    println(f"cbitSmallPos = ${cbitSmallPos}")
+//     println(f"maxCbit      = ${maxCbit}")
+//     println(f"cbitSmallPos = ${cbitSmallPos}")
 
     val outSmallPos = Wire(MixedVec(maxCbit.map{w => UInt(w.W)}))
     for (i <- 0 to order) {
@@ -198,8 +198,8 @@ class Log2TableCoeff(
     val (cTableSmallNeg, cWidthSmallNeg) = tableSmallNeg.getVectorUnified(/*sign mode =*/0)
     val coeffSmallNeg = getSlices(cTableSmallNeg(adr), cWidthSmallNeg)
 
-    println(f"maxCbit      = ${maxCbit}")
-    println(f"cbitSmallNeg = ${cbitSmallNeg}")
+//     println(f"maxCbit      = ${maxCbit}")
+//     println(f"cbitSmallNeg = ${cbitSmallNeg}")
 
     val outSmallNeg = Wire(MixedVec(maxCbit.map{w => UInt(w.W)}))
     for (i <- 0 to order) {
