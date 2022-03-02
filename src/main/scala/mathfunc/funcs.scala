@@ -190,6 +190,9 @@ class MathFunctions(
   val xdecCPReg = ShiftRegister(xdecPCReg, pcGap + nCalcStage)
   val ydecCPReg = ShiftRegister(ydecPCReg, pcGap + nCalcStage)
 
+  val yIsLargerPCReg = ShiftRegister(yIsLarger, nPreStage)
+  val yIsLargerCPReg = ShiftRegister(yIsLargerPCReg, pcGap + nCalcStage)
+
   // ==========================================================================
   //
   // .-------.  _  .----------------.   .-------------.
@@ -342,13 +345,14 @@ class MathFunctions(
 
   // atan2Stage1Pre checks if x and y are special values.
   // for calculation, reciprocal is re-used.
-  atan2Stage1Pre.io.en:= (io.sel === SelectFunc.ATan2Stage1)
-  atan2Stage1Pre.io.x := xdecomp.io.decomp
-  atan2Stage1Pre.io.y := ydecomp.io.decomp
-
-  atan2Stage1Other.io.x := xdecomp.io.decomp
-  atan2Stage1Other.io.y := ydecomp.io.decomp
-  atan2Stage1Other.io.yIsLarger := yIsLarger
+  atan2Stage1Pre.io.en := (io.sel === SelectFunc.ATan2Stage1)
+  atan2Stage1Pre.io.x  := xdecomp.io.decomp
+  atan2Stage1Pre.io.y  := ydecomp.io.decomp
+  // ------ Preprocess-Calculate ------
+  atan2Stage1Other.io.en := ShiftRegister(selPCReg, pcGap) === SelectFunc.ATan2Stage1
+  atan2Stage1Other.io.x  := ShiftRegister(xdecPCReg, pcGap)
+  atan2Stage1Other.io.y  := ShiftRegister(ydecPCReg, pcGap)
+  atan2Stage1Other.io.yIsLarger := ShiftRegister(yIsLargerPCReg, pcGap)
 
   val atan2Stage2Pre   = Module(new ATan2Stage2PreProcess (spec, polySpec, stage.preStage))
   val atan2Stage2Tab   = Module(new ATan2Stage2TableCoeff (spec, polySpec, maxCbit))
@@ -356,32 +360,36 @@ class MathFunctions(
   val atan2Stage2Post  = Module(new ATan2Stage2PostProcess(spec, polySpec, stage.postStage))
   atan2Stage2Pre.io.en  := (io.sel === SelectFunc.ATan2Stage2)
   atan2Stage2Pre.io.x   := xdecomp.io.decomp
-  atan2Stage2Tab.io.en  := (io.sel === SelectFunc.ATan2Stage2)
-  atan2Stage2Tab.io.adr := atan2Stage2Pre.io.adr
-  atan2Stage2Other.io.x := xdecomp.io.decomp
+  // ------ Preprocess-Calculate ------
+  atan2Stage2Tab.io.en  := (ShiftRegister(selPCReg, pcGap) === SelectFunc.ATan2Stage2)
+  atan2Stage2Tab.io.adr := ShiftRegister(atan2Stage2Pre.io.adr, pcGap)
+  atan2Stage2Other.io.x := ShiftRegister(xdecPCReg, pcGap)
 
-  when(!(io.sel === SelectFunc.ATan2Stage2)) {
+  when(selPCReg =/= SelectFunc.ATan2Stage2) {
     assert(atan2Stage2Pre.io.adr === 0.U)
-    if(atan2Stage2Pre.io.dx.isDefined) {
-      assert(atan2Stage2Pre.io.dx.get  === 0.U)
-    }
+    assert(atan2Stage2Pre.io.dx.getOrElse(0.U) === 0.U)
   }
-  when(io.sel =/= SelectFunc.ATan2Stage2) {
+  when(ShiftRegister(selPCReg, pcGap) =/= SelectFunc.ATan2Stage2) {
     assert(atan2Stage2Tab.io.cs.asUInt === 0.U)
   }
 
   // ------------------------------------------------------------------------
-  // atan related status register
+  // atan related status register.
+  // atan2 stage1 must save some values until atan2 stage2. So, after the pre-
+  // process, it saves some flags to register.
 
   val atan2FlagReg = Reg(new ATan2Flags())
-  when(io.sel === SelectFunc.ATan2Stage1) {
-    // check special values ...
-    // TODO: need to consider the delay in sel and atan2Stage1PreProcess
-    atan2FlagReg.status  := Cat(yIsLarger, xdecomp.io.decomp.sgn)
+  // the timing is at the cycle when atan2Stage1Pre completes
+  when(selPCReg === SelectFunc.ATan2Stage1) {
+    atan2FlagReg.status  := Cat(yIsLargerPCReg, xdecPCReg.sgn)
     atan2FlagReg.special := atan2Stage1Pre.io.special
-    atan2FlagReg.ysgn    := ydecomp.io.decomp.sgn
+    atan2FlagReg.ysgn    := ydecPCReg.sgn
   }
+  // The register is updated only when atan2stage1 is executed. That means that
+  // we don't need to care about the timing here. ATan2Stage2 can only be
+  // executed after the Stage1 because it uses the result of stage1 as its input.
   atan2Stage2Other.io.flags := atan2FlagReg
+  atan2Stage2Post.io.flags  := atan2FlagReg
 
   // --------------------------------------------------------------------------
   // pow2/exp
@@ -514,17 +522,15 @@ class MathFunctions(
   sincosPost.io.zother := ShiftRegister(sincosOther.io.zother, cpGap)
   sincosPost.io.zres   := ShiftRegister(polynomialEval.io.result, cpGap)
 
-  // ---- TODO -----
-  atan2Stage1Post.io.en     := (io.sel === SelectFunc.ATan2Stage1)
-  atan2Stage1Post.io.zother := atan2Stage1Other.io.zother
-  atan2Stage1Post.io.zres   := polynomialEval.io.result
-  atan2Stage1Post.io.minxy  := Mux(yIsLarger, xdecomp.io.decomp, ydecomp.io.decomp)
+  atan2Stage1Post.io.en     := (ShiftRegister(selCPReg, cpGap) === SelectFunc.ATan2Stage1)
+  atan2Stage1Post.io.zother := ShiftRegister(atan2Stage1Other.io.zother, cpGap)
+  atan2Stage1Post.io.zres   := ShiftRegister(polynomialEval.io.result, cpGap)
+  atan2Stage1Post.io.minxy  := Mux(ShiftRegister(yIsLargerCPReg, cpGap),
+    ShiftRegister(xdecCPReg, cpGap), ShiftRegister(ydecCPReg, cpGap))
 
-  atan2Stage2Post.io.en     := (io.sel === SelectFunc.ATan2Stage2)
-  atan2Stage2Post.io.zother := atan2Stage2Other.io.zother
-  atan2Stage2Post.io.zres   := polynomialEval.io.result
-  atan2Stage2Post.io.flags  := atan2FlagReg // TODO keep the value in frag reg
-  // ---- end TODO -----
+  atan2Stage2Post.io.en     := (ShiftRegister(selCPReg, cpGap) === SelectFunc.ATan2Stage2)
+  atan2Stage2Post.io.zother := ShiftRegister(atan2Stage2Other.io.zother, cpGap)
+  atan2Stage2Post.io.zres   := ShiftRegister(polynomialEval.io.result, cpGap)
 
   if(pow2Pre.io.xfracLSBs.isDefined) {
     pow2Post.io.zCorrCoef.get := ShiftRegister(pow2Other.io.zCorrCoef.get, cpGap)
