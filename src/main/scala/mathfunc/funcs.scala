@@ -241,8 +241,7 @@ class MathFunctions(
     assert(acosPre.io.dx.getOrElse(0.U) === 0.U)
   }
   // table takes input from preprocess, so table output is delayed compared to acos input.
-  when(selPCGapReg =/= SelectFunc.ACos ||
-       ShiftRegister(acosPre.io.useSqrt, pcGap)) {
+  when(selPCGapReg =/= SelectFunc.ACos || ShiftRegister(acosPre.io.useSqrt, pcGap)) {
     assert(acosTab.io.cs.asUInt === 0.U)
   }
 
@@ -312,8 +311,7 @@ class MathFunctions(
     assert(recPre.io.adr === 0.U)
     assert(recPre.io.dx.getOrElse(0.U) === 0.U)
   }
-  when(selPCGapReg =/= SelectFunc.Reciprocal &&
-       selPCGapReg =/= SelectFunc.ATan2Stage1) {
+  when(selPCGapReg =/= SelectFunc.Reciprocal && selPCGapReg =/= SelectFunc.ATan2Stage1) {
     assert(recTab.io.cs.asUInt === 0.U)
   }
 
@@ -341,8 +339,7 @@ class MathFunctions(
     assert(sincosPre.io.dx.getOrElse(0.U) === 0.U)
   }
 
-  when(selPCGapReg =/= SelectFunc.Sin &&
-       selPCGapReg =/= SelectFunc.Cos) {
+  when(selPCGapReg =/= SelectFunc.Sin && selPCGapReg =/= SelectFunc.Cos) {
     assert(sincosTab.io.cs.asUInt === 0.U)
   }
 
@@ -428,8 +425,7 @@ class MathFunctions(
     assert(pow2Pre.io.dx.getOrElse(0.U) === 0.U)
   }
 
-  when(selPCGapReg =/= SelectFunc.Exp &&
-       selPCGapReg =/= SelectFunc.Pow2) {
+  when(selPCGapReg =/= SelectFunc.Exp && selPCGapReg =/= SelectFunc.Pow2) {
     assert(pow2Tab.io.cs.asUInt === 0.U)
   }
 
@@ -455,8 +451,7 @@ class MathFunctions(
     assert(log2Pre.io.adr === 0.U)
     assert(log2Pre.io.dx.getOrElse(0.U) === 0.U)
   }
-  when(selPCGapReg =/= SelectFunc.Log &&
-       selPCGapReg =/= SelectFunc.Log2) {
+  when(selPCGapReg =/= SelectFunc.Log && selPCGapReg =/= SelectFunc.Log2) {
     assert(log2Tab.io.cs.asUInt === 0.U)
   }
 
