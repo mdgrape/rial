@@ -63,6 +63,7 @@ class DecomposeReal(val spec: RealSpec) extends Module {
 // 1. consider the latency of table access
 // 2. consider setting nStage for each function. (like, sqrt does not need
 //    multiple cycles in its preprocess, but sincos may need.)
+// 3. merge the equivalent shiftregisters to one register
 class MathFuncPipelineConfig(
   val preStage:    PipelineStageConfig, // clock cycles in preprocess
   val calcStage:   PipelineStageConfig, // clock cycles in table/polynomial and non-table path
