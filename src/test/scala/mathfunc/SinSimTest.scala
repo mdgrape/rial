@@ -145,4 +145,14 @@ class MathFuncSinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     "Test Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 3)
   sinTest(sinF32TableI, RealSpec.Float32Spec, n, r,
     "Test Within [2pi, 10pi]", generateRealWithin(2.0 * Pi, 10.0 * Pi,_,_), 3)
+
+  sinTest(sinF32TableI, RealSpec.Float32Spec, n, r,
+    "Test Within [16pi, 32pi]", generateRealWithin(16.0 * Pi, 32.0 * Pi,_,_), 3)
+  sinTest(sinF32TableI, RealSpec.Float32Spec, n, r,
+    "Test Within [32pi, 64pi]", generateRealWithin(32.0 * Pi, 64.0 * Pi,_,_), 3)
+
+  sinTest(sinF32TableI, RealSpec.Float32Spec, n, r,
+    "Test Within [-32pi, -16pi]", generateRealWithin( -32.0 * Pi,-16.0 * Pi, _,_), 3)
+  sinTest(sinF32TableI, RealSpec.Float32Spec, n, r,
+    "Test Within [-64pi, -32pi]", generateRealWithin( -64.0 * Pi,-32.0 * Pi, _,_), 3)
 }

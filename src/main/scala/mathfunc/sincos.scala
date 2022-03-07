@@ -29,6 +29,14 @@ import rial.mathfunc._
 // most of the part by converting cos(x) to sin(pi/2-x).
 // So only SinCosPreProcess has conditional branch that depends on `isSin:Bool`.
 //
+// XXX Basically, the result depends on the fractional part of x / pi. If x is
+// too large compared to the constant `Pi` used here, the fractional part will
+// be trancated and the resulting value will lose the precision. Currently, we
+// tested that the current implementation has enough precision (err < 2) with
+// |x| <= 64pi. Until |x| < 128pi, the error increases a bit, but the result
+// looks still makes sense (err < the last 3bit). In case of 128pi < |x|,
+// the error increases (like, the last 8 bits) and is intolerable.
+//
 
 // -------------------------------------------------------------------------
 //  _ __  _ __ ___ _ __  _ __ ___   ___ ___  ___ ___
