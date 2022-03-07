@@ -63,7 +63,6 @@ class DecomposeReal(val spec: RealSpec) extends Module {
 // 1. consider the latency of table access
 // 2. consider setting nStage for each function. (like, sqrt does not need
 //    multiple cycles in its preprocess, but sincos may need.)
-// 3. merge the equivalent shiftregisters to one register
 class MathFuncPipelineConfig(
   val preStage:    PipelineStageConfig, // clock cycles in preprocess
   val calcStage:   PipelineStageConfig, // clock cycles in table/polynomial and non-table path
@@ -97,6 +96,19 @@ object MathFuncPipelineConfig {
       false)
   }
 }
+
+// # Overview
+//
+//                .------.  _  .-----------. .------------.
+// sel -----------|      |-|v|-' .-------. '-| chebyshev  |    _  .-------.
+//    .---------. | pre- |-| |---| table |---| polynomial |---|v|-| post- |-> z
+// x -|decompose|-| proc | | |   '-------'   '------------' .-| |-| proc  |
+// y -|         |-|      |-| |-. .------------------------. | '_' '-------'
+//    '---------' '------' '-' '-| non-table (taylor etc) |-'  .
+//                          .    '------------------------'    |
+//                          |                                  |
+//                   Preproc/Calc                          Calc/Postproc
+//
 
 class MathFunctions(
   val spec : RealSpec, // Input / Output floating spec
@@ -224,7 +236,7 @@ class MathFunctions(
   val acosPost  = Module(new ACosPostProcess(spec, polySpec, stage.postStage))
 
   val acosPreUseSqrtPCGapReg = ShiftRegister(acosPre.io.useSqrt, pcGap)
-  val acosPreAdrPCGapReg     = ShiftRegister(acosPre.io.adr, pcGap)
+  val acosPreAdrPCGapReg     = ShiftRegister(acosPre.io.adr,     pcGap)
 
   acosPre.io.en        := (io.sel === SelectFunc.ACos)
   acosPre.io.x         := xdecomp.io.decomp
@@ -234,8 +246,8 @@ class MathFunctions(
   acosTab.io.adr       := acosPreAdrPCGapReg
   acosOther.io.x       := xdecPCGapReg
   acosOther.io.useSqrt := acosPreUseSqrtPCGapReg
-  acosOther.io.yex     := ShiftRegister(acosPre.io.yex,     pcGap)
-  acosOther.io.yman    := ShiftRegister(acosPre.io.yman,    pcGap)
+  acosOther.io.yex     := ShiftRegister(acosPre.io.yex,  pcGap)
+  acosOther.io.yman    := ShiftRegister(acosPre.io.yman, pcGap)
 
   // after preprocess
   // XXX Since `PCReg`s are delayed by nPreStage, the timing is the same as acosPre output.
@@ -527,8 +539,8 @@ class MathFunctions(
   recPost.io.zother := ShiftRegister(recOther.io.zother, cpGap)
   recPost.io.zres   := polynomialResultCPGapReg
 
-  sincosPost.io.en     := selCPGapReg === SelectFunc.Sin ||
-                          selCPGapReg === SelectFunc.Cos
+  sincosPost.io.en     := (selCPGapReg === SelectFunc.Sin) ||
+                          (selCPGapReg === SelectFunc.Cos)
   sincosPost.io.zother := ShiftRegister(sincosOther.io.zother, cpGap)
   sincosPost.io.zres   := polynomialResultCPGapReg
 
