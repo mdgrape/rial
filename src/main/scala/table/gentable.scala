@@ -129,7 +129,7 @@ class FuncTableDouble (f : Double => Double, val nOrder : Int) {
   // 1 : All 0 or positive
   // 2 : All 0 or negative
   // 3 : include positive and negative
-  def checkSign() = {
+  def checkSign = {
     (0 to nOrder).toSeq.
       map( i =>
         interval.foldLeft(0)(
@@ -145,13 +145,13 @@ class FuncTableDouble (f : Double => Double, val nOrder : Int) {
     interval.map( iv => iv.c(n) )
   }
 
-  def minMax() = {
+  def minMax = {
     val cmin = (0 to nOrder).toSeq.map( i => coeffList(i).min )
     val cmax = (0 to nOrder).toSeq.map( i => coeffList(i).max )
     cmin.zip(cmax)
   }
 
-  def getMinMaxAll() = {
+  def getMinMaxAll = {
     (nOrder to 0 by -1).toSeq.map(
       n => interval.foldLeft((1e16,0.0))( (w, iv) => {
         val mm = iv.getMinMax(n)
@@ -175,6 +175,8 @@ class FuncTableIntervalInt (iv : FuncTableIntervalDouble, val floating: Boolean,
   val w      = iv.w
   val nOrder = iv.nOrder
 
+  // here we use explicit () to avoid overload ambiguity in coeff(i)
+  // between coeff(n:Int) and Array[](i)
   def coeff() = cw.map( _._1 )
   def coeff(n: Int) = cw(n)._1
 
@@ -333,7 +335,7 @@ trait FuncTable {
     val wTotal = w.sum
     // combined, Vector of Vector
     val cmask = interval.map( iv =>
-      iv.coeff.zip(takeAbs).map( x => if (x._2) abs(x._1) else x._1).
+      iv.coeff().zip(takeAbs).map( x => if (x._2) abs(x._1) else x._1).
         zip(w).map( x => toBinStringFill( x._1 & ((1L<<x._2)-1), x._2)).mkString("b","_","")
     )
     //cmask.foreach( x=> println(x) )
@@ -355,7 +357,7 @@ trait FuncTable {
     val wTotal = w.sum
     // combined, Vector of Vector
     val cmask = interval.map( iv =>
-      iv.coeff.zip(takeAbs).map( x => if (x._2) abs(x._1) else x._1).
+      iv.coeff().zip(takeAbs).map( x => if (x._2) abs(x._1) else x._1).
         zip(w).map( x => toBinStringFill( x._1 & ((1L<<x._2)-1), x._2)).mkString("b","_","")
     )
     //cmask.foreach( x=> println(x) )
@@ -380,7 +382,7 @@ trait FuncTable {
     (0 to nOrder).toSeq.map( i => {
       val mask = (1L<<w(i))-1
       val cmask = interval.map( z => {
-        val c = z.coeff.apply(i)
+        val c = z.coeff().apply(i)
         val ca = if (takeAbs(i)) abs(c) else c
         val cm = (ca & mask).U(w(i).W)
         cm
@@ -417,7 +419,7 @@ trait FuncTable {
         p.println(f"  always_comb begin");
         p.println(f"    case (adr)");
         for ( j <- 0 to interval.size-1 ) {
-          val c  = interval(j).coeff
+          val c  = interval(j).coeff()
           val ca = c.zip(takeAbs).map( x => if (x._2) abs(x._1) else x._1)
           val cmask = ca.zip(w).map( x => x._1 & ((1L<<x._2)-1))
           val cmaskStr = cmask.zip(w).map( x => toBinStringFill(x._1, x._2) )
@@ -478,7 +480,7 @@ trait FuncTable {
       p.println(f"int ${name}_calcWidth[${nOrder+1}] = "+calcWidth.mkString("{", ", ", "};"))
       p.println(f"int64_t ${name}_table[$nAdr][${nOrder+1}] = {")
       for ( iv <- interval ) {
-        p.print(f"  "+iv.coeff.mkString("{", ", ", "},"))
+        p.print(f"  "+iv.coeff().mkString("{", ", ", "},"))
         p.println(f" // [${iv.xMin}, ${iv.xMin+iv.w}) d=${iv.w}")
       }
       p.println("};\n")
