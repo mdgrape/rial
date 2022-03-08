@@ -71,7 +71,7 @@ object PipelineStageConfig {
     new PipelineStageConfig( PipelineStageStrategy.atIn, Seq[Int](n) )
   }
 
-  def none() : PipelineStageConfig = {
+  def none : PipelineStageConfig = {
     new PipelineStageConfig
   }
 }

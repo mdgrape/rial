@@ -135,7 +135,7 @@ class AddFPTest extends AnyFlatSpec
   
   it should f"Add Double with pipereg 0" in {
     addTest( RealSpec.Float64Spec, RealSpec.Float64Spec, RealSpec.Float64Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none())
+      RoundSpec.roundToEven, n, PipelineStageConfig.none)
   }
 
 }

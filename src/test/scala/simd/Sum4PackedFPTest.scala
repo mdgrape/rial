@@ -147,12 +147,12 @@ class Sum4PackedFPTest extends AnyFlatSpec
 
   it should f"Add 4xDouble with pipereg 0" in {
     addTest( RealSpec.Float64Spec, Seq(false, false, false, false), RealSpec.Float64Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none())
+      RoundSpec.roundToEven, n, PipelineStageConfig.none)
   }
 
   it should f"Add masked 4xDouble with pipereg 0" in {
     addTest( RealSpec.Float64Spec, Seq(true, false, true, false), RealSpec.Float64Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none())
+      RoundSpec.roundToEven, n, PipelineStageConfig.none)
   }
 
 }

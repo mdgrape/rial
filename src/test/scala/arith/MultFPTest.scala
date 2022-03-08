@@ -85,15 +85,15 @@ class MultFPTest extends AnyFlatSpec
 
   it should f"Multiplier Double with pipereg 0" in {
     multTest( RealSpec.Float64Spec, RealSpec.Float64Spec, RealSpec.Float64Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none())
+      RoundSpec.roundToEven, n, PipelineStageConfig.none)
   }
   it should f"Multiplier Float with pipereg 0" in {
     multTest( RealSpec.Float32Spec, RealSpec.Float32Spec, RealSpec.Float32Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none())
+      RoundSpec.roundToEven, n, PipelineStageConfig.none)
   }
   it should f"Multiplier Double*Float->Double with pipereg 0" in {
     multTest( RealSpec.Float64Spec, RealSpec.Float32Spec, RealSpec.Float64Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none())
+      RoundSpec.roundToEven, n, PipelineStageConfig.none)
   }
   //runtest(n, PipelineStageConfig.default(2))
 }

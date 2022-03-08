@@ -151,11 +151,11 @@ class AddPackedFPTest extends AnyFlatSpec
 
   it should f"Add 4xDouble with pipereg 0" in {
     addTest(4, RealSpec.Float64Spec, RealSpec.Float64Spec, RealSpec.Float64Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none())
+      RoundSpec.roundToEven, n, PipelineStageConfig.none)
   }
   it should f"Add 3xDouble with pipereg 0" in {
     addTest(3, RealSpec.Float64Spec, RealSpec.Float64Spec, RealSpec.Float64Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none())
+      RoundSpec.roundToEven, n, PipelineStageConfig.none)
   }
 
 }

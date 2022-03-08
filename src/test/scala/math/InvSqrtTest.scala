@@ -116,18 +116,18 @@ class InvSqrtTest extends AnyFlatSpec
   }
 
   val invsqrtBF16TableI = InvSqrtSim.invsqrtTableGeneration( 0, 7, 7, 7 )
-  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(), n, r, invsqrtBF16TableI,
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none, n, r, invsqrtBF16TableI,
     "Test Within (1,4)",generateReal1to4(_,_))
-  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(), n, r, invsqrtBF16TableI,
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none, n, r, invsqrtBF16TableI,
     "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(), n, r, invsqrtBF16TableI,
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none, n, r, invsqrtBF16TableI,
     "Test All range",generateRealFull(_,_) )
 
   val invsqrtF32TableI = InvSqrtSim.invsqrtTableGeneration( 2, 8, 23, 23+2 )
-  runtest(RealSpec.Float32Spec, PipelineStageConfig.none(), n, r, invsqrtF32TableI,
+  runtest(RealSpec.Float32Spec, PipelineStageConfig.none, n, r, invsqrtF32TableI,
     "Test Within (1,4)",generateReal1to4(_,_))
-  runtest(RealSpec.Float32Spec, PipelineStageConfig.none(), n, r, invsqrtF32TableI,
+  runtest(RealSpec.Float32Spec, PipelineStageConfig.none, n, r, invsqrtF32TableI,
     "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-  runtest(RealSpec.Float32Spec, PipelineStageConfig.none(), n, r, invsqrtF32TableI,
+  runtest(RealSpec.Float32Spec, PipelineStageConfig.none, n, r, invsqrtF32TableI,
     "Test All range",generateRealFull(_,_) )
 }

@@ -106,15 +106,15 @@ class SqrtTest extends AnyFlatSpec
   }
 
   val sqrtBF16TableI = SqrtSim.sqrtTableGeneration( 0, 7, 7, 7 )
-  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none,
     n, r, sqrtBF16TableI, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none,
     n, r, sqrtBF16TableI, "Test All range",generateRealFull(_,_) )
 
   val sqrtF32TableI  = SqrtSim.sqrtTableGeneration( 2, 8, 23, 23+2 )
-  runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
+  runtest(RealSpec.Float32Spec, PipelineStageConfig.none,
     n, r, sqrtF32TableI, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-  runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
+  runtest(RealSpec.Float32Spec, PipelineStageConfig.none,
     n, r, sqrtF32TableI, "Test All range",generateRealFull(_,_) )
 }
 

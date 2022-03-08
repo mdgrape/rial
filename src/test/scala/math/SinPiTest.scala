@@ -104,26 +104,26 @@ class SinPiTest extends AnyFlatSpec
   val sinPiBF16TableI = SinPiSim.sinPiTableGeneration( 0, 7, 7, 7 )
   val sinPiF32TableI  = SinPiSim.sinPiTableGeneration( 2, 8, 23, 23+2 )
 
-  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none,
     n, r, sinPiBF16TableI, "Test Within (     0, 2^-13)", generateRealWithin(0.0,pow(2.0, -13) - pow(2.0, -36),_,_))
-  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none,
     n, r, sinPiBF16TableI, "Test Within ( 2^-13, 0.5)",     generateRealWithin(pow(2.0, -13),0.5,_,_))
-  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none,
     n, r, sinPiBF16TableI, "Test Within ( 0.5, 1.0)",     generateRealWithin(0.5,1.0,_,_))
-  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none,
     n, r, sinPiBF16TableI, "Test Within ( 1.0, 2.0)",     generateRealWithin(1.0,2.0,_,_))
-  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none,
     n, r, sinPiBF16TableI, "Test Within (-1.0, 0.0)",     generateRealWithin(-1.0,0.0,_,_))
 
-  runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
+  runtest(RealSpec.Float32Spec, PipelineStageConfig.none,
     n, r, sinPiF32TableI, "Test Within (    -1, 0)", generateRealWithin(-1.0,0.0,_,_))
-  runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
+  runtest(RealSpec.Float32Spec, PipelineStageConfig.none,
     n, r, sinPiF32TableI, "Test Within (     0, 2^-13)", generateRealWithin(0.0,pow(2.0, -13) - pow(2.0, -36),_,_))
-  runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
+  runtest(RealSpec.Float32Spec, PipelineStageConfig.none,
     n, r, sinPiF32TableI, "Test Within ( 2^-13, 0.5)",     generateRealWithin(pow(2.0, -13),0.5,_,_))
-  runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
+  runtest(RealSpec.Float32Spec, PipelineStageConfig.none,
     n, r, sinPiF32TableI, "Test Within (0.5, 1.0)",     generateRealWithin(0.5,1.0,_,_))
-  runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
+  runtest(RealSpec.Float32Spec, PipelineStageConfig.none,
     n, r, sinPiF32TableI, "Test Within (1.0, 2.0)",     generateRealWithin(1.0,2.0,_,_))
 
 }

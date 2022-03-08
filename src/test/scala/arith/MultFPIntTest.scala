@@ -109,11 +109,11 @@ class MultFPIntTest extends AnyFlatSpec
 
   it should f"Multiplier Float * UInt8 with pipereg 0" in {
     multTest( RealSpec.Float32Spec, 8, false, RealSpec.Float32Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none())
+      RoundSpec.roundToEven, n, PipelineStageConfig.none)
   }
   it should f"Multiplier Float * SInt8 with pipereg 0" in {
     multTest( RealSpec.Float32Spec, 8, true, RealSpec.Float32Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none())
+      RoundSpec.roundToEven, n, PipelineStageConfig.none)
   }
 }
 

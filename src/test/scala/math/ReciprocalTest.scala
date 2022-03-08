@@ -90,17 +90,17 @@ class ReciprocalTest extends AnyFlatSpec
   val reciprocalBF16TableI = ReciprocalSim.reciprocalTableGeneration( 0, 7, 7, 7 )
   val reciprocalF32TableI = ReciprocalSim.reciprocalTableGeneration( 2, 8, 23, 23+2 )
 
-  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none,
     n, r, reciprocalBF16TableI,
     "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none,
     n, r, reciprocalBF16TableI,
     "Test All range",generateRealFull(_,_) )
 
-  runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
+  runtest(RealSpec.Float32Spec, PipelineStageConfig.none,
     n, r, reciprocalF32TableI,
     "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-  runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
+  runtest(RealSpec.Float32Spec, PipelineStageConfig.none,
     n, r, reciprocalF32TableI,
     "Test All range",generateRealFull(_,_) )
 

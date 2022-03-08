@@ -110,19 +110,19 @@ class NegPackedFPTest extends AnyFlatSpec
 
   it should f"Negation Double->Double with pipereg 0" in {
     negTest( 4, RealSpec.Float64Spec, RealSpec.Float64Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none())
+      RoundSpec.roundToEven, n, PipelineStageConfig.none)
   }
   it should f"Negation Float->Float with pipereg 0" in {
     negTest( 4, RealSpec.Float32Spec, RealSpec.Float32Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none())
+      RoundSpec.roundToEven, n, PipelineStageConfig.none)
   }
   it should f"Negation Float->Double with pipereg 0" in {
     negTest( 4, RealSpec.Float32Spec, RealSpec.Float64Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none())
+      RoundSpec.roundToEven, n, PipelineStageConfig.none)
   }
   it should f"Negation Double->Float with pipereg 0" in {
     negTest( 4, RealSpec.Float64Spec, RealSpec.Float32Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none())
+      RoundSpec.roundToEven, n, PipelineStageConfig.none)
   }
 //   runtest(n, PipelineStageConfig.default(2))
 }

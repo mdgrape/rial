@@ -91,7 +91,7 @@ class Pow2F32Test extends AnyFlatSpec
     }
   }
 
-  runtest(n, PipelineStageConfig.none())
+  runtest(n, PipelineStageConfig.none)
   runtest(n, PipelineStageConfig.default(2))
 }
 
@@ -163,10 +163,10 @@ class Pow2BF16Test extends AnyFlatSpec
   val pow2BF16TableI = pow2TableGeneration( 0, 8, 7 )
   val pow2BF16sim = ExponentialSim.pow2simGeneric( pow2BF16TableI, 0, _ )
 
-  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none,
     n, r, pow2BF16sim,
     "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none,
     n, r, pow2BF16sim,
     "Test All range",generateRealFull(_,_) )
 
@@ -240,10 +240,10 @@ class ExpF32Test extends AnyFlatSpec
     ExponentialSim.pow2F32TableI,
     ExponentialSim.pow2F32ExtraBits, _ )
 
-  runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
+  runtest(RealSpec.Float32Spec, PipelineStageConfig.none,
     n, r, expF32sim,
     "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-  runtest(RealSpec.Float32Spec, PipelineStageConfig.none(),
+  runtest(RealSpec.Float32Spec, PipelineStageConfig.none,
     n, r, expF32sim,
     "Test All range",generateRealFull(_,_) )
 }
@@ -318,11 +318,11 @@ class ExpBF16Test extends AnyFlatSpec
     pow2BF16TableI,
     pow2BF16ExtraBits, _ )
 
-  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none,
     n, r, expBF16sim,
     "Test Within (-128,128)",generateRealWithin(128.0,_,_))
   
-  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none(),
+  runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none,
     n, r, expBF16sim,
     "Test All range",generateRealFull(_,_) )
 }
