@@ -25,7 +25,7 @@ class FusedMulAddFPGeneric(
   roundSpec : RoundSpec,
   stage : PipelineStageConfig,
   val enableDebug : Boolean = false
-) extends MultiIOModule with DebugControlSlave {
+) extends Module with DebugControlSlave {
 
   val nStage = stage.total
 

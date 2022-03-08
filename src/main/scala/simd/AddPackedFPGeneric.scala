@@ -16,7 +16,7 @@ class AddPackedFPGeneric(
   roundSpec : RoundSpec, // Rounding spec
   stage : PipelineStageConfig,
   val enableDebug : Boolean = false
-) extends MultiIOModule with DebugControlSlave {
+) extends Module with DebugControlSlave {
 
   val nStage = stage.total
 

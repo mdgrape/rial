@@ -16,7 +16,7 @@ class Sum4PackedFPGeneric(
   roundSpec : RoundSpec, // Rounding spec
   stage : PipelineStageConfig,
   val enableDebug : Boolean = false
-) extends MultiIOModule with DebugControlSlave {
+) extends Module with DebugControlSlave {
 
   val depth  = 2
   val nStage = stage.total * depth

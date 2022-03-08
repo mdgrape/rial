@@ -11,7 +11,7 @@ import chisel3.util._
 import chisel3.util._
 import chisel3.util.experimental.BoringUtils
 
-trait DebugControlMaster extends MultiIOModule {
+trait DebugControlMaster extends Module {
 
   val debugEnableIO = IO(Input(Bool()))
 
