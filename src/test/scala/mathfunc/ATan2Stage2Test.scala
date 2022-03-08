@@ -144,7 +144,7 @@ class MathFuncATan2Stage2Test extends AnyFlatSpec
               println(f"test:y          = ${yid.toLong.toBinaryString}(${y.toDouble})")
               println(f"test:atan2(x,y) = ${atan2(y.toDouble, x.toDouble)}")
               println(f"test:zref       = ${z0d.toLong.toBinaryString}(${z.toDouble})")
-              println(f"test:zsim       = ${z2i.toLong.toBinaryString}(${new RealGeneric(spec, z2i.toLong).toDouble})")
+              println(f"test:zsim       = ${z2i.toLong.toBinaryString}(${new RealGeneric(spec, zisgn, ziexp.toInt, ziman).toDouble})")
             }
 
             assert(z2i == z0d, f"x = (${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman.toLong.toBinaryString}), " +
