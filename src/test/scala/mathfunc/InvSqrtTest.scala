@@ -114,9 +114,9 @@ class MathFuncInvSqrtTest extends AnyFlatSpec
   val nOrder = 2
   val adrW = 8
   val extraBits = 3
-  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, MathFuncPipelineConfig.none(),
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, MathFuncPipelineConfig.none,
     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, MathFuncPipelineConfig.none(),
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, MathFuncPipelineConfig.none,
     n, r, "Test All range",generateRealFull(_,_) )
 
   val simplePipeline = new MathFuncPipelineConfig(

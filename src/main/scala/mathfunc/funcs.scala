@@ -87,7 +87,7 @@ class MathFuncPipelineConfig(
 }
 
 object MathFuncPipelineConfig {
-  def none(): MathFuncPipelineConfig = {
+  def none = {
     new MathFuncPipelineConfig(
       PipelineStageConfig.none,
       PipelineStageConfig.none,
@@ -590,6 +590,6 @@ class MathFuncUnit( stage : MathFuncPipelineConfig )
 
 object MathFuncUnit_driver extends App {
   (new chisel3.stage.ChiselStage).execute(args,
-    Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new MathFuncUnit(MathFuncPipelineConfig.none())) ) )
+    Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new MathFuncUnit(MathFuncPipelineConfig.none)) ) )
 }
 
