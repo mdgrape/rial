@@ -4,8 +4,7 @@ import org.scalatest._
 import chisel3._
 import chisel3.experimental.BundleLiterals._
 import chiseltest._
-
-
+import chiseltest.VerilatorBackendAnnotation
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -147,7 +146,8 @@ class FMAFPTest extends AnyFlatSpec
 
   def fmaTest(xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, wSpec : RealSpec,
     roundSpec : RoundSpec, n : Int, stage : PipelineStageConfig ) = {
-    test(new FusedMulAddFPGeneric( xSpec, ySpec, zSpec, wSpec, roundSpec, stage, true ) with DebugControlMaster) { c =>
+    test(new FusedMulAddFPGeneric( xSpec, ySpec, zSpec, wSpec, roundSpec, stage, true ) with DebugControlMaster).
+    withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
       {
         c.debugEnableIO.poke(false.B)
 
