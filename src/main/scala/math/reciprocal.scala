@@ -30,10 +30,10 @@ class ReciprocalGeneric(
 
   val nStage = stage.total
 
-  def getParam() = { (spec.exW, spec.manW, nOrder, adrW, extraBits, nStage,
+  def getParam = { (spec.exW, spec.manW, nOrder, adrW, extraBits, nStage,
     enableRangeCheck, enablePolynomialRounding) }
 
-  def getStage() = nStage
+  def getStage = nStage
 
   val expW = spec.exW
   val manW = spec.manW

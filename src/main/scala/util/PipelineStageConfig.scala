@@ -32,7 +32,7 @@ class PipelineStageConfig (
   }
 
   // get explanation
-  def getString() = {
+  def getString = {
     val p0 = if (position.isDefinedAt(0)) position(0) else 0
     strategy match {
       case PipelineStageStrategy.none => "none"

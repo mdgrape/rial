@@ -534,7 +534,7 @@ class ACosPostProcess(
   val shiftOut = log2UpL(manW) // for FP32, log2Up(23) = 5
 
   val nStage = stage.total
-  def getStage() = nStage
+  def getStage = nStage
 
   val adrW   = polySpec.adrW
   val fracW  = polySpec.fracW

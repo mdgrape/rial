@@ -35,10 +35,10 @@ class CosPiGeneric(
 
   val nStage = stage.total
 
-  def getParam() = { (spec.exW, spec.manW, nOrder, adrW, extraBits, nStage,
+  def getParam = { (spec.exW, spec.manW, nOrder, adrW, extraBits, nStage,
     enableRangeCheck, enablePolynomialRounding) }
 
-  def getStage() = nStage
+  def getStage = nStage
 
   val io = IO(new Bundle{
     val x = Input (UInt(spec.W.W))

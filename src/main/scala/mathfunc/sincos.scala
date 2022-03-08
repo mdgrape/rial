@@ -622,7 +622,7 @@ class SinCosPostProcess(
 ) extends Module {
 
   val nStage = stage.total
-  def getStage() = nStage
+  def getStage = nStage
 
   val exW    = spec.exW
   val manW   = spec.manW

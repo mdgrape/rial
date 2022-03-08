@@ -17,9 +17,9 @@ class MultPackedFPGeneric(
 
   val nStage = stage.total
 
-  def getParam() = { (xSpec, ySpec, zSpec, roundSpec, nStage) }
+  def getParam = { (xSpec, ySpec, zSpec, roundSpec, nStage) }
 
-  def getStage() = nStage
+  def getStage = nStage
 
   val io = IO(new Bundle{
     val x   = Input (Vec(len, UInt(xSpec.W.W)))

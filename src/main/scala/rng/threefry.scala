@@ -15,7 +15,7 @@ import chisel3.util._
 // rotStage : Insert pipeline stage every rotStage rotation
 class Threefry4_32( r: Int = 20, rotStage: Int = 0 ) extends Module {
 
-  def getParam() = { (r, rotStage) }
+  def getParam = { (r, rotStage) }
 
   def rotL( x : UInt, n : Int ) = {
     Cat( x(x.getWidth-n-1,0), x(x.getWidth-1,x.getWidth-n) )

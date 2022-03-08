@@ -38,11 +38,11 @@ class ATan2Generic(
 
   val nStage = stage.total
 
-  def getParam() = { (spec.exW, spec.manW,
+  def getParam = { (spec.exW, spec.manW,
     nOrderRec, adrWRec, extraBitsRec, nOrderATan, adrWATan, extraBitsATan,
     nStage, enableRangeCheck, enablePolynomialRounding) }
 
-  def getStage() = nStage
+  def getStage = nStage
 
   val manW  = spec.manW
   val exW   = spec.exW

@@ -78,9 +78,9 @@ class MathFuncPipelineConfig(
     (if(preCalcGap)  {1} else {0}) +
     (if(calcPostGap) {1} else {0})
   }
-  def getString() = {
-    f"pre: ${preStage.getString()}, " +
-    f"calc: ${calcStage.getString()}, " +
+  def getString = {
+    f"pre: ${preStage.getString}, " +
+    f"calc: ${calcStage.getString}, " +
     f"post: ${postStage.getString}, " +
     f"pre-calc: ${preCalcGap}, calc-post: ${calcPostGap}"
   }
@@ -133,7 +133,7 @@ class MathFunctions(
   println(f"nPostStage = ${nPostStage}")
 
   val nStage = stage.total
-  def getStage() = nStage
+  def getStage = nStage
 
   val polySpec = new PolynomialSpec(spec, nOrder, adrW, extraBits,
     enableRangeCheck, enablePolynomialRounding)

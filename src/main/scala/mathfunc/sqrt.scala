@@ -258,7 +258,7 @@ class SqrtPostProcess(
   val exBias = spec.exBias
 
   val nStage = stage.total
-  def getStage() = nStage
+  def getStage = nStage
 
   val adrW   = polySpec.adrW
   val fracW  = polySpec.fracW

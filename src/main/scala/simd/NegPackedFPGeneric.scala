@@ -22,9 +22,9 @@ class NegPackedFPGeneric(
 
   val nStage = stage.total
 
-  def getParam() = { (xSpec, zSpec, roundSpec, nStage) }
+  def getParam = { (xSpec, zSpec, roundSpec, nStage) }
 
-  def getStage() = nStage
+  def getStage = nStage
 
   if( xSpec.disableSign || zSpec.disableSign) {
     throw new RuntimeException(f"ERROR (${this.getClass.getName}): sign is disabled")
