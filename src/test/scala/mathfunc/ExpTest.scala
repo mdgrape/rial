@@ -3,8 +3,7 @@ import org.scalatest._
 import chisel3._
 import chisel3.experimental.BundleLiterals._
 import chiseltest._
-
-
+import chiseltest.VerilatorBackendAnnotation
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -62,7 +61,8 @@ class MathFuncExpTest extends AnyFlatSpec
     val total = stage.total
     val pipeconfig = stage.getString
     it should f"exp(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
-      test( new MathFunctions(spec, nOrder, adrW, extraBits, stage, false, false)) { c =>
+      test( new MathFunctions(spec, nOrder, adrW, extraBits, stage, false, false)).
+        withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
         {
           // To avoid timeoutException while testing z == inf/zero.
           // Detailed explanation follows.
