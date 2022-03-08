@@ -85,7 +85,7 @@ class FMAFPTest extends AnyFlatSpec
         } else {
           x.scalbn( -scale.toInt )
         }
-      (y.negate.add(ySpec, RoundSpec.roundToEven,z), y)
+      (y.negate().add(ySpec, RoundSpec.roundToEven,z), y)
     } else {
       val z =
         if (scale>=q) {
@@ -93,7 +93,7 @@ class FMAFPTest extends AnyFlatSpec
         } else {
           y.scalbn( -scale.toInt )
         }
-      (x,x.negate.add(ySpec, RoundSpec.roundToEven,z))
+      (x,x.negate().add(ySpec, RoundSpec.roundToEven,z))
     }
   }
 
