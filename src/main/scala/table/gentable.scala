@@ -293,7 +293,7 @@ class FuncTableIntervalInt (iv : FuncTableIntervalDouble, val floating: Boolean,
   }
 
   val (cw, exponent) = if (floating) {
-    val (maxPos, scaleBits) = scaleCoeff(iv.c, cbit)
+    val (maxPos, scaleBits) = scaleCoeff(iv.c.toIndexedSeq, cbit)
     // When c0=1, exp=0 and maxVal = -(cbit(0)-2)
     ( iv.c.map( x => round(scalb(x, -scaleBits)).toLong ).zip(cbit),
       scaleBits + cbit(0) - 2 )
@@ -339,7 +339,7 @@ trait FuncTable {
         zip(w).map( x => toBinStringFill( x._1 & ((1L<<x._2)-1), x._2)).mkString("b","_","")
     )
     //cmask.foreach( x=> println(x) )
-    val z = VecInit( cmask.toArray.map( x => x.U(wTotal.W) ) )
+    val z = VecInit( cmask.toArray.map( x => x.U(wTotal.W) ).toIndexedSeq )
     (z,w)
   }
 
@@ -361,7 +361,7 @@ trait FuncTable {
         zip(w).map( x => toBinStringFill( x._1 & ((1L<<x._2)-1), x._2)).mkString("b","_","")
     )
     //cmask.foreach( x=> println(x) )
-    val z = VecInit( cmask.toArray.map( x => x.U(wTotal.W) ) )
+    val z = VecInit( cmask.toArray.map( x => x.U(wTotal.W) ).toIndexedSeq )
     z
   }
 
@@ -387,7 +387,7 @@ trait FuncTable {
         val cm = (ca & mask).U(w(i).W)
         cm
       } )
-      val z = VecInit( cmask.toArray )
+      val z = VecInit( cmask.toIndexedSeq )
       (z, w(i))
     } )
   }
