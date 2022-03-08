@@ -165,8 +165,8 @@ class MathFunctions(
     Log2TableCoeff.getCalcW(spec, polySpec)
     ).reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
 
-  def getMaxCbit()  = maxCbit
-  def getMaxCalcW() = maxCalcW
+  def getMaxCbit  = maxCbit
+  def getMaxCalcW = maxCalcW
 
   println(f"acos        cbits = ${ACosTableCoeff       .getCBits(spec, polySpec)} calcW = ${ACosTableCoeff       .getCalcW(spec, polySpec)}")
   println(f"sqrt        cbits = ${SqrtTableCoeff       .getCBits(spec, polySpec)} calcW = ${SqrtTableCoeff       .getCalcW(spec, polySpec)}")
