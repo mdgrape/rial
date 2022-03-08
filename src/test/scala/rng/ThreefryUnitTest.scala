@@ -37,7 +37,7 @@ class ThreefryTest extends AnyFlatSpec
   def runTest(r: Int, rotStage: Int) = {
     test(new Threefry4_32(r, rotStage)) {
       c => {
-        val (r, rotStage) = c.getParam()
+        val (r, rotStage) = c.getParam
         println(f"Threefry4_32 parameters rotation=$r%d stage between rotation=$rotStage%d")
 
         val threefry = c
