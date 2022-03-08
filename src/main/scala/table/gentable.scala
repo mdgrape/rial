@@ -202,7 +202,7 @@ class FuncTableIntervalInt (iv : FuncTableIntervalDouble, val floating: Boolean,
       val zmax = (1L<<(d-1))-1
       val zmin = -zmax-1
       if ( (term > zmax) || (term < zmin) ) {
-        println(f"INFO (${this.getClass.getName}) : Range error: dx=$dx%f, dx=$dx%h, z=${term}%h(${term.toDouble}%e), c=${c._1}%h, cmin=$zmin%h, zmax=$zmax%h")
+        println(f"INFO (${this.getClass.getName}) : Range error: dx=${dx.toDouble}%f, dx=$dx%h, z=${term}%h(${term.toDouble}%e), c=${c._1}%h, cmin=$zmin%h, zmax=$zmax%h")
         //println(f"${c._1} ${z._1} ${term} $zw $d $dxBp $dx%h $dxl")
       }
       //println(f"${c._1}%x ${z._1}%x ${term}%x $zw $d $dxBp $dx%x $dxl")
