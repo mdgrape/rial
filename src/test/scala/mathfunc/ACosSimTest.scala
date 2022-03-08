@@ -102,7 +102,7 @@ class MathFuncACosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
           assert(erri.abs<=tolerance)
 
           if (maxError < erri.abs) {
-            maxError    = erri.abs
+            maxError    = erri.abs.toDouble
             xatMaxError = x0
             zatMaxError = zd
           }
