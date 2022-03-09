@@ -62,13 +62,11 @@ class SqrtPreProcess(
   })
 
   // use the LSB of x.ex to distinguish 1~2 and 2~4
-  val adr0 = Cat(io.x.ex(0), io.x.man(manW-1, dxW))
-  val adr  = adr0 & Fill(adr0.getWidth, io.en)
+  val adr  = enable(io.en, Cat(io.x.ex(0), io.x.man(manW-1, dxW)))
   io.adr := ShiftRegister(adr, nStage)
 
   if(order != 0) {
-    val dx0  = Cat(~io.x.man(dxW-1), io.x.man(dxW-2, 0))
-    val dx   = dx0 & Fill(dx0.getWidth, io.en)
+    val dx   = enable(io.en, Cat(~io.x.man(dxW-1), io.x.man(dxW-2, 0)))
     io.dx.get := ShiftRegister(dx, nStage)
   }
 }
@@ -118,9 +116,7 @@ class SqrtTableCoeff(
     )
     assert(maxCbit(0) == fracW)
 
-    val c0 = tbl(io.adr(adrW, 0))            // here we use LSB of ex
-    val c  = c0 & Fill(c0.getWidth, io.en)
-    io.cs.cs(0) := c // width should be manW + extraBits
+    io.cs.cs(0) := enable(io.en, tbl(io.adr(adrW, 0)))
 
   } else {
     val tableI = SqrtSim.sqrtTableGeneration( order, adrW, manW, fracW )
@@ -142,8 +138,7 @@ class SqrtTableCoeff(
         coeffs.cs(i) := coeff(i)
       }
     }
-    val cs = coeffs.asUInt & Fill(coeffs.asUInt.getWidth, io.en)
-    io.cs := cs.asTypeOf(new TableCoeffInput(maxCbit))
+    io.cs := enable(io.en, coeffs)
   }
 }
 object SqrtTableCoeff {
@@ -285,8 +280,7 @@ class SqrtPostProcess(
   val zmanRounded   = Mux(polynomialOvf, Fill(manW, 1.U(1.W)), zman0(manW-1,0))
   val zman          = Mux(zIsNonTable, zmanNonTable, zmanRounded)
 
-  val z0 = Cat(zsgn, zex, zman)
-  val z = z0 & Fill(z0.getWidth, io.en)
+  val z = enable(io.en, Cat(zsgn, zex, zman))
 
   io.z   := ShiftRegister(z, nStage)
 }

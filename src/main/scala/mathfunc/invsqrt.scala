@@ -76,9 +76,7 @@ class InvSqrtTableCoeff(
     )
     assert(maxCbit(0) == fracW)
 
-    val c0 = tbl(io.adr(adrW, 0))            // here we use LSB of ex
-    val c  = c0 & Fill(c0.getWidth, io.en)
-    io.cs.cs(0) := c // width should be manW + extraBits
+    io.cs.cs(0) := enable(io.en, tbl(io.adr(adrW, 0)))
 
   } else {
     val tableI = InvSqrtSim.invsqrtTableGeneration( order, adrW, manW, fracW )
@@ -99,8 +97,7 @@ class InvSqrtTableCoeff(
         coeffs.cs(i) := coeff(i)
       }
     }
-    val cs = coeffs.asUInt & Fill(coeffs.asUInt.getWidth, io.en)
-    io.cs := cs.asTypeOf(new TableCoeffInput(maxCbit))
+    io.cs := enable(io.en, coeffs)
   }
 }
 object InvSqrtTableCoeff {

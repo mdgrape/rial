@@ -71,14 +71,14 @@ class Log2PreProcess(
 
   val adr0 = Cat(exAdr,
     Mux(ex === (exBias-1).U, manNeg(manW-1, dxW), manPos(manW-1, dxW)))
-  val adr  = adr0 & Fill(adr0.getWidth, io.en)
+  val adr  = enable(io.en, adr0)
   io.adr := ShiftRegister(adr, nStage)
 
   if(order != 0) {
     val dx0 = Mux(ex === (exBias-1).U,
       Cat(~manNeg(dxW-1), manNeg(dxW-2, 0)),
       Cat(~manPos(dxW-1), manPos(dxW-2, 0)))
-    val dx = dx0 & Fill(dx0.getWidth, io.en)
+    val dx = enable(io.en, dx0)
     io.dx.get := ShiftRegister(dx, nStage)
   }
 }
@@ -127,100 +127,49 @@ class Log2TableCoeff(
 
     assert(maxCbit(0) == fracW)
 
-    val c0 = tbl(io.adr(adrW, 0))            // here we use LSB of ex
-    val c  = c0 & Fill(c0.getWidth, io.en)
-    io.cs.cs(0) := c // width should be manW + extraBits
+    io.cs.cs(0) := enable(io.en, tbl(io.adr(adrW, 0)))
 
   } else {
 
     // split address
-    val exadr = io.adr(adrW+2-1, adrW);
-    val adr   = io.adr(adrW-1, 0);
+    val exadr = io.adr(adrW+2-1, adrW)
+    val adr   = io.adr(adrW-1, 0)
 
     // -----------------------------------------------------------------------
     // default table
-    val tableNormalI = MathFuncLog2Sim.log2NormalTableGeneration(
-      spec, order, adrW, extraBits)
-    val cbitNormal   = tableNormalI.cbit
+    val tableNormalI  = MathFuncLog2Sim.log2NormalTableGeneration(spec, order, adrW, extraBits)
+    val tableSmallNeg = MathFuncLog2Sim.log2SmallNegativeTableGeneration(spec, order, adrW, extraBits)
+    val tableSmallPos = MathFuncLog2Sim.log2SmallPositiveTableGeneration(spec, order, adrW, extraBits)
 
-    // both 1st and 2nd derivative of 2^x is larger than 0
-    val (cTableNormal, cWidthNormal) = tableNormalI.getVectorUnified(/*sign mode =*/0)
-    val coeffNormal = getSlices(cTableNormal(adr), cWidthNormal)
+    val cbitNormal   = tableNormalI .getCBitWidth(/*sign mode = */0)
+    val cbitSmallNeg = tableSmallNeg.getCBitWidth(/*sign mode = */0)
+    val cbitSmallPos = tableSmallPos.getCBitWidth(/*sign mode = */0)
 
-//     println(f"maxCbit    = ${maxCbit}")
-//     println(f"cbitNormal = ${cbitNormal}")
+    val cbit = Seq(cbitNormal, cbitSmallNeg, cbitSmallPos).reduce(
+      (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
+    val tableIs = VecInit(Seq(
+        tableNormalI .getVectorWithWidth(cbit, /*sign mode = */0),
+        tableSmallNeg.getVectorWithWidth(cbit, /*sign mode = */0),
+        tableSmallPos.getVectorWithWidth(cbit, /*sign mode = */0)
+      ))
+    val tableI = tableIs(exadr)
+    val coeff = getSlices(tableI(adr), cbit)
 
-//     val outNormal = Wire(new TableCoeffInput(maxCbit))
-    val outNormal = Wire(MixedVec(maxCbit.map{w => UInt(w.W)}))
+    val coeffs = Wire(new TableCoeffInput(maxCbit))
+
     for (i <- 0 to order) {
-      val diffWidth = maxCbit(i) - cbitNormal(i)
-      assert(0 <= diffWidth)
-      val ci  = coeffNormal(i)
-      if(diffWidth == 0) {
-        outNormal(i) := ci
+      val diffWidth = maxCbit(i) - cbit(i)
+      assert(cbit(i) <= maxCbit(i))
+
+      if(0 < diffWidth) {
+        val ci  = coeff(i)
+        val msb = ci(cbit(i)-1)
+        coeffs.cs(i) := Cat(Fill(diffWidth, msb), ci) // sign extension
       } else {
-        val msb = ci(cbitNormal(i)-1)
-        outNormal(i) := Cat(Fill(diffWidth, msb), ci) // sign extension
+        coeffs.cs(i) := coeff(i)
       }
     }
-
-    // -----------------------------------------------------------------------
-    // table for [1, 2)
-    val tableSmallPos = MathFuncLog2Sim.log2SmallPositiveTableGeneration(
-      spec, order, adrW, extraBits)
-    val cbitSmallPos = tableSmallPos.cbit
-
-    val (cTableSmallPos, cWidthSmallPos) = tableSmallPos.getVectorUnified(/*sign mode =*/0)
-    val coeffSmallPos = getSlices(cTableSmallPos(adr), cWidthSmallPos)
-
-//     println(f"maxCbit      = ${maxCbit}")
-//     println(f"cbitSmallPos = ${cbitSmallPos}")
-
-    val outSmallPos = Wire(MixedVec(maxCbit.map{w => UInt(w.W)}))
-    for (i <- 0 to order) {
-      val diffWidth = maxCbit(i) - cbitSmallPos(i)
-      assert(0 <= diffWidth)
-      val ci  = coeffSmallPos(i)
-      if(diffWidth == 0) {
-        outSmallPos(i) := ci
-      } else {
-        val msb = ci(cbitSmallPos(i)-1)
-        outSmallPos(i) := Cat(Fill(diffWidth, msb), ci) // sign extension
-      }
-    }
-
-    // -----------------------------------------------------------------------
-    // table for [1/2, 1)
-    val tableSmallNeg = MathFuncLog2Sim.log2SmallNegativeTableGeneration(
-      spec, order, adrW, extraBits)
-    val cbitSmallNeg = tableSmallNeg.cbit
-
-    val (cTableSmallNeg, cWidthSmallNeg) = tableSmallNeg.getVectorUnified(/*sign mode =*/0)
-    val coeffSmallNeg = getSlices(cTableSmallNeg(adr), cWidthSmallNeg)
-
-//     println(f"maxCbit      = ${maxCbit}")
-//     println(f"cbitSmallNeg = ${cbitSmallNeg}")
-
-    val outSmallNeg = Wire(MixedVec(maxCbit.map{w => UInt(w.W)}))
-    for (i <- 0 to order) {
-      val diffWidth = maxCbit(i) - cbitSmallNeg(i)
-      val ci  = coeffSmallNeg(i)
-      assert(0 <= diffWidth)
-      if(diffWidth == 0) {
-        outSmallNeg(i) := ci
-      } else {
-        val msb = ci(cbitSmallNeg(i)-1)
-        outSmallNeg(i) := Cat(Fill(diffWidth, msb), ci) // sign extension
-      }
-    }
-
-    // -----------------------------------------------------------------------
-    // select
-    val coeffs = Mux(exadr === 0.U, outNormal,
-                 Mux(exadr === 1.U, outSmallNeg, outSmallPos))
-
-    val cs = coeffs.asUInt & Fill(coeffs.asUInt.getWidth, io.en)
-    io.cs := cs.asTypeOf(new TableCoeffInput(maxCbit))
+    io.cs := enable(io.en, coeffs)
   }
 }
 
@@ -660,7 +609,7 @@ class Log2PostProcess(
   assert(zMan.getWidth == manW)
   assert(z0  .getWidth == spec.W)
 
-  val z = z0 & Fill(z0.getWidth, io.en)
+  val z = enable(io.en, z0)
 
   io.z   := ShiftRegister(z, nStage)
 }

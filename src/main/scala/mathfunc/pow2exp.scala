@@ -65,13 +65,13 @@ class Pow2PreProcess(
     val xexd = Output(UInt(1.W))
   })
 
-  val xsgn  = io.x.sgn & io.en
-  val xex0  = io.x.ex  & Fill(spec.exW, io.en)
-  val xman0 = io.x.man & Fill(spec.manW, io.en)
+  val xsgn  = enable(io.en, io.x.sgn)
+  val xex0  = enable(io.en, io.x.ex )
+  val xman0 = enable(io.en, io.x.man)
 
   val log2 = (a:Double) => {log(a) / log(2.0)}
-  val xExOvfLimit = math.ceil(log2(maskL(exW)-exBias)).toLong // log2(255-127 = 128) = 7
-  val xExUdfLimit = math.ceil(log2(abs(0 - exBias)  )).toLong // log2(|0-127| = 127) > 6
+  val xExOvfLimit = math.ceil(log2((maskL(exW)-exBias).toDouble)).toLong // log2(255-127 = 128) = 7
+  val xExUdfLimit = math.ceil(log2((abs(0 - exBias)  ).toDouble)).toLong // log2(|0-127| = 127) > 6
 
   val xIntW  = max(xExOvfLimit, xExUdfLimit).toInt
   val xFracW = manW + padding
@@ -115,7 +115,7 @@ class Pow2PreProcess(
 
   assert(xprodMoreThan2AfterRounded +& xprodMoreThan2 =/= 2.U)
 
-  val xexd0 = io.isexp & (xprodMoreThan2AfterRounded + xprodMoreThan2) & io.en
+  val xexd0 = enable(io.en, io.isexp & (xprodMoreThan2AfterRounded + xprodMoreThan2))
   io.xexd := ShiftRegister(xexd0, nStage)
 
   // ------------------------------------------------------------------------
@@ -139,25 +139,22 @@ class Pow2PreProcess(
 
   // if xsgn == 1, we negate xint to calculate exbias. but we later do that in
   // Pow2OtherPath.
-  val xint = (xint0 +& (xsgn.asBool && (xfrac0 =/= 0.U)).asUInt) & Fill(xint0.getWidth+1, io.en)
+  val xint = enable(io.en, (xint0 +& (xsgn.asBool && (xfrac0 =/= 0.U)).asUInt))
   io.xint := ShiftRegister(xint, nStage)
 
   val xfracNeg = (1<<xFracW).U((xFracW+1).W) - xfrac0
   val xfrac = Mux(xsgn === 0.U, xfrac0, xfracNeg(xFracW-1, 0))
 
-  val adr0 = xfrac(xFracW-1, (xFracW-1)-adrW+1)
-  val adr  = adr0 & Fill(adr0.getWidth, io.en)
+  val adr  = enable(io.en, xfrac(xFracW-1, (xFracW-1)-adrW+1))
   io.adr := ShiftRegister(adr, nStage)
 
   if(order != 0) {
-    val dx0  = Cat(~xfrac(xFracW-1-adrW), xfrac(xFracW-1-adrW-1, padding))
-    val dx   = dx0 & Fill(dx0.getWidth, io.en)
+    val dx   = enable(io.en, Cat(~xfrac(xFracW-1-adrW), xfrac(xFracW-1-adrW-1, padding)))
     io.dx.get := ShiftRegister(dx, nStage)
   }
 
   if(padding != 0) {
-    val xfracLSBs0 = xfrac(padding-1, 0)
-    val xfracLSBs  = xfracLSBs0 & Fill(xfracLSBs0.getWidth, io.en)
+    val xfracLSBs  = enable(io.en, xfrac(padding-1, 0))
     io.xfracLSBs.get := ShiftRegister(xfracLSBs, nStage)
   }
 }
@@ -203,9 +200,7 @@ class Pow2TableCoeff(
 
     assert(maxCbit(0) == fracW)
 
-    val c0 = tbl(io.adr(adrW, 0))            // here we use LSB of ex
-    val c  = c0 & Fill(c0.getWidth, io.en)
-    io.cs.cs(0) := c // width should be manW + extraBits
+    io.cs.cs(0) := enable(io.en, tbl(io.adr(adrW, 0)))
 
   } else {
     // x -> xInt + xFrac
@@ -234,8 +229,7 @@ class Pow2TableCoeff(
         coeffs.cs(i) := coeff(i)
       }
     }
-    val cs = coeffs.asUInt & Fill(coeffs.asUInt.getWidth, io.en)
-    io.cs := cs.asTypeOf(new TableCoeffInput(maxCbit))
+    io.cs := enable(io.en, coeffs)
   }
 }
 object Pow2TableCoeff {
@@ -463,7 +457,7 @@ class Pow2PostProcess(
   assert(zMan.getWidth == manW)
   assert(z0  .getWidth == spec.W)
 
-  val z = z0 & Fill(z0.getWidth, io.en)
+  val z = enable(io.en, z0)
 
   io.z   := ShiftRegister(z, nStage)
 }

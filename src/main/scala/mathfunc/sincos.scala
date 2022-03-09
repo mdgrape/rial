@@ -82,9 +82,9 @@ class SinCosPreProcess(
     val xConverted = new SinCosPreProcessOutput(spec)
   })
 
-  val xsgn = io.x.sgn & io.en
-  val xex  = io.x.ex  & Fill(spec.exW, io.en)
-  val xman = io.x.man & Fill(spec.manW, io.en)
+  val xsgn = enable(io.en, io.x.sgn)
+  val xex  = enable(io.en, io.x.ex )
+  val xman = enable(io.en, io.x.man)
 
   // --------------------------------------------------------------------------
   // calc x/pi
@@ -199,18 +199,16 @@ class SinCosPreProcess(
   val exOfs = (exBias-2).U - yex
   val exAdr = exOfs(exAdrW-1, 0)
 
-  val adr0 = Cat(exAdr, yman(manW-1, manW-adrW))
-  val adr  = adr0 & Fill(adr0.getWidth, io.en)
+  val adr  = enable(io.en, Cat(exAdr, yman(manW-1, manW-adrW)))
   io.adr   := ShiftRegister(adr,  nStage)
 
   if(order != 0) {
-    val dx0  = Cat(~yman(manW-adrW-1), yman(manW-adrW-2,0))
-    val dx   = dx0 & Fill(dx0.getWidth, io.en)
+    val dx   = enable(io.en, Cat(~yman(manW-adrW-1), yman(manW-adrW-2,0)))
     io.dx.get := ShiftRegister(dx, nStage)
   }
 
-  val xConvertedEx  = yex  & Fill(yex .getWidth, io.en)
-  val xConvertedMan = yman & Fill(yman.getWidth, io.en)
+  val xConvertedEx  = enable(io.en, yex )
+  val xConvertedMan = enable(io.en, yman)
 
 //   printf("cir:yex  = %d\n", yex)
 //   printf("cir:yman = %b\n", yman)
@@ -266,9 +264,7 @@ class SinCosTableCoeff(
 
     assert(maxCbit(0) == fracW)
 
-    val c0 = tbl(exAdr)(manAdr)
-    val c  = c0 & Fill(c0.getWidth, io.en)
-    io.cs.cs(0) := c // width should be manW + extraBits
+    io.cs.cs(0) := enable(io.en, tbl(exAdr)(manAdr))
 
   } else {
 
@@ -298,8 +294,7 @@ class SinCosTableCoeff(
         coeffs.cs(i) := coeff(i)
       }
     }
-    val cs = coeffs.asUInt & Fill(coeffs.asUInt.getWidth, io.en)
-    io.cs := cs.asTypeOf(new TableCoeffInput(maxCbit))
+    io.cs := enable(io.en, coeffs)
   }
 }
 object SinCosTableCoeff {
@@ -662,7 +657,6 @@ class SinCosPostProcess(
   val zEx  = Mux(io.zother.zIsNonTable, io.zother.zex,  zExTable)
   val zMan = Mux(io.zother.zIsNonTable, io.zother.zman, zManTable)
 
-  val z0  = Cat(zSgn, zEx, zMan)
-  val z   = z0 & Fill(z0.getWidth, io.en)
+  val z   = enable(io.en, Cat(zSgn, zEx, zMan))
   io.z   := ShiftRegister(z, nStage)
 }

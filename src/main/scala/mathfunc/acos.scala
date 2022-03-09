@@ -91,9 +91,9 @@ class ACosPreProcess(
     val yman    = Output(UInt(spec.manW.W))
   })
 
-  val xsgn = io.x.sgn & io.en
-  val xex  = io.x.ex  & Fill(spec.exW, io.en)
-  val xman = io.x.man & Fill(spec.manW, io.en)
+  val xsgn = enable(io.en, io.x.sgn)
+  val xex  = enable(io.en, io.x.ex )
+  val xman = enable(io.en, io.x.man)
 
   // useSqrt condition is:
   //   0          < 1-x < 2^-4
@@ -105,7 +105,7 @@ class ACosPreProcess(
   //            |  +- 2^-4 bit
   //            +- hidden bit = 2^-1
 
-  val useSqrt = (xex === (exBias-1).U) && xman(manW-1, manW-3).andR && io.en.asBool
+  val useSqrt = enable(io.en, (xex === (exBias-1).U) && xman(manW-1, manW-3).andR)
   io.useSqrt := ShiftRegister(useSqrt, nStage)
 
   // To use sqrt table, we need to determine the mantissa and exponent of
@@ -136,16 +136,13 @@ class ACosPreProcess(
   val exAdrSqrt = Cat(Fill(exAdrW-1, 0.U(1.W)), ~yex(0))
   val adrSqrt   = Cat(exAdrSqrt, ymanW1(manW-1, dxW))
 
-  val adr0 = Mux(useSqrt, adrSqrt, adrACos)
-  val adr  = adr0 & Fill(adr0.getWidth, io.en)
-
+  val adr = enable(io.en, Mux(useSqrt, adrSqrt, adrACos))
   io.adr := ShiftRegister(adr, nStage)
 
   if(order != 0) {
     val dxACos = Cat(  ~xman(dxW-1),   xman(dxW-2, 0))
     val dxSqrt = Cat(~ymanW1(dxW-1), ymanW1(dxW-2, 0))
-    val dx0  = Mux(useSqrt, dxSqrt, dxACos)
-    val dx   = dx0 & Fill(dx0.getWidth, io.en)
+    val dx   = enable(io.en, Mux(useSqrt, dxSqrt, dxACos))
     io.dx.get := ShiftRegister(dx, nStage)
   }
 }
@@ -192,9 +189,7 @@ class ACosTableCoeff(
       } ) )
     assert(maxCbit(0) == fracW)
 
-    val c0 = tbl(exAdr)(adr)
-    val c  = c0 & Fill(c0.getWidth, io.en)
-    io.cs.cs(0) := c
+    io.cs.cs(0) := enable(io.en, tbl(exAdr)(adr))
 
   } else {
 
@@ -222,8 +217,7 @@ class ACosTableCoeff(
       }
       coeffs.cs(i) := ci
     }
-    val cs = coeffs.asUInt & Fill(coeffs.asUInt.getWidth, io.en)
-    io.cs := cs.asTypeOf(new TableCoeffInput(maxCbit))
+    io.cs := enable(io.en, coeffs)
   }
 }
 
@@ -639,8 +633,7 @@ class ACosPostProcess(
   val zman = Mux(znan, Cat(1.U(1.W), Fill(manW-1, 0.U(1.W))),
              Mux(zIsPuiseux, zmanPuiseux(manW-1, 0), zmanTable(manW-1, 0)))
 
-  val z0 = Cat(zsgn, zex, zman)
-  val z  = z0 & Fill(z0.getWidth, io.en)
+  val z  = enable(io.en, Cat(zsgn, zex, zman))
 
   io.z := ShiftRegister(z, nStage)
 }

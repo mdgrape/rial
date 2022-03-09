@@ -109,7 +109,7 @@ class ATan2Stage1PreProcess(
     z1piover4 -> ATan2SpecialValue.zQuarterPi,
     z3piover4 -> ATan2SpecialValue.z3QuarterPi
   ))
-  val special = special0 & io.en
+  val special = enable(io.en, special0)
 
   io.special := ShiftRegister(special, nStage)
 }
@@ -273,7 +273,7 @@ class ATan2Stage1PostProcess(
              Mux(maxXYMan0, io.minxy.man, zProdRounded(manW-1, 0)))
 
   val z0 = Cat(zsgn, zex, zman)
-  val z = z0 & Fill(z0.getWidth, io.en)
+  val z = enable(io.en, z0)
 
   io.z := ShiftRegister(z, nStage)
 }
@@ -323,20 +323,18 @@ class ATan2Stage2PreProcess(
     val dx  = if(order != 0) { Some(Output(UInt(dxW.W))) } else { None }
   })
 
-  val xsgn = io.x.sgn & io.en
-  val xex  = io.x.ex  & Fill(spec.exW, io.en)
-  val xman = io.x.man & Fill(spec.manW, io.en)
+  val xsgn = enable(io.en, io.x.sgn)
+  val xex  = enable(io.en, io.x.ex )
+  val xman = enable(io.en, io.x.man)
 
   val exAdr0 = (exBias - 1).U(exW.W) - xex
   val exAdr  = exAdr0(exAdrW-1, 0)
 
-  val adr0 = Cat(exAdr, xman(manW-1, dxW))
-  val adr  = adr0 & Fill(adr0.getWidth, io.en)
+  val adr  = enable(io.en, Cat(exAdr, xman(manW-1, dxW)))
   io.adr := ShiftRegister(adr, nStage)
 
   if(order != 0) {
-    val dx0  = Cat(~xman(manW-adrW-1), xman(manW-adrW-2,0))
-    val dx   = dx0 & Fill(dx0.getWidth, io.en)
+    val dx   = enable(io.en, Cat(~xman(manW-adrW-1), xman(manW-adrW-2,0)))
     io.dx.get := ShiftRegister(dx, nStage)
   }
 }
@@ -388,9 +386,7 @@ class ATan2Stage2TableCoeff(
 
     assert(maxCbit(0) == fracW)
 
-    val c0 = tbl(exAdr)(adr)
-    val c  = c0 & Fill(c0.getWidth, io.en)
-    io.cs.cs(0) := c
+    io.cs.cs(0) := enable(io.en, tbl(exAdr)(adr))
 
   } else {
 
@@ -418,9 +414,7 @@ class ATan2Stage2TableCoeff(
         coeffs.cs(i) := coeff(i)
       }
     }
-
-    val cs = coeffs.asUInt & Fill(coeffs.asUInt.getWidth, io.en)
-    io.cs := cs.asTypeOf(new TableCoeffInput(maxCbit))
+    io.cs := enable(io.en, coeffs)
   }
 }
 
@@ -737,7 +731,7 @@ class ATan2Stage2PostProcess(
       (special === ATan2SpecialValue.zQuarterPi ) -> Cat(zSgn, quarterPi .ex.U(exW.W), quarterPi .man.toLong.U(manW.W)),
       (special === ATan2SpecialValue.z3QuarterPi) -> Cat(zSgn, quarter3Pi.ex.U(exW.W), quarter3Pi.man.toLong.U(manW.W))
     ))
-  val z = z0 & Fill(z0.getWidth, io.en)
+  val z = enable(io.en, z0)
 
   io.z := ShiftRegister(z, nStage)
 }
