@@ -55,4 +55,10 @@ object RialChiselUtil {
   def getMSB1 ( n: Int, x : SInt ) : Bool = { if (n<x.getWidth) x(x.getWidth-1-n).asBool else false.B }
 
   def maskU (n: Int) : UInt = Fill(n, 1.U(1.W))
+
+  // if en === 0, returns 0.U.asTypeOf(x). otherwise, returns x.
+  def enable[T <: Data](en: UInt, x: T): T = {
+    assert(en.getWidth == 1)
+    (x.asUInt & Fill(x.asUInt.getWidth, en)).asTypeOf(x)
+  }
 }
