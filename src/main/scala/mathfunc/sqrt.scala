@@ -284,3 +284,105 @@ class SqrtPostProcess(
 
   io.z   := ShiftRegister(z, nStage)
 }
+
+// -------------------------------------------------------------------------
+//                      _     _                _
+//   ___ ___  _ __ ___ | |__ (_)_ __   ___  __| |
+//  / __/ _ \| '_ ` _ \| '_ \| | '_ \ / _ \/ _` |
+// | (_| (_) | | | | | | |_) | | | | |  __/ (_| |
+//  \___\___/|_| |_| |_|_.__/|_|_| |_|\___|\__,_|
+// -------------------------------------------------------------------------
+
+class SqrtGeneric(
+  val spec     : RealSpec,
+  val nOrder: Int, val adrW : Int, val extraBits : Int, // Polynomial spec
+  val stage    : MathFuncPipelineConfig,
+  val enableRangeCheck : Boolean = true,
+  val enablePolynomialRounding : Boolean = false,
+) extends Module {
+
+  val pcGap = if(stage.preCalcGap ) {1} else {0}
+  val cpGap = if(stage.calcPostGap) {1} else {0}
+
+  val nPreStage  = stage.preStage.total
+  val nCalcStage = stage.calcStage.total
+  val nPostStage = stage.postStage.total
+
+  val nStage   = stage.total
+  def getStage = nStage
+
+  val polySpec = new PolynomialSpec(spec, nOrder, adrW, extraBits,
+    enableRangeCheck, enablePolynomialRounding)
+  val order = polySpec.order
+
+  val exW    = spec.exW
+  val manW   = spec.manW
+  val exBias = spec.exBias
+
+  val cbits = SqrtTableCoeff.getCBits(spec, polySpec)
+  val calcW = SqrtTableCoeff.getCalcW(spec, polySpec)
+
+  def getCbit  = cbits
+  def getCalcW = calcW
+
+  val io = IO(new Bundle {
+    val en = Input(Bool())
+    val x = Input (UInt(spec.W.W))
+    val z = Output(UInt(spec.W.W))
+  })
+
+  // --------------------------------------------------------------------------
+
+  val xdecomp = Module(new DecomposeReal(spec))
+  xdecomp.io.real := io.x
+
+  val enPCReg    = ShiftRegister(io.en,      nPreStage)
+  val enPCGapReg = ShiftRegister(enPCReg,    pcGap)
+  val enCPReg    = ShiftRegister(enPCGapReg, nCalcStage)
+  val enCPGapReg = ShiftRegister(enCPReg,    cpGap)
+
+  val xdecPCReg    = ShiftRegister(xdecomp.io.decomp, nPreStage)
+  val xdecPCGapReg = ShiftRegister(xdecPCReg,         pcGap)
+  val xdecCPReg    = ShiftRegister(xdecPCGapReg,      nCalcStage)
+  val xdecCPGapReg = ShiftRegister(xdecCPReg,         cpGap)
+
+  // --------------------------------------------------------------------------
+
+  val sqrtPre   = Module(new SqrtPreProcess (spec, polySpec, stage.preStage))
+  val sqrtTab   = Module(new SqrtTableCoeff (spec, polySpec, cbits))
+  val sqrtOther = Module(new SqrtOtherPath  (spec, polySpec, stage.calcStage))
+  val sqrtPost  = Module(new SqrtPostProcess(spec, polySpec, stage.postStage))
+
+  val sqrtPreAdrPCGapReg = ShiftRegister(sqrtPre.io.adr, pcGap)
+
+  sqrtPre.io.en  := io.en
+  sqrtPre.io.x   := xdecomp.io.decomp
+  // ------ Preprocess-Calculate ------
+  sqrtTab.io.en  := enPCGapReg
+  sqrtTab.io.adr := sqrtPreAdrPCGapReg
+  sqrtOther.io.x := xdecPCGapReg
+
+  // after preprocess
+  assert(sqrtPre.io.adr === 0.U               || enPCReg)
+  assert(sqrtPre.io.dx.getOrElse(0.U) === 0.U || enPCReg)
+  assert(sqrtTab.io.cs.asUInt === 0.U         || enPCGapReg)
+
+  // --------------------------------------------------------------------------
+
+  val polynomialEval = Module(new PolynomialEval(spec, polySpec, cbits, stage.calcStage))
+
+  if(order != 0) {
+    polynomialEval.io.dx.get := ShiftRegister(sqrtPre.io.dx.get, pcGap)
+  }
+  polynomialEval.io.coeffs.cs := sqrtTab.io.cs.cs
+
+  val polynomialResultCPGapReg = ShiftRegister(polynomialEval.io.result, cpGap)
+
+  sqrtPost.io.en     := enCPGapReg
+  sqrtPost.io.zother := ShiftRegister(sqrtOther.io.zother, cpGap)
+  sqrtPost.io.zres   := polynomialResultCPGapReg
+
+  io.z := sqrtPost.io.z
+}
+
+
