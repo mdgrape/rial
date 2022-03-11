@@ -65,7 +65,7 @@ class InvSqrtTableCoeff(
         }
         val y = round((2.0 / math.sqrt(x)-1.0) * (1L<<manW))
         if (y >= (1L<<manW)) {
-          println("WARNING: mantissa reaches to 2")
+          println("WARNING: mantissa reaches to 2 while table generation. replaced by 0xFFFF")
           maskL(manW).U(manW.W)
         } else if(y < 0.0) { // not used, actually
           0.U(manW.W)
@@ -233,13 +233,17 @@ class InvSqrtPostProcess(
   val zmanNonTable = io.zother.zman
   val zIsNonTable  = io.zother.zIsNonTable
 
-  val zman0 = dropLSB(extraBits, io.zres) +& io.zres(extraBits-1)
-  val polynomialOvf = zman0(manW)
-  val zmanRounded   = Mux(polynomialOvf, maskU(manW), zman0(manW-1,0))
-  val zman          = Mux(zIsNonTable, zmanNonTable, zmanRounded)
+  val zmanRounded = Wire(UInt(manW.W))
+  if(extraBits == 0) {
+    zmanRounded := io.zres
+  } else {
+    val zman0 = dropLSB(extraBits, io.zres) +& io.zres(extraBits-1)
+    val polynomialOvf = zman0(manW)
+    zmanRounded := Mux(polynomialOvf, maskU(manW), zman0(manW-1,0))
+  }
 
-  val z0 = Cat(zsgn, zex, zman)
-  val z = z0 & Fill(z0.getWidth, io.en)
+  val zman = Mux(zIsNonTable, zmanNonTable, zmanRounded)
+  val z = enable(io.en, Cat(zsgn, zex, zman))
 
   io.z   := ShiftRegister(z, nStage)
 }
