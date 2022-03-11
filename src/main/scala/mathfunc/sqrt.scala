@@ -275,11 +275,16 @@ class SqrtPostProcess(
   val zmanNonTable = io.zother.zman
   val zIsNonTable  = io.zother.zIsNonTable
 
-  val zman0 = dropLSB(extraBits, io.zres) +& io.zres(extraBits-1)
-  val polynomialOvf = zman0(manW)
-  val zmanRounded   = Mux(polynomialOvf, Fill(manW, 1.U(1.W)), zman0(manW-1,0))
-  val zman          = Mux(zIsNonTable, zmanNonTable, zmanRounded)
+  val zmanRounded = Wire(UInt(manW.W))
+  if(extraBits == 0) {
+    zmanRounded := io.zres
+  } else {
+    val zman0 = dropLSB(extraBits, io.zres) +& io.zres(extraBits-1)
+    val polynomialOvf = zman0(manW)
+    zmanRounded := Mux(polynomialOvf, Fill(manW, 1.U(1.W)), zman0(manW-1,0))
+  }
 
+  val zman = Mux(zIsNonTable, zmanNonTable, zmanRounded)
   val z = enable(io.en, Cat(zsgn, zex, zman))
 
   io.z   := ShiftRegister(z, nStage)
