@@ -147,7 +147,7 @@ object InvSqrtTableCoeff {
 class InvSqrtNonTableOutput(val spec: RealSpec) extends Bundle {
   val zsgn  = Output(UInt(1.W))
   val zex   = Output(UInt(spec.exW.W))
-  val zman  = Output(UInt(spec.manW.W))
+  val znan  = Output(Bool())
   val zIsNonTable = Output(Bool())
 }
 
@@ -175,10 +175,9 @@ class InvSqrtOtherPath(
   val zinf  = io.x.zero || xneg
   val zzero = io.x.inf
 
-  val zMan  = Cat(znan, 0.U((manW-1).W)) // in case of znan, zinf, or zzero
   val zIsNonTable = znan || zinf || zzero
   io.zother.zIsNonTable := ShiftRegister(zIsNonTable, nStage)
-  io.zother.zman        := ShiftRegister(zMan,        nStage)
+  io.zother.znan        := ShiftRegister(znan,        nStage)
 
   val xExNobias  = io.x.ex - exBias.U
   val xExHalf    = xExNobias(exW-1) ## xExNobias(exW-1, 1) // arith right shift
@@ -230,8 +229,9 @@ class InvSqrtPostProcess(
 
   val zsgn = io.zother.zsgn
   val zex  = io.zother.zex
-  val zmanNonTable = io.zother.zman
+  val znan = io.zother.znan
   val zIsNonTable  = io.zother.zIsNonTable
+  val zmanNonTable = Cat(znan, Fill(manW-1, 0.U(1.W)))
 
   val zmanRounded = Wire(UInt(manW.W))
   if(extraBits == 0) {
