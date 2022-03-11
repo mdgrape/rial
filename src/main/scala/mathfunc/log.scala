@@ -277,8 +277,6 @@ class Log2OtherPath(
   val fracW     = polySpec.fracW
   val extraBits = polySpec.extraBits
 
-  val padding = exBias
-
   val io = IO(new Bundle {
     val x      = Flipped(new DecomposedRealOutput(spec))
     // exadr = 1: xexNobias == -1, x in [1/2, 1)
@@ -318,7 +316,11 @@ class Log2OtherPath(
   //          = x(1 - x/2 + x^2/3) / ln(2)
 
   // 1 - x/2 < 1
-  val oneMinusHalfx = (1L << fracW).U - Cat(io.x.man, 0.U((extraBits-1).W))
+  val oneMinusHalfx = if(extraBits == 0) {
+    (1L << fracW).U - io.x.man(manW-1, 1)
+  } else {
+    (1L << fracW).U - Cat(io.x.man, 0.U((extraBits-1).W))
+  }
 
   // x^2/3
   val xsqPos       = io.x.man * io.x.man
@@ -487,8 +489,6 @@ class Log2PostProcess(
   val order  = polySpec.order
   val extraBits = polySpec.extraBits
 
-  val padding = extraBits
-
   val log2 = (a:Double) => {log(a) / log(2.0)}
 
   val io = IO(new Bundle {
@@ -588,13 +588,21 @@ class Log2PostProcess(
   // -------------------------------------------------------------------------
   // log2(x)
 
-  val log2xManRound  = log2xMan0(fracW-1, extraBits) +& log2xMan0(extraBits-1)
-  val log2xMoreThan2 = log2xManRound(manW)
-  val log2xEx        = log2xEx0 + log2xMoreThan2
+  val log2xManRound = Wire(UInt(manW.W))
+  val log2xEx       = Wire(UInt(exW.W))
+
+  if(extraBits == 0) {
+    log2xManRound := log2xMan0
+    log2xEx := log2xEx0
+  } else {
+    val log2xManRound0 = log2xMan0(fracW-1, extraBits) +& log2xMan0(extraBits-1)
+    log2xManRound := log2xManRound0(manW-1, 0)
+    log2xEx := log2xEx0 + log2xManRound0(manW)
+  }
 
   val zMan = Mux(io.zother.znan || io.zother.zinf || io.zother.zzero,
                  Cat(io.zother.znan.asUInt, Fill(manW-1, 0.U)),
-                 Mux(io.isln, lnxRounded(manW-1, 0), log2xManRound(manW-1, 0)))
+                 Mux(io.isln, lnxRounded(manW-1, 0), log2xManRound))
   val zEx  = Mux(io.zother.znan || io.zother.zinf, Fill(exW, 1.U(1.W)),
              Mux(io.zother.zzero, 0.U(exW.W),
              Mux(io.isln, lnxEx0, log2xEx)))
