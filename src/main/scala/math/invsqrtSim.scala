@@ -56,33 +56,42 @@ object InvSqrtSim {
       }
     val calcW = manW + extraBits
 
-    val zman = if (order==0) {
+    val zman0 = if (order==0) {
       if (adrW<manW) {
         println("WARNING: table address width < mantissa width, for polynomial order is zero. address width set to mantissa width.")
       }
-      val adr = man.toInt
-      t.interval(adr).eval(0L, 0)
+      val adr  = man.toInt
+      val res0 = t.interval(adr).eval(0L, 0).toLong
+      val res  = if (res0 < 0) {
+        println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=${x.toDouble}")
+        0L
+      } else if(res0 >= (1L<<calcW)) {
+        println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=${x.toDouble}")
+        maskL(calcW)
+      } else {
+        res0
+      }
+      res
     } else {
       val dxbp = (manW+1)-adrW-1
       val d    = slice(0, (manW+1)-adrW, man) - (SafeLong(1)<<dxbp)
       val adr  = slice((manW+1)-adrW, adrW, man).toInt
-      val res  = t.interval(adr).eval(d.toLong, dxbp)
-      res.toLong
+      val res0 = t.interval(adr).eval(d.toLong, dxbp).toLong
+      val res  = if (res0 < 0) {
+        println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=${x.toDouble}")
+        0L
+      } else if(res0 >= (1L<<calcW)) {
+        println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=${x.toDouble}")
+        maskL(calcW)
+      } else {
+        res0
+      }
+      res
     }
     // Simple rounding
-    val zmanRound = if (extraBits>0) { (zman>>extraBits) + bit(extraBits-1, zman)} else zman
-    //println(f"zman=${zman}%h")
+    val zman = if (extraBits>0) { (zman0>>extraBits) + bit(extraBits-1, zman0)} else {zman0}
 
-    val z = if (zman<0) {
-      println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=${x.toDouble}")
-      0L
-    } else if (zmanRound >= (1L<<manW)) {
-      println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=${x.toDouble}")
-      maskL(manW)
-    } else {
-      zmanRound
-    }
-    new RealGeneric(x.spec, zSgn, zEx, SafeLong(z))
+    new RealGeneric(x.spec, zSgn, zEx, SafeLong(zman))
   }
 
   def invsqrtTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int,
