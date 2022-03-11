@@ -188,7 +188,7 @@ object SqrtTableCoeff {
 class SqrtNonTableOutput(val spec: RealSpec) extends Bundle {
   val zsgn  = Output(UInt(1.W))
   val zex   = Output(UInt(spec.exW.W))
-  val zman  = Output(UInt(spec.manW.W))
+  val znan  = Output(Bool())
   val zIsNonTable = Output(Bool())
 }
 
@@ -215,11 +215,10 @@ class SqrtOtherPath(
   val znan  = io.x.nan
   val zinf  = io.x.inf
   val zzero = io.x.zero || xneg
+  io.zother.znan := ShiftRegister(znan, nStage)
 
-  val zMan  = Cat(znan, 0.U((manW-1).W)) // in case of znan, zinf, or zzero
   val zIsNonTable = znan || zinf || zzero
   io.zother.zIsNonTable := ShiftRegister(zIsNonTable, nStage)
-  io.zother.zman        := ShiftRegister(zMan,        nStage)
 
   val xExNobias  = io.x.ex - exBias.U
   val zExShifted = xExNobias(exW-1) ## xExNobias(exW-1, 1) // arith right shift
@@ -272,8 +271,9 @@ class SqrtPostProcess(
 
   val zsgn = io.zother.zsgn
   val zex  = io.zother.zex
-  val zmanNonTable = io.zother.zman
-  val zIsNonTable  = io.zother.zIsNonTable
+  val znan = io.zother.znan
+  val zIsNonTable  = io.zother.zIsNonTable // === znan || zinf || zzero
+  val zmanNonTable = Cat(znan, 0.U((manW-1).W))
 
   val zmanRounded = Wire(UInt(manW.W))
   if(extraBits == 0) {
@@ -287,7 +287,7 @@ class SqrtPostProcess(
   val zman = Mux(zIsNonTable, zmanNonTable, zmanRounded)
   val z = enable(io.en, Cat(zsgn, zex, zman))
 
-  io.z   := ShiftRegister(z, nStage)
+  io.z := ShiftRegister(z, nStage)
 }
 
 // -------------------------------------------------------------------------
