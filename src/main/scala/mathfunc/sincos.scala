@@ -650,6 +650,7 @@ class SinCosPostProcess(
   val fracW     = polySpec.fracW
   val dxW       = polySpec.dxW
   val order     = polySpec.order
+  val extraBits = fracW - manW
 
   val io = IO(new Bundle {
     val en = Input(UInt(1.W))
@@ -666,9 +667,17 @@ class SinCosPostProcess(
 
   val zMan0Table = Mux(resLessThanHalf, Cat(io.zres, 0.U(2.W))(fracW-1, 0),
                                         Cat(io.zres, 0.U(1.W))(fracW-1, 0))
-  val zManTableRounded = zMan0Table(fracW-1, fracW-manW) +& zMan0Table(fracW-manW-1)
-  val zManTableMoreThan2AfterRound = zManTableRounded(manW)
-  val zManTable = zManTableRounded(manW-1, 0)
+
+  val zManTableMoreThan2AfterRound = Wire(UInt(1.W))
+  val zManTable = Wire(UInt(manW.W))
+  if(extraBits == 0) {
+    zManTableMoreThan2AfterRound := 0.U(1.W)
+    zManTable                    := zMan0Table(manW-1, 0)
+  } else {
+    val zManTableRounded0 = zMan0Table(fracW-1, fracW-manW) +& zMan0Table(fracW-manW-1)
+    zManTableMoreThan2AfterRound := zManTableRounded0(manW)
+    zManTable                    := zManTableRounded0(manW-1, 0)
+  }
 
   val zEx0Table  = io.zother.zex + 2.U - resLessThanHalf.asUInt + zManTableMoreThan2AfterRound
   val zExTable   = zEx0Table(exW-1, 0)
