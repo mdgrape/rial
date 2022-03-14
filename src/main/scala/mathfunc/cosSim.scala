@@ -28,7 +28,8 @@ object MathFuncCosSim {
 
   def cosSimGeneric(
     ts: Seq[FuncTableInt],
-    x:  RealGeneric
+    x:  RealGeneric,
+    taylorOrder: Int = 5
   ) : RealGeneric = {
 
 //     println("--------------------------------------------------------------------")
@@ -129,7 +130,7 @@ object MathFuncCosSim {
     // ------------------------------------------------------------------------
     // calculate sin(y*Pi).
 
-    val taylorThreshold = MathFuncSinSim.calcTaylorThreshold(manW)
+    val taylorThreshold = MathFuncSinSim.calcTaylorThreshold(manW, taylorOrder)
 
     if (yex == 0) { // sin(0) = 0
 //       println(f"x = ${x.toDouble}, y = ${x.toDouble / Pi} equiv 0")
@@ -182,37 +183,38 @@ object MathFuncCosSim {
       //   +-> piy  -----------------------------------------------------------+
       //
 
-//       println("y^2")
       // y^2
       val (ySqExInc, ySqManW1) = multiply(manW, (1<<manW) + yman, manW, (1<<manW) + yman)
       val ySqEx = yex + yex - exBias + ySqExInc
       assert(bit(fracW, ySqManW1) == 1)
+//       println(f"sim:ySqEx    = ${ySqEx}")
+//       println(f"sim:ySqManW1 = ${ySqManW1.toLong.toBinaryString}%25s")
 
 //       println("piy")
       // pi*y
       val (piyExInc, piyManW1) = multiply(manW, (1<<manW) + yman, fracW, coef1ManW1)
       val piyEx = yex + coef1Ex - exBias + piyExInc
       assert(bit(fracW, piyManW1) == 1)
+//       println(f"sim:piyEx    = ${piyEx}")
+//       println(f"sim:piyManW1 = ${piyManW1.toLong.toBinaryString}%25s")
 
-//       println("y^4")
-      // y^4
-      val (yQdExInc, yQdManW1) = multiply(fracW, ySqManW1, fracW, ySqManW1)
-      val yQdEx = ySqEx + ySqEx - exBias + yQdExInc
-      assert(bit(fracW, yQdManW1) == 1)
+      if(taylorOrder <= 2) {
+        // sin(x) = x = piy
+        val taylorEx  = piyEx
+        val taylorMan = slice(0, manW, piyManW1)
 
-//       println("pi^2y^2/6")
+        return new RealGeneric(x.spec, zSgn, taylorEx.toInt, taylorMan)
+      }
+
+      // ---------------- 3rd order --------------------
+
       // pi^2y^2/6
       val (c3ExInc, c3ManW1) = multiply(fracW, ySqManW1, fracW, coef3ManW1) // XXX
       val c3Ex = ySqEx + coef3Ex - exBias + c3ExInc
       assert(bit(fracW, c3ManW1) == 1)
+//       println(f"sim:c3Ex    = ${c3Ex}")
+//       println(f"sim:c3ManW1 = ${c3ManW1.toLong.toBinaryString}%25s")
 
-//       println("pi^4y^4/120")
-      // pi^4y^4/120
-      val (c5ExInc, c5ManW1) = multiply(fracW, yQdManW1, fracW, coef5ManW1)
-      val c5Ex = yQdEx + coef5Ex - exBias + c5ExInc
-      assert(bit(fracW, c5ManW1) == 1)
-
-//       println("1 - pi^2y^2/6")
       // 1 - pi^2y^2/6
       assert(c3Ex < exBias)
       val c3Shift = exBias - c3Ex
@@ -220,8 +222,43 @@ object MathFuncCosSim {
         (c3ManW1 >> c3Shift) + bit(c3Shift-1, c3ManW1)
       }
       val oneMinusC3 = (1<<fracW) - c3Aligned
+//       println(f"sim:1-c3 = ${oneMinusC3.toLong.toBinaryString}")
 
-//       println("1 - pi^2y^2/6 + pi^4y^4/120")
+      if(taylorOrder <= 4) {
+        // piy * (1 - pi^2y^2/6)
+        //
+        val oneMinusC3MoreThan1 = bit(fracW, oneMinusC3) // == (c3Aligned == 0)
+        val oneMinusC3ManW1 = oneMinusC3 << (1 - oneMinusC3MoreThan1)
+        val oneMinusC3Ex = exBias - 1 + oneMinusC3MoreThan1
+
+        val (taylorExInc, taylorManW1) = multiply(fracW, piyManW1, fracW, oneMinusC3ManW1)
+        val taylorManW1Rounded = (taylorManW1 >> coefPad) + bit(coefPad-1, taylorManW1)
+        val taylorManW1MoreThan2AfterRound = bit(2+fracW-1, taylorManW1Rounded)
+
+        val taylorEx  = piyEx + oneMinusC3Ex - exBias + taylorExInc + taylorManW1MoreThan2AfterRound
+        val taylorMan = slice(0, manW, taylorManW1Rounded)
+
+        return new RealGeneric(x.spec, zSgn, taylorEx.toInt, taylorMan)
+      }
+
+      assert(taylorOrder == 5, "taylorOrder should be <= 5")
+
+      // ---------------- 5th order --------------------
+
+      // y^4
+      val (yQdExInc, yQdManW1) = multiply(fracW, ySqManW1, fracW, ySqManW1)
+      val yQdEx = ySqEx + ySqEx - exBias + yQdExInc
+      assert(bit(fracW, yQdManW1) == 1)
+//       println(f"sim:yQdEx    = ${yQdEx}")
+//       println(f"sim:yQdManW1 = ${yQdManW1.toLong.toBinaryString}%25s")
+
+      // pi^4y^4/120
+      val (c5ExInc, c5ManW1) = multiply(fracW, yQdManW1, fracW, coef5ManW1)
+      val c5Ex = yQdEx + coef5Ex - exBias + c5ExInc
+      assert(bit(fracW, c5ManW1) == 1)
+//       println(f"sim:c5Ex    = ${c5Ex}")
+//       println(f"sim:c5ManW1 = ${c5ManW1.toLong.toBinaryString}%25s")
+
       // 1 - pi^2y^2/6 + pi^4y^4/120
       // ~ 1 - 1.645y^2 + 0.8117y^4
       assert(c5Ex < exBias)
@@ -233,9 +270,14 @@ object MathFuncCosSim {
       assert(c3Aligned >= c5Aligned)
       assert(oneMinusC3PlusC5 <= (1<<fracW)) // 1 - pi^2y^2/6 + pi^4y^4/120 <= 1
 
+//       println(f"sim:1-c3+c5 = ${oneMinusC3PlusC5.toLong.toBinaryString}")
+
       val oneMinusC3PlusC5MoreThan1 = bit(fracW, oneMinusC3PlusC5)
       val oneMinusC3PlusC5ManW1 = oneMinusC3PlusC5 << (1 - oneMinusC3PlusC5MoreThan1)
       val oneMinusC3PlusC5Ex = exBias - 1 + oneMinusC3PlusC5MoreThan1
+
+//       println(f"sim:1-c3+c5 Ex    = ${oneMinusC3PlusC5Ex}")
+//       println(f"sim:1-c3+c5 ManW1 = ${oneMinusC3PlusC5ManW1.toLong.toBinaryString}")
 
       // piy * (1 - pi^2y^2/6 + pi^4y^4/120)
       val (taylorExInc, taylorManW1) = multiply(fracW, piyManW1, fracW, oneMinusC3PlusC5ManW1)
@@ -244,6 +286,9 @@ object MathFuncCosSim {
 
       val taylorEx  = piyEx + oneMinusC3PlusC5Ex - exBias + taylorExInc + taylorManW1MoreThan2AfterRound
       val taylorMan = slice(0, manW, taylorManW1Rounded)
+
+//       println(f"sim:taylorEx    = ${taylorEx}")
+//       println(f"sim:taylorManW1 = ${taylorMan.toLong.toBinaryString}")
 
       return new RealGeneric(x.spec, zSgn, taylorEx.toInt, taylorMan)
 
@@ -290,6 +335,9 @@ object MathFuncCosSim {
         val d    = slice(0, manW-adrW, yman) - (SafeLong(1)<<dxbp)
         val adr  = slice(manW-adrW, adrW, yman).toInt
 
+//         println(f"sim:dx  = ${d.toLong.toBinaryString}")
+//         println(f"sim:adr = ${exadr.toBinaryString}|${adr.toBinaryString}")
+
         val res0 = t.interval(adr).eval(d.toLong, dxbp)
         val res = if (res0 < 0) {
             println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x = ${x.toDouble}, sin(x) = ${sin(x.toDouble)}")
@@ -300,6 +348,7 @@ object MathFuncCosSim {
           } else {
             res0
           }
+//         println(f"sim:zres = ${res.toLong.toBinaryString}")
         val lessThanHalf = if(bit(fracW-1, res) == 0) { 1 } else { 0 }
         ((yex+2-lessThanHalf).toInt, (res << (1+lessThanHalf)).toLong - (1L<<fracW))
       }
@@ -307,32 +356,9 @@ object MathFuncCosSim {
       val zmanRound = if (extraBits>0) {(zman>>extraBits) + bit(extraBits-1, zman)} else {zman}
       val zMan = slice(0, manW, zmanRound)
       val zManMoreThan2 = bit(manW, zmanRound).toInt
+//       println(f"sim:zmanRound = ${zmanRound.toLong.toBinaryString}")
 
       new RealGeneric(x.spec, zSgn, zEx + zManMoreThan2, SafeLong(zMan))
     }
-  }
-
-  def sinTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int,
-      calcWidthSetting: Option[Seq[Int]] = None,
-      cbitSetting: Option[Seq[Int]] = None
-    ) = {
-    val taylorThreshold = MathFuncSinSim.calcTaylorThreshold(manW)
-
-    if(adrW >= manW) {assert(order == 0)}
-
-    val maxCalcWidth = (-2 to taylorThreshold by -1).map(exponent => {
-        val tableD = new FuncTableDouble( x => scalb(sin(Pi * scalb(1.0 + x, exponent)), -exponent-3), order )
-        tableD.addRange(0.0, 1.0, 1<<adrW)
-      val tableI = new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
-        tableI.calcWidth
-      }).reduce( (lhs, rhs) => {
-        lhs.zip(rhs).map( x => max(x._1, x._2))
-      })
-
-    (-2 to taylorThreshold by -1).map( i => {
-      val tableD = new FuncTableDouble( x => scalb(sin(Pi * scalb(1.0+x, i)), -i-3), order )
-      tableD.addRange(0.0, 1.0, 1<<adrW)
-      new FuncTableInt( tableD, fracW, Some(maxCalcWidth), cbitSetting )
-    })
   }
 }

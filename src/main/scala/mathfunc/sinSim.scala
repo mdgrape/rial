@@ -28,7 +28,8 @@ object MathFuncSinSim {
 
   def sinSimGeneric(
     ts: Seq[FuncTableInt],
-    x:  RealGeneric
+    x:  RealGeneric,
+    taylorOrder: Int = 5
   ) : RealGeneric = {
 
     val spec = x.spec
@@ -144,7 +145,7 @@ object MathFuncSinSim {
     // ------------------------------------------------------------------------
     // calculate sin(y*Pi).
 
-    val taylorThreshold = calcTaylorThreshold(manW)
+    val taylorThreshold = calcTaylorThreshold(manW, taylorOrder)
 
     if (yex == 0) { // sin(0) = 0
 //       println(f"x = ${x.toDouble}, y = ${x.toDouble / Pi} equiv 0")
@@ -212,12 +213,15 @@ object MathFuncSinSim {
 //       println(f"sim:piyEx    = ${piyEx}")
 //       println(f"sim:piyManW1 = ${piyManW1.toLong.toBinaryString}%25s")
 
-      // y^4
-      val (yQdExInc, yQdManW1) = multiply(fracW, ySqManW1, fracW, ySqManW1)
-      val yQdEx = ySqEx + ySqEx - exBias + yQdExInc
-      assert(bit(fracW, yQdManW1) == 1)
-//       println(f"sim:yQdEx    = ${yQdEx}")
-//       println(f"sim:yQdManW1 = ${yQdManW1.toLong.toBinaryString}%25s")
+      if(taylorOrder <= 2) {
+        // sin(x) = x = piy
+        val taylorEx  = piyEx
+        val taylorMan = slice(0, manW, piyManW1)
+
+        return new RealGeneric(x.spec, zSgn, taylorEx.toInt, taylorMan)
+      }
+
+      // ---------------- 3rd order --------------------
 
       // pi^2y^2/6
       val (c3ExInc, c3ManW1) = multiply(fracW, ySqManW1, fracW, coef3ManW1) // XXX
@@ -225,13 +229,6 @@ object MathFuncSinSim {
       assert(bit(fracW, c3ManW1) == 1)
 //       println(f"sim:c3Ex    = ${c3Ex}")
 //       println(f"sim:c3ManW1 = ${c3ManW1.toLong.toBinaryString}%25s")
-
-      // pi^4y^4/120
-      val (c5ExInc, c5ManW1) = multiply(fracW, yQdManW1, fracW, coef5ManW1)
-      val c5Ex = yQdEx + coef5Ex - exBias + c5ExInc
-      assert(bit(fracW, c5ManW1) == 1)
-//       println(f"sim:c5Ex    = ${c5Ex}")
-//       println(f"sim:c5ManW1 = ${c5ManW1.toLong.toBinaryString}%25s")
 
       // 1 - pi^2y^2/6
       assert(c3Ex < exBias)
@@ -241,6 +238,41 @@ object MathFuncSinSim {
       }
       val oneMinusC3 = (1<<fracW) - c3Aligned
 //       println(f"sim:1-c3 = ${oneMinusC3.toLong.toBinaryString}")
+
+      if(taylorOrder <= 4) {
+        // piy * (1 - pi^2y^2/6)
+        //
+        val oneMinusC3MoreThan1 = bit(fracW, oneMinusC3) // == (c3Aligned == 0)
+        val oneMinusC3ManW1 = oneMinusC3 << (1 - oneMinusC3MoreThan1)
+        val oneMinusC3Ex = exBias - 1 + oneMinusC3MoreThan1
+
+        val (taylorExInc, taylorManW1) = multiply(fracW, piyManW1, fracW, oneMinusC3ManW1)
+        val taylorManW1Rounded = (taylorManW1 >> coefPad) + bit(coefPad-1, taylorManW1)
+        val taylorManW1MoreThan2AfterRound = bit(2+fracW-1, taylorManW1Rounded)
+
+        val taylorEx  = piyEx + oneMinusC3Ex - exBias + taylorExInc + taylorManW1MoreThan2AfterRound
+        val taylorMan = slice(0, manW, taylorManW1Rounded)
+
+        return new RealGeneric(x.spec, zSgn, taylorEx.toInt, taylorMan)
+      }
+
+      assert(taylorOrder == 5, "taylorOrder should be <= 5")
+
+      // ---------------- 5th order --------------------
+
+      // y^4
+      val (yQdExInc, yQdManW1) = multiply(fracW, ySqManW1, fracW, ySqManW1)
+      val yQdEx = ySqEx + ySqEx - exBias + yQdExInc
+      assert(bit(fracW, yQdManW1) == 1)
+//       println(f"sim:yQdEx    = ${yQdEx}")
+//       println(f"sim:yQdManW1 = ${yQdManW1.toLong.toBinaryString}%25s")
+
+      // pi^4y^4/120
+      val (c5ExInc, c5ManW1) = multiply(fracW, yQdManW1, fracW, coef5ManW1)
+      val c5Ex = yQdEx + coef5Ex - exBias + c5ExInc
+      assert(bit(fracW, c5ManW1) == 1)
+//       println(f"sim:c5Ex    = ${c5Ex}")
+//       println(f"sim:c5ManW1 = ${c5ManW1.toLong.toBinaryString}%25s")
 
       // 1 - pi^2y^2/6 + pi^4y^4/120
       // ~ 1 - 1.645y^2 + 0.8117y^4
@@ -345,31 +377,51 @@ object MathFuncSinSim {
     }
   }
 
-  def calcTaylorThreshold(manW: Int): Int = {
-    // sin(pix) = pix - pi^3x^3 / 6 + pi^5x^5 / 120 - pi^7x^7/7!
-    //          = pix (1 - pi^2x^2 / 6 + pi^4x^4 / 120 - pi^6x^6/7!)
-    // pi^6x^6 / 5040 < 2^-manW
-    // pi^6x^6 / 5040 < 0.190x^6 < 2^-2 x^6 < 2^-manW
-    // x < 2^(-(manW+2)/6)
-    math.floor(-(manW+2) / 6).toInt
-    // this value will be used as xexNobias < taylorThreshold.
+  def calcTaylorThreshold(manW: Int, taylorOrder: Int = 5): Int = {
+    if (taylorOrder <= 2) {
+      // sin(pix) = pix - pi^3x^3 / 6 + ...
+      //          = pix (1 - pi^2x^2/6 + ...)
+      // pi^2x^2/6 < 2^-manW
+      // pi^2x^2/6 < 1.65 x^2 < 2x^2 <= 2^-manW
+      // x <= 2^(-manW+1)/2
+      // x.ex <= (-manW+1)/2-1
+      math.floor((-manW+1)/2 - 1).toInt
+    } else if (taylorOrder <= 4) {
+      // sin(pix) = pix - pi^3x^3 / 6 + pi^5x^5 / 120 - ...
+      //          = pix (1 - pi^2x^2/6 + pi^4x^4 / 120)
+      // pi^4x^4 / 120 < 2^-manW
+      // pi^4x^4 / 120 < 0.812 x^4 <= x^4 <= 2^-manW
+      // 2^xex * 1.xman <= 2^-manW/4
+      // x.ex <= -manW/4 - 1
+      math.floor(-manW/4 - 1).toInt
+    } else {
+      assert(taylorOrder == 5, "taylorOrder should be <= 5")
+      // sin(pix) = pix - pi^3x^3 / 6 + pi^5x^5 / 120 - pi^7x^7/7!
+      //          = pix (1 - pi^2x^2 / 6 + pi^4x^4 / 120 - pi^6x^6/7!)
+      // pi^6x^6 / 5040 < 2^-manW
+      // pi^6x^6 / 5040 < 0.190x^6 < 2^-2 x^6 < 2^-manW
+      // x < 2^(-(manW+2)/6)
+      math.floor(-(manW+2) / 6).toInt
+    }
   }
 
   // number of tables depending on the exponent and linearThreshold
-  def calcExAdrW(spec: RealSpec): Int = {
+  def calcExAdrW(spec: RealSpec, taylorOrder: Int = 5): Int = {
     //      .--- table interp --. .-----taylor------.
     // ex = -2 ~ taylorThreshold, taylorThreshold-1 ~ 0
 
-    val taylorThreshold = calcTaylorThreshold(spec.manW)
+    val taylorThreshold = calcTaylorThreshold(spec.manW, taylorOrder)
     val nTables = -2 - taylorThreshold + 1
     log2Up(nTables)
   }
 
-  def sinTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int,
+  def sinTableGeneration(
+      order : Int, adrW : Int, manW : Int, fracW : Int,
       calcWidthSetting: Option[Seq[Int]] = None,
-      cbitSetting: Option[Seq[Int]] = None
+      cbitSetting: Option[Seq[Int]] = None,
+      taylorOrder: Int = 5
     ) = {
-    val taylorThreshold = calcTaylorThreshold(manW)
+    val taylorThreshold = calcTaylorThreshold(manW, taylorOrder)
 
     if(adrW >= manW) {assert(order == 0)}
 
