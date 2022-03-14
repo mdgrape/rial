@@ -58,7 +58,8 @@ class SinCosPreProcessOutput(val spec: RealSpec) extends Bundle {
 class SinCosPreProcess(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
-  val stage    : PipelineStageConfig
+  val stage    : PipelineStageConfig,
+  val taylorOrder: Int
 ) extends Module {
 
   val nStage = stage.total
@@ -66,7 +67,7 @@ class SinCosPreProcess(
   val exW    = spec.exW
   val manW   = spec.manW
   val exBias = spec.exBias
-  val exAdrW = MathFuncSinSim.calcExAdrW(spec)
+  val exAdrW = MathFuncSinSim.calcExAdrW(spec, taylorOrder)
 
   val adrW      = polySpec.adrW
   val fracW     = polySpec.fracW
@@ -229,7 +230,7 @@ class SinCosTableCoeff(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val maxCbit  : Seq[Int], // max coeff width among all math funcs
-  val taylorOrder: Int = 5
+  val taylorOrder: Int
 ) extends Module {
 
   val manW   = spec.manW
@@ -240,7 +241,7 @@ class SinCosTableCoeff(
   val order     = polySpec.order
 
   val taylorThreshold = MathFuncSinSim.calcTaylorThreshold(manW, taylorOrder)
-  val exAdrW = MathFuncSinSim.calcExAdrW(spec)
+  val exAdrW = MathFuncSinSim.calcExAdrW(spec, taylorOrder)
 
   val io = IO(new Bundle {
     val en  = Input(UInt(1.W))
@@ -302,7 +303,7 @@ object SinCosTableCoeff {
   def getCBits(
     spec:     RealSpec,
     polySpec: PolynomialSpec,
-    taylorOrder: Int = 5
+    taylorOrder: Int
   ): Seq[Int] = {
 
     val order     = polySpec.order
@@ -322,7 +323,7 @@ object SinCosTableCoeff {
   def getCalcW(
     spec:     RealSpec,
     polySpec: PolynomialSpec,
-    taylorOrder: Int = 5
+    taylorOrder: Int
   ): Seq[Int] = {
 
     val order     = polySpec.order
@@ -361,7 +362,7 @@ class SinCosOtherPath(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
-  val taylorOrder: Int = 5
+  val taylorOrder: Int
 ) extends Module {
 
   val nStage = stage.total
@@ -545,7 +546,6 @@ class SinCosOtherPath(
 
       zExTaylor  := Mux(isLinear, zExLinear,  piyEx + oneMinusC3Ex - exBias.U + taylorExInc + taylorManW1MoreThan2AfterRound)
       zManTaylor := Mux(isLinear, zManLinear, taylorManW1Rounded(manW-1, 0))
-
     } else {
       // .........................................................................
       // 5th order
@@ -697,7 +697,7 @@ class SinCosGeneric(
   val spec     : RealSpec,
   val nOrder: Int, val adrW : Int, val extraBits : Int, // Polynomial spec
   val stage    : MathFuncPipelineConfig,
-  val taylorOrder: Int = 5,
+  val taylorOrder: Int,
   val enableRangeCheck : Boolean = true,
   val enablePolynomialRounding : Boolean = false,
 ) extends Module {
@@ -749,7 +749,7 @@ class SinCosGeneric(
 
   // --------------------------------------------------------------------------
 
-  val sincosPre   = Module(new SinCosPreProcess (spec, polySpec, stage.preStage))
+  val sincosPre   = Module(new SinCosPreProcess (spec, polySpec, stage.preStage, taylorOrder))
   val sincosTab   = Module(new SinCosTableCoeff (spec, polySpec, cbits, taylorOrder))
   val sincosOther = Module(new SinCosOtherPath  (spec, polySpec, stage.calcStage, taylorOrder))
   val sincosPost  = Module(new SinCosPostProcess(spec, polySpec, stage.postStage))
