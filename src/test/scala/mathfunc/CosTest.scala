@@ -112,20 +112,20 @@ class MathFuncCosTest extends AnyFlatSpec
   val taylorOrder5th = 5
 
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrder, adrW, extraBits, MathFuncPipelineConfig.none, n, r,
-    "Test Within (-2pi, -pi)",     generateRealWithin(-2.0*Pi,-1.0*Pi,_,_))
+    "Test 5th Within (-2pi, -pi)",     generateRealWithin(-2.0*Pi,-1.0*Pi,_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrder, adrW, extraBits, MathFuncPipelineConfig.none, n, r,
-    "Test Within (-pi, 0)",     generateRealWithin(-1.0*Pi,0.0,_,_))
+    "Test 5th Within (-pi, 0)",     generateRealWithin(-1.0*Pi,0.0,_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrder, adrW, extraBits, MathFuncPipelineConfig.none, n, r,
-    "Test Within (     0, 2^-6)", generateRealWithin(0.0,pow(2.0, -6),_,_))
+    "Test 5th Within (     0, 2^-6)", generateRealWithin(0.0,pow(2.0, -6),_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrder, adrW, extraBits, MathFuncPipelineConfig.none, n, r,
-    "Test Within ( 2^-6, pi/2)",   generateRealWithin(pow(2.0, -6),0.5*Pi,_,_))
+    "Test 5th Within ( 2^-6, pi/2)",   generateRealWithin(pow(2.0, -6),0.5*Pi,_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrder, adrW, extraBits, MathFuncPipelineConfig.none, n, r,
-    "Test Within (pi/2, pi)",      generateRealWithin(0.5*Pi,1.0*Pi,_,_))
+    "Test 5th Within (pi/2, pi)",      generateRealWithin(0.5*Pi,1.0*Pi,_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrder, adrW, extraBits, MathFuncPipelineConfig.none, n, r,
-    "Test Within (pi, 2pi)",      generateRealWithin(1.0*Pi,2.0*Pi,_,_))
+    "Test 5th Within (pi, 2pi)",      generateRealWithin(1.0*Pi,2.0*Pi,_,_))
 
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrder, adrW, extraBits, MathFuncPipelineConfig.none, n, r,
-    "Test Out of range +/- (2pi, 64pi)", generateRealRandomSignWithin(2.0*Pi, 64.0*Pi,_,_))
+    "Test 5th Out of range +/- (2pi, 64pi)", generateRealRandomSignWithin(2.0*Pi, 64.0*Pi,_,_))
 
   val simplePipeline = new MathFuncPipelineConfig(
       PipelineStageConfig.none,
@@ -134,20 +134,20 @@ class MathFuncCosTest extends AnyFlatSpec
       true, true)
 
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrder, adrW, extraBits, simplePipeline, n, r,
-    "Test Within (-2pi, -pi)",     generateRealWithin(-2.0*Pi,-1.0*Pi,_,_))
+    "Test 5th Within (-2pi, -pi)",     generateRealWithin(-2.0*Pi,-1.0*Pi,_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrder, adrW, extraBits, simplePipeline, n, r,
-    "Test Within (-pi, 0)",     generateRealWithin(-1.0*Pi,0.0,_,_))
+    "Test 5th Within (-pi, 0)",     generateRealWithin(-1.0*Pi,0.0,_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrder, adrW, extraBits, simplePipeline, n, r,
-    "Test Within (     0, 2^-6)", generateRealWithin(0.0,pow(2.0, -6),_,_))
+    "Test 5th Within (     0, 2^-6)", generateRealWithin(0.0,pow(2.0, -6),_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrder, adrW, extraBits, simplePipeline, n, r,
-    "Test Within ( 2^-6, pi/2)",   generateRealWithin(pow(2.0, -6),0.5*Pi,_,_))
+    "Test 5th Within ( 2^-6, pi/2)",   generateRealWithin(pow(2.0, -6),0.5*Pi,_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrder, adrW, extraBits, simplePipeline, n, r,
-    "Test Within (pi/2, pi)",      generateRealWithin(0.5*Pi,1.0*Pi,_,_))
+    "Test 5th Within (pi/2, pi)",      generateRealWithin(0.5*Pi,1.0*Pi,_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrder, adrW, extraBits, simplePipeline, n, r,
-    "Test Within (pi, 2pi)",      generateRealWithin(1.0*Pi,2.0*Pi,_,_))
+    "Test 5th Within (pi, 2pi)",      generateRealWithin(1.0*Pi,2.0*Pi,_,_))
 
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrder, adrW, extraBits, simplePipeline, n, r,
-    "Test Out of range +/- (2pi, 64pi)", generateRealRandomSignWithin(2.0*Pi, 64.0*Pi,_,_))
+    "Test 5th Out of range +/- (2pi, 64pi)", generateRealRandomSignWithin(2.0*Pi, 64.0*Pi,_,_))
 
   val complexPipeline = new MathFuncPipelineConfig(
       PipelineStageConfig.atOut(1),
@@ -156,20 +156,20 @@ class MathFuncCosTest extends AnyFlatSpec
       true, true)
 
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrder, adrW, extraBits, complexPipeline, n, r,
-    "Test Within (-2pi, -pi)",     generateRealWithin(-2.0*Pi,-1.0*Pi,_,_))
+    "Test 5th Within (-2pi, -pi)",     generateRealWithin(-2.0*Pi,-1.0*Pi,_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrder, adrW, extraBits, complexPipeline, n, r,
-    "Test Within (-pi, 0)",     generateRealWithin(-1.0*Pi,0.0,_,_))
+    "Test 5th Within (-pi, 0)",     generateRealWithin(-1.0*Pi,0.0,_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrder, adrW, extraBits, complexPipeline, n, r,
-    "Test Within (     0, 2^-6)", generateRealWithin(0.0,pow(2.0, -6),_,_))
+    "Test 5th Within (     0, 2^-6)", generateRealWithin(0.0,pow(2.0, -6),_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrder, adrW, extraBits, complexPipeline, n, r,
-    "Test Within ( 2^-6, pi/2)",   generateRealWithin(pow(2.0, -6),0.5*Pi,_,_))
+    "Test 5th Within ( 2^-6, pi/2)",   generateRealWithin(pow(2.0, -6),0.5*Pi,_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrder, adrW, extraBits, complexPipeline, n, r,
-    "Test Within (pi/2, pi)",      generateRealWithin(0.5*Pi,1.0*Pi,_,_))
+    "Test 5th Within (pi/2, pi)",      generateRealWithin(0.5*Pi,1.0*Pi,_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrder, adrW, extraBits, complexPipeline, n, r,
-    "Test Within (pi, 2pi)",      generateRealWithin(1.0*Pi,2.0*Pi,_,_))
+    "Test 5th Within (pi, 2pi)",      generateRealWithin(1.0*Pi,2.0*Pi,_,_))
 
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrder, adrW, extraBits, complexPipeline, n, r,
-    "Test Out of range +/- (2pi, 64pi)", generateRealRandomSignWithin(2.0*Pi, 64.0*Pi,_,_))
+    "Test 5th Out of range +/- (2pi, 64pi)", generateRealRandomSignWithin(2.0*Pi, 64.0*Pi,_,_))
 }
 
 // ----------------------------------------------------------------------------
@@ -283,56 +283,110 @@ class CosOnlyTest extends AnyFlatSpec
   val taylorOrder5th = 5
 
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r,
-    "Test Within (-2pi, -pi)",     generateRealWithin(-2.0*Pi,-1.0*Pi,_,_))
+    "Test FP32 5th-order Within (-2pi, -pi)",     generateRealWithin(-2.0*Pi,-1.0*Pi,_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r,
-    "Test Within (-pi, 0)",     generateRealWithin(-1.0*Pi,0.0,_,_))
+    "Test FP32 5th-order Within (-pi, 0)",     generateRealWithin(-1.0*Pi,0.0,_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r,
-    "Test Within (     0, 2^-6)", generateRealWithin(0.0,pow(2.0, -6),_,_))
+    "Test FP32 5th-order Within (     0, 2^-6)", generateRealWithin(0.0,pow(2.0, -6),_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r,
-    "Test Within ( 2^-6, pi/2)",   generateRealWithin(pow(2.0, -6),0.5*Pi,_,_))
+    "Test FP32 5th-order Within ( 2^-6, pi/2)",   generateRealWithin(pow(2.0, -6),0.5*Pi,_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r,
-    "Test Within (pi/2, pi)",      generateRealWithin(0.5*Pi,1.0*Pi,_,_))
+    "Test FP32 5th-order Within (pi/2, pi)",      generateRealWithin(0.5*Pi,1.0*Pi,_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r,
-    "Test Within (pi, 2pi)",      generateRealWithin(1.0*Pi,2.0*Pi,_,_))
+    "Test FP32 5th-order Within (pi, 2pi)",      generateRealWithin(1.0*Pi,2.0*Pi,_,_))
 
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r,
-    "Test Out of range +/-(2pi, 64pi)", generateRealRandomSignWithin(2.0*Pi, 64.0*Pi,_,_))
+    "Test FP32 5th-order Out of range +/-(2pi, 64pi)", generateRealRandomSignWithin(2.0*Pi, 64.0*Pi,_,_))
 
   // simple pipeline
 
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
-    "Test Within (-2pi, -pi)",     generateRealWithin(-2.0*Pi,-1.0*Pi,_,_))
+    "Test FP32 5th-order Within (-2pi, -pi)",     generateRealWithin(-2.0*Pi,-1.0*Pi,_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
-    "Test Within (-pi, 0)",     generateRealWithin(-1.0*Pi,0.0,_,_))
+    "Test FP32 5th-order Within (-pi, 0)",     generateRealWithin(-1.0*Pi,0.0,_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
-    "Test Within (     0, 2^-6)", generateRealWithin(0.0,pow(2.0, -6),_,_))
+    "Test FP32 5th-order Within (     0, 2^-6)", generateRealWithin(0.0,pow(2.0, -6),_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
-    "Test Within ( 2^-6, pi/2)",   generateRealWithin(pow(2.0, -6),0.5*Pi,_,_))
+    "Test FP32 5th-order Within ( 2^-6, pi/2)",   generateRealWithin(pow(2.0, -6),0.5*Pi,_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
-    "Test Within (pi/2, pi)",      generateRealWithin(0.5*Pi,1.0*Pi,_,_))
+    "Test FP32 5th-order Within (pi/2, pi)",      generateRealWithin(0.5*Pi,1.0*Pi,_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
-    "Test Within (pi, 2pi)",      generateRealWithin(1.0*Pi,2.0*Pi,_,_))
+    "Test FP32 5th-order Within (pi, 2pi)",      generateRealWithin(1.0*Pi,2.0*Pi,_,_))
 
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
-    "Test Out of range +/-(2pi, 64pi)", generateRealRandomSignWithin(2.0*Pi, 64.0*Pi,_,_))
+    "Test FP32 5th-order Out of range +/-(2pi, 64pi)", generateRealRandomSignWithin(2.0*Pi, 64.0*Pi,_,_))
 
   // complex pipeline
 
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
-    "Test Within (-2pi, -pi)",     generateRealWithin(-2.0*Pi,-1.0*Pi,_,_))
+    "Test FP32 5th-order Within (-2pi, -pi)",     generateRealWithin(-2.0*Pi,-1.0*Pi,_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
-    "Test Within (-pi, 0)",     generateRealWithin(-1.0*Pi,0.0,_,_))
+    "Test FP32 5th-order Within (-pi, 0)",     generateRealWithin(-1.0*Pi,0.0,_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
-    "Test Within (     0, 2^-6)", generateRealWithin(0.0,pow(2.0, -6),_,_))
+    "Test FP32 5th-order Within (     0, 2^-6)", generateRealWithin(0.0,pow(2.0, -6),_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
-    "Test Within ( 2^-6, pi/2)",   generateRealWithin(pow(2.0, -6),0.5*Pi,_,_))
+    "Test FP32 5th-order Within ( 2^-6, pi/2)",   generateRealWithin(pow(2.0, -6),0.5*Pi,_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
-    "Test Within (pi/2, pi)",      generateRealWithin(0.5*Pi,1.0*Pi,_,_))
+    "Test FP32 5th-order Within (pi/2, pi)",      generateRealWithin(0.5*Pi,1.0*Pi,_,_))
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
-    "Test Within (pi, 2pi)",      generateRealWithin(1.0*Pi,2.0*Pi,_,_))
+    "Test FP32 5th-order Within (pi, 2pi)",      generateRealWithin(1.0*Pi,2.0*Pi,_,_))
 
   runtest(RealSpec.Float32Spec, taylorOrder5th, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
-    "Test Out of range +/-(2pi, 64pi)", generateRealRandomSignWithin(2.0*Pi, 64.0*Pi,_,_))
+    "Test FP32 5th-order Out of range +/-(2pi, 64pi)", generateRealRandomSignWithin(2.0*Pi, 64.0*Pi,_,_))
+
+  val taylorOrder3rd = 3
+
+  runtest(RealSpec.Float32Spec, taylorOrder3rd, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r,
+    "Test FP32 3rd-order Within (-2pi, -pi)",     generateRealWithin(-2.0*Pi,-1.0*Pi,_,_))
+  runtest(RealSpec.Float32Spec, taylorOrder3rd, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r,
+    "Test FP32 3rd-order Within (-pi, 0)",     generateRealWithin(-1.0*Pi,0.0,_,_))
+  runtest(RealSpec.Float32Spec, taylorOrder3rd, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r,
+    "Test FP32 3rd-order Within (     0, 2^-6)", generateRealWithin(0.0,pow(2.0, -6),_,_))
+  runtest(RealSpec.Float32Spec, taylorOrder3rd, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r,
+    "Test FP32 3rd-order Within ( 2^-6, pi/2)",   generateRealWithin(pow(2.0, -6),0.5*Pi,_,_))
+  runtest(RealSpec.Float32Spec, taylorOrder3rd, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r,
+    "Test FP32 3rd-order Within (pi/2, pi)",      generateRealWithin(0.5*Pi,1.0*Pi,_,_))
+  runtest(RealSpec.Float32Spec, taylorOrder3rd, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r,
+    "Test FP32 3rd-order Within (pi, 2pi)",      generateRealWithin(1.0*Pi,2.0*Pi,_,_))
+
+  runtest(RealSpec.Float32Spec, taylorOrder3rd, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r,
+    "Test FP32 3rd-order Out of range +/-(2pi, 64pi)", generateRealRandomSignWithin(2.0*Pi, 64.0*Pi,_,_))
+
+  // simple pipeline
+
+  runtest(RealSpec.Float32Spec, taylorOrder3rd, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
+    "Test FP32 3rd-order Within (-2pi, -pi)",     generateRealWithin(-2.0*Pi,-1.0*Pi,_,_))
+  runtest(RealSpec.Float32Spec, taylorOrder3rd, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
+    "Test FP32 3rd-order Within (-pi, 0)",     generateRealWithin(-1.0*Pi,0.0,_,_))
+  runtest(RealSpec.Float32Spec, taylorOrder3rd, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
+    "Test FP32 3rd-order Within (     0, 2^-6)", generateRealWithin(0.0,pow(2.0, -6),_,_))
+  runtest(RealSpec.Float32Spec, taylorOrder3rd, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
+    "Test FP32 3rd-order Within ( 2^-6, pi/2)",   generateRealWithin(pow(2.0, -6),0.5*Pi,_,_))
+  runtest(RealSpec.Float32Spec, taylorOrder3rd, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
+    "Test FP32 3rd-order Within (pi/2, pi)",      generateRealWithin(0.5*Pi,1.0*Pi,_,_))
+  runtest(RealSpec.Float32Spec, taylorOrder3rd, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
+    "Test FP32 3rd-order Within (pi, 2pi)",      generateRealWithin(1.0*Pi,2.0*Pi,_,_))
+
+  runtest(RealSpec.Float32Spec, taylorOrder3rd, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
+    "Test FP32 3rd-order Out of range +/-(2pi, 64pi)", generateRealRandomSignWithin(2.0*Pi, 64.0*Pi,_,_))
+
+  // complex pipeline
+
+  runtest(RealSpec.Float32Spec, taylorOrder3rd, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
+    "Test FP32 3rd-order Within (-2pi, -pi)",     generateRealWithin(-2.0*Pi,-1.0*Pi,_,_))
+  runtest(RealSpec.Float32Spec, taylorOrder3rd, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
+    "Test FP32 3rd-order Within (-pi, 0)",     generateRealWithin(-1.0*Pi,0.0,_,_))
+  runtest(RealSpec.Float32Spec, taylorOrder3rd, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
+    "Test FP32 3rd-order Within (     0, 2^-6)", generateRealWithin(0.0,pow(2.0, -6),_,_))
+  runtest(RealSpec.Float32Spec, taylorOrder3rd, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
+    "Test FP32 3rd-order Within ( 2^-6, pi/2)",   generateRealWithin(pow(2.0, -6),0.5*Pi,_,_))
+  runtest(RealSpec.Float32Spec, taylorOrder3rd, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
+    "Test FP32 3rd-order Within (pi/2, pi)",      generateRealWithin(0.5*Pi,1.0*Pi,_,_))
+  runtest(RealSpec.Float32Spec, taylorOrder3rd, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
+    "Test FP32 3rd-order Within (pi, 2pi)",      generateRealWithin(1.0*Pi,2.0*Pi,_,_))
+
+  runtest(RealSpec.Float32Spec, taylorOrder3rd, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
+    "Test FP32 3rd-order Out of range +/-(2pi, 64pi)", generateRealRandomSignWithin(2.0*Pi, 64.0*Pi,_,_))
 
   // BF16
   // TODO: see sinTest
