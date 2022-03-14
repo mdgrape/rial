@@ -29,7 +29,7 @@ object MathFuncCosSim {
   def cosSimGeneric(
     ts: Seq[FuncTableInt],
     x:  RealGeneric,
-    taylorOrder: Int = 5
+    taylorOrder: Int
   ) : RealGeneric = {
 
 //     println("--------------------------------------------------------------------")

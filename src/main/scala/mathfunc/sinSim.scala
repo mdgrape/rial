@@ -29,7 +29,7 @@ object MathFuncSinSim {
   def sinSimGeneric(
     ts: Seq[FuncTableInt],
     x:  RealGeneric,
-    taylorOrder: Int = 5
+    taylorOrder: Int
   ) : RealGeneric = {
 
     val spec = x.spec
@@ -377,7 +377,7 @@ object MathFuncSinSim {
     }
   }
 
-  def calcTaylorThreshold(manW: Int, taylorOrder: Int = 5): Int = {
+  def calcTaylorThreshold(manW: Int, taylorOrder: Int): Int = {
     if (taylorOrder <= 2) {
       // sin(pix) = pix - pi^3x^3 / 6 + ...
       //          = pix (1 - pi^2x^2/6 + ...)
@@ -406,7 +406,7 @@ object MathFuncSinSim {
   }
 
   // number of tables depending on the exponent and linearThreshold
-  def calcExAdrW(spec: RealSpec, taylorOrder: Int = 5): Int = {
+  def calcExAdrW(spec: RealSpec, taylorOrder: Int): Int = {
     //      .--- table interp --. .-----taylor------.
     // ex = -2 ~ taylorThreshold, taylorThreshold-1 ~ 0
 
@@ -419,7 +419,7 @@ object MathFuncSinSim {
       order : Int, adrW : Int, manW : Int, fracW : Int,
       calcWidthSetting: Option[Seq[Int]] = None,
       cbitSetting: Option[Seq[Int]] = None,
-      taylorOrder: Int = 5
+      taylorOrder: Int
     ) = {
     val taylorThreshold = calcTaylorThreshold(manW, taylorOrder)
 
