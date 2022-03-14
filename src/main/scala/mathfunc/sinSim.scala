@@ -240,6 +240,7 @@ object MathFuncSinSim {
 //       println(f"sim:1-c3 = ${oneMinusC3.toLong.toBinaryString}")
 
       if(taylorOrder <= 4) {
+//         println("taylorOrder <= 4. return 1 - c3")
         // piy * (1 - pi^2y^2/6)
         //
         val oneMinusC3MoreThan1 = bit(fracW, oneMinusC3) // == (c3Aligned == 0)
@@ -248,7 +249,7 @@ object MathFuncSinSim {
 
         val (taylorExInc, taylorManW1) = multiply(fracW, piyManW1, fracW, oneMinusC3ManW1)
         val taylorManW1Rounded = (taylorManW1 >> coefPad) + bit(coefPad-1, taylorManW1)
-        val taylorManW1MoreThan2AfterRound = bit(2+fracW-1, taylorManW1Rounded)
+        val taylorManW1MoreThan2AfterRound = bit(2+manW-1, taylorManW1Rounded)
 
         val taylorEx  = piyEx + oneMinusC3Ex - exBias + taylorExInc + taylorManW1MoreThan2AfterRound
         val taylorMan = slice(0, manW, taylorManW1Rounded)
@@ -297,7 +298,7 @@ object MathFuncSinSim {
       // piy * (1 - pi^2y^2/6 + pi^4y^4/120)
       val (taylorExInc, taylorManW1) = multiply(fracW, piyManW1, fracW, oneMinusC3PlusC5ManW1)
       val taylorManW1Rounded = (taylorManW1 >> coefPad) + bit(coefPad-1, taylorManW1)
-      val taylorManW1MoreThan2AfterRound = bit(2+fracW-1, taylorManW1Rounded)
+      val taylorManW1MoreThan2AfterRound = bit(2+manW-1, taylorManW1Rounded)
 
       val taylorEx  = piyEx + oneMinusC3PlusC5Ex - exBias + taylorExInc + taylorManW1MoreThan2AfterRound
       val taylorMan = slice(0, manW, taylorManW1Rounded)

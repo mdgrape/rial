@@ -233,7 +233,7 @@ object MathFuncCosSim {
 
         val (taylorExInc, taylorManW1) = multiply(fracW, piyManW1, fracW, oneMinusC3ManW1)
         val taylorManW1Rounded = (taylorManW1 >> coefPad) + bit(coefPad-1, taylorManW1)
-        val taylorManW1MoreThan2AfterRound = bit(2+fracW-1, taylorManW1Rounded)
+        val taylorManW1MoreThan2AfterRound = bit(2+manW-1, taylorManW1Rounded)
 
         val taylorEx  = piyEx + oneMinusC3Ex - exBias + taylorExInc + taylorManW1MoreThan2AfterRound
         val taylorMan = slice(0, manW, taylorManW1Rounded)
@@ -282,7 +282,7 @@ object MathFuncCosSim {
       // piy * (1 - pi^2y^2/6 + pi^4y^4/120)
       val (taylorExInc, taylorManW1) = multiply(fracW, piyManW1, fracW, oneMinusC3PlusC5ManW1)
       val taylorManW1Rounded = (taylorManW1 >> coefPad) + bit(coefPad-1, taylorManW1)
-      val taylorManW1MoreThan2AfterRound = bit(2+fracW-1, taylorManW1Rounded)
+      val taylorManW1MoreThan2AfterRound = bit(2+manW-1, taylorManW1Rounded)
 
       val taylorEx  = piyEx + oneMinusC3PlusC5Ex - exBias + taylorExInc + taylorManW1MoreThan2AfterRound
       val taylorMan = slice(0, manW, taylorManW1Rounded)
