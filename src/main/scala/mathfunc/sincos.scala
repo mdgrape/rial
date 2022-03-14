@@ -229,6 +229,7 @@ class SinCosTableCoeff(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val maxCbit  : Seq[Int], // max coeff width among all math funcs
+  val taylorOrder: Int = 5
 ) extends Module {
 
   val manW   = spec.manW
@@ -238,7 +239,7 @@ class SinCosTableCoeff(
   val dxW       = polySpec.dxW
   val order     = polySpec.order
 
-  val taylorThreshold = MathFuncSinSim.calcTaylorThreshold(manW)
+  val taylorThreshold = MathFuncSinSim.calcTaylorThreshold(manW, taylorOrder)
   val exAdrW = MathFuncSinSim.calcExAdrW(spec)
 
   val io = IO(new Bundle {
@@ -268,12 +269,12 @@ class SinCosTableCoeff(
 
   } else {
 
-    val cbit = MathFuncSinSim.sinTableGeneration( order, adrW, manW, fracW )
+    val cbit = MathFuncSinSim.sinTableGeneration( order, adrW, manW, fracW, None, None, taylorOrder )
       .map( t => {t.getCBitWidth(/*sign mode = */0)} )
       .reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
 
     val tableIs = VecInit(
-      MathFuncSinSim.sinTableGeneration( order, adrW, manW, fracW ).map(t => {
+      MathFuncSinSim.sinTableGeneration( order, adrW, manW, fracW, None, None, taylorOrder ).map(t => {
         t.getVectorWithWidth(cbit, /*sign mode = */ 0)
       })
     )
@@ -300,7 +301,8 @@ class SinCosTableCoeff(
 object SinCosTableCoeff {
   def getCBits(
     spec:     RealSpec,
-    polySpec: PolynomialSpec
+    polySpec: PolynomialSpec,
+    taylorOrder: Int = 5
   ): Seq[Int] = {
 
     val order     = polySpec.order
@@ -311,14 +313,16 @@ object SinCosTableCoeff {
     if(order == 0) {
       return Seq(fracW)
     } else {
-      return MathFuncSinSim.sinTableGeneration( order, adrW, spec.manW, fracW ).
+      return MathFuncSinSim.
+        sinTableGeneration( order, adrW, spec.manW, fracW, None, None, taylorOrder ).
         map( t => {t.getCBitWidth(/*sign mode = */0)} ).
         reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
     }
   }
   def getCalcW(
     spec:     RealSpec,
-    polySpec: PolynomialSpec
+    polySpec: PolynomialSpec,
+    taylorOrder: Int = 5
   ): Seq[Int] = {
 
     val order     = polySpec.order
@@ -329,7 +333,8 @@ object SinCosTableCoeff {
     if(order == 0) {
       return Seq(fracW)
     } else {
-      return MathFuncSinSim.sinTableGeneration( order, adrW, spec.manW, fracW ).
+      return MathFuncSinSim.
+        sinTableGeneration( order, adrW, spec.manW, fracW, None, None, taylorOrder ).
         map( t => {t.calcWidth} ).
         reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
     }
@@ -355,7 +360,8 @@ class SinCosNonTableOutput(val spec: RealSpec) extends Bundle {
 class SinCosOtherPath(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
-  val stage    : PipelineStageConfig
+  val stage    : PipelineStageConfig,
+  val taylorOrder: Int = 5
 ) extends Module {
 
   val nStage = stage.total
@@ -417,8 +423,11 @@ class SinCosOtherPath(
   // --------------------------------------------------------------------------
   // taylor expansion
 
-  val taylorThreshold = MathFuncSinSim.calcTaylorThreshold(manW)
+  val taylorThreshold = MathFuncSinSim.calcTaylorThreshold(manW, taylorOrder)
   val isTaylor        = yex < (taylorThreshold + exBias).U(exW.W)
+
+  val zExTaylor  = Wire(UInt(exW.W))
+  val zManTaylor = Wire(UInt(manW.W))
 
   // XXX if y does not use Taylor path, should we need to zero clear yex and
   // yman to avoid needless voltage change for the sake of energy efficiency?
@@ -461,110 +470,21 @@ class SinCosOtherPath(
   }
 
   // .........................................................................
-  // 1st step
+  // >= 1st order
 
-  // y^2
   val ymanW1 = Cat(1.U(1.W), yman)
-  val (ySqExInc, ySqManW1) = multiply(manW, ymanW1, manW, ymanW1)
-  val ySqEx = yex +& yex - exBias.U + ySqExInc
-  assert(ySqManW1(fracW) === 1.U)
-//   printf("cir:ySqEx    = %d\n", ySqEx)
-//   printf("cir:ySqManW1 = %b\n", ySqManW1)
 
   // pi*y
   val (piyExInc, piyManW1) = multiply(manW, ymanW1, fracW, coef1ManW1.U((1+fracW).W))
   val piyEx = yex +& (coef1Ex - exBias).U + piyExInc
   assert(coef1Ex > exBias)
   assert(piyManW1(fracW) === 1.U)
+
 //   printf("cir:yex      = %d\n", yex)
 //   printf("cir:coef1ex  = %d\n", coef1Ex.U)
 //   printf("cir:piyExInc = %d\n", piyExInc)
 //   printf("cir:piyEx    = %d\n", piyEx)
 //   printf("cir:piyManW1 = %b\n", piyManW1)
-
-  // .........................................................................
-  // 2nd step
-
-  // y^4
-  val (yQdExInc, yQdManW1) = multiply(fracW, ySqManW1, fracW, ySqManW1)
-  val yQdEx = ySqEx + ySqEx - exBias.U + yQdExInc
-  assert(yQdManW1(fracW) === 1.U)
-//   printf("cir:yQdEx    = %d\n", yQdEx)
-//   printf("cir:yQdManW1 = %b\n", yQdManW1)
-
-  // pi^2y^2/6
-  val (c3ExInc, c3ManW1) = multiply(fracW, ySqManW1, fracW, coef3ManW1.U((1+fracW).W))
-  val c3Ex = ySqEx + (coef3Ex - exBias).U + c3ExInc
-  assert(c3ManW1(fracW) === 1.U)
-//   printf("cir:c3Ex    = %d\n", c3Ex)
-//   printf("cir:c3ManW1 = %b\n", c3ManW1)
-
-  // .........................................................................
-  // 3rd step
-
-  // pi^4y^4/120
-  val (c5ExInc, c5ManW1) = multiply(fracW, yQdManW1, fracW, coef5ManW1.U((1+fracW).W))
-  val c5Ex = yQdEx - (exBias - coef5Ex).U + c5ExInc
-  assert(coef5Ex < exBias)
-  assert(c5ManW1(fracW) === 1.U)
-//   printf("cir:c5Ex    = %d\n", c5Ex)
-//   printf("cir:c5ManW1 = %b\n", c5ManW1)
-
-  // 1 - pi^2y^2/6
-  assert(c3Ex+1.U < exBias.U || isLinear) // detect ex overflow
-  assert(exBias - (1+fracW) > 0)
-  val c3Shift0   = ((exBias-1).U - c3Ex)
-  val c3ShiftOut = c3Shift0(exW-1, log2Up(1+fracW)).orR
-  val c3Shift    = c3Shift0(log2Up(1+fracW)-1, 0)
-  val c3Aligned0 = Fill(fracW+1, ~c3ShiftOut) & (c3ManW1 >> c3Shift) // if shiftout, fill 0.
-  val c3Aligned  = c3Aligned0(c3Aligned0.getWidth-1, 1) +& c3Aligned0(0)
-  assert(c3Aligned(fracW) === 0.U)
-
-  val oneMinusC3 = (1L << fracW).U((fracW+1).W) - c3Aligned
-  assert(oneMinusC3(fracW) === 0.U || oneMinusC3(fracW-1,0).orR === 0.U)
-
-//   printf("cir:1-c3 = %b\n", oneMinusC3)
-
-  // .........................................................................
-  // 4th step
-
-  // 1 - pi^2y^2/6 + pi^4y^4/120
-  // ~ 1 - 1.645y^2 + 0.8117y^4 <= 1
-  assert(c5Ex+1.U < exBias.U || isLinear)
-  val c5Shift0   = ((exBias-1).U - c5Ex)
-  val c5ShiftOut = c5Shift0(exW-1, log2Up(1+fracW)).orR
-  val c5Shift    = c5Shift0(log2Up(1+fracW)-1, 0)
-  val c5Aligned0 = Fill(fracW+1, ~c5ShiftOut) & (c5ManW1 >> c5Shift)
-  val c5Aligned  = c5Aligned0(c5Aligned0.getWidth-1, 1) +& c5Aligned0(0)
-  assert(c3Aligned >= c5Aligned)
-
-  val oneMinusC3PlusC5 = oneMinusC3 + c5Aligned
-  assert(oneMinusC3PlusC5 <= (1<<fracW).U)
-
-//   printf("cir:1-c3+c5 = %b\n", oneMinusC3PlusC5)
-
-  // in case of x < 2^-manW, the result just 1
-  val oneMinusC3PlusC5MoreThan1 = oneMinusC3PlusC5(fracW)
-  val oneMinusC3PlusC5ManW1 = Mux(oneMinusC3PlusC5MoreThan1, oneMinusC3PlusC5,
-    Cat(oneMinusC3PlusC5(fracW-1, 0), 0.U(1.W))) // normalize
-  val oneMinusC3PlusC5Ex = (exBias - 1).U + oneMinusC3PlusC5MoreThan1
-  assert(oneMinusC3PlusC5ManW1.getWidth == fracW+1)
-
-//   printf("cir:1-c3+c5 Ex    = %d\n", oneMinusC3PlusC5Ex)
-//   printf("cir:1-c3+c5 ManW1 = %b\n", oneMinusC3PlusC5ManW1)
-
-  // .........................................................................
-  // 5th step
-
-  // piy * (1 - pi^2y^2/6 + pi^4y^4/120)
-  val (taylorExInc, taylorManW1) = multiply(fracW, piyManW1, fracW, oneMinusC3PlusC5ManW1)
-  val taylorManW1Rounded = taylorManW1(fracW, coefPad) +& taylorManW1(coefPad-1)
-  val taylorManW1MoreThan2AfterRound = taylorManW1Rounded(2+manW-1)
-
-  val zExTaylor  = piyEx + oneMinusC3PlusC5Ex - exBias.U + taylorExInc + taylorManW1MoreThan2AfterRound
-  val zManTaylor = taylorManW1Rounded(manW-1, 0)
-//   printf("cir:taylorEx  = %d\n", zExTaylor)
-//   printf("cir:taylorMan = %b\n", zManTaylor)
 
   // --------------------------------------------------------------------------
   // linear approx
@@ -577,24 +497,127 @@ class SinCosOtherPath(
 //   printf("cir:linearEx  = %d\n", zExLinear)
 //   printf("cir:linearMan = %b\n", zManLinear)
 
+  if(taylorOrder > 2) {
+    // .........................................................................
+    // >= 3rd order
+
+    // y^2
+    val (ySqExInc, ySqManW1) = multiply(manW, ymanW1, manW, ymanW1)
+    val ySqEx = yex +& yex - exBias.U + ySqExInc
+    assert(ySqManW1(fracW) === 1.U)
+//     printf("cir:ySqEx    = %d\n", ySqEx)
+//     printf("cir:ySqManW1 = %b\n", ySqManW1)
+
+    // pi^2y^2/6
+    val (c3ExInc, c3ManW1) = multiply(fracW, ySqManW1, fracW, coef3ManW1.U((1+fracW).W))
+    val c3Ex = ySqEx + (coef3Ex - exBias).U + c3ExInc
+    assert(c3ManW1(fracW) === 1.U)
+//     printf("cir:c3Ex    = %d\n", c3Ex)
+//     printf("cir:c3ManW1 = %b\n", c3ManW1)
+
+    // 1 - pi^2y^2/6
+    assert(c3Ex+1.U < exBias.U || isLinear) // detect ex overflow
+    assert(exBias - (1+fracW) > 0)
+    val c3Shift0   = ((exBias-1).U - c3Ex)
+    val c3ShiftOut = c3Shift0(exW-1, log2Up(1+fracW)).orR
+    val c3Shift    = c3Shift0(log2Up(1+fracW)-1, 0)
+    val c3Aligned0 = Fill(fracW+1, ~c3ShiftOut) & (c3ManW1 >> c3Shift) // if shiftout, fill 0.
+    val c3Aligned  = c3Aligned0(c3Aligned0.getWidth-1, 1) +& c3Aligned0(0)
+    assert(c3Aligned(fracW) === 0.U)
+
+    val oneMinusC3 = (1L << fracW).U((fracW+1).W) - c3Aligned
+    assert(oneMinusC3(fracW) === 0.U || oneMinusC3(fracW-1,0).orR === 0.U)
+
+//     printf("cir:1-c3 = %b\n", oneMinusC3)
+
+    if(taylorOrder <= 4) {
+
+      val oneMinusC3MoreThan1 = oneMinusC3(fracW)
+      val oneMinusC3ManW1 = Mux(oneMinusC3MoreThan1, oneMinusC3,
+        Cat(oneMinusC3(fracW-1, 0), 0.U(1.W))) // normalize
+      val oneMinusC3Ex = (exBias - 1).U + oneMinusC3MoreThan1
+      assert(oneMinusC3ManW1.getWidth == fracW+1)
+
+      // piy * (1 - pi^2y^2/6 + pi^4y^4/120)
+      val (taylorExInc, taylorManW1) = multiply(fracW, piyManW1, fracW, oneMinusC3ManW1)
+      val taylorManW1Rounded = taylorManW1(fracW, coefPad) +& taylorManW1(coefPad-1)
+      val taylorManW1MoreThan2AfterRound = taylorManW1Rounded(2+manW-1)
+
+      zExTaylor  := Mux(isLinear, zExLinear,  piyEx + oneMinusC3Ex - exBias.U + taylorExInc + taylorManW1MoreThan2AfterRound)
+      zManTaylor := Mux(isLinear, zManLinear, taylorManW1Rounded(manW-1, 0))
+
+    } else {
+      // .........................................................................
+      // 5th order
+      assert(taylorOrder == 5, "taylorOrder <= 5")
+      // y^4
+      val (yQdExInc, yQdManW1) = multiply(fracW, ySqManW1, fracW, ySqManW1)
+      val yQdEx = ySqEx + ySqEx - exBias.U + yQdExInc
+      assert(yQdManW1(fracW) === 1.U)
+//       printf("cir:yQdEx    = %d\n", yQdEx)
+//       printf("cir:yQdManW1 = %b\n", yQdManW1)
+
+      // pi^4y^4/120
+      val (c5ExInc, c5ManW1) = multiply(fracW, yQdManW1, fracW, coef5ManW1.U((1+fracW).W))
+      val c5Ex = yQdEx - (exBias - coef5Ex).U + c5ExInc
+      assert(coef5Ex < exBias)
+      assert(c5ManW1(fracW) === 1.U)
+//       printf("cir:c5Ex    = %d\n", c5Ex)
+//       printf("cir:c5ManW1 = %b\n", c5ManW1)
+
+      // 1 - pi^2y^2/6 + pi^4y^4/120
+      // ~ 1 - 1.645y^2 + 0.8117y^4 <= 1
+      assert(c5Ex+1.U < exBias.U || isLinear)
+      val c5Shift0   = ((exBias-1).U - c5Ex)
+      val c5ShiftOut = c5Shift0(exW-1, log2Up(1+fracW)).orR
+      val c5Shift    = c5Shift0(log2Up(1+fracW)-1, 0)
+      val c5Aligned0 = Fill(fracW+1, ~c5ShiftOut) & (c5ManW1 >> c5Shift)
+      val c5Aligned  = c5Aligned0(c5Aligned0.getWidth-1, 1) +& c5Aligned0(0)
+      assert(c3Aligned >= c5Aligned)
+
+      val oneMinusC3PlusC5 = oneMinusC3 + c5Aligned
+      assert(oneMinusC3PlusC5 <= (1<<fracW).U)
+
+//       printf("cir:1-c3+c5 = %b\n", oneMinusC3PlusC5)
+
+      // in case of x < 2^-manW, the result just 1
+      val oneMinusC3PlusC5MoreThan1 = oneMinusC3PlusC5(fracW)
+      val oneMinusC3PlusC5ManW1 = Mux(oneMinusC3PlusC5MoreThan1, oneMinusC3PlusC5,
+        Cat(oneMinusC3PlusC5(fracW-1, 0), 0.U(1.W))) // normalize
+      val oneMinusC3PlusC5Ex = (exBias - 1).U + oneMinusC3PlusC5MoreThan1
+      assert(oneMinusC3PlusC5ManW1.getWidth == fracW+1)
+
+//       printf("cir:1-c3+c5 Ex    = %d\n", oneMinusC3PlusC5Ex)
+//       printf("cir:1-c3+c5 ManW1 = %b\n", oneMinusC3PlusC5ManW1)
+
+      // piy * (1 - pi^2y^2/6 + pi^4y^4/120)
+      val (taylorExInc, taylorManW1) = multiply(fracW, piyManW1, fracW, oneMinusC3PlusC5ManW1)
+      val taylorManW1Rounded = taylorManW1(fracW, coefPad) +& taylorManW1(coefPad-1)
+      val taylorManW1MoreThan2AfterRound = taylorManW1Rounded(2+manW-1)
+
+      zExTaylor  := Mux(isLinear, zExLinear,  piyEx + oneMinusC3PlusC5Ex - exBias.U + taylorExInc + taylorManW1MoreThan2AfterRound)
+      zManTaylor := Mux(isLinear, zManLinear, taylorManW1Rounded(manW-1, 0))
+//       printf("cir:taylorEx  = %d\n", zExTaylor)
+//       printf("cir:taylorMan = %b\n", zManTaylor)
+    }
+  }
+
   // --------------------------------------------------------------------------
   // merge the results (special value or taylor expansion)
 
   val zIsNonTable = znan || zzero || zone || isTaylor
   io.zother.zIsNonTable := ShiftRegister(zIsNonTable, nStage)
 
-  val zEx = Mux(isLinear, zExLinear,
-            Mux(isTaylor, zExTaylor,
+  // isTaylor always satisfies isLinear. and zLinear is already muxed.
+  val zEx = Mux(isTaylor, zExTaylor,
             Mux(znan,     Fill(exW, 1.U(1.W)),
             Mux(zone,     exBias.U,
             Mux(zzero,    0.U,
-                          yex)))))
+                          yex))))
   // polynomial uses yex as the starting point and add some correction later.
   // If `y` does not match any of special cases, return yex.
 
-  val zMan = Mux(isLinear, zManLinear,
-             Mux(isTaylor, zManTaylor,
-                           Cat(znan, 0.U((manW-1).W))))
+  val zMan = Mux(isTaylor, zManTaylor, Cat(znan, 0.U((manW-1).W)))
 
   io.zother.zsgn := ShiftRegister(zSgn, nStage)
   io.zother.zex  := ShiftRegister(zEx,  nStage)
@@ -674,6 +697,7 @@ class SinCosGeneric(
   val spec     : RealSpec,
   val nOrder: Int, val adrW : Int, val extraBits : Int, // Polynomial spec
   val stage    : MathFuncPipelineConfig,
+  val taylorOrder: Int = 5,
   val enableRangeCheck : Boolean = true,
   val enablePolynomialRounding : Boolean = false,
 ) extends Module {
@@ -696,8 +720,8 @@ class SinCosGeneric(
   val manW   = spec.manW
   val exBias = spec.exBias
 
-  val cbits = SinCosTableCoeff.getCBits(spec, polySpec)
-  val calcW = SinCosTableCoeff.getCalcW(spec, polySpec)
+  val cbits = SinCosTableCoeff.getCBits(spec, polySpec, taylorOrder)
+  val calcW = SinCosTableCoeff.getCalcW(spec, polySpec, taylorOrder)
 
   def getCbit  = cbits
   def getCalcW = calcW
@@ -726,8 +750,8 @@ class SinCosGeneric(
   // --------------------------------------------------------------------------
 
   val sincosPre   = Module(new SinCosPreProcess (spec, polySpec, stage.preStage))
-  val sincosTab   = Module(new SinCosTableCoeff (spec, polySpec, cbits))
-  val sincosOther = Module(new SinCosOtherPath  (spec, polySpec, stage.calcStage))
+  val sincosTab   = Module(new SinCosTableCoeff (spec, polySpec, cbits, taylorOrder))
+  val sincosOther = Module(new SinCosOtherPath  (spec, polySpec, stage.calcStage, taylorOrder))
   val sincosPost  = Module(new SinCosPostProcess(spec, polySpec, stage.postStage))
 
   sincosPre.io.en  := io.en
