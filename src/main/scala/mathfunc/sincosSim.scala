@@ -1,6 +1,6 @@
-//% @file cosSim.scala
+//% @file sincosSim.scala
 //
-// Simulator for cos function
+// Simulator for sin/cos function
 // Copyright (C) Toru Niina RIKEN BDR 2021
 //
 package rial.mathfunc
@@ -24,15 +24,14 @@ import rial.arith.RealGeneric
 import rial.arith.Rounding._
 import rial.arith._
 
-object MathFuncCosSim {
+object MathFuncSinCosSim {
 
-  def cosSimGeneric(
+  def sincosSimGeneric(
+    isSin: Boolean,
     ts: Seq[FuncTableInt],
     x:  RealGeneric,
     taylorOrder: Int
   ) : RealGeneric = {
-
-//     println("--------------------------------------------------------------------")
 
     val spec = x.spec
     val exW  = x.spec.exW
@@ -67,7 +66,7 @@ object MathFuncCosSim {
 //     println(f"xOverPiEx = ${xOverPiEx}")
 
     // ------------------------------------------------------------------------
-    // convert cos(x) into sin(y), y in [0, pi/2)
+    // convert full range x/pi into (0, 2)
 
     // now this is in [0, 2)
     val xOverPiAligned = if(xOverPiEx >= exBias) {
@@ -77,25 +76,52 @@ object MathFuncCosSim {
       xOverPi >> (exBias - xOverPiEx)
     }
 //     println(f"xOverPi        = ${xOverPi}, W = ${log2Up(xOverPi)}")
+//     println(f"xOverPiFracW   = ${xOverPiFracW}")
 //     println(f"xOverPiAligned = ${xOverPiAligned}, W = ${log2Up(xOverPiAligned)}")
 
     val xOverPiAligned2MSBs = slice(1+xOverPiFracW-2, 2, xOverPiAligned)
+//     println(f"xOverPiAligned2MSBs = ${xOverPiAligned2MSBs.toLong.toBinaryString}")
     val xOverPiAlignedMoreThan3over2 = xOverPiAligned2MSBs == 3
     val xOverPiAlignedMoreThan1      = xOverPiAligned2MSBs == 2
     val xOverPiAlignedMoreThan1over2 = xOverPiAligned2MSBs == 1
-//     println(f"xOverPiAligned2MSBs = ${xOverPiAligned2MSBs}")
 
     // we can already calculate the sign of return value from its position in [0, 2pi)
-    val zSgn = if(xOverPiAlignedMoreThan1 || xOverPiAlignedMoreThan1over2) {1} else {0}
 
-    // 1.5 ~ 2 or 0.5~1
-    val yman0 =if (xOverPiAlignedMoreThan3over2 || xOverPiAlignedMoreThan1over2) {
-      slice(0, 1+xOverPiFracW-2, xOverPiAligned)
+    val zSgn = if (isSin) {
+      val zSgnXAbs = if(xOverPiAlignedMoreThan1 || xOverPiAlignedMoreThan3over2) {1} else {0}
+      if(x.sgn == 1) {
+        1 - zSgnXAbs
+      } else {
+        zSgnXAbs
+      }
     } else {
-      (1.toBigInt << (1+xOverPiFracW-2)) - slice(0, 1+xOverPiFracW-2, xOverPiAligned)
+      if(xOverPiAlignedMoreThan1 || xOverPiAlignedMoreThan1over2) {1} else {0}
     }
 
-    // convert cos(0~2pi) to sin(0~pi/2)
+    // ------------------------------------------------------------------------
+    // convert full range x/pi into (0, 1/2)
+
+//     println(f"sim:xOverPiAligned = ${xOverPiAligned}")
+
+    // than3/2: 11, than1: 10, than1/2: 01, else: 00
+    val yman0 = if(isSin) {
+      if (xOverPiAlignedMoreThan3over2 || xOverPiAlignedMoreThan1over2) {
+        (1.toBigInt << (1+xOverPiFracW-1)) - slice(0, 1+xOverPiFracW-1, xOverPiAligned)
+      } else {
+        slice(0, 1+xOverPiFracW-1, xOverPiAligned)
+      }
+    } else {
+      if (xOverPiAlignedMoreThan3over2 || xOverPiAlignedMoreThan1over2) {
+        slice(0, 1+xOverPiFracW-2, xOverPiAligned)
+      } else {
+        (1.toBigInt << (1+xOverPiFracW-2)) - slice(0, 1+xOverPiFracW-2, xOverPiAligned)
+      }
+    }
+
+//     println(f"sim:ymanPos0 = ${slice(0, 1+xOverPiFracW-1, xOverPiAligned)}")
+//     println(f"sim:ymanNeg0 = ${(1.toBigInt << (1+xOverPiFracW-1)) - slice(0, 1+xOverPiFracW-1, xOverPiAligned)}")
+//     println(f"sim:yman0 = ${yman0}")
+
     val (yex, yman) = if (yman0 == 0) {
       (0, 0L)
     } else {
@@ -106,15 +132,20 @@ object MathFuncCosSim {
       val yman0Rounded  = (yman0Shifted >> yman0RoundBit) + bit(yman0RoundBit-1, yman0Shifted)
       val yman0MoreThan2 = bit(manW+1, yman0Rounded)
       assert((yman0MoreThan2 == 1) || (bit(manW, yman0Rounded) == 1))
+//       println(f"sim:yman0W       = ${yman0W}")
+//       println(f"sim:yman0Shift   = ${yman0Shift}")
+//       println(f"sim:yman0Shifted = ${yman0Shifted}")
+//       println(f"sim:yman0Rounded = ${yman0Rounded.toLong.toBinaryString}")
 
       ((exBias-yman0Shift+yman0MoreThan2).toInt, slice(0, manW, yman0Rounded).toLong)
     }
+
     assert(yex  <= exBias-1)
     assert(yex  != exBias-1 || yman == 0)
     assert(yman < (1<<manW))
 
-//     println(f"yex      = ${yex}")
-//     println(f"yman     = ${yman.toLong.toBinaryString}")
+//     println(f"sim:yex  = ${yex}")
+//     println(f"sim:yman = ${yman.toLong.toBinaryString}")
 //     println(f"y        = ${new RealGeneric(x.spec, 0, yex, yman).toDouble}")
 //     println(f"|x|/pi   = ${x.toDouble.abs / Pi}")
 // 
@@ -130,7 +161,7 @@ object MathFuncCosSim {
     // ------------------------------------------------------------------------
     // calculate sin(y*Pi).
 
-    val taylorThreshold = MathFuncSinSim.calcTaylorThreshold(manW, taylorOrder)
+    val taylorThreshold = calcTaylorThreshold(manW, taylorOrder)
 
     if (yex == 0) { // sin(0) = 0
 //       println(f"x = ${x.toDouble}, y = ${x.toDouble / Pi} equiv 0")
@@ -225,6 +256,7 @@ object MathFuncCosSim {
 //       println(f"sim:1-c3 = ${oneMinusC3.toLong.toBinaryString}")
 
       if(taylorOrder <= 4) {
+//         println("taylorOrder <= 4. return 1 - c3")
         // piy * (1 - pi^2y^2/6)
         //
         val oneMinusC3MoreThan1 = bit(fracW, oneMinusC3) // == (c3Aligned == 0)
@@ -360,5 +392,69 @@ object MathFuncCosSim {
 
       new RealGeneric(x.spec, zSgn, zEx + zManMoreThan2, SafeLong(zMan))
     }
+  }
+
+  def calcTaylorThreshold(manW: Int, taylorOrder: Int): Int = {
+    if (taylorOrder <= 2) {
+      // sin(pix) = pix - pi^3x^3 / 6 + ...
+      //          = pix (1 - pi^2x^2/6 + ...)
+      // pi^2x^2/6 < 2^-manW
+      // pi^2x^2/6 < 1.65 x^2 < 2x^2 <= 2^-manW
+      // x <= 2^(-manW+1)/2
+      // x.ex <= (-manW+1)/2-1
+      math.floor((-manW+1)/2 - 1).toInt
+    } else if (taylorOrder <= 4) {
+      // sin(pix) = pix - pi^3x^3 / 6 + pi^5x^5 / 120 - ...
+      //          = pix (1 - pi^2x^2/6 + pi^4x^4 / 120)
+      // pi^4x^4 / 120 < 2^-manW
+      // pi^4x^4 / 120 < 0.812 x^4 <= x^4 <= 2^-manW
+      // 2^xex * 1.xman <= 2^-manW/4
+      // x.ex <= -manW/4 - 1
+      math.floor(-manW/4 - 1).toInt
+    } else {
+      assert(taylorOrder == 5, "taylorOrder should be <= 5")
+      // sin(pix) = pix - pi^3x^3 / 6 + pi^5x^5 / 120 - pi^7x^7/7!
+      //          = pix (1 - pi^2x^2 / 6 + pi^4x^4 / 120 - pi^6x^6/7!)
+      // pi^6x^6 / 5040 < 2^-manW
+      // pi^6x^6 / 5040 < 0.190x^6 < 2^-2 x^6 < 2^-manW
+      // x < 2^(-(manW+2)/6)
+      math.floor(-(manW+2) / 6).toInt
+    }
+  }
+
+  // number of tables depending on the exponent and linearThreshold
+  def calcExAdrW(spec: RealSpec, taylorOrder: Int): Int = {
+    //      .--- table interp --. .-----taylor------.
+    // ex = -2 ~ taylorThreshold, taylorThreshold-1 ~ 0
+
+    val taylorThreshold = calcTaylorThreshold(spec.manW, taylorOrder)
+    val nTables = -2 - taylorThreshold + 1
+    log2Up(nTables)
+  }
+
+  def sincosTableGeneration(
+      order : Int, adrW : Int, manW : Int, fracW : Int,
+      calcWidthSetting: Option[Seq[Int]] = None,
+      cbitSetting: Option[Seq[Int]] = None,
+      taylorOrder: Int
+    ) = {
+    val taylorThreshold = calcTaylorThreshold(manW, taylorOrder)
+
+    if(adrW >= manW) {assert(order == 0)}
+
+    val maxCalcWidth = (-2 to taylorThreshold by -1).map(exponent => {
+        val tableD = new FuncTableDouble( x => scalb(sin(Pi * scalb(1.0 + x, exponent)), -exponent-3), order )
+        tableD.addRange(0.0, 1.0, 1<<adrW)
+      val tableI = new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
+        tableI.calcWidth
+      }).reduce( (lhs, rhs) => {
+        lhs.zip(rhs).map( x => max(x._1, x._2))
+      })
+
+    (-2 to taylorThreshold by -1).map( i => {
+      val tableD = new FuncTableDouble( x => scalb(sin(Pi * scalb(1.0+x, i)), -i-3), order )
+      tableD.addRange(0.0, 1.0, 1<<adrW)
+      new FuncTableInt( tableD, fracW, Some(maxCalcWidth), cbitSetting )
+    })
   }
 }

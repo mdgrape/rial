@@ -57,7 +57,7 @@ class MathFuncCosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
 //         val z0f  = libc.cosf(x.toFloat)
 //         assert(z0f.toDouble - pow(2.0, -22) < z0 && z0 < z0f.toDouble + pow(2.0, -22))
 
-        val zi   = MathFuncCosSim.cosSimGeneric( ts, x, taylorOrder )
+        val zi   = MathFuncSinCosSim.sincosSimGeneric(false, ts, x, taylorOrder )
         val zd   = zi.toDouble
         val erri = errorLSB(zi, z0r).toInt
 
@@ -134,7 +134,7 @@ class MathFuncCosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val taylorOrder5th = 5
   val taylorOrder3rd = 3
 
-  val sinF32TableItaylor5th = MathFuncSinSim.sinTableGeneration(
+  val sinF32TableItaylor5th = MathFuncSinCosSim.sincosTableGeneration(
     nOrder, adrW, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBits,
     None, None, taylorOrder5th)
 
@@ -173,7 +173,7 @@ class MathFuncCosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   cosTest(sinF32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
     "Test 5th-order Within [-64pi, -32pi]", generateRealWithin( -64.0 * Pi,-32.0 * Pi, _,_), 3)
 
-  val sinF32TableItaylor3rd = MathFuncSinSim.sinTableGeneration(
+  val sinF32TableItaylor3rd = MathFuncSinCosSim.sincosTableGeneration(
     nOrder, adrW, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBits,
     None, None, taylorOrder3rd)
 

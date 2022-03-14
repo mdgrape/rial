@@ -48,7 +48,7 @@ class MathFuncSinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         val z0   = sin(x0)
         val z0r  = new RealGeneric(spec, z0)
 
-        val zi   = MathFuncSinSim.sinSimGeneric( ts, x, taylorOrder )
+        val zi   = MathFuncSinCosSim.sincosSimGeneric(true, ts, x, taylorOrder )
         val zd   = zi.toDouble
         val erri = errorLSB(zi, z0r).toInt
 
@@ -121,7 +121,7 @@ class MathFuncSinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val taylorOrder5th = 5
   val taylorOrder3rd = 3
 
-  val sinF32TableItaylor5th = MathFuncSinSim.sinTableGeneration(
+  val sinF32TableItaylor5th = MathFuncSinCosSim.sincosTableGeneration(
     nOrder, adrW, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBits,
     None, None, taylorOrder5th)
 
@@ -160,7 +160,7 @@ class MathFuncSinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   sinTest(sinF32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
     "Test 5th-order Within [-64pi, -32pi]", generateRealWithin( -64.0 * Pi,-32.0 * Pi, _,_), 3)
 
-  val sinF32TableItaylor3rd = MathFuncSinSim.sinTableGeneration(
+  val sinF32TableItaylor3rd = MathFuncSinCosSim.sincosTableGeneration(
     nOrder, adrW, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBits,
     None, None, taylorOrder3rd)
 

@@ -67,10 +67,10 @@ class MathFuncCosTest extends AnyFlatSpec
           val maxCalcW   = c.getMaxCalcW
           val nstage     = c.getStage
 
-          val sinF32TableI = MathFuncSinSim.sinTableGeneration(
+          val sinF32TableI = MathFuncSinCosSim.sincosTableGeneration(
             nOrder, adrW, spec.manW, spec.manW+extraBits,
             Some(maxCalcW), Some(maxCbit), taylorOrder )
-          val reference  = MathFuncCosSim.cosSimGeneric(sinF32TableI, _, taylorOrder )
+          val reference  = MathFuncSinCosSim.sincosSimGeneric(/*isSin = */false, sinF32TableI, _, taylorOrder )
 
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
@@ -219,10 +219,10 @@ class CosOnlyTest extends AnyFlatSpec
           val maxCalcW   = c.getCalcW
           val nstage     = c.getStage
 
-          val sinF32TableI = MathFuncSinSim.sinTableGeneration(
+          val sinF32TableI = MathFuncSinCosSim.sincosTableGeneration(
             nOrder, adrW, spec.manW, spec.manW+extraBits,
             Some(maxCalcW), Some(maxCbit), taylorOrder )
-          val reference  = MathFuncCosSim.cosSimGeneric(sinF32TableI, _, taylorOrder )
+          val reference  = MathFuncSinCosSim.sincosSimGeneric(/*isSin = */false, sinF32TableI, _, taylorOrder )
 
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
