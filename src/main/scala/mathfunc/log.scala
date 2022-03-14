@@ -621,3 +621,110 @@ class Log2PostProcess(
 
   io.z   := ShiftRegister(z, nStage)
 }
+
+// -------------------------------------------------------------------------
+//                      _     _                _
+//   ___ ___  _ __ ___ | |__ (_)_ __   ___  __| |
+//  / __/ _ \| '_ ` _ \| '_ \| | '_ \ / _ \/ _` |
+// | (_| (_) | | | | | | |_) | | | | |  __/ (_| |
+//  \___\___/|_| |_| |_|_.__/|_|_| |_|\___|\__,_|
+// -------------------------------------------------------------------------
+
+class LogGeneric(
+  val isln: Boolean,
+  val spec: RealSpec,
+  val nOrder: Int, val adrW : Int, val extraBits : Int, // Polynomial spec
+  val stage: MathFuncPipelineConfig,
+  val enableRangeCheck: Boolean = true,
+  val enablePolynomialRounding: Boolean = false,
+) extends Module {
+
+  val pcGap = if(stage.preCalcGap ) {1} else {0}
+  val cpGap = if(stage.calcPostGap) {1} else {0}
+
+  val nPreStage  = stage.preStage.total
+  val nCalcStage = stage.calcStage.total
+  val nPostStage = stage.postStage.total
+
+  val nStage   = stage.total
+  def getStage = nStage
+
+  val polySpec = new PolynomialSpec(spec, nOrder, adrW, extraBits,
+    enableRangeCheck, enablePolynomialRounding)
+  val order = polySpec.order
+
+  val exW    = spec.exW
+  val manW   = spec.manW
+  val exBias = spec.exBias
+
+  val cbits = Log2TableCoeff.getCBits(spec, polySpec)
+  val calcW = Log2TableCoeff.getCalcW(spec, polySpec)
+
+  def getCbit  = cbits
+  def getCalcW = calcW
+
+  val io = IO(new Bundle {
+    val en = Input(Bool())
+    val x = Input (UInt(spec.W.W))
+    val z = Output(UInt(spec.W.W))
+  })
+
+  // --------------------------------------------------------------------------
+
+  val xdecomp = Module(new DecomposeReal(spec))
+  xdecomp.io.real := io.x
+
+  val enPCReg    = ShiftRegister(io.en,      nPreStage)
+  val enPCGapReg = ShiftRegister(enPCReg,    pcGap)
+  val enCPReg    = ShiftRegister(enPCGapReg, nCalcStage)
+  val enCPGapReg = ShiftRegister(enCPReg,    cpGap)
+
+  val xdecPCReg    = ShiftRegister(xdecomp.io.decomp, nPreStage)
+  val xdecPCGapReg = ShiftRegister(xdecPCReg,         pcGap)
+  val xdecCPReg    = ShiftRegister(xdecPCGapReg,      nCalcStage)
+  val xdecCPGapReg = ShiftRegister(xdecCPReg,         cpGap)
+
+  // --------------------------------------------------------------------------
+
+  val logPre   = Module(new Log2PreProcess (spec, polySpec, stage.preStage))
+  val logTab   = Module(new Log2TableCoeff (spec, polySpec, cbits))
+  val logOther = Module(new Log2OtherPath  (spec, polySpec, stage.calcStage))
+  val logPost  = Module(new Log2PostProcess(spec, polySpec, stage.postStage))
+
+  logPre.io.en  := io.en
+  logPre.io.x   := xdecomp.io.decomp
+  // ------ Preprocess-Calculate ------
+  val logPreExAdr = logPre.io.adr(logPre.io.adr.getWidth-1, logPre.io.adr.getWidth-2)
+  logTab.io.en  := enPCGapReg
+  logTab.io.adr := ShiftRegister(logPre.io.adr, pcGap)
+  logOther.io.x := xdecPCGapReg
+  logOther.io.exadr := ShiftRegister(logPreExAdr, pcGap)
+
+  // after preprocess
+  assert(logPre.io.adr === 0.U               || enPCReg)
+  assert(logPre.io.dx.getOrElse(0.U) === 0.U || enPCReg)
+  assert(logTab.io.cs.asUInt === 0.U         || enPCGapReg)
+
+  // --------------------------------------------------------------------------
+
+  val polynomialEval = Module(new PolynomialEval(spec, polySpec, cbits, stage.calcStage))
+
+  if(order != 0) {
+    polynomialEval.io.dx.get := ShiftRegister(logPre.io.dx.get, pcGap)
+  }
+  polynomialEval.io.coeffs.cs := logTab.io.cs.cs
+
+  val polynomialResultCPGapReg = ShiftRegister(polynomialEval.io.result, cpGap)
+
+  logPost.io.en     := enCPGapReg
+  logPost.io.zother := ShiftRegister(logOther.io.zother, cpGap)
+  logPost.io.zres   := polynomialResultCPGapReg
+  logPost.io.isln   := isln.B
+  logPost.io.x      := xdecCPGapReg
+  logPost.io.exadr  := ShiftRegister(logPreExAdr, pcGap + nCalcStage + cpGap)
+  logPost.io.xmanbp := ShiftRegister(logOther.io.xmanbp, cpGap)
+
+  io.z := logPost.io.z
+}
+
+
