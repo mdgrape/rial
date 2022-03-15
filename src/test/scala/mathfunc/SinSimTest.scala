@@ -115,87 +115,132 @@ class MathFuncSinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     }
   }
 
-  val nOrder = 2
-  val adrW = 8
-  val extraBits = 3
   val taylorOrder5th = 5
   val taylorOrder3rd = 3
 
-  val sinF32TableItaylor5th = MathFuncSinCosSim.sincosTableGeneration(
-    nOrder, adrW, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBits,
+  val nOrderFP32     = 2
+  val adrWFP32       = 8
+  val extraBitsFP32  = 3
+
+  val sinFP32TableItaylor5th = MathFuncSinCosSim.sincosTableGeneration(
+    nOrderFP32, adrWFP32, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBitsFP32,
     None, None, taylorOrder5th)
 
-  sinTest(sinF32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
     "Test 5th-order Within [-10pi, -2pi]", generateRealWithin(-10 * Pi, -2 * Pi,_,_), 3)
-  sinTest(sinF32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
     "Test 5th-order Within [-2pi, -1.5pi]", generateRealWithin(-2 * Pi, -1.5 * Pi,_,_), 3)
-  sinTest(sinF32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
     "Test 5th-order Within [-1.5pi, -pi]", generateRealWithin(-1.5 * Pi, -Pi,_,_), 3)
-  sinTest(sinF32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
     "Test 5th-order Within [-pi, -pi/2]", generateRealWithin(-Pi, -0.5 * Pi,_,_), 3)
-  sinTest(sinF32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
     "Test 5th-order Within [-pi/2, -2^-12pi]", generateRealWithin(-0.5*Pi, -pow(2.0, -12)*Pi,_,_), 3)
-  sinTest(sinF32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
     "Test 5th-order Within [-2^-12pi, 0]", generateRealWithin(-pow(2.0, -12)*Pi, 0.0,_,_), 3)
-  sinTest(sinF32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
     "Test 5th-order Within [0, 2^-12pi]", generateRealWithin(0.0, pow(2.0, -12)*Pi,_,_), 3)
-  sinTest(sinF32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
     "Test 5th-order Within [2^-12pi, pi/2]", generateRealWithin(pow(2.0, -12)*Pi, 0.5*Pi,_,_), 3)
-  sinTest(sinF32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
     "Test 5th-order Within [pi/2, pi]", generateRealWithin(0.5*Pi, Pi,_,_), 3)
-  sinTest(sinF32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
     "Test 5th-order Within [pi, 3/2pi]", generateRealWithin(Pi, 1.5*Pi,_,_), 3)
-  sinTest(sinF32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
     "Test 5th-order Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 3)
-  sinTest(sinF32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
     "Test 5th-order Within [2pi, 10pi]", generateRealWithin(2.0 * Pi, 10.0 * Pi,_,_), 3)
 
-  sinTest(sinF32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
     "Test 5th-order Within [16pi, 32pi]", generateRealWithin(16.0 * Pi, 32.0 * Pi,_,_), 3)
-  sinTest(sinF32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
     "Test 5th-order Within [32pi, 64pi]", generateRealWithin(32.0 * Pi, 64.0 * Pi,_,_), 3)
 
-  sinTest(sinF32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
     "Test 5th-order Within [-32pi, -16pi]", generateRealWithin( -32.0 * Pi,-16.0 * Pi, _,_), 3)
-  sinTest(sinF32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
     "Test 5th-order Within [-64pi, -32pi]", generateRealWithin( -64.0 * Pi,-32.0 * Pi, _,_), 3)
 
-  val sinF32TableItaylor3rd = MathFuncSinCosSim.sincosTableGeneration(
-    nOrder, adrW, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBits,
+  val sinFP32TableItaylor3rd = MathFuncSinCosSim.sincosTableGeneration(
+    nOrderFP32, adrWFP32, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBitsFP32,
     None, None, taylorOrder3rd)
 
-  sinTest(sinF32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
     "Test 3rd-order Within [-10pi, -2pi]", generateRealWithin(-10 * Pi, -2 * Pi,_,_), 3)
-  sinTest(sinF32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
     "Test 3rd-order Within [-2pi, -1.5pi]", generateRealWithin(-2 * Pi, -1.5 * Pi,_,_), 3)
-  sinTest(sinF32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
     "Test 3rd-order Within [-1.5pi, -pi]", generateRealWithin(-1.5 * Pi, -Pi,_,_), 3)
-  sinTest(sinF32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
     "Test 3rd-order Within [-pi, -pi/2]", generateRealWithin(-Pi, -0.5 * Pi,_,_), 3)
-  sinTest(sinF32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
     "Test 3rd-order Within [-pi/2, -2^-12pi]", generateRealWithin(-0.5*Pi, -pow(2.0, -12)*Pi,_,_), 3)
-  sinTest(sinF32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
     "Test 3rd-order Within [-2^-12pi, 0]", generateRealWithin(-pow(2.0, -12)*Pi, 0.0,_,_), 3)
-  sinTest(sinF32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
     "Test 3rd-order Within [0, 2^-12pi]", generateRealWithin(0.0, pow(2.0, -12)*Pi,_,_), 3)
-  sinTest(sinF32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
     "Test 3rd-order Within [2^-12pi, pi/2]", generateRealWithin(pow(2.0, -12)*Pi, 0.5*Pi,_,_), 3)
-  sinTest(sinF32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
     "Test 3rd-order Within [pi/2, pi]", generateRealWithin(0.5*Pi, Pi,_,_), 3)
-  sinTest(sinF32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
     "Test 3rd-order Within [pi, 3/2pi]", generateRealWithin(Pi, 1.5*Pi,_,_), 3)
-  sinTest(sinF32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
     "Test 3rd-order Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 3)
-  sinTest(sinF32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
     "Test 3rd-order Within [2pi, 10pi]", generateRealWithin(2.0 * Pi, 10.0 * Pi,_,_), 3)
 
-  sinTest(sinF32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
     "Test 3rd-order Within [16pi, 32pi]", generateRealWithin(16.0 * Pi, 32.0 * Pi,_,_), 3)
-  sinTest(sinF32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
     "Test 3rd-order Within [32pi, 64pi]", generateRealWithin(32.0 * Pi, 64.0 * Pi,_,_), 3)
 
-  sinTest(sinF32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
     "Test 3rd-order Within [-32pi, -16pi]", generateRealWithin( -32.0 * Pi,-16.0 * Pi, _,_), 3)
-  sinTest(sinF32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
     "Test 3rd-order Within [-64pi, -32pi]", generateRealWithin( -64.0 * Pi,-32.0 * Pi, _,_), 3)
+
+  val nOrderBF16     = 0
+  val adrWBF16       = 7
+  val extraBitsBF16  = 1
+
+  val sinBF16TableItaylor3rd = MathFuncSinCosSim.sincosTableGeneration(
+    nOrderBF16, adrWBF16, RealSpec.BFloat16Spec.manW, RealSpec.BFloat16Spec.manW+extraBitsBF16,
+    None, None, taylorOrder3rd)
+
+  sinTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
+    "Test 3rd-order Within [-10pi, -2pi]", generateRealWithin(-10 * Pi, -2 * Pi,_,_), 3)
+  sinTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
+    "Test 3rd-order Within [-2pi, -1.5pi]", generateRealWithin(-2 * Pi, -1.5 * Pi,_,_), 3)
+  sinTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
+    "Test 3rd-order Within [-1.5pi, -pi]", generateRealWithin(-1.5 * Pi, -Pi,_,_), 3)
+  sinTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
+    "Test 3rd-order Within [-pi, -pi/2]", generateRealWithin(-Pi, -0.5 * Pi,_,_), 3)
+  sinTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
+    "Test 3rd-order Within [-pi/2, -2^-12pi]", generateRealWithin(-0.5*Pi, -pow(2.0, -12)*Pi,_,_), 3)
+  sinTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
+    "Test 3rd-order Within [-2^-12pi, 0]", generateRealWithin(-pow(2.0, -12)*Pi, 0.0,_,_), 3)
+  sinTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
+    "Test 3rd-order Within [0, 2^-12pi]", generateRealWithin(0.0, pow(2.0, -12)*Pi,_,_), 3)
+  sinTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
+    "Test 3rd-order Within [2^-12pi, pi/2]", generateRealWithin(pow(2.0, -12)*Pi, 0.5*Pi,_,_), 3)
+  sinTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
+    "Test 3rd-order Within [pi/2, pi]", generateRealWithin(0.5*Pi, Pi,_,_), 3)
+  sinTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
+    "Test 3rd-order Within [pi, 3/2pi]", generateRealWithin(Pi, 1.5*Pi,_,_), 3)
+  sinTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
+    "Test 3rd-order Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 3)
+  sinTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
+    "Test 3rd-order Within [2pi, 10pi]", generateRealWithin(2.0 * Pi, 10.0 * Pi,_,_), 3)
+
+  sinTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
+    "Test 3rd-order Within [16pi, 32pi]", generateRealWithin(16.0 * Pi, 32.0 * Pi,_,_), 3)
+  sinTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
+    "Test 3rd-order Within [32pi, 64pi]", generateRealWithin(32.0 * Pi, 64.0 * Pi,_,_), 3)
+
+  sinTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
+    "Test 3rd-order Within [-32pi, -16pi]", generateRealWithin( -32.0 * Pi,-16.0 * Pi, _,_), 3)
+  sinTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
+    "Test 3rd-order Within [-64pi, -32pi]", generateRealWithin( -64.0 * Pi,-32.0 * Pi, _,_), 3)
+
 }
