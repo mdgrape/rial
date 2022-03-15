@@ -69,7 +69,7 @@ class MathFuncLog2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
           if(0 < x0) {
             assert(zi.isInfinite)
           } else {
-            assert(zi.isZero)
+            assert(zi.isNaN)
           }
         } else if (x0.isNaN) {
           assert(zi.isNaN)
@@ -134,46 +134,101 @@ class MathFuncLog2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     }
   }
 
-  val extraBits = 3
-  val log2F32TableI              = MathFuncLogSim.logNormalTableGeneration(RealSpec.Float32Spec, 2, 8, extraBits)
-  val log2F32SmallPositiveTableI = MathFuncLogSim.logSmallPositiveTableGeneration(RealSpec.Float32Spec, 2, 8, extraBits)
-  val log2F32SmallNegativeTableI = MathFuncLogSim.logSmallNegativeTableGeneration(RealSpec.Float32Spec, 2, 8, extraBits)
+  val nOrderFP32    = 2
+  val adrWFP32      = 8
+  val extraBitsFP32 = 3
+  val log2FP32TableI              = MathFuncLogSim.logNormalTableGeneration       (RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32)
+  val log2FP32SmallPositiveTableI = MathFuncLogSim.logSmallPositiveTableGeneration(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32)
+  val log2FP32SmallNegativeTableI = MathFuncLogSim.logSmallNegativeTableGeneration(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32)
 
-  log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+  val taylorThresholdFP32 = MathFuncLogSim.calcTaylorThreshold(RealSpec.Float32Spec)
+
+  log2Test(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
     "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_), 1)
-  log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
-    "Test Small More Than 1 [1, 1+2^-8]",   generateRealWithin(1.0, 1.0+pow(2.0, -8) - pow(2.0,-23),_,_), 1)
-  log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
-    "Test Small More Than 1 [1-2^-8, 1]",   generateRealWithin(1.0-pow(2.0, -8) + pow(2.0,-23), 1.0,_,_), 1)
-  log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
-    "Test Small More Than 1 [1, 2]",   generateRealWithin(1.0+pow(2.0, -8), 2.0,_,_), 2)
+  log2Test(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+    f"Test Small More Than 1 [1+2^-${taylorThresholdFP32}, 2]",   generateRealWithin(1.0+pow(2.0, -taylorThresholdFP32), 2.0,_,_), 2)
 
-//   log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+  log2Test(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+    f"Test Taylor More Than 1 [1, 1+2^-${taylorThresholdFP32}]",   generateRealWithin(1.0, 1.0+pow(2.0, -taylorThresholdFP32) - pow(2.0,-RealSpec.Float32Spec.manW),_,_), 1)
+  log2Test(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+    f"Test Taylor More Than 1 [1-2^-${taylorThresholdFP32}, 1]",   generateRealWithin(1.0-pow(2.0, -taylorThresholdFP32) + pow(2.0,-RealSpec.Float32Spec.manW), 1.0,_,_), 1)
+
+//   log2Test(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
 //     "Test x = 2.0",   generateRealWithin(2.0, 2.0,_,_), 2)
-//   log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+//   log2Test(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
 //     "Test x = 1.0",   generateRealWithin(1.0, 1.0,_,_), 2)
-//   log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+//   log2Test(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
 //     "Test x = 0.5",   generateRealWithin(0.5, 0.5,_,_), 2)
 
 //   val smallPositive = (-1 until -23 by -1).map( ex => {
 //     val xmax = 1.0 + pow(2.0, ex)
 //     val xmin = 1.0 + pow(2.0, ex-1)
-//     log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+//     log2Test(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
 //       f"Test Small More Than 1 [1+2^${ex-1}%3d, 1+2^${ex}%3d]", generateRealWithin(xmin, xmax,_,_), 2)
 //   })
 //
 //   val smallNegative = (-7 until -23 by -1).map( ex => {
 //     val xmax = 1.0 - pow(2.0, ex-1)
 //     val xmin = 1.0 - pow(2.0, ex)
-//     log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+//     log2Test(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
 //       f"Test Small More Than 1 [1-2^${ex}%3d, 1-2^${ex-1}%3d]", generateRealWithin(xmin, xmax,_,_), 2)
 //   })
 
-  log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
-    "Test Large Less Than 1 [0.5, 1]", generateRealWithin(0.5,1.0,_,_), 2)
-  log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
-    "Test Small Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5,_,_), 1)
+  log2Test(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+    f"Test Small Less Than 1 [0.5, 1-2^-${taylorThresholdFP32}]", generateRealWithin(0.5,1.0-pow(2.0, -taylorThresholdFP32),_,_), 2)
+  log2Test(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+    "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5,_,_), 1)
 
-  log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+  log2Test(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
     "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_), 1)
+
+
+  val nOrderBF16    = 0
+  val adrWBF16      = 7
+  val extraBitsBF16 = 1
+  val log2BF16TableI              = MathFuncLogSim.logNormalTableGeneration       (RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16)
+  val log2BF16SmallPositiveTableI = MathFuncLogSim.logSmallPositiveTableGeneration(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16)
+  val log2BF16SmallNegativeTableI = MathFuncLogSim.logSmallNegativeTableGeneration(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16)
+
+  val taylorThresholdBF16 = MathFuncLogSim.calcTaylorThreshold(RealSpec.BFloat16Spec)
+
+  log2Test(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
+    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_), 1)
+  log2Test(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
+    f"Test Small More Than 1 [1+2^-${taylorThresholdBF16}, 2]",   generateRealWithin(1.0+pow(2.0, -taylorThresholdBF16), 2.0,_,_), 2)
+
+  log2Test(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
+    f"Test Taylor More Than 1 [1, 1+2^-${taylorThresholdBF16}]",   generateRealWithin(1.0, 1.0+pow(2.0, -taylorThresholdBF16) - pow(2.0,-RealSpec.BFloat16Spec.manW),_,_), 1)
+  log2Test(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
+    f"Test Taylor More Than 1 [1-2^-${taylorThresholdBF16}, 1]",   generateRealWithin(1.0-pow(2.0, -taylorThresholdBF16) + pow(2.0,-RealSpec.BFloat16Spec.manW), 1.0,_,_), 1)
+
+//   log2Test(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
+//     "Test x = 2.0",   generateRealWithin(2.0, 2.0,_,_), 2)
+//   log2Test(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
+//     "Test x = 1.0",   generateRealWithin(1.0, 1.0,_,_), 2)
+//   log2Test(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
+//     "Test x = 0.5",   generateRealWithin(0.5, 0.5,_,_), 2)
+
+//   val smallPositive = (-1 until -23 by -1).map( ex => {
+//     val xmax = 1.0 + pow(2.0, ex)
+//     val xmin = 1.0 + pow(2.0, ex-1)
+//     log2Test(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
+//       f"Test Small More Than 1 [1+2^${ex-1}%3d, 1+2^${ex}%3d]", generateRealWithin(xmin, xmax,_,_), 2)
+//   })
+//
+//   val smallNegative = (-7 until -23 by -1).map( ex => {
+//     val xmax = 1.0 - pow(2.0, ex-1)
+//     val xmin = 1.0 - pow(2.0, ex)
+//     log2Test(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
+//       f"Test Small More Than 1 [1-2^${ex}%3d, 1-2^${ex-1}%3d]", generateRealWithin(xmin, xmax,_,_), 2)
+//   })
+
+  log2Test(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
+    f"Test Small Less Than 1 [0.5, 1-2^-${taylorThresholdBF16}]", generateRealWithin(0.5,1.0-pow(2.0, -taylorThresholdBF16),_,_), 2)
+  log2Test(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
+    "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5,_,_), 1)
+
+  log2Test(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
+    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_), 1)
+
 }
