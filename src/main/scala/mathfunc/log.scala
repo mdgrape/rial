@@ -137,9 +137,9 @@ class Log2TableCoeff(
 
     // -----------------------------------------------------------------------
     // default table
-    val tableNormalI  = MathFuncLog2Sim.log2NormalTableGeneration(spec, order, adrW, extraBits)
-    val tableSmallNeg = MathFuncLog2Sim.log2SmallNegativeTableGeneration(spec, order, adrW, extraBits)
-    val tableSmallPos = MathFuncLog2Sim.log2SmallPositiveTableGeneration(spec, order, adrW, extraBits)
+    val tableNormalI  = MathFuncLogSim.logNormalTableGeneration(spec, order, adrW, extraBits)
+    val tableSmallNeg = MathFuncLogSim.logSmallNegativeTableGeneration(spec, order, adrW, extraBits)
+    val tableSmallPos = MathFuncLogSim.logSmallPositiveTableGeneration(spec, order, adrW, extraBits)
 
     val cbitNormal   = tableNormalI .getCBitWidth(/*sign mode = */0)
     val cbitSmallNeg = tableSmallNeg.getCBitWidth(/*sign mode = */0)
@@ -187,15 +187,15 @@ object Log2TableCoeff {
     if(order == 0) {
       return Seq(fracW)
     } else {
-      val tableNormalI = MathFuncLog2Sim.log2NormalTableGeneration(
+      val tableNormalI = MathFuncLogSim.logNormalTableGeneration(
         spec, order, adrW, extraBits)
       val cbitNormal   = tableNormalI.cbit
 
-      val tableSmallPos = MathFuncLog2Sim.log2SmallPositiveTableGeneration(
+      val tableSmallPos = MathFuncLogSim.logSmallPositiveTableGeneration(
         spec, order, adrW, extraBits)
       val cbitSmallPos = tableSmallPos.cbit
 
-      val tableSmallNeg = MathFuncLog2Sim.log2SmallNegativeTableGeneration(
+      val tableSmallNeg = MathFuncLogSim.logSmallNegativeTableGeneration(
         spec, order, adrW, extraBits)
       val cbitSmallNeg = tableSmallNeg.cbit
 
@@ -217,15 +217,15 @@ object Log2TableCoeff {
     if(order == 0) {
       return Seq(fracW)
     } else {
-      val tableNormalI = MathFuncLog2Sim.log2NormalTableGeneration(
+      val tableNormalI = MathFuncLogSim.logNormalTableGeneration(
         spec, order, adrW, extraBits)
       val calcWidthNormal   = tableNormalI.calcWidth
 
-      val tableSmallPos = MathFuncLog2Sim.log2SmallPositiveTableGeneration(
+      val tableSmallPos = MathFuncLogSim.logSmallPositiveTableGeneration(
         spec, order, adrW, extraBits)
       val calcWidthSmallPos = tableSmallPos.calcWidth
 
-      val tableSmallNeg = MathFuncLog2Sim.log2SmallNegativeTableGeneration(
+      val tableSmallNeg = MathFuncLogSim.logSmallNegativeTableGeneration(
         spec, order, adrW, extraBits)
       val calcWidthSmallNeg = tableSmallNeg.calcWidth
 
@@ -292,7 +292,7 @@ class Log2OtherPath(
   val xmanbpPos =  manW.U - PriorityEncoder(Reverse(io.x.man))
   val xmanbpNeg = (1+manW).U - PriorityEncoder(Reverse(xmanNeg)) // the width changed
 
-  val taylorThreshold = MathFuncLog2Sim.calcTaylorThreshold(spec)
+  val taylorThreshold = MathFuncLogSim.calcTaylorThreshold(spec)
   val invln2   = math.round((1.0 / log(2.0)) * (1L << fracW)).toLong.U((fracW+1).W)
   val oneThird = math.round((1.0 / 3.0)      * (1L << fracW)).toLong.U( fracW   .W)
 
