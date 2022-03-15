@@ -195,7 +195,7 @@ object MathFuncLogSim {
       if(islog2) {
         return new RealGeneric(x.spec, 1, exBias, 0)
       } else {
-        return new RealGeneric(x.spec, log(2.0))
+        return new RealGeneric(x.spec, -log(2.0))
       }
     }
 
@@ -336,6 +336,7 @@ object MathFuncLogSim {
       val zex    = zex0 + bit(fracW+1, zman0)
 
       (zex.toInt, SafeLong(zman))
+
     } else if(xexNobias == -1) {
 
       // --------------------------------------------------------------------------
