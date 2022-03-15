@@ -60,7 +60,7 @@ class MathFuncLog2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         val z0   = log2(x0)
         val z0r  = new RealGeneric(spec, z0)
 
-        val zi   = MathFuncLog2Sim.log2SimGeneric( t, tSmallPos, tSmallNeg, x )
+        val zi   = MathFuncLogSim.logSimGeneric(/*islog2*/true, t, tSmallPos, tSmallNeg, x )
         val zd   = zi.toDouble
         val erri = errorLSB(zi, z0r.toDouble)
         val errf = zi.toDouble - z0r.toDouble
@@ -135,9 +135,9 @@ class MathFuncLog2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   }
 
   val extraBits = 3
-  val log2F32TableI              = MathFuncLog2Sim.log2NormalTableGeneration(RealSpec.Float32Spec, 2, 8, extraBits)
-  val log2F32SmallPositiveTableI = MathFuncLog2Sim.log2SmallPositiveTableGeneration(RealSpec.Float32Spec, 2, 8, extraBits)
-  val log2F32SmallNegativeTableI = MathFuncLog2Sim.log2SmallNegativeTableGeneration(RealSpec.Float32Spec, 2, 8, extraBits)
+  val log2F32TableI              = MathFuncLogSim.logNormalTableGeneration(RealSpec.Float32Spec, 2, 8, extraBits)
+  val log2F32SmallPositiveTableI = MathFuncLogSim.logSmallPositiveTableGeneration(RealSpec.Float32Spec, 2, 8, extraBits)
+  val log2F32SmallNegativeTableI = MathFuncLogSim.logSmallNegativeTableGeneration(RealSpec.Float32Spec, 2, 8, extraBits)
 
   log2Test(log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
     "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_), 1)

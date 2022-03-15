@@ -74,14 +74,14 @@ class MathFuncLogTest extends AnyFlatSpec
           val maxCbits   = c.getMaxCbit
           val maxCalcW   = c.getMaxCalcW
 
-          val log2F32TableI = MathFuncLog2Sim.log2NormalTableGeneration(
+          val log2F32TableI = MathFuncLogSim.logNormalTableGeneration(
             RealSpec.Float32Spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
-          val log2F32SmallPositiveTableI = MathFuncLog2Sim.log2SmallPositiveTableGeneration(
+          val log2F32SmallPositiveTableI = MathFuncLogSim.logSmallPositiveTableGeneration(
             RealSpec.Float32Spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
-          val log2F32SmallNegativeTableI = MathFuncLog2Sim.log2SmallNegativeTableGeneration(
+          val log2F32SmallNegativeTableI = MathFuncLogSim.logSmallNegativeTableGeneration(
             RealSpec.Float32Spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
 
-          val reference  = MathFuncLogSim.logSimGeneric(
+          val reference  = MathFuncLogSim.logSimGeneric(/*islog2*/ false,
             log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, _ )
 
           // To avoid timeoutException while testing z == neg.
@@ -259,15 +259,17 @@ class MathFuncLogTest extends AnyFlatSpec
 //           val maxCbits   = c.getCbit
 //           val maxCalcW   = c.getCalcW
 // 
-//           val log2F32TableI = MathFuncLog2Sim.log2NormalTableGeneration(
+//           val log2F32TableI = MathFuncLogSim.logNormalTableGeneration(
 //             RealSpec.Float32Spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
-//           val log2F32SmallPositiveTableI = MathFuncLog2Sim.log2SmallPositiveTableGeneration(
+//           val log2F32SmallPositiveTableI = MathFuncLogSim.logSmallPositiveTableGeneration(
 //             RealSpec.Float32Spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
-//           val log2F32SmallNegativeTableI = MathFuncLog2Sim.log2SmallNegativeTableGeneration(
+//           val log2F32SmallNegativeTableI = MathFuncLogSim.logSmallNegativeTableGeneration(
 //             RealSpec.Float32Spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
 // 
-//           val reference  = MathFuncLogSim.logSimGeneric(
+//           val reference  = MathFuncLogSim.logSimGeneric(/*islog2*/ false,
 //             log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, _ )
+// 
+//           println(f"taylorThreshold = ${MathFuncLogSim.calcTaylorThreshold(spec)}")
 // 
 //           // To avoid timeoutException while testing z == neg.
 //           // Detailed explanation follows.
@@ -400,20 +402,25 @@ class MathFuncLogTest extends AnyFlatSpec
 // 
 //   val nOrderBF16 = 0
 //   val adrWBF16 = 7
-//   val extraBitsBF16 = 0
+//   val extraBitsBF16 = 1
+// 
+//   val taylorThresholdBF16 = MathFuncLogSim.calcTaylorThreshold(RealSpec.BFloat16Spec)
 // 
 //   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
 //     "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))
 //   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
-//     "Test Small More Than 1 [1+2^-8, 2]",   generateRealWithin(1.0, 2.0,_,_))
+//    f"Test Small More Than 1 [1+2^-${taylorThresholdBF16}, 2]",   generateRealWithin(1.0+pow(2.0, -taylorThresholdBF16), 2.0,_,_))
 //   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
-//     "Test Small Less Than 1 [0.5, 1-2^-8]", generateRealWithin(0.5,1.0,_,_))
+//    f"Test Small More Than 1 [1, 1+2^-${taylorThresholdBF16}]",   generateRealWithin(1.0, 1.0+pow(2.0, -taylorThresholdBF16),_,_))
+//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
+//    f"Test Small Less Than 1 [1-2^-${taylorThresholdBF16}, 1]",   generateRealWithin(1.0-pow(2.0, -taylorThresholdBF16), 1.0,_,_))
+//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
+//    f"Test Small Less Than 1 [0.5, 1-2^-${taylorThresholdBF16}]", generateRealWithin(0.5,1.0-pow(2.0, -taylorThresholdBF16),_,_))
 //   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
 //     "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5-pow(2.0, -24),_,_))
 //   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
 //     "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_),
 //     /*disableTimeout = */ true)
-// 
 // 
 //   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
 //     "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))

@@ -74,14 +74,14 @@ class MathFuncLog2Test extends AnyFlatSpec
           val maxCbits   = c.getMaxCbit
           val maxCalcW   = c.getMaxCalcW
 
-          val log2F32TableI = MathFuncLog2Sim.log2NormalTableGeneration(
+          val log2F32TableI = MathFuncLogSim.logNormalTableGeneration(
             RealSpec.Float32Spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
-          val log2F32SmallPositiveTableI = MathFuncLog2Sim.log2SmallPositiveTableGeneration(
+          val log2F32SmallPositiveTableI = MathFuncLogSim.logSmallPositiveTableGeneration(
             RealSpec.Float32Spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
-          val log2F32SmallNegativeTableI = MathFuncLog2Sim.log2SmallNegativeTableGeneration(
+          val log2F32SmallNegativeTableI = MathFuncLogSim.logSmallNegativeTableGeneration(
             RealSpec.Float32Spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
 
-          val reference  = MathFuncLog2Sim.log2SimGeneric(
+          val reference  = MathFuncLogSim.logSimGeneric(/*islog2*/true,
             log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, _ )
 
           // To avoid timeoutException while testing z == neg.
