@@ -318,6 +318,8 @@ class Log2OtherPath(
   // 1 - x/2 < 1
   val oneMinusHalfx = if(extraBits == 0) {
     (1L << fracW).U - io.x.man(manW-1, 1)
+  } else if(extraBits == 1) {
+    (1L << fracW).U - io.x.man
   } else {
     (1L << fracW).U - Cat(io.x.man, 0.U((extraBits-1).W))
   }
