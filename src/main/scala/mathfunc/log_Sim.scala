@@ -1,6 +1,6 @@
-//% @file log2Sim.scala
+//% @file logSim.scala
 //
-// Simulators for log2(x)
+// Simulators for log2 and log(x)
 // Copyright (C) Toru Niina RIKEN BDR 2022
 //
 package rial.mathfunc
@@ -24,7 +24,7 @@ import rial.arith.RealGeneric
 import rial.arith.Rounding._
 import rial.arith._
 
-object MathFuncLog2Sim {
+object MathFuncLogSim {
 
   def calcTaylorThreshold(spec: RealSpec): Int = {
     // log(1+x) = 1/ln(2) * (x - x^2/2 + x^3/3 - x^4/4 + O(x^5))
@@ -41,7 +41,7 @@ object MathFuncLog2Sim {
     // the condition is the same
   }
 
-  def log2NormalTableGeneration(spec: RealSpec,
+  def logNormalTableGeneration(spec: RealSpec,
     order:     Int =  2,
     adrW:      Int =  8,
     extraBits: Int =  2,
@@ -61,7 +61,7 @@ object MathFuncLog2Sim {
   // TODO: reduce the bitwidth by removing taylor part from this table range
 
   // table for [1.0, 2.0)
-  def log2SmallPositiveTableGeneration(spec: RealSpec,
+  def logSmallPositiveTableGeneration(spec: RealSpec,
       order:     Int =  2,
       adrW:      Int =  8,
       extraBits: Int =  2,
@@ -93,7 +93,7 @@ object MathFuncLog2Sim {
       val res      = if(xex < taylorThreshold) {
         0.0
       } else {
-        val baseline = pow(2.0, -xex-2)
+        val baseline = pow(2.0, (-xex-2).toDouble)
         val z        = log2(1.0 + x)
         z * baseline
       }
@@ -105,7 +105,7 @@ object MathFuncLog2Sim {
   }
 
   // table for [0.5, 1.0)
-  def log2SmallNegativeTableGeneration(spec: RealSpec,
+  def logSmallNegativeTableGeneration(spec: RealSpec,
       order:     Int =  2,
       adrW:      Int =  8,
       extraBits: Int =  2,
@@ -125,7 +125,7 @@ object MathFuncLog2Sim {
       val res      = if(xex < taylorThreshold) {
         0.0
       } else {
-        val baseline = pow(2.0, -xex-1)
+        val baseline = pow(2.0, (-xex-1).toDouble)
         val z        = -log2(1.0 - x*0.5)
         z * baseline
       }
@@ -140,10 +140,12 @@ object MathFuncLog2Sim {
 
 
   //
-  // log2(2^ex * 1.man) = log2(2^ex) + log2(1.man)
-  //                    = ex + log2(1.man)
+  // log(2^ex * 1.man) = log(2^ex) + log(1.man)
+  //                    = ex + log(1.man)
   //
-  def log2SimGeneric( t : FuncTableInt, tSmallPos : FuncTableInt, tSmallNeg : FuncTableInt, x : RealGeneric ): RealGeneric = {
+  def logSimGeneric( islog2: Boolean,
+    t : FuncTableInt, tSmallPos : FuncTableInt, tSmallNeg : FuncTableInt,
+    x : RealGeneric ): RealGeneric = {
 
 //     println("==================================================")
     val exW    = x.spec.exW
@@ -157,16 +159,16 @@ object MathFuncLog2Sim {
     val log2 = (a:Double) => {log(a) / log(2.0)}
 
 //     println(f"x = ${x.sgn}|${x.ex}(${x.ex})|${x.man.toLong.toBinaryString}")
-//     println(f"Log2Sim: x = ${x.toDouble}, log2(x) = ${log2(x.toDouble)}")
+//     println(f"LogSim: x = ${x.toDouble}, log(x) = ${log(x.toDouble)}")
 
     // --------------------------------------------------------------------------
     // check special cases
 
-    // - log2(nan) -> nan
-    // - log2(inf) -> inf
-    // - log2(0)   -> -inf
-    // - log2(1)   -> 0
-    // - log2(neg) -> nan
+    // - log(nan) -> nan
+    // - log(inf) -> inf
+    // - log(0)   -> -inf
+    // - log(1)   -> 0
+    // - log(neg) -> nan
 
     val xnan  = x.isNaN
     val xinf  = x.isInfinite
@@ -190,7 +192,11 @@ object MathFuncLog2Sim {
     }
     // XXX table for x in (0.5, 1] fails if x == 0.5
     if(x.man == 0 && x.ex == exBias-1) {
-      return new RealGeneric(x.spec, 1, exBias, 0)
+      if(islog2) {
+        return new RealGeneric(x.spec, 1, exBias, 0)
+      } else {
+        return new RealGeneric(x.spec, log(2.0))
+      }
     }
 
     val zsgn = if(x.ex < exBias) {1} else {0}
@@ -205,7 +211,7 @@ object MathFuncLog2Sim {
 
     val taylorThreshold = calcTaylorThreshold(x.spec)
 
-    val (zex0, zman0) = if(xexNobias == 0 && x.man.toLong < (1L << (manW-taylorThreshold))) {
+    val (log2ex0, log2man0) = if(xexNobias == 0 && x.man.toLong < (1L << (manW-taylorThreshold))) {
       // ----------------------------------------------------------------------
       // taylor
       //
@@ -288,11 +294,11 @@ object MathFuncLog2Sim {
       // polynomial (x is in [1, 2))
       //
       // if x == 0,
-      // log2(x) = log2(2^ex * 1.man)
-      //         = ex + log2(1.man)
-      //         = log2(1.man)
+      // log(x) = log(2^ex * 1.man)
+      //         = ex + log(1.man)
+      //         = log(1.man)
       //
-      // log2 table should return full precision
+      // log table should return full precision
       //
       val xman  = x.man.toLong
       val xex   = -(manW - xman.toBinaryString.length)
@@ -326,8 +332,10 @@ object MathFuncLog2Sim {
       assert(bit(fracW, zman0) == 1)
       assert(zman0 < (1<<(fracW+1))) // zman0.getWidth == 1+fracW
 
-      (zex0.toInt, SafeLong(zman0))
+      val zman   = slice(0, fracW, zman0)
+      val zex    = zex0 + bit(fracW+1, zman0)
 
+      (zex.toInt, SafeLong(zman))
     } else if(xexNobias == -1) {
 
       // --------------------------------------------------------------------------
@@ -365,8 +373,10 @@ object MathFuncLog2Sim {
       assert(bit(fracW, zman0) == 1)
       assert(zman0 < (1<<(fracW+1))) // zman0.getWidth == 1+fracW
 
-      (zex0.toInt, SafeLong(zman0))
+      val zman   = slice(0, fracW, zman0)
+      val zex    = zex0 + bit(fracW+1, zman0)
 
+      (zex.toInt, SafeLong(zman))
     } else {
       // --------------------------------------------------------------------------
       // polynomial (0.0 < x < 0.5, 2.0 < x < inf)
@@ -376,7 +386,6 @@ object MathFuncLog2Sim {
       val adr  = slice(dxbp+1, adrW,   x.man)
 
       val zfrac0Pos0 = t.interval(adr.toInt).eval(d.toLong, dxbp)
-
       // overflow check
       val zfrac0Pos = if (zfrac0Pos0<0) {
         println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=${x.value.toLong.toBinaryString}(${x.toDouble})")
@@ -391,9 +400,9 @@ object MathFuncLog2Sim {
       val zfrac0 = if(xexNobias >= 0) {zfrac0Pos} else {(1<<fracW) - zfrac0Pos}
       val zfrac  = zfrac0 & maskL(fracW)
       val zfull0 = (zint0 << fracW) + zfrac0.toLong
+
       assert(0L <= zfrac && zfrac < (1L<<fracW)) // avoid overflow in polynomial
       assert(0 <= zfull0)
-
       val zfullW  = zfull0.toBinaryString.length
       val zShiftW = exW + fracW - zfullW
       assert(0 <= zShiftW)
@@ -403,17 +412,43 @@ object MathFuncLog2Sim {
 
       val zman0 = slice(exW-1, fracW, zShifted) // -1 for the hidden bit
       val zex0  = exBias + (exW-1) - zShiftW
+
       (zex0.toInt, SafeLong(zman0))
     }
 
-    //
-    // now, zman0 has `fracW` prec. round it to manW
-    //
-    val zmanRounded = slice(extraBits, manW, zman0) + bit(extraBits-1, zman0)
-    val zmanMoreThan2 = bit(manW, zmanRounded)
-    val zman = slice(0, manW, zmanRounded)
-    val zex  = zex0 + zmanMoreThan2
+//     println(f"sim: log2xEx0  = ${(log2ex0 + exBias) .toLong.toBinaryString}")
+//     println(f"sim: log2xMan0 = ${log2man0.toLong.toBinaryString}")
 
-    new RealGeneric(x.spec, zsgn, zex, zman)
+    if(islog2) {
+      //
+      // now, log2man0 has `fracW` prec. round it to manW
+      //
+      val zmanRounded = slice(extraBits, manW, log2man0) + bit(extraBits-1, log2man0)
+      val zmanMoreThan2 = bit(manW, zmanRounded)
+      val zman = slice(0, manW, zmanRounded)
+      val zex  = log2ex0 + zmanMoreThan2
+
+      new RealGeneric(x.spec, zsgn, zex, zman)
+    } else {
+      // --------------------------------------------------------------------------
+      // convert log2 to ln
+
+      // 1/log2(e) < 1
+      val oneOverLog2e = math.round(log(2.0) * (1 << (fracW+1))).toLong
+      assert((1<<fracW) < oneOverLog2e && oneOverLog2e < (1<<(fracW+1)))
+
+  //     println(f"sim: oneOverLog2e = ${oneOverLog2e.toLong.toBinaryString}")
+
+      val zmanProd = ((1<<fracW) + log2man0) * oneOverLog2e
+      val zmanProdMoreThan2 = bit((fracW+1)*2-1, zmanProd).toInt
+      val zmanRound = slice(fracW + extraBits + zmanProdMoreThan2, manW, zmanProd) +
+                      bit(fracW + extraBits - 1 + zmanProdMoreThan2, zmanProd)
+
+      val zmanRoundMoreThan2 = bit(manW, zmanRound).toInt
+      val zman = slice(0, manW, zmanRound)
+      val zex = log2ex0 + zmanProdMoreThan2 + zmanRoundMoreThan2 - 1 // 1/log2(e) < 1
+
+      return new RealGeneric(x.spec, zsgn, zex, zman)
+    }
   }
 }
