@@ -195,7 +195,20 @@ object MathFuncLogSim {
       if(islog2) {
         return new RealGeneric(x.spec, 1, exBias, 0)
       } else {
-        return new RealGeneric(x.spec, -log(2.0))
+        // to reproduce rounding
+        val log2ex0  = exBias
+        val log2man0 = 0L
+        val oneOverLog2e = math.round(log(2.0) * (1 << (fracW+1))).toLong
+        assert((1<<fracW) < oneOverLog2e && oneOverLog2e < (1<<(fracW+1)))
+        val zmanProd = ((1<<fracW) + log2man0) * oneOverLog2e
+        val zmanProdMoreThan2 = bit((fracW+1)*2-1, zmanProd).toInt
+        val zmanRound = slice(fracW + extraBits + zmanProdMoreThan2, manW, zmanProd) +
+                        bit(fracW + extraBits - 1 + zmanProdMoreThan2, zmanProd)
+        val zmanRoundMoreThan2 = bit(manW, zmanRound).toInt
+        val zman = slice(0, manW, zmanRound)
+        val zex = log2ex0 + zmanProdMoreThan2 + zmanRoundMoreThan2 - 1 // 1/log2(e) < 1
+
+        return new RealGeneric(x.spec, 1, zex, zman)
       }
     }
 
