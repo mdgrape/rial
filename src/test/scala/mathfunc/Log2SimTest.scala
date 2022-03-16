@@ -200,7 +200,7 @@ class MathFuncLog2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   log2Test(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
     f"Test Taylor More Than 1 [1, 1+2^-${taylorThresholdBF16}]",   generateRealWithin(1.0, 1.0+pow(2.0, -taylorThresholdBF16) - pow(2.0,-RealSpec.BFloat16Spec.manW),_,_), 1)
   log2Test(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
-    f"Test Taylor More Than 1 [1-2^-${taylorThresholdBF16}, 1]",   generateRealWithin(1.0-pow(2.0, -taylorThresholdBF16) + pow(2.0,-RealSpec.BFloat16Spec.manW), 1.0,_,_), 1)
+    f"Test Taylor More Than 1 [1-2^-${taylorThresholdBF16}, 1]",   generateRealWithin(1.0-pow(2.0, -taylorThresholdBF16) + pow(2.0,-RealSpec.BFloat16Spec.manW), 1.0,_,_), 2) // XXX if we set extraBits = 2, we can reduce the error
 
 //   log2Test(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
 //     "Test x = 2.0",   generateRealWithin(2.0, 2.0,_,_), 2)
