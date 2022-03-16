@@ -150,7 +150,7 @@ class MathFunctions(
     ReciprocalTableCoeff.getCBits(spec, polySpec),
     SinCosTableCoeff.getCBits(spec, polySpec, /*taylor order = */ 5),
     ATan2Stage2TableCoeff.getCBits(spec, polySpec),
-    Pow2TableCoeff.getCBits(spec, polySpec),
+    ExpTableCoeff.getCBits(spec, polySpec),
     Log2TableCoeff.getCBits(spec, polySpec)
     ).reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
 
@@ -161,7 +161,7 @@ class MathFunctions(
     ReciprocalTableCoeff.getCalcW(spec, polySpec),
     SinCosTableCoeff.getCalcW(spec, polySpec, /*taylor order = */ 5),
     ATan2Stage2TableCoeff.getCalcW(spec, polySpec),
-    Pow2TableCoeff.getCalcW(spec, polySpec),
+    ExpTableCoeff.getCalcW(spec, polySpec),
     Log2TableCoeff.getCalcW(spec, polySpec)
     ).reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
 
@@ -174,7 +174,7 @@ class MathFunctions(
   println(f"rec         cbits = ${ReciprocalTableCoeff .getCBits(spec, polySpec)} calcW = ${ReciprocalTableCoeff .getCalcW(spec, polySpec)}")
   println(f"sincos      cbits = ${SinCosTableCoeff     .getCBits(spec, polySpec, /*taylor order = */ 5)} calcW = ${SinCosTableCoeff     .getCalcW(spec, polySpec, /*taylor order = */ 5)}")
   println(f"atan2Stage2 cbits = ${ATan2Stage2TableCoeff.getCBits(spec, polySpec)} calcW = ${ATan2Stage2TableCoeff.getCalcW(spec, polySpec)}")
-  println(f"pow2        cbits = ${Pow2TableCoeff       .getCBits(spec, polySpec)} calcW = ${Pow2TableCoeff       .getCalcW(spec, polySpec)}")
+  println(f"pow2        cbits = ${ExpTableCoeff       .getCBits(spec, polySpec)} calcW = ${ExpTableCoeff       .getCalcW(spec, polySpec)}")
   println(f"log2        cbits = ${Log2TableCoeff       .getCBits(spec, polySpec)} calcW = ${Log2TableCoeff       .getCalcW(spec, polySpec)}")
   println(f"maximum     cbits = ${maxCbit} calcW = ${maxCalcW}")
 
@@ -416,10 +416,10 @@ class MathFunctions(
   // --------------------------------------------------------------------------
   // pow2/exp
 
-  val pow2Pre   = Module(new Pow2PreProcess (spec, polySpec, stage.preStage))
-  val pow2Tab   = Module(new Pow2TableCoeff (spec, polySpec, maxCbit))
-  val pow2Other = Module(new Pow2OtherPath  (spec, polySpec, stage.calcStage))
-  val pow2Post  = Module(new Pow2PostProcess(spec, polySpec, stage.postStage))
+  val pow2Pre   = Module(new ExpPreProcess (spec, polySpec, stage.preStage))
+  val pow2Tab   = Module(new ExpTableCoeff (spec, polySpec, maxCbit))
+  val pow2Other = Module(new ExpOtherPath  (spec, polySpec, stage.calcStage))
+  val pow2Post  = Module(new ExpPostProcess(spec, polySpec, stage.postStage))
 
   pow2Pre.io.en     := (io.sel === SelectFunc.Exp) || (io.sel === SelectFunc.Pow2)
   pow2Pre.io.isexp  := (io.sel === SelectFunc.Exp)

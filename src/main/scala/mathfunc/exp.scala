@@ -27,7 +27,7 @@ import rial.arith.FloatChiselUtil
 // |_|            |_|
 // -------------------------------------------------------------------------
 
-class Pow2PreProcess(
+class ExpPreProcess(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -138,7 +138,7 @@ class Pow2PreProcess(
   val xfrac0 = xValRounded(xFracW-1, 0)
 
   // if xsgn == 1, we negate xint to calculate exbias. but we later do that in
-  // Pow2OtherPath.
+  // ExpOtherPath.
   val xint = enable(io.en, (xint0 +& (xsgn.asBool && (xfrac0 =/= 0.U)).asUInt))
   io.xint := ShiftRegister(xint, nStage)
 
@@ -167,7 +167,7 @@ class Pow2PreProcess(
 //  \__\__,_|_.__/|_|\___|  \___\___/ \___|_| |_|
 // -------------------------------------------------------------------------
 
-class Pow2TableCoeff(
+class ExpTableCoeff(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val maxCbit  : Seq[Int], // max coeff width among all math funcs
@@ -232,7 +232,7 @@ class Pow2TableCoeff(
     io.cs := enable(io.en, coeffs)
   }
 }
-object Pow2TableCoeff {
+object ExpTableCoeff {
   def getCBits(
     spec:     RealSpec,
     polySpec: PolynomialSpec
@@ -280,7 +280,7 @@ object Pow2TableCoeff {
 //                                               |_|
 // -------------------------------------------------------------------------
 
-class Pow2NonTableOutput(val spec: RealSpec) extends Bundle {
+class ExpNonTableOutput(val spec: RealSpec) extends Bundle {
   //  zsgn  = 0, always
   val zex   = Output(UInt(spec.exW.W))
   val znan  = Output(Bool())
@@ -291,7 +291,7 @@ class Pow2NonTableOutput(val spec: RealSpec) extends Bundle {
 
 // No pathway (like taylor series) other than table interpolation.
 // Here we calculate z.ex and correction to zman.
-class Pow2OtherPath(
+class ExpOtherPath(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -316,7 +316,7 @@ class Pow2OtherPath(
     val xfracLSBs = if(padding != 0) {Some(Input (UInt(padding.W  )))} else {None}
     val zCorrCoef = if(padding != 0) {Some(Output(UInt(zCorrTmpW.W)))} else {None}
     // normal output
-    val zother    = new Pow2NonTableOutput(spec)
+    val zother    = new ExpNonTableOutput(spec)
   })
 
   // --------------------------------------------------------------------------
@@ -384,7 +384,7 @@ class Pow2OtherPath(
 // |_|                 |_|
 // -------------------------------------------------------------------------
 
-class Pow2PostProcess(
+class ExpPostProcess(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -409,7 +409,7 @@ class Pow2PostProcess(
   val io = IO(new Bundle {
     val en = Input(UInt(1.W))
     // ex and some flags
-    val zother = Flipped(new Pow2NonTableOutput(spec))
+    val zother = Flipped(new ExpNonTableOutput(spec))
     // table interpolation results
     val zres   = Input(UInt(fracW.W))
     // for z correction
