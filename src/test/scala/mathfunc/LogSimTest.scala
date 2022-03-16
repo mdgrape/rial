@@ -168,13 +168,13 @@ class MathFuncLogSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val log2BF16SmallNegativeTableI = MathFuncLogSim.logSmallNegativeTableGeneration(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16)
 
   logTest(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
-    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_), 3)
+    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_), 1)
   logTest(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
-    "Test Small More Than 1 [1, 1+2^-8]",   generateRealWithin(1.0, 1.0+pow(2.0, -8) - pow(2.0,-23),_,_), 3)
+    "Test Small More Than 1 [1, 1+2^-8]",   generateRealWithin(1.0, 1.0+pow(2.0, -8) - pow(2.0,-23),_,_), 1)
   logTest(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
-    "Test Small More Than 1 [1-2^-8, 1]",   generateRealWithin(1.0-pow(2.0, -8) + pow(2.0,-23), 1.0,_,_), 3)
+    "Test Small More Than 1 [1-2^-8, 1]",   generateRealWithin(1.0-pow(2.0, -8) + pow(2.0,-23), 1.0,_,_), 1)
   logTest(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
-    "Test Small More Than 1 [1, 2]",   generateRealWithin(1.0+pow(2.0, -8), 2.0,_,_), 4) // XXX not in 2 ULPs
+    "Test Small More Than 1 [1, 2]",   generateRealWithin(1.0+pow(2.0, -8), 2.0,_,_), 3)
 
 //   val smallPositive = (-1 until -23 by -1).map( ex => {
 //     val xmax = 1.0 + pow(2.0, ex)
@@ -193,7 +193,7 @@ class MathFuncLogSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   logTest(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
     "Test Large Less Than 1 [0.5, 1]", generateRealWithin(0.5,1.0,_,_), 3)
   logTest(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
-    "Test Small Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5,_,_), 3)
+    "Test Small Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5,_,_), 1)
 
   logTest(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
     "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_), 1)
