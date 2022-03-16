@@ -460,10 +460,9 @@ class Log2OtherPath(
   // merge Taylor results and special values
 
   val zex0  = Mux(isTaylorSmallPos, zexTaylorPos,
-              Mux(isTaylorSmallNeg, zexTaylorNeg,
-              Mux(xtwo,  exBias.U(exW.W), /*xhalf = */ (exBias-1).U(exW.W))))
+              Mux(isTaylorSmallNeg, zexTaylorNeg, /*xtwo||xhalf*/exBias.U(exW.W)))
   val zman0 = Mux(isTaylorSmallPos, zmanTaylorPos,
-              Mux(isTaylorSmallNeg, zmanTaylorNeg, /*xtwo|xhalf|*/ 0.U(manW.W)))
+              Mux(isTaylorSmallNeg, zmanTaylorNeg, /*xtwo||xhalf*/ 0.U(manW.W)))
   // here, adding 0es at the LSB of nan/inf/zero does not affect to the result
   // because postprocess only does rounding. zero bits does not change rounding.
 
