@@ -398,14 +398,25 @@ object MathFuncLogSim {
         zfrac0Pos0.toLong
       }
 
-      val zfrac0 = if(xexNobias >= 0) {zfrac0Pos} else {(1<<fracW) - zfrac0Pos}
+      val zfrac0 = if(xexNobias >= 0) {zfrac0Pos} else {
+        if(zfrac0Pos == 0) {maskL(fracW)} else {(1<<fracW) - zfrac0Pos}
+      }
+      assert(0L <= zfrac0 && zfrac0 < (1L<<fracW))
       val zfrac  = zfrac0 & maskL(fracW)
-      val zfull0 = (zint0 << fracW) + zfrac0.toLong
+      val zfull0 = (zint0 << fracW) + zfrac.toLong
+
+//       println(f"sim: zfrac0Pos0 = ${zfrac0Pos0.toLong.toBinaryString}")
+//       println(f"sim: zfrac0Pos  = ${zfrac0Pos .toLong.toBinaryString}")
+//       println(f"sim: zint0  = ${zint0.toLong.toBinaryString}")
+//       println(f"sim: zfrac0 = ${zfrac0.toLong.toBinaryString}")
+//       println(f"sim: zfull0 = ${zfull0.toLong.toBinaryString}")
 
       assert(0L <= zfrac && zfrac < (1L<<fracW)) // avoid overflow in polynomial
       assert(0 <= zfull0)
       val zfullW  = zfull0.toBinaryString.length
       val zShiftW = exW + fracW - zfullW
+//       println(f"sim: zfullW = ${zfullW}")
+//       println(f"sim: exW+fracW = ${exW+fracW}")
       assert(0 <= zShiftW)
 
       val zShifted = zfull0 << zShiftW
@@ -417,7 +428,7 @@ object MathFuncLogSim {
       (zex0.toInt, SafeLong(zman0))
     }
 
-//     println(f"sim: log2xEx0  = ${(log2ex0 + exBias) .toLong.toBinaryString}")
+//     println(f"sim: log2xEx0  = ${log2ex0 .toLong.toBinaryString}")
 //     println(f"sim: log2xMan0 = ${log2man0.toLong.toBinaryString}")
 
     if(islog2) {
