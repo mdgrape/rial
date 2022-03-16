@@ -78,7 +78,7 @@ class MathFuncPow2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         val z0   = pow(2.0, x0)
         val z0r  = new RealGeneric(spec, z0)
 
-        val zi   = MathFuncPow2Sim.pow2SimGeneric( t, x )
+        val zi   = MathFuncExpSim.expSimGeneric( /*isPow2*/true, t, x )
         val zd   = zi.toDouble
         val erri = errorLSB(zi, z0r.toDouble)
 

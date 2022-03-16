@@ -62,7 +62,7 @@ class MathFuncExpSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         val z0   = exp(x0) // .toFloat
         val z0r  = new RealGeneric(spec, z0)
 
-        val zi   = MathFuncExpSim.expSimGeneric( t, x )
+        val zi   = MathFuncExpSim.expSimGeneric(/*isPow2*/ false, t, x )
         val zd   = zi.toDouble
         val erri = errorLSB(zi, z0r)
 

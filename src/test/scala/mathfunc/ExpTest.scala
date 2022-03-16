@@ -87,7 +87,7 @@ class MathFuncExpTest extends AnyFlatSpec
           val nstage     = c.getStage
           val reftable   = ExponentialSim.pow2TableGeneration(
             nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit) )
-          val reference  = MathFuncExpSim.expSimGeneric(reftable, _ )
+          val reference  = MathFuncExpSim.expSimGeneric(false, reftable, _ )
 
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
