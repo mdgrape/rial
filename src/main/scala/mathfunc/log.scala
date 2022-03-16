@@ -462,7 +462,8 @@ class Log2OtherPath(
   val zex0  = Mux(isTaylorSmallPos, zexTaylorPos,
               Mux(isTaylorSmallNeg, zexTaylorNeg,
               Mux(xtwo,  exBias.U(exW.W), /*xhalf = */ (exBias-1).U(exW.W))))
-  val zman0 = Mux(isTaylorSmallPos, zmanTaylorPos, zmanTaylorNeg)
+  val zman0 = Mux(isTaylorSmallPos, zmanTaylorPos,
+              Mux(isTaylorSmallNeg, zmanTaylorNeg, /*xtwo|xhalf|*/ 0.U(manW.W)))
   // here, adding 0es at the LSB of nan/inf/zero does not affect to the result
   // because postprocess only does rounding. zero bits does not change rounding.
 
