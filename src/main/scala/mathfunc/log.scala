@@ -540,8 +540,8 @@ class Log2PostProcess(
 
   val zLargeInt     = io.zother.zint
   val zLargeFracPos = io.zres
-  val zLargeFracNeg = ~io.zres + 1.U
-  val zLargeFrac  = Mux(io.x.ex >= exBias.U, zLargeFracPos, zLargeFracNeg)
+  val zLargeFracNeg = Mux(io.zres === 0.U, maskL(fracW).U(fracW.W), ~io.zres + 1.U)
+  val zLargeFrac    = Mux(io.x.ex >= exBias.U, zLargeFracPos, zLargeFracNeg)
 
 //   printf("cir: zLargeInt  = %b\n", zLargeInt)
 //   printf("cir: zLargeFrac = %b\n", zLargeFrac)
