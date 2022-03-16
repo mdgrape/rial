@@ -112,22 +112,31 @@ class Log2TableCoeff(
   val log2 = (a:Double) => {log(a) / log(2.0)}
 
   if(order == 0) {
-    val tbl = VecInit( (0L to (1L<<adrW)-1L).map(
-      n => {
-        val x = n.toDouble/(1L<<adrW)
-        val y = round( log2(1.0+x) * (1L<<manW) )
-        if (y>=(1L<<manW)) {
-          println("WARNING: mantissa reaches to 2")
-          maskL(manW).U(manW.W)
-        } else {
-          y.U(manW.W)
-        }
-      }
-    ) )
+    val exadr = io.adr(adrW+2-1, adrW)
+    val adr   = io.adr(adrW-1, 0)
+
+    val tableNormalI  = MathFuncLogSim.logNormalTableGeneration(spec, order, adrW, extraBits)
+    val tableSmallNeg = MathFuncLogSim.logSmallNegativeTableGeneration(spec, order, adrW, extraBits)
+    val tableSmallPos = MathFuncLogSim.logSmallPositiveTableGeneration(spec, order, adrW, extraBits)
+
+    val cbitNormal   = tableNormalI .getCBitWidth(/*sign mode = */1) // 2's complement and no sign bit
+    val cbitSmallNeg = tableSmallNeg.getCBitWidth(/*sign mode = */1)
+    val cbitSmallPos = tableSmallPos.getCBitWidth(/*sign mode = */1)
+
+    val cbit = Seq(cbitNormal, cbitSmallNeg, cbitSmallPos).reduce(
+      (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
+    val tableIs = VecInit(Seq(
+        tableNormalI .getVectorWithWidth(cbit, /*sign mode = */1),
+        tableSmallNeg.getVectorWithWidth(cbit, /*sign mode = */1),
+        tableSmallPos.getVectorWithWidth(cbit, /*sign mode = */1)
+      ))
+    val tableI = tableIs(exadr)
+    val coeff = getSlices(tableI(adr), cbit)
 
     assert(maxCbit(0) == fracW)
+    assert(coeff(0).getWidth == fracW, f"coeff = ${coeff(0).getWidth}, fracW = ${fracW}")
 
-    io.cs.cs(0) := enable(io.en, tbl(io.adr(adrW, 0)))
+    io.cs.cs(0) := enable(io.en, coeff(0))
 
   } else {
 
