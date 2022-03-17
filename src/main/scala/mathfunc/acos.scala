@@ -299,6 +299,7 @@ class ACosOtherPath(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
+  val taylorOrder: Int
 ) extends Module {
 
   val nStage = stage.total
@@ -359,39 +360,48 @@ class ACosOtherPath(
 
   io.zother.zIsTaylor := ShiftRegister(isTaylor, nStage)
 
-  val xex    = io.x.ex
-  val xmanW1 = Cat(1.U(1.W), io.x.man)
-  val (xSqExInc, xSqManW1) = multiply(xmanW1, xmanW1)
+  val zTaylorEx  = UInt(exW.W)
+  val zTaylorMan = UInt(manW.W)
 
-//   printf("cir: xex    = %d\n", xex   )
-//   printf("cir: xmanW1 = %b\n", xmanW1)
-//   printf("cir: xsqEx    = %d\n", xex + xex - exBias.U + xSqExInc   )
-//   printf("cir: xsqManW1 = %b\n", xSqManW1)
+  if(taylorOrder < 3) {
+    zTaylorEx  := Mux(isConstant, 0.U(exW.W),  io.x.ex)
+    zTaylorMan := Mux(isConstant, 0.U(manW.W), io.x.man)
+  } else {
+    assert(taylorOrder < 5)
+    val xex    = io.x.ex
+    val xmanW1 = Cat(1.U(1.W), io.x.man)
+    val (xSqExInc, xSqManW1) = multiply(xmanW1, xmanW1)
 
-  val c1over6Ex    = (exBias-3).U(exW.W)
-  val c1over6ManW1 = math.round(1.0/6.0 * (1L<<(manW+3))).U((manW+1).W)
-  val (xSq6thExInc, xSq6thManW1) = multiply(xSqManW1, c1over6ManW1)
-//   printf("cir: xsq6thEx    = %d\n", xex + xex - exBias.U + xSqExInc - 3.U + xSq6thExInc)
-//   printf("cir: xsq6thManW1 = %b\n", xSq6thManW1)
+  //   printf("cir: xex    = %d\n", xex   )
+  //   printf("cir: xmanW1 = %b\n", xmanW1)
+  //   printf("cir: xsqEx    = %d\n", xex + xex - exBias.U + xSqExInc   )
+  //   printf("cir: xsqManW1 = %b\n", xSqManW1)
 
-  val xSq6thEx    = Cat(xex, 0.U(1.W)) - (3 + exBias).U((exW+1).W) + xSqExInc + xSq6thExInc
-  val xSq6thShiftVal = (exBias.U - xSq6thEx)
-  val xSq6thShiftOut = xSq6thShiftVal(xSq6thShiftVal.getWidth-1, shiftOut).orR
-  val xSq6thShift    = Mux(xSq6thShiftOut, Fill(shiftOut, 1.U(1.W)),
-                                           (exBias.U - xSq6thEx)(shiftOut-1, 0))
+    val c1over6Ex    = (exBias-3).U(exW.W)
+    val c1over6ManW1 = math.round(1.0/6.0 * (1L<<(manW+3))).U((manW+1).W)
+    val (xSq6thExInc, xSq6thManW1) = multiply(xSqManW1, c1over6ManW1)
+  //   printf("cir: xsq6thEx    = %d\n", xex + xex - exBias.U + xSqExInc - 3.U + xSq6thExInc)
+  //   printf("cir: xsq6thManW1 = %b\n", xSq6thManW1)
 
-  val xSq6thAligned      = xSq6thManW1 >> xSq6thShift
-  val xSq6thPlusOneManW1 = Cat(1.U(1.W), xSq6thAligned(manW-1, 0)) // assuming xSq6thAligned < 1
-  assert(xSq6thPlusOneManW1.getWidth == manW+1)
-//   printf("cir: xSq6thAligned      = %b\n", xSq6thAligned     )
-//   printf("cir: xSq6thPlusOneManW1 = %b\n", xSq6thPlusOneManW1)
+    val xSq6thEx    = Cat(xex, 0.U(1.W)) - (3 + exBias).U((exW+1).W) + xSqExInc + xSq6thExInc
+    val xSq6thShiftVal = (exBias.U - xSq6thEx)
+    val xSq6thShiftOut = xSq6thShiftVal(xSq6thShiftVal.getWidth-1, shiftOut).orR
+    val xSq6thShift    = Mux(xSq6thShiftOut, Fill(shiftOut, 1.U(1.W)),
+                                             (exBias.U - xSq6thEx)(shiftOut-1, 0))
 
-  // in the postprocess, the result will be added/subtracted to pi/2.
-  val (taylorExInc, taylorManW1) = multiply(xmanW1, xSq6thPlusOneManW1)
-  val taylorEx = xex + taylorExInc
+    val xSq6thAligned      = xSq6thManW1 >> xSq6thShift
+    val xSq6thPlusOneManW1 = Cat(1.U(1.W), xSq6thAligned(manW-1, 0)) // assuming xSq6thAligned < 1
+    assert(xSq6thPlusOneManW1.getWidth == manW+1)
+  //   printf("cir: xSq6thAligned      = %b\n", xSq6thAligned     )
+  //   printf("cir: xSq6thPlusOneManW1 = %b\n", xSq6thPlusOneManW1)
 
-  val zTaylorEx  = Mux(isConstant, 0.U(exW.W),  taylorEx)
-  val zTaylorMan = Mux(isConstant, 0.U(manW.W), taylorManW1(manW-1, 0))
+    // in the postprocess, the result will be added/subtracted to pi/2.
+    val (taylorExInc, taylorManW1) = multiply(xmanW1, xSq6thPlusOneManW1)
+    val taylorEx = xex + taylorExInc
+
+    zTaylorEx  := Mux(isConstant, 0.U(exW.W),  taylorEx)
+    zTaylorMan := Mux(isConstant, 0.U(manW.W), taylorManW1(manW-1, 0))
+  }
 
 //   printf("cir: zTaylorEx    = %d\n", zTaylorEx )
 //   printf("cir: zTaylorManW1 = %b\n", Cat(1.U(1.W), zTaylorMan))

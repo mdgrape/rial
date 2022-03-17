@@ -232,7 +232,7 @@ class MathFunctions(
 
   val acosPre   = Module(new ACosPreProcess (spec, polySpec, stage.preStage))
   val acosTab   = Module(new ACosTableCoeff (spec, polySpec, maxCbit, /*taylor order = */ 3))
-  val acosOther = Module(new ACosOtherPath  (spec, polySpec, stage.calcStage))
+  val acosOther = Module(new ACosOtherPath  (spec, polySpec, stage.calcStage, /*taylor order = */ 3))
   val acosPost  = Module(new ACosPostProcess(spec, polySpec, stage.postStage))
 
   val acosPreUseSqrtPCGapReg = ShiftRegister(acosPre.io.useSqrt, pcGap)
