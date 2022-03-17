@@ -360,8 +360,8 @@ class ACosOtherPath(
 
   io.zother.zIsTaylor := ShiftRegister(isTaylor, nStage)
 
-  val zTaylorEx  = UInt(exW.W)
-  val zTaylorMan = UInt(manW.W)
+  val zTaylorEx  = Wire(UInt(exW.W))
+  val zTaylorMan = Wire(UInt(manW.W))
 
   if(taylorOrder < 3) {
     zTaylorEx  := Mux(isConstant, 0.U(exW.W),  io.x.ex)
