@@ -188,12 +188,13 @@ class ExpTableCoeff(
     val tbl = VecInit( (0L to (1L<<adrW)-1L).map(
       n => {
         val x = n.toDouble/(1L<<adrW)
-        val y = round((pow(2.0,x)-1.0)*(1L<<manW))
-        if (y>=(1L<<manW)) {
+        val y = round((pow(2.0,x)-1.0)*(1L<<fracW))
+        assert(y >= 0)
+        if (y>=(1L<<fracW)) {
           println("WARNING: mantissa reaches to 2")
-          maskL(manW).U(manW.W)
+          maskL(fracW).U(fracW.W)
         } else {
-          y.U(manW.W)
+          y.U(fracW.W)
         }
       }
     ) )
