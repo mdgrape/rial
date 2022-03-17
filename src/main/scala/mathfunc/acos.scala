@@ -650,3 +650,123 @@ class ACosPostProcess(
 
   io.z := ShiftRegister(z, nStage)
 }
+
+// -------------------------------------------------------------------------
+//                      _     _                _
+//   ___ ___  _ __ ___ | |__ (_)_ __   ___  __| |
+//  / __/ _ \| '_ ` _ \| '_ \| | '_ \ / _ \/ _` |
+// | (_| (_) | | | | | | |_) | | | | |  __/ (_| |
+//  \___\___/|_| |_| |_|_.__/|_|_| |_|\___|\__,_|
+// -------------------------------------------------------------------------
+
+class ACosGeneric(
+  val spec     : RealSpec,
+  val taylorOrder: Int,
+  val nOrder: Int, val adrW : Int, val extraBits : Int, // Polynomial spec
+  val stage    : MathFuncPipelineConfig,
+  val enableRangeCheck : Boolean = true,
+  val enablePolynomialRounding : Boolean = false,
+) extends Module {
+
+  val pcGap = if(stage.preCalcGap ) {1} else {0}
+  val cpGap = if(stage.calcPostGap) {1} else {0}
+
+  val nPreStage  = stage.preStage.total
+  val nCalcStage = stage.calcStage.total
+  val nPostStage = stage.postStage.total
+
+  val nStage   = stage.total
+  def getStage = nStage
+
+  val polySpec = new PolynomialSpec(spec, nOrder, adrW, extraBits,
+    enableRangeCheck, enablePolynomialRounding)
+  val order = polySpec.order
+
+  val exW    = spec.exW
+  val manW   = spec.manW
+  val exBias = spec.exBias
+
+  val sqrtCbits = SqrtTableCoeff.getCBits(spec, polySpec)
+  val sqrtCalcW = SqrtTableCoeff.getCalcW(spec, polySpec)
+  val acosCbits = ACosTableCoeff.getCBits(spec, polySpec, taylorOrder)
+  val acosCalcW = ACosTableCoeff.getCalcW(spec, polySpec, taylorOrder)
+
+  def getCbit  = Seq(sqrtCbits, acosCbits).reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
+  def getCalcW = Seq(sqrtCalcW, acosCalcW).reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
+
+  val cbits = getCbit
+  val calcW = getCalcW
+
+  val io = IO(new Bundle {
+    val en = Input(Bool())
+    val x = Input (UInt(spec.W.W))
+    val z = Output(UInt(spec.W.W))
+  })
+
+  // --------------------------------------------------------------------------
+
+  val xdecomp = Module(new DecomposeReal(spec))
+  xdecomp.io.real := io.x
+
+  val enPCReg    = ShiftRegister(io.en,      nPreStage)
+  val enPCGapReg = ShiftRegister(enPCReg,    pcGap)
+  val enCPReg    = ShiftRegister(enPCGapReg, nCalcStage)
+  val enCPGapReg = ShiftRegister(enCPReg,    cpGap)
+
+  val xdecPCReg    = ShiftRegister(xdecomp.io.decomp, nPreStage)
+  val xdecPCGapReg = ShiftRegister(xdecPCReg,         pcGap)
+  val xdecCPReg    = ShiftRegister(xdecPCGapReg,      nCalcStage)
+  val xdecCPGapReg = ShiftRegister(xdecCPReg,         cpGap)
+
+  // --------------------------------------------------------------------------
+
+  val acosPre   = Module(new ACosPreProcess (spec, polySpec, stage.preStage))
+  val acosTab   = Module(new ACosTableCoeff (spec, polySpec, cbits, taylorOrder))
+  val sqrtTab   = Module(new SqrtTableCoeff (spec, polySpec, cbits))
+  val acosOther = Module(new ACosOtherPath  (spec, polySpec, stage.calcStage, taylorOrder))
+  val acosPost  = Module(new ACosPostProcess(spec, polySpec, stage.postStage))
+
+  val acosPreUseSqrtPCGapReg = ShiftRegister(acosPre.io.useSqrt, pcGap)
+  val acosPreAdrPCGapReg     = ShiftRegister(acosPre.io.adr,     pcGap)
+
+  acosPre.io.en        := io.en
+  acosPre.io.x         := xdecomp.io.decomp
+  // ------ Preprocess-Calculate ------
+  acosTab.io.en        := io.en && (!acosPreUseSqrtPCGapReg)
+  acosTab.io.adr       := acosPreAdrPCGapReg
+  sqrtTab.io.en        := io.en || acosPreUseSqrtPCGapReg
+  sqrtTab.io.adr       := acosPreAdrPCGapReg
+  acosOther.io.x       := xdecPCGapReg
+  acosOther.io.useSqrt := acosPreUseSqrtPCGapReg
+  acosOther.io.yex     := ShiftRegister(acosPre.io.yex,  pcGap)
+  acosOther.io.yman    := ShiftRegister(acosPre.io.yman, pcGap)
+
+  // after preprocess
+  // XXX Since `PCReg`s are delayed by nPreStage, the timing is the same as acosPre output.
+  assert(acosPre.io.adr === 0.U               || enPCReg)
+  assert(acosPre.io.dx.getOrElse(0.U) === 0.U || enPCReg)
+
+  // table takes input from preprocess, so table output is delayed compared to acos input.
+  assert(acosTab.io.cs.asUInt === 0.U || (enPCGapReg && !acosPreUseSqrtPCGapReg))
+  assert(sqrtTab.io.cs.asUInt === 0.U || (enPCGapReg && !acosPreUseSqrtPCGapReg))
+
+  // --------------------------------------------------------------------------
+
+  val polynomialEval = Module(new PolynomialEval(spec, polySpec, cbits, stage.calcStage))
+
+  if(order != 0) {
+    polynomialEval.io.dx.get := ShiftRegister(acosPre.io.dx.get, pcGap)
+  }
+  polynomialEval.io.coeffs.cs := (acosTab.io.cs.cs.asUInt | sqrtTab.io.cs.cs.asUInt).
+    asTypeOf(new MixedVec(cbits.map{w => UInt(w.W)}))
+
+  val polynomialResultCPGapReg = ShiftRegister(polynomialEval.io.result, cpGap)
+
+  acosPost.io.en     := enCPGapReg
+  acosPost.io.zother := ShiftRegister(acosOther.io.zother, cpGap)
+  acosPost.io.zres   := polynomialResultCPGapReg
+
+  io.z := acosPost.io.z
+}
+
+
