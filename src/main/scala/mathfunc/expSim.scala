@@ -157,7 +157,7 @@ object MathFuncExpSim {
       zman
     }
 
-    val corrTermW   = 10 // XXX determined empirically
+    val corrTermW = min(10, 1+manW+padding) // XXX determined empirically
     val coefficient = new RealGeneric(x.spec, log(2.0))
     val xShiftedOut = slice(0, padding, xfrac)
     val zCorrectionCoef0 = (coefficient.manW1 * xShiftedOut)

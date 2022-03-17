@@ -307,7 +307,7 @@ class ExpOtherPath(
   val extraBits = polySpec.extraBits
   val padding = extraBits
 
-  val zCorrTmpW = 10 // XXX see pow2Sim
+  val zCorrTmpW = min(10, 1+manW+padding) // XXX see pow2Sim
 
   val io = IO(new Bundle {
     val x         = Flipped(new DecomposedRealOutput(spec))
@@ -405,7 +405,7 @@ class ExpPostProcess(
 
   val padding = extraBits
 
-  val zCorrTmpW = 10 // XXX see pow2Sim
+  val zCorrTmpW = min(10, 1+manW+padding) // XXX see pow2Sim
 
   val io = IO(new Bundle {
     val en = Input(UInt(1.W))
