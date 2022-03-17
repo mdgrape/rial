@@ -161,6 +161,8 @@ class ACosTableCoeff(
   val maxCbit  : Seq[Int], // max coeff width among all math funcs
 ) extends Module {
 
+  val taylorOrder = 3
+
   val manW   = spec.manW
   val adrW   = polySpec.adrW
   val fracW  = polySpec.fracW
@@ -176,7 +178,7 @@ class ACosTableCoeff(
   val exAdr = io.adr(exAdrW + adrW - 1, adrW)
   val adr   = io.adr(adrW - 1, 0)
 
-  val taylorThreshold = MathFuncACosSim.calcTaylorThreshold(manW)
+  val taylorThreshold = MathFuncACosSim.calcTaylorThreshold(manW, taylorOrder)
 
   if(order == 0) {
     val tbl = VecInit( (-1 to taylorThreshold.toInt by -1).map( exponent => {
@@ -193,12 +195,12 @@ class ACosTableCoeff(
 
   } else {
 
-    val cbit = MathFuncACosSim.acosTableGeneration( order, adrW, manW, fracW )
+    val cbit = MathFuncACosSim.acosTableGeneration( taylorOrder, order, adrW, manW, fracW )
       .map( t => {t.getCBitWidth(/*sign mode = */0)} )
       .reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
 
     val tableIs = VecInit(
-      MathFuncACosSim.acosTableGeneration( order, adrW, manW, fracW ).map(t => {
+      MathFuncACosSim.acosTableGeneration( taylorOrder, order, adrW, manW, fracW ).map(t => {
         t.getVectorWithWidth(cbit, /*sign mode = */ 0)
       })
     )
@@ -227,6 +229,8 @@ object ACosTableCoeff {
     polySpec: PolynomialSpec
   ): Seq[Int] = {
 
+    val taylorOrder = 3
+
     val order     = polySpec.order
     val adrW      = polySpec.adrW
     val extraBits = polySpec.extraBits
@@ -235,7 +239,7 @@ object ACosTableCoeff {
     if(order == 0) {
       return Seq(fracW)
     } else {
-      return MathFuncACosSim.acosTableGeneration( order, adrW, spec.manW, fracW ).
+      return MathFuncACosSim.acosTableGeneration( taylorOrder, order, adrW, spec.manW, fracW ).
         map( t => {t.getCBitWidth(/*sign mode = */0)} ).
         reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
     }
@@ -245,6 +249,8 @@ object ACosTableCoeff {
     polySpec: PolynomialSpec
   ): Seq[Int] = {
 
+    val taylorOrder = 3
+
     val order     = polySpec.order
     val adrW      = polySpec.adrW
     val extraBits = polySpec.extraBits
@@ -253,7 +259,7 @@ object ACosTableCoeff {
     if(order == 0) {
       return Seq(fracW)
     } else {
-      return MathFuncACosSim.acosTableGeneration( order, adrW, spec.manW, fracW ).
+      return MathFuncACosSim.acosTableGeneration( taylorOrder, order, adrW, spec.manW, fracW ).
         map( t => {t.calcWidth} ).
         reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
     }
@@ -350,7 +356,7 @@ class ACosOtherPath(
   // pi/2 - acos(x) = x + x^3/6 + O(x^5)
   //                = x(1 + x^2/6) if x << 1
 
-  val taylorThreshold = MathFuncACosSim.calcTaylorThreshold(manW)
+  val taylorThreshold = MathFuncACosSim.calcTaylorThreshold(manW, 3)
   val isTaylor        = io.x.ex < (exBias + taylorThreshold).U
   val isConstant      = io.x.ex < (exBias - manW).U
 
