@@ -159,9 +159,8 @@ class ACosTableCoeff(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val maxCbit  : Seq[Int], // max coeff width among all math funcs
+  val taylorOrder: Int,
 ) extends Module {
-
-  val taylorOrder = 3
 
   val manW   = spec.manW
   val adrW   = polySpec.adrW
@@ -226,10 +225,9 @@ class ACosTableCoeff(
 object ACosTableCoeff {
   def getCBits(
     spec:     RealSpec,
-    polySpec: PolynomialSpec
+    polySpec: PolynomialSpec,
+    taylorOrder: Int,
   ): Seq[Int] = {
-
-    val taylorOrder = 3
 
     val order     = polySpec.order
     val adrW      = polySpec.adrW
@@ -246,10 +244,9 @@ object ACosTableCoeff {
   }
   def getCalcW(
     spec:     RealSpec,
-    polySpec: PolynomialSpec
+    polySpec: PolynomialSpec,
+    taylorOrder: Int,
   ): Seq[Int] = {
-
-    val taylorOrder = 3
 
     val order     = polySpec.order
     val adrW      = polySpec.adrW
