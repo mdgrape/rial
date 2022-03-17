@@ -463,7 +463,7 @@ object MathFuncACosSim {
     // acos(x) = pi/2 - x - x^3/6 - 3x^5/40 - O(x^7)
     //         = pi/2 - x(1 + x^2/6 + 3x^4/40) + O(x^6))
     assert(0 < taylorOrder)
-    if(taylorOrder == 1) {
+    if(taylorOrder < 3) {
       // x^2/6 < 2^-manW
       // x^2/6 < x^2/4 <= 2^-manW
       // x^2   <= 2^-manW+2
