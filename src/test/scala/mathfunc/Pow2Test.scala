@@ -212,7 +212,7 @@ class MathFuncPow2Test extends AnyFlatSpec
 class Pow2OnlyTest extends AnyFlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
-  behavior of "Test exp"
+  behavior of "Test pow2"
 
   var n = 1000
 
@@ -246,7 +246,7 @@ class Pow2OnlyTest extends AnyFlatSpec
   ) = {
     val total = stage.total
     val pipeconfig = stage.getString
-    it should f"exp(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
+    it should f"pow2(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
       test( new ExpGeneric(true, spec, nOrder, adrW, extraBits, stage, false, false)).
         withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
         {
@@ -393,50 +393,72 @@ class Pow2OnlyTest extends AnyFlatSpec
     "Test Tiny Negative [-2^-7, 0]", generateRealWithin(-pow(2.0, -7), 0.0,_,_))
 
 
-//   val nOrderBF16 = 0
-//   val adrWBF16 = 7
-//   val extraBitsBF16 = 1
-// 
-//   val taylorThresholdBF16 = MathFuncExpSim.calcTaylorThreshold(RealSpec.BFloat16Spec)
-// 
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
-//     "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
-//    f"Test Small Table More Than 1 [1+2^-${taylorThresholdBF16}, 2]",   generateRealWithin(1.0+pow(2.0, -taylorThresholdBF16), 2.0,_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
-//    f"Test Taylor More Than 1 [1, 1+2^-${taylorThresholdBF16}]",   generateRealWithin(1.0, 1.0+pow(2.0, -taylorThresholdBF16),_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
-//    f"Test Taylor Less Than 1 [1-2^-${taylorThresholdBF16}, 1]",   generateRealWithin(1.0-pow(2.0, -taylorThresholdBF16), 1.0,_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
-//    f"Test Small Table Than 1 [0.5, 1-2^-${taylorThresholdBF16}]", generateRealWithin(0.5,1.0-pow(2.0, -taylorThresholdBF16),_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
-//     "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5-pow(2.0, -(RealSpec.BFloat16Spec.manW+1)),_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
-//     "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_),
-//     /*disableTimeout = */ true)
-// 
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
-//     "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
-//     "Test Small More Than 1 [1, 2]",   generateRealWithin(1.0, 2.0,_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
-//     "Test Small Less Than 1 [0.5, 1]", generateRealWithin(0.5,1.0,_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
-//     "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5-pow(2.0, -(RealSpec.BFloat16Spec.manW+1)),_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
-//     "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_),
-//     /*disableTimeout = */ true)
-// 
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
-//     "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
-//     "Test Small More Than 1 [1, 2]",   generateRealWithin(1.0, 2.0,_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
-//     "Test Small Less Than 1 [0.5, 1]", generateRealWithin(0.5,1.0,_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
-//     "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5-pow(2.0, -(RealSpec.BFloat16Spec.manW+1)),_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
-//     "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_),
-//     /*disableTimeout = */ true)
+  val nOrderBF16 = 0
+  val adrWBF16 = 7
+  val extraBitsBF16 = 1
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
+    "Test Safe Positive [1, 128]", generateRealWithin(1.0, 129.0,_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
+    "Test Safe Negative [-127, -1]", generateRealWithin(-129.0, -1.0,_,_))
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
+    "Test Large Positive [127, inf]", generateRealWithin(127.0, Double.PositiveInfinity,_,_), /*disableTimeout = */ true)
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
+    "Test Large Negative [-inf, -126]", generateRealWithin(Double.NegativeInfinity, -126.0,_,_), true)
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
+    "Test Small Positive [2^-7, 1]", generateRealWithin(pow(2.0, -7),1.0,_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
+    "Test Small Negative [-1, -2^-7]", generateRealWithin(-1.0, -pow(2.0, -7),_,_))
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
+    "Test Tiny Positive [0, 2^-7]", generateRealWithin(0.0, pow(2.0, -7),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
+    "Test Tiny Negative [-2^-7, 0]", generateRealWithin(-pow(2.0, -7), 0.0,_,_))
+
+
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
+    "Test Safe Positive [1, 128]", generateRealWithin(1.0, 129.0,_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
+    "Test Safe Negative [-127, -1]", generateRealWithin(-129.0, -1.0,_,_))
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
+    "Test Large Positive [127, inf]", generateRealWithin(127.0, Double.PositiveInfinity,_,_), /*disableTimeout = */ true)
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
+    "Test Large Negative [-inf, -126]", generateRealWithin(Double.NegativeInfinity, -126.0,_,_), true)
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
+    "Test Small Positive [2^-7, 1]", generateRealWithin(pow(2.0, -7),1.0,_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
+    "Test Small Negative [-1, -2^-7]", generateRealWithin(-1.0, -pow(2.0, -7),_,_))
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
+    "Test Tiny Positive [0, 2^-7]", generateRealWithin(0.0, pow(2.0, -7),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
+    "Test Tiny Negative [-2^-7, 0]", generateRealWithin(-pow(2.0, -7), 0.0,_,_))
+
+
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
+    "Test Safe Positive [1, 128]", generateRealWithin(1.0, 129.0,_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
+    "Test Safe Negative [-127, -1]", generateRealWithin(-129.0, -1.0,_,_))
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
+    "Test Large Positive [127, inf]", generateRealWithin(127.0, Double.PositiveInfinity,_,_), /*disableTimeout = */ true)
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
+    "Test Large Negative [-inf, -126]", generateRealWithin(Double.NegativeInfinity, -126.0,_,_), true)
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
+    "Test Small Positive [2^-7, 1]", generateRealWithin(pow(2.0, -7),1.0,_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
+    "Test Small Negative [-1, -2^-7]", generateRealWithin(-1.0, -pow(2.0, -7),_,_))
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
+    "Test Tiny Positive [0, 2^-7]", generateRealWithin(0.0, pow(2.0, -7),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
+    "Test Tiny Negative [-2^-7, 0]", generateRealWithin(-pow(2.0, -7), 0.0,_,_))
 }
 
