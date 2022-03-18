@@ -4,7 +4,9 @@ name := "rial"
 
 version := "0.1.0"
 
-scalaVersion := "2.13.7"
+val scala212 = "2.12.10" // chipyard 1.6
+val scala213 = "2.13.7"  // chisel 3.5
+crossScalaVersions := Seq(scala212, scala213)
 
 resolvers ++= Seq(
   Resolver.sonatypeRepo("snapshots"),
@@ -28,19 +30,24 @@ libraryDependencies ++= Seq(
   "net.java.dev.jna" % "jna" % "5.10.0",
   "net.java.dev.jna" % "jna-platform" % "5.10.0")
 
+libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value
+
+libraryDependencies ++= {
+  CrossVersion.partialVersion(scalaVersion.value) match {
+    case Some((major, minor)) => Seq(
+      "org.scalactic"  % f"scalactic_${major}.${minor}" % "3.1.+",
+      "org.scalatest"  % f"scalatest_${major}.${minor}" % "3.1.+" % "test"
+    )
+    case _ => Nil
+  }
+}
+
 // Scala-chart
 //libraryDependencies += "com.github.wookietreiber" %% "scala-chart" % "latest.integration"
 //libraryDependencies += "com.itextpdf" % "itextpdf" % "5.5.6"
 //libraryDependencies += "org.jfree" % "jfreesvg" % "3.0"
 // JFreeChart
 libraryDependencies += "org.jfree" % "jfreechart" % "1.5.0"
-
-// Scala-compiler
-libraryDependencies += "org.scala-lang" % "scala-compiler" % "2.13.7"
-
-// ScalaTest
-libraryDependencies += "org.scalactic" % "scalactic_2.13" % "3.1.4"
-libraryDependencies += "org.scalatest" % "scalatest_2.13" % "3.1.4" % "test"
 
 // https://mvnrepository.com/artifact/org.apache.commons/commons-math3
 libraryDependencies += "org.apache.commons" % "commons-math3" % "3.2"
