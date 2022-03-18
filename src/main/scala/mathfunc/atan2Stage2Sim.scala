@@ -43,7 +43,7 @@ object ATan2Stage2Sim {
     val fracW     = ts(0).bp
     val extraBits = fracW - manW
 
-//     println(f"x = ${x.sgn}|${x.ex}(${xex})|${xman.toLong.toBinaryString}")
+//     println(f"x = ${x.sgn}|${x.ex}(${x.ex-exBias})|${x.man.toLong.toBinaryString}")
 
     // ------------------------------------------------------------------------
     // check special values
@@ -66,6 +66,9 @@ object ATan2Stage2Sim {
     // ------------------------------------------------------------------------
     // atan table
     val linearThreshold = ATan2Sim.calcLinearThreshold(manW)
+
+//     println(f"sim: xex = ${x.ex}")
+//     println(f"sim: linearThreshold = ${linearThreshold}")
 
     val (atanEx, atanMan) = if(x.ex == 0) {
 //       println("atan2Stage2Sim: Less than zero-threshold")

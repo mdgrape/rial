@@ -42,8 +42,8 @@ object ATan2Stage1Sim {
     val xsgn   = x.sgn
     val ysgn   = y.sgn
 
-//     println(f"x = ${x.sgn}|${x.ex}(${xex})|${xman.toLong.toBinaryString}")
-//     println(f"y = ${y.sgn}|${y.ex}(${yex})|${yman.toLong.toBinaryString}")
+//     println(f"x = ${x.sgn}|${x.ex}(${x.ex-exBias})|${x.man.toLong.toBinaryString}")
+//     println(f"y = ${y.sgn}|${y.ex}(${y.ex-exBias})|${y.man.toLong.toBinaryString}")
 //     println(f"ATan2Stage1Sim: x = ${x.toDouble}, y = ${y.toDouble}, atan2(y, x) = ${atan2(y.toDouble, x.toDouble)}")
 
     val yIsLarger = slice(0, x.spec.W-1, x.value) < slice(0, x.spec.W-1, y.value)
@@ -64,8 +64,8 @@ object ATan2Stage1Sim {
     val zzero     = ((xinf && !yinf) || (!xzero &&  yzero)) && xpos
     val zpi       = ((xinf && !yinf) || (!xzero &&  yzero)) && xneg
     val zhalfpi   = (!xinf &&  yinf) || ( xzero && !yzero)
-    val z1piover4 =  (xinf &&  yinf) &&  xpos
-    val z3piover4 =  (xinf &&  yinf) &&  xneg
+    val z1piover4 =  (xinf &&  yinf  &&  xpos) || (x.ex == y.ex && x.man == y.man && xpos)
+    val z3piover4 =  (xinf &&  yinf  &&  xneg) || (x.ex == y.ex && x.man == y.man && xneg)
 
     val atan2Status       = (if(yIsLarger) {2+x.sgn} else {x.sgn})
     val atan2SpecialValue = if (znan)      { 1 }
@@ -107,7 +107,7 @@ object ATan2Stage1Sim {
     val zExInc = if(xySameMan || maxxyMan0) {1} else {0}
     val zEx0 = minxy.ex - maxxy.ex - 1 + zExInc + exBias
 
-//     println(f"sim: yOverXEx = ${yOverXEx.toLong.toBinaryString}")
+//     println(f"sim: zEx0 = ${zEx0.toLong.toBinaryString}")
 
     // ------------------------------------------------------------------------
     // atan2 stage1 postprocess (minxy * rec(maxxy))
@@ -130,9 +130,11 @@ object ATan2Stage1Sim {
     val zSgn = 0
     val zExRounded = zEx0 + zProdMoreThan2 + zProdMoreThan2AfterRound
 
+//     println(f"sim: zExRounded = ${zExRounded.toLong.toBinaryString}")
+
 //     val zEx0 = minxy.ex - maxxy.ex - 1 + exBias + zProdMoreThan2 + zProdMoreThan2AfterRound
     val zEx = if(xySameMan || maxxyMan0) {
-      zEx0 // no correction needed.
+      min(max(0, zEx0), maskI(exW)) // if maxxyMan0, then denomW1 == 1.
     } else if(zExRounded < 0) {
       0
     } else if((1<<exW) <= zExRounded) {
@@ -140,6 +142,7 @@ object ATan2Stage1Sim {
     } else {
       zExRounded
     }
+//     println(f"sim: zEx        = ${zEx.toLong.toBinaryString}")
 
     val zMan = if(zEx == 0 || xySameMan) {
       0L
