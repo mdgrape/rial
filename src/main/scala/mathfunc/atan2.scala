@@ -735,3 +735,199 @@ class ATan2Stage2PostProcess(
 
   io.z := ShiftRegister(z, nStage)
 }
+
+
+// -------------------------------------------------------------------------
+//                      _     _                _
+//   ___ ___  _ __ ___ | |__ (_)_ __   ___  __| |
+//  / __/ _ \| '_ ` _ \| '_ \| | '_ \ / _ \/ _` |
+// | (_| (_) | | | | | | |_) | | | | |  __/ (_| |
+//  \___\___/|_| |_| |_|_.__/|_|_| |_|\___|\__,_|
+// -------------------------------------------------------------------------
+
+class ATan2Generic(
+  val spec: RealSpec,
+  val nOrder: Int, val adrW : Int, val extraBits : Int, // Polynomial spec
+  val stage1: MathFuncPipelineConfig, // x/y stage config
+  val stage2: MathFuncPipelineConfig, // atan stagel config
+  val stageGap: Boolean,              // register between stage1 result to stage2
+  val enableRangeCheck: Boolean = true,
+  val enablePolynomialRounding: Boolean = false,
+) extends Module {
+
+  val pcGap1 = if(stage1.preCalcGap ) {1} else {0}
+  val cpGap1 = if(stage1.calcPostGap) {1} else {0}
+
+  val nPreStage1  = stage1.preStage.total
+  val nCalcStage1 = stage1.calcStage.total
+  val nPostStage1 = stage1.postStage.total
+
+  val pcGap2 = if(stage2.preCalcGap ) {1} else {0}
+  val cpGap2 = if(stage2.calcPostGap) {1} else {0}
+
+  val nPreStage2  = stage2.preStage.total
+  val nCalcStage2 = stage2.calcStage.total
+  val nPostStage2 = stage2.postStage.total
+
+  val sGap = if(stageGap) {1} else {0}
+
+  val nStage   = stage1.total + stage2.total
+  def getStage = nStage
+
+  val polySpec = new PolynomialSpec(spec, nOrder, adrW, extraBits,
+    enableRangeCheck, enablePolynomialRounding)
+  val order = polySpec.order
+
+  val exW    = spec.exW
+  val manW   = spec.manW
+  val exBias = spec.exBias
+
+  val recCbits  = ReciprocalTableCoeff.getCBits(spec, polySpec)
+  val recCalcW  = ReciprocalTableCoeff.getCalcW(spec, polySpec)
+  val atanCbits = ATan2Stage2TableCoeff.getCBits(spec, polySpec)
+  val atanCalcW = ATan2Stage2TableCoeff.getCalcW(spec, polySpec)
+
+  def getCbit  = Seq(recCbits, atanCbits).reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
+  def getCalcW = Seq(recCalcW, atanCalcW).reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
+
+  val maxCbits = getCbit
+  val maxCalcW = getCalcW
+
+  val io = IO(new Bundle {
+    val en = Input(Bool())
+    val x = Input (UInt(spec.W.W))
+    val y = Input (UInt(spec.W.W))
+    val z = Output(UInt(spec.W.W))
+  })
+
+  // --------------------------------------------------------------------------
+
+  val xdecomp = Module(new DecomposeReal(spec))
+  val ydecomp = Module(new DecomposeReal(spec))
+  xdecomp.io.real := io.x
+  ydecomp.io.real := io.y
+
+  val yIsLarger = io.x(spec.W-2, 0) < io.y(spec.W-2, 0) // cmp without sign bit
+
+  val yIsLargerPCReg    = ShiftRegister(yIsLarger, nPreStage1)
+  val yIsLargerPCGapReg = ShiftRegister(yIsLargerPCReg, pcGap1)
+  val yIsLargerCPReg    = ShiftRegister(yIsLargerPCGapReg, nCalcStage1)
+  val yIsLargerCPGapReg = ShiftRegister(yIsLargerCPReg, cpGap1)
+
+  val enPC1Reg    = ShiftRegister(io.en,       nPreStage1)
+  val enPC1GapReg = ShiftRegister(enPC1Reg,    pcGap1)
+  val enCP1Reg    = ShiftRegister(enPC1GapReg, nCalcStage1)
+  val enCP1GapReg = ShiftRegister(enCP1Reg,    cpGap1)
+
+  val xdecPCReg    = ShiftRegister(xdecomp.io.decomp, nPreStage1)
+  val xdecPCGapReg = ShiftRegister(xdecPCReg,         pcGap1)
+  val xdecCPReg    = ShiftRegister(xdecPCGapReg,      nCalcStage1)
+  val xdecCPGapReg = ShiftRegister(xdecCPReg,         cpGap1)
+
+  val ydecPCReg    = ShiftRegister(ydecomp.io.decomp, nPreStage1)
+  val ydecPCGapReg = ShiftRegister(ydecPCReg,         pcGap1)
+  val ydecCPReg    = ShiftRegister(ydecPCGapReg,      nCalcStage1)
+  val ydecCPGapReg = ShiftRegister(ydecCPReg,         cpGap1)
+
+  // --------------------------------------------------------------------------
+
+  val atan2Stage1Pre   = Module(new ATan2Stage1PreProcess (spec, polySpec, stage1.preStage))
+  val atan2Stage1Other = Module(new ATan2Stage1OtherPath  (spec, polySpec, stage1.calcStage))
+  val atan2Stage1Post  = Module(new ATan2Stage1PostProcess(spec, polySpec, stage1.postStage))
+  val recPre           = Module(new ReciprocalPreProcess(spec, polySpec, stage1.preStage))
+  val recTab           = Module(new ReciprocalTableCoeff(spec, polySpec, maxCbits))
+
+  // atan2Stage1Pre checks if x and y are special values.
+  // for calculation, reciprocal is re-used.
+  atan2Stage1Pre.io.en := io.en
+  atan2Stage1Pre.io.x  := xdecomp.io.decomp
+  atan2Stage1Pre.io.y  := ydecomp.io.decomp
+
+  recPre.io.en  := io.en
+  recPre.io.x   := Mux(yIsLarger, ydecomp.io.decomp, xdecomp.io.decomp)
+
+  // ------ Preprocess-Calculate ------
+  atan2Stage1Other.io.x  := xdecPCGapReg
+  atan2Stage1Other.io.y  := ydecPCGapReg
+  atan2Stage1Other.io.yIsLarger := yIsLargerPCGapReg
+  recTab.io.en  := enPC1GapReg
+  recTab.io.adr := ShiftRegister(recPre.io.adr, pcGap1)
+
+  val atan2FlagReg = Reg(new ATan2Flags())
+  // the timing is at the cycle when atan2Stage1Pre completes
+  when(enPC1Reg) {
+    atan2FlagReg.status  := Cat(yIsLargerPCReg, xdecPCReg.sgn)
+    atan2FlagReg.special := atan2Stage1Pre.io.special
+    atan2FlagReg.ysgn    := ydecPCReg.sgn
+  }
+
+  // --------------------------------------------------------------------------
+
+  val polynomialEval1 = Module(new PolynomialEval(spec, polySpec, maxCbits, stage1.calcStage))
+
+  if(order != 0) {
+    polynomialEval1.io.dx.get := ShiftRegister(recPre.io.dx.get, pcGap1)
+  }
+  polynomialEval1.io.coeffs.cs := recTab.io.cs.cs
+
+  val polynomialResult1CPGapReg = ShiftRegister(polynomialEval1.io.result, cpGap1)
+
+  atan2Stage1Post.io.en     := enCP1GapReg
+  atan2Stage1Post.io.zother := ShiftRegister(atan2Stage1Other.io.zother, cpGap1)
+  atan2Stage1Post.io.zres   := polynomialResult1CPGapReg
+  atan2Stage1Post.io.minxy  := Mux(yIsLargerCPGapReg, xdecCPGapReg, ydecCPGapReg)
+
+  val w = atan2Stage1Post.io.z
+
+  // ---------------------------------------------------------------------------
+
+  val wStage2Reg  = ShiftRegister(w, sGap)
+  val enStage2Reg = ShiftRegister(enCP1GapReg, nPostStage1 + sGap)
+
+  val enPC2Reg    = ShiftRegister(enStage2Reg, nPreStage2)
+  val enPC2GapReg = ShiftRegister(enPC2Reg,    pcGap2)
+  val enCP2Reg    = ShiftRegister(enPC2GapReg, nCalcStage2)
+  val enCP2GapReg = ShiftRegister(enCP2Reg,    cpGap2)
+
+  val wdecomp = Module(new DecomposeReal(spec))
+  wdecomp.io.real := wStage2Reg
+
+  val wdecPCReg    = ShiftRegister(wdecomp.io.decomp, nPreStage2)
+  val wdecPCGapReg = ShiftRegister(wdecPCReg,         pcGap2)
+  val wdecCPReg    = ShiftRegister(wdecPCGapReg,      nCalcStage2)
+  val wdecCPGapReg = ShiftRegister(wdecCPReg,         cpGap2)
+
+  val atan2Stage2Pre   = Module(new ATan2Stage2PreProcess (spec, polySpec, stage2.preStage))
+  val atan2Stage2Tab   = Module(new ATan2Stage2TableCoeff (spec, polySpec, maxCbits))
+  val atan2Stage2Other = Module(new ATan2Stage2OtherPath  (spec, polySpec, stage2.calcStage))
+  val atan2Stage2Post  = Module(new ATan2Stage2PostProcess(spec, polySpec, stage2.postStage))
+
+  atan2Stage2Pre.io.en  := enStage2Reg
+  atan2Stage2Pre.io.x   := wdecomp.io.decomp
+  // ------ Preprocess-Calculate ------
+  atan2Stage2Tab.io.en  := enPC2GapReg
+  atan2Stage2Tab.io.adr := ShiftRegister(atan2Stage2Pre.io.adr, pcGap2)
+  atan2Stage2Other.io.x := wdecPCGapReg
+
+  atan2Stage2Other.io.flags := ShiftRegister(atan2FlagReg, nCalcStage1 + cpGap1 + nPostStage1 + sGap + nPreStage2)
+  atan2Stage2Post.io.flags  := ShiftRegister(atan2FlagReg, nCalcStage1 + cpGap1 + nPostStage1 + sGap + nPreStage2)
+
+  assert(atan2Stage2Pre.io.adr === 0.U               || enPC2Reg)
+  assert(atan2Stage2Pre.io.dx.getOrElse(0.U) === 0.U || enPC2Reg)
+  assert(atan2Stage2Tab.io.cs.asUInt === 0.U         || enPC2GapReg)
+
+  val polynomialEval2 = Module(new PolynomialEval(spec, polySpec, maxCbits, stage2.calcStage))
+
+  if(order != 0) {
+    polynomialEval2.io.dx.get := ShiftRegister(atan2Stage2Pre.io.dx.get, pcGap2)
+  }
+  polynomialEval2.io.coeffs.cs := atan2Stage2Tab.io.cs.cs
+
+  val polynomialResult2CPGapReg = ShiftRegister(polynomialEval2.io.result, cpGap2)
+
+  atan2Stage2Post.io.en     := enCP2GapReg
+  atan2Stage2Post.io.zother := ShiftRegister(atan2Stage2Other.io.zother, cpGap2)
+  atan2Stage2Post.io.zres   := polynomialResult2CPGapReg
+
+  io.z := atan2Stage2Post.io.z
+}
