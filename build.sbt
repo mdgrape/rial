@@ -4,9 +4,7 @@ name := "rial"
 
 version := "0.1.0"
 
-val scala212 = "2.12.10" // chipyard 1.6
-val scala213 = "2.13.7"  // chisel 3.5
-crossScalaVersions := Seq(scala212, scala213)
+scalaVersion := "2.12.10" // chipyard 1.6
 
 resolvers ++= Seq(
   Resolver.sonatypeRepo("snapshots"),
