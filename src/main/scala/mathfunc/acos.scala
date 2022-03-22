@@ -194,12 +194,12 @@ class ACosTableCoeff(
 
   } else {
 
-    val cbit = MathFuncACosSim.acosTableGeneration( taylorOrder, order, adrW, manW, fracW )
+    val cbit = MathFuncACosSim.acosTableGeneration( spec, order, adrW, manW, fracW )
       .map( t => {t.getCBitWidth(/*sign mode = */0)} )
       .reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
 
     val tableIs = VecInit(
-      MathFuncACosSim.acosTableGeneration( taylorOrder, order, adrW, manW, fracW ).map(t => {
+      MathFuncACosSim.acosTableGeneration( spec, order, adrW, manW, fracW ).map(t => {
         t.getVectorWithWidth(cbit, /*sign mode = */ 0)
       })
     )
@@ -237,7 +237,7 @@ object ACosTableCoeff {
     if(order == 0) {
       return Seq(fracW)
     } else {
-      return MathFuncACosSim.acosTableGeneration( taylorOrder, order, adrW, spec.manW, fracW ).
+      return MathFuncACosSim.acosTableGeneration( spec, order, adrW, spec.manW, fracW ).
         map( t => {t.getCBitWidth(/*sign mode = */0)} ).
         reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
     }
@@ -256,7 +256,7 @@ object ACosTableCoeff {
     if(order == 0) {
       return Seq(fracW)
     } else {
-      return MathFuncACosSim.acosTableGeneration( taylorOrder, order, adrW, spec.manW, fracW ).
+      return MathFuncACosSim.acosTableGeneration( spec, order, adrW, spec.manW, fracW ).
         map( t => {t.calcWidth} ).
         reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
     }
@@ -275,15 +275,15 @@ object ACosTableCoeff {
 // for x close to 0, use Taylor series:
 //   pi/2 - acos(x) = x + x^3/6 + 3x^5/40 + O(x^7)
 //                    ^^^^^^^^^
-//                    this part will be calculated
+//                    this part is used
 //
 // for x close to 1, use Puiseux series:
 //   acos(1-x) = sqrt(2x) * (1 + x/12 + 3x^2/160 + 5x^3/896 + O(x^4))
 //                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-//                           this part will be calculated
+//                           this part is used
 //
 // for |x| > 1, set IsPuiseux = true and returns zero. In the postprocess,
-// the result of Puiseux will be subtracted from Pi if the
+// the result of Puiseux will be subtracted from Pi if x.sgn == 1.
 //
 
 class ACosNonTableOutput(val spec: RealSpec) extends Bundle {
@@ -372,16 +372,9 @@ class ACosOtherPath(
     val xmanW1 = Cat(1.U(1.W), io.x.man)
     val (xSqExInc, xSqManW1) = multiply(xmanW1, xmanW1)
 
-  //   printf("cir: xex    = %d\n", xex   )
-  //   printf("cir: xmanW1 = %b\n", xmanW1)
-  //   printf("cir: xsqEx    = %d\n", xex + xex - exBias.U + xSqExInc   )
-  //   printf("cir: xsqManW1 = %b\n", xSqManW1)
-
     val c1over6Ex    = (exBias-3).U(exW.W)
     val c1over6ManW1 = math.round(1.0/6.0 * (1L<<(manW+3))).U((manW+1).W)
     val (xSq6thExInc, xSq6thManW1) = multiply(xSqManW1, c1over6ManW1)
-  //   printf("cir: xsq6thEx    = %d\n", xex + xex - exBias.U + xSqExInc - 3.U + xSq6thExInc)
-  //   printf("cir: xsq6thManW1 = %b\n", xSq6thManW1)
 
     val xSq6thEx    = Cat(xex, 0.U(1.W)) - (3 + exBias).U((exW+1).W) + xSqExInc + xSq6thExInc
     val xSq6thShiftVal = (exBias.U - xSq6thEx)
@@ -392,8 +385,6 @@ class ACosOtherPath(
     val xSq6thAligned      = xSq6thManW1 >> xSq6thShift
     val xSq6thPlusOneManW1 = Cat(1.U(1.W), xSq6thAligned(manW-1, 0)) // assuming xSq6thAligned < 1
     assert(xSq6thPlusOneManW1.getWidth == manW+1)
-  //   printf("cir: xSq6thAligned      = %b\n", xSq6thAligned     )
-  //   printf("cir: xSq6thPlusOneManW1 = %b\n", xSq6thPlusOneManW1)
 
     // in the postprocess, the result will be added/subtracted to pi/2.
     val (taylorExInc, taylorManW1) = multiply(xmanW1, xSq6thPlusOneManW1)
@@ -402,9 +393,6 @@ class ACosOtherPath(
     zTaylorEx  := Mux(isConstant, 0.U(exW.W),  taylorEx)
     zTaylorMan := Mux(isConstant, 0.U(manW.W), taylorManW1(manW-1, 0))
   }
-
-//   printf("cir: zTaylorEx    = %d\n", zTaylorEx )
-//   printf("cir: zTaylorManW1 = %b\n", Cat(1.U(1.W), zTaylorMan))
 
   // --------------------------------------------------------------------------
   // Puiseux
@@ -417,8 +405,6 @@ class ACosOtherPath(
 
   val yex    = io.yex
   val ymanW1 = Cat(1.U(1.W), io.yman)
-//   printf("cir: yex    = %d\n", yex   )
-//   printf("cir: ymanW1 = %b\n", ymanW1)
 
   // ----------------------------------------------------------------------
   // 2^-5 * 3/5 y^2
@@ -428,8 +414,6 @@ class ACosOtherPath(
   val (ySqExInc, ySqManW1) = multiply(ymanW1, ymanW1)
   val (ySq3over5ExInc, ySq3over5ManW1) = multiply(ySqManW1, c3over5)
   val ySq3over5Ex = yex +& yex - (exBias+1).U + ySqExInc + ySq3over5ExInc
-//   printf("cir: ySq3over5Ex    = %d\n", ySq3over5Ex   )
-//   printf("cir: ySq3over5ManW1 = %b\n", ySq3over5ManW1)
 
   // ----------------------------------------------------------------------
   // 1 + 25/21 * 2^-2 * y
@@ -475,11 +459,6 @@ class ACosOtherPath(
   val firstTermAligned  = yOver3ManW1     >> ((exBias+2-1).U - yOver3Ex)
   val secondTermAligned = secondTermManW1 >> ((exBias+5-1).U - secondTermEx)
 
-//   printf("cir:  firstTermAligned = %b\n", firstTermAligned ( firstTermAligned.getWidth-1, 1))
-//   printf("cir: secondTermAligned = %b\n", secondTermAligned(secondTermAligned.getWidth-1, 1))
-//   printf("cir:  firstTermRounded = %b\n", firstTermAligned (0))
-//   printf("cir: secondTermRounded = %b\n", secondTermAligned(0))
-
   // here we don't add 1<<manW because it will be omitted.
   val puiseuxMan = firstTermAligned( firstTermAligned.getWidth-1, 1) +  firstTermAligned(0) +
                   secondTermAligned(secondTermAligned.getWidth-1, 1) + secondTermAligned(0)
@@ -490,7 +469,6 @@ class ACosOtherPath(
   //      y < 2^-4, so yex < exBias-1.
   val sqrt2yExNobiasNeg = ((yex.zext - (exBias - 1).S) >> 1)(exW-1, 0)
   val puiseuxEx         = sqrt2yExNobiasNeg + exBias.U(exW.W)
-//   printf("cir: sqrt2yExNobiasNeg = %d\n", sqrt2yExNobiasNeg)
 
   assert(puiseuxMan.getWidth == manW)
 
@@ -499,22 +477,11 @@ class ACosOtherPath(
   val zPuiseuxEx  = Mux(xMoreThan1, 0.U, puiseuxEx)
   val zPuiseuxMan = Mux(xMoreThan1, 0.U, puiseuxMan)
 
-//   printf("cir: zPuiseuxEx  = %d\n", zPuiseuxEx )
-//   printf("cir: zPuiseuxMan = %b\n", zPuiseuxMan)
-
-  // sim: puiseuxTermManW1 = 100000000011100110011100
-  // cir: zPuiseuxEx  =  1111101 = 127 - 2
-  // cir: zPuiseuxMan =          11100101010110
-  //
-
   // --------------------------------------------------------------------------
   // select Taylor/Puiseux
 
   val zex  = Mux(isTaylor, zTaylorEx,  zPuiseuxEx)
   val zman = Mux(isTaylor, zTaylorMan, zPuiseuxMan)
-
-//   printf("cir: zother.zex  = %d\n", zex )
-//   printf("cir: zother.zman = %b\n", zman)
 
   io.zother.zman := ShiftRegister(zman, nStage)
   io.zother.zex  := ShiftRegister(zex,  nStage)

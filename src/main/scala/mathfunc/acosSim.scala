@@ -77,13 +77,16 @@ object MathFuncACosSim {
   // So if 1-2^-4 < x, that means that x.man(22,20).andR === 1, use Puiseux series.
   //
   def acosSimGeneric(taylorOrder: Int,
-      ts: Seq[FuncTableInt], tSqrt: FuncTableInt, x: RealGeneric
+      tACos: Seq[FuncTableInt], tSqrt: FuncTableInt, x: RealGeneric
     ) : RealGeneric = {
 
     val spec   = x.spec
     val exW    = spec.exW
     val manW   = spec.manW
     val exBias = spec.exBias
+
+    val extraBits = tACos(0).bp - manW
+    assert(extraBits == tSqrt.bp - manW)
 
 //     println(f"x = ${x.sgn}|${x.ex}(${ex})|${man.toLong.toBinaryString}")
 //     println(f"x = ${x.toDouble}, acos(x) = ${acos(x.toDouble)}")
@@ -110,105 +113,11 @@ object MathFuncACosSim {
     // ------------------------------------------------------------------------
     // now, ex < 0.
 
-    val constThreshold  = -manW                        // -23, if FP32
-    val taylorThreshold = calcTaylorThreshold(manW, taylorOrder) // 4, if FP32
+    assert(x.ex < exBias)
 
-//     println(f"constant threshold = ${constThreshold}")
-//     println(f"Taylor   threshold = ${taylorThreshold}")
+    val puiseuxThreshold = calcPuiseuxThreshold(manW, extraBits, 0)
 
-    if ((x.ex - exBias) < constThreshold) {
-
-      // here the x has no effect because |x| << 1.
-      return new RealGeneric(spec, Pi * 0.5)
-
-    } else if ((x.ex - exBias) < taylorThreshold) {
-
-      // for small x, pi/2 - acos(x) = x + x^3/6 + O(x^5)
-      //                             = x(1 + x^2/6)
-
-      val (taylorExNobias, taylorManW1) = if(taylorOrder < 3) {
-        ((x.ex - exBias).toInt, x.manW1.toLong)
-      } else {
-        assert(taylorOrder < 5)
-        val xexNobias = x.ex - exBias
-        val xmanW1    = x.manW1.toLong
-        val (xSqExNobias, xSqManW1) =
-          MathFuncACosSim.multiply(spec, xexNobias, xmanW1, xexNobias, xmanW1)
-//         println(f"sim: xSqEx    = ${xSqExNobias + exBias }")
-//         println(f"sim: xSqManW1 = ${xSqManW1.toLong.toBinaryString}")
-
-        val c1over6ExNobias  = -3
-        val c1over6ManW1     = math.round(1.0/6.0 * (1<<(manW+(-c1over6ExNobias))))
-
-        val (xSq6thExNobias, xSq6thManW1) =
-          MathFuncACosSim.multiply(spec, xSqExNobias, xSqManW1, c1over6ExNobias, c1over6ManW1)
-
-//         println(f"sim: xSq6thEx    = ${xSq6thExNobias + exBias }")
-//         println(f"sim: xSq6thManW1 = ${xSq6thManW1.toLong.toBinaryString}")
-
-        assert(xSq6thExNobias < 0)
-
-        val xSq6thAligned  = xSq6thManW1 >> (-xSq6thExNobias)
-        val xSq6thPlusOneExNobias = 0
-        val xSq6thPlusOneManW1    = xSq6thAligned + (1<<manW)
-
-//         println(f"sim: xSq6thAligned      = ${xSq6thAligned     .toLong.toBinaryString}%24s")
-//         println(f"sim: xSq6thPlusOneManW1 = ${xSq6thPlusOneManW1.toLong.toBinaryString}%24s")
-
-        MathFuncACosSim.multiply(spec, xexNobias, xmanW1, xSq6thPlusOneExNobias, xSq6thPlusOneManW1)
-      }
-      assert(taylorExNobias < 0)
-
-//       println(f"sim: taylorTermEx    = ${taylorExNobias + exBias }")
-//       println(f"sim: taylorTermManW1 = ${taylorManW1.toLong.toBinaryString}")
-
-      // ----------------------------------------------------------------------
-      // check x.sgn and calculate acos(x) from pi/2 - acos(x)
-      //
-      // In the corresponding circuit, this part is shared with polynomial that
-      // approximates the same formula. Since the precision of polynomial is
-      // `extraBits`-bits larger, we need to extend taylor result to avoid
-      // rounding error while comparison.
-      // The result of taylor expansion is (currently) rounded to `manW`. It is
-      // possible to extend the result of Taylor and Puiseux series expansion to
-      // fracW. But, to gain the expected precision (<2ULPs), `manW` precision
-      // for Taylor and Puiseux series is enough. Normally, the result of those
-      // series expansion has small exponent < 0, it might be possible to reduce
-      // the precision less than `manW`. But for clarity, we don't do that
-      // unless the area and wiring becomes a problem.
-
-      val fracW = ts(0).bp
-      val extraBits = fracW - manW
-
-      val halfPiExNobias = 0
-      val halfPiManW1    = math.round(Pi * 0.5 * (1<<fracW)).toLong
-      assert(bit(fracW, halfPiManW1) == 1)
-
-      val taylorAligned  = (taylorManW1 << (fracW - manW)) >> (-taylorExNobias)
-      assert(taylorAligned < halfPiManW1)
-//       println(f"sim: halfPiManW1    = ${halfPiManW1.toBinaryString}%24s")
-//       println(f"sim: taylorAligned  = ${taylorAligned.toLong.toBinaryString}%24s")
-
-      // Let's say we have FP32. For small x < 2^-4,
-      //   pi/2 - acos(x) ~ x + x^3/6 < 2^-4 * (1 + 2^-8 / 6) < 2^-3
-      //   1 + 2^-3 = 1.125 < pi/2 ~ 1.5707963 < 2 - 2^-3 = 1.875.
-      // we don't need any check. exponent never change.
-      val taylorSum = if(x.sgn == 1) {
-        halfPiManW1 + taylorAligned
-      } else {
-        halfPiManW1 - taylorAligned
-      }
-
-      val taylorRounded = (taylorSum >> extraBits) + bit(extraBits-1, taylorSum)
-
-      val taylorEx  = halfPiExNobias + exBias
-      val taylorMan = slice(0, manW, taylorRounded)
-//       println(f"sim: taylorEx  = ${taylorEx}")
-//       println(f"sim: taylorMan = ${taylorMan.toLong.toBinaryString}")
-
-      return new RealGeneric(spec, zSgn, taylorEx, taylorMan)
-
-    } else if(x.ex == exBias-1 && slice(manW-3, 3, x.man) == 7) {
+    if(x.ex == exBias-1 && slice(manW-3, 3, x.man) == 7) {
 //       println(f"use Puiseux series: |x| = ${x.toDouble.abs}, y = ${1.0 - x.toDouble.abs}")
 
       // for x close to 1, use puiseux series:
@@ -361,25 +270,22 @@ object MathFuncACosSim {
         return new RealGeneric(spec, zSgn, puiseuxEx, puiseuxMan)
       }
 
-    } else {
+    } else if (x.ex <= exBias - 2) {
+//       println("xex < -1. x is in [0.0, 0.5). use acos small x table")
 
-//       println(f"taylorThreshold < x. use table.")
+      val xmanW1 = x.manW1
+      val dex = exBias - 2 - x.ex + 1
+      val xAligned = xmanW1 >> dex
 
-      val sgn    = x.sgn
-      val exRaw  = x.ex
-      val ex     = exRaw-exBias
-      val man    = x.man
+//       println(f"x        = ${x.sgn}|${x.ex}(${x.ex-exBias})|${x.man.toLong.toBinaryString}(${x.toDouble})")
+//       println(f"xmanW1   = ${xmanW1.toLong.toBinaryString} (${xmanW1.toDouble / (1<<manW)})")
+//       println(f"xAligned = ${xAligned.toLong.toBinaryString} (${xAligned.toDouble / (1<<manW)})")
 
-      // ex = -1 -> idx = 0,
-      // ex = -2 -> idx = 1,
-      val exAdr = -ex-1
-      val t = ts(exAdr)
+      val t = tACos(0)
 
       val adrW      = t.adrW
       val nOrder    = t.nOrder
-      val bp        = t.bp
-      val extraBits = bp - manW
-      val fracW     = manW + extraBits
+      val fracW     = t.bp
 
       val order =
         if (adrW>=manW) {
@@ -391,49 +297,129 @@ object MathFuncACosSim {
         }
 
       val (zEx, zMan) = if (order == 0) {
-        val adr   = man.toInt
+        val adr   = xAligned.toInt
 
-        if (sgn == 1) {
-          val piFixed = (math.round(Pi * (1<<fracW))).toLong
-          val res0    = piFixed - t.interval(adr).eval(0L, 0)
-          // res0 range is [1.57, 3.14]. exponent should be 0 or 1
+        (0, 0L)
 
-          val shift = bit(fracW+1, res0) // if res0 > 2, shift right by 1
-          val resShifted = res0 >> shift
-          val res = resShifted - (1<<fracW)
-
-//           println(f"sim: x          = ${x.toDouble}")
-//           println(f"sim: acos(x)    = ${acos(x.toDouble)}")
-//           println(f"sim: acos(x)<<W = ${math.round(acos(x.toDouble) * (1<<fracW)).toLong}")
-//           println(f"sim: piFixed    = ${piFixed.toLong.toBinaryString}")
-//           println(f"sim: res0       = ${res0.toLong.toBinaryString}")
-//           println(f"sim: shift      = ${shift}")
-//           println(f"sim: resShifted = ${resShifted.toLong.toBinaryString}")
-
-          (shift.toInt, res)
-        } else {
-          val res0  = t.interval(adr).eval(0L, 0)
-          val shift      = fracW+1 - res0.toLong.toBinaryString.length
-          val resShifted = if(shift > 0) {res0 << shift} else {res0}
-          val res = resShifted - (1<<fracW)
-
-          (-shift.toInt, res)
-        }
+//         if (sgn == 1) {
+//           val halfpiFixed = (math.round(Pi * 0.5 * (1<<fracW))).toLong
+//           val res0    = halfpiFixed + t.interval(adr).eval(0L, 0)
+//           // res0 range is [1.57, 3.14]. exponent should be 0 or 1
+// 
+//           val shift = bit(fracW+1, res0) // if res0 > 2, shift right by 1
+//           val resShifted = res0 >> shift
+//           val res = resShifted - (1<<fracW)
+// 
+//           (shift.toInt, res)
+//         } else {
+//           val res0       = t.interval(adr).eval(0L, 0)
+//           val shift      = fracW+1 - res0.toLong.toBinaryString.length
+//           val resShifted = if(shift > 0) {res0 << shift} else {res0}
+//           val res = resShifted - (1<<fracW)
+// 
+//           (-shift.toInt, res)
+//         }
 
       } else { // non-zero order
 
         val dxbp = manW - adrW - 1
-        val d    = slice(0, dxbp+1, man) - (SafeLong(1)<<dxbp)
-        val adr  = slice(dxbp+1, adrW, man).toInt
+        val d    = slice(0, dxbp+1, xAligned) - (SafeLong(1)<<dxbp)
+        val adr  = slice(dxbp+1, adrW, xAligned).toInt
+
+        // pi/2 - acos(x)
+        val polynomial = t.interval(adr).eval(d.toLong, dxbp)
+        assert(0 <= polynomial && polynomial < (1<<fracW))
+
+        val halfPiFixed = math.round(Pi * 0.5 * (1<<fracW))
+
+        val res  = if (x.sgn == 1) {
+          halfPiFixed + polynomial
+        } else {
+          halfPiFixed - polynomial
+        }
+        val shift = fracW+2 - res.toLong.toBinaryString.length
+        val resShifted = ((res << shift).toLong) >> 1
+
+        assert(resShifted > (1<<fracW))
+
+        ((-shift+1).toInt, resShifted - (1L << fracW))
+      }
+
+      val zmanRound = if (extraBits>0) {
+        (zMan >> extraBits) + bit(extraBits-1, zMan)
+      } else {zMan}
+
+      val zmanMoreThan2AfterRound = bit(manW, zmanRound)
+      val zman = slice(0, manW, zmanRound)
+      val zex  = zEx + zmanMoreThan2AfterRound + exBias
+//       println(f"Sim: zman = ${z.toBinaryString}")
+
+      return new RealGeneric(x.spec, zSgn, zex.toInt, SafeLong(zman))
+
+    } else {
+//       println("x is in [0.5, 1.0-2^puiseuxThreshold]. use acos large x table.")
+
+      val t = tACos(1)
+
+      val adrW      = t.adrW
+      val nOrder    = t.nOrder
+      val fracW     = t.bp
+
+      val order =
+        if (adrW>=manW) {
+          if (nOrder != 0)
+            println("WARNING: table address width >= mantissa width, but polynomial order is not zero. Polynomial order is set to zero.")
+          0
+        } else {
+          nOrder
+        }
+
+      val (zEx, zMan) = if (order == 0) {
+        // TODO
+        (0, 0L)
+//         val adr   = man.toInt
+// 
+//         if (sgn == 1) {
+//           val piFixed = (math.round(Pi * (1<<fracW))).toLong
+//           val res0    = piFixed - t.interval(adr).eval(0L, 0)
+//           // res0 range is [1.57, 3.14]. exponent should be 0 or 1
+// 
+//           val shift = bit(fracW+1, res0) // if res0 > 2, shift right by 1
+//           val resShifted = res0 >> shift
+//           val res = resShifted - (1<<fracW)
+// 
+// //           println(f"sim: x          = ${x.toDouble}")
+// //           println(f"sim: acos(x)    = ${acos(x.toDouble)}")
+// //           println(f"sim: acos(x)<<W = ${math.round(acos(x.toDouble) * (1<<fracW)).toLong}")
+// //           println(f"sim: piFixed    = ${piFixed.toLong.toBinaryString}")
+// //           println(f"sim: res0       = ${res0.toLong.toBinaryString}")
+// //           println(f"sim: shift      = ${shift}")
+// //           println(f"sim: resShifted = ${resShifted.toLong.toBinaryString}")
+// 
+//           (shift.toInt, res)
+//         } else {
+//           val res0  = t.interval(adr).eval(0L, 0)
+//           val shift      = fracW+1 - res0.toLong.toBinaryString.length
+//           val resShifted = if(shift > 0) {res0 << shift} else {res0}
+//           val res = resShifted - (1<<fracW)
+// 
+//           (-shift.toInt, res)
+//         }
+
+      } else { // non-zero order
+
+        val dxbp = manW - adrW - 1
+        val d    = slice(0, dxbp+1, x.man) - (SafeLong(1)<<dxbp)
+        val adr  = slice(dxbp+1, adrW, x.man).toInt
 
         val halfPiFixed = math.round(Pi * 0.5 * (1<<fracW))
 
         // pi/2 - acos(x)
         val polynomial = t.interval(adr).eval(d.toLong, dxbp)
-        assert(0 <= polynomial && polynomial < (1<<(fracW+1)))
+        assert(0 <= polynomial && polynomial < (1<<fracW), f"polynomial = ${polynomial}, 1<<fracW = ${1<<fracW}")
 
         val res0 = polynomial << 1
-        val res  = if (sgn == 1) {
+        val res  = if (x.sgn == 1) {
           halfPiFixed + res0
         } else {
           halfPiFixed - res0
@@ -483,13 +469,40 @@ object MathFuncACosSim {
     }
   }
 
-  // number of tables depending on the exponent and taylorThreshold
   def calcExAdrW(spec: RealSpec): Int = {
-    val taylorThreshold = calcTaylorThreshold(spec.manW, 3)
-    val acosRequirements = log2Up(abs(taylorThreshold)+1)
-    val sqrtRequirements = 1 // does not depends on the spec width
+    return 1
+  }
 
-    return max(sqrtRequirements, acosRequirements)
+  // The puiseux series should fill the gap between acos(1-x) to acos(1) where
+  // the corresponding table cannot calculate with sufficient precision.
+  // The table for x in [0.5, 1) can calculate acos(x) with manW + extraBits-1
+  // bits. The reason why the bit precision is subtracted by 1 because
+  // acos(0.5) > 1 so the resulting value is divided by 2. So, if the table
+  // result becomes less than 2^-(extraBits-1), then the precision becomes
+  // insufficient.
+  //                                                    prec
+  // cos(1.0)  = 0.54030.. <=> acos(0.54030..) = 1.0    manW + extraBits - 1
+  // cos(0.5)  = 0.87758.. <=> acos(0.87758..) = 0.5    manW + extraBits - 2
+  // cos(0.25) = 0.96891.. <=> acos(0.96891..) = 0.25   manW + extraBits - 3
+  //
+  // and
+  //
+  // 1 - 1/2^1 = 0.1_(2)     = 0.5      < 0.54030.. = cos(1.0)
+  // 1 - 1/2^3 = 0.111_(2)   = 0.875    < 0.87758.. = cos(0.5)
+  // 1 - 1/2^5 = 0.11111_(2) = 0.96875  < 0.96891.. = cos(0.25)
+  //
+  // So, if
+  //   extraBits == 3, table can fill [0.5, 0.96891..).
+  //   extraBits == 2, table can fill [0.5, 0.87758..).
+  //   extraBits == 1, table can fill [0.5, 0.54030..).
+  //   extraBits == 0, table can not fill anywhere with precision >= manW.
+  // generally,
+  //   extraBits == n, table can fill [0.5, cos 2^-(n-1) ).
+  //
+  def calcPuiseuxThreshold(manW: Int, extraBits: Int, tolerance: Int = 0): Int = {
+    val log2 = (a:Double) => {log(a) / log(2.0)}
+    val threshold = 1.0 - cos(pow(2.0, -(extraBits - 1 + tolerance)))
+    math.ceil(log2(threshold)).toInt
   }
 
   def sqrtTableGeneration( order: Int, adrW: Int, manW: Int, fracW: Int,
@@ -500,16 +513,30 @@ object MathFuncACosSim {
       order, adrW, manW, fracW, calcWidthSetting, cbitSetting)
   }
 
-  def acosTableGeneration(taylorOrder: Int,
+  def acosTableGeneration(spec: RealSpec,
       order : Int, adrW : Int, manW : Int, fracW : Int,
       calcWidthSetting: Option[Seq[Int]] = None,
       cbitSetting: Option[Seq[Int]] = None
     ) = {
-    val taylorThreshold = calcTaylorThreshold(manW, taylorOrder)
+
+    assert(spec.manW == manW)
+    val puiseuxThreshold = calcPuiseuxThreshold(manW, fracW-manW, 0)
 
     if (order == 0 || adrW >= manW) {
-      val maxCalcWidth = (-1 to taylorThreshold by -1).map(i => {
-        val tableD = new FuncTableDouble( x => acos(scalb(1.0 + x, i)), 0)
+      // 0 ~ 0.5 (ex <= -2)
+      val f = (x: Double) => {
+        // acos(0) = pi/2, acos(0.5) = 1.047.. > 1
+        // pi/2-acos(0) = 0, pi/2 - acos(0.5) = 0.5.. > 0.5
+        math.Pi * 0.5 - acos(x)
+      }
+      // 0.5 ~ 1 (ex == -1)
+      val g = (x:Double) => {
+        val z = new RealGeneric(spec, acos(x))
+        z.man.toDouble / (1<<manW)
+      }
+
+      val maxCalcWidth = Seq(f, g).map(func => {
+        val tableD = new FuncTableDouble( func, 0 )
         tableD.addRange(0.0, 1.0, 1<<adrW)
         val tableI = new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
         tableI.calcWidth
@@ -517,24 +544,30 @@ object MathFuncACosSim {
         lhs.zip(rhs).map( x => max(x._1, x._2))
       })
 
-      (-1 to taylorThreshold by -1).map( i => {
-        val tableD = new FuncTableDouble( x => acos(scalb(1.0 + x, i)), 0)
+      Seq(f, g).map(func => {
+        val tableD = new FuncTableDouble( func, 0 )
         tableD.addRange(0.0, 1.0, 1<<manW)
         new FuncTableInt( tableD, fracW, Some(maxCalcWidth), cbitSetting )
       })
     } else {
 
-      val f = (x:Double, i:Int) => {
-        val s = scalb(1.0 + x, i) // scaled
-        if (1.0 - pow(2.0, taylorThreshold) < s) { // taylor threshold
-          0.0
+      // 0 ~ 0.5 (ex <= -2).
+      val f = (x: Double) => {
+        // map arg in [0, 1] into pi/2 - [acos(0), acos(0.5)]
+        math.Pi * 0.5 - acos(x * 0.5)
+      }
+      // 0.5 ~ 1 (ex == -1)
+      val g = (x:Double) => {
+        val s = (1.0 + x) * pow(2.0, -1) // scaled
+        if (1.0 - pow(2.0, puiseuxThreshold) < s) { // puiseux threshold
+          0.0 // to make 2nd order coefficient smaller
         } else {
-          ((Pi * 0.5) - acos(s)) * 0.5
+          (math.Pi * 0.5 - acos(s)) * 0.5
         }
       }
 
-      val maxCalcWidth = (-1 to taylorThreshold by -1).map(i => {
-        val tableD = new FuncTableDouble( x => f(x, i), order )
+      val maxCalcWidth = Seq(f, g).map(func => {
+        val tableD = new FuncTableDouble( func, order )
         tableD.addRange(0.0, 1.0, 1<<adrW)
         val tableI = new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
         tableI.calcWidth
@@ -543,8 +576,8 @@ object MathFuncACosSim {
       })
 
       // ex == -1 corresponds to the range [0.5, 1).
-      (-1 to taylorThreshold by -1).map( i => {
-        val tableD = new FuncTableDouble( x => f(x, i), order )
+      Seq(f, g).map( func => {
+        val tableD = new FuncTableDouble( func, order )
         tableD.addRange(0.0, 1.0, 1<<adrW)
         new FuncTableInt( tableD, fracW, Some(maxCalcWidth), cbitSetting )
       })

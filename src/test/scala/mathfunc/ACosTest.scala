@@ -70,7 +70,7 @@ class MathFuncACosTest extends AnyFlatSpec
           val maxCbit    = c.getMaxCbit
           val maxCalcW   = c.getMaxCalcW
           val nstage     = c.getStage
-          val acosF32TableI = MathFuncACosSim.acosTableGeneration(taylorOrder, nOrder, adrW,
+          val acosF32TableI = MathFuncACosSim.acosTableGeneration(spec, nOrder, adrW,
             RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBits,
             Some(maxCalcW), Some(maxCbit))
           val sqrtF32TableI = MathFuncACosSim.sqrtTableGeneration(nOrder, adrW,
