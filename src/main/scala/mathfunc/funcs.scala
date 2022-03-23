@@ -144,7 +144,7 @@ class MathFunctions(
   val exBias = spec.exBias
 
   val maxCbit  = Seq(
-    ACosTableCoeff.getCBits(spec, polySpec, /*taylor order = */ 3),
+    ACosTableCoeff.getCBits(spec, polySpec),
     SqrtTableCoeff.getCBits(spec, polySpec),
     InvSqrtTableCoeff.getCBits(spec, polySpec),
     ReciprocalTableCoeff.getCBits(spec, polySpec),
@@ -155,7 +155,7 @@ class MathFunctions(
     ).reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
 
   val maxCalcW = Seq(
-    ACosTableCoeff.getCalcW(spec, polySpec, /*taylor order = */ 3),
+    ACosTableCoeff.getCalcW(spec, polySpec),
     SqrtTableCoeff.getCalcW(spec, polySpec),
     InvSqrtTableCoeff.getCalcW(spec, polySpec),
     ReciprocalTableCoeff.getCalcW(spec, polySpec),
@@ -168,7 +168,7 @@ class MathFunctions(
   def getMaxCbit  = maxCbit
   def getMaxCalcW = maxCalcW
 
-  println(f"acos        cbits = ${ACosTableCoeff       .getCBits(spec, polySpec, /*taylor order = */ 3)} calcW = ${ACosTableCoeff       .getCalcW(spec, polySpec, /*taylor order = */ 3)}")
+  println(f"acos        cbits = ${ACosTableCoeff       .getCBits(spec, polySpec)} calcW = ${ACosTableCoeff       .getCalcW(spec, polySpec)}")
   println(f"sqrt        cbits = ${SqrtTableCoeff       .getCBits(spec, polySpec)} calcW = ${SqrtTableCoeff       .getCalcW(spec, polySpec)}")
   println(f"invsqrt     cbits = ${InvSqrtTableCoeff    .getCBits(spec, polySpec)} calcW = ${InvSqrtTableCoeff    .getCalcW(spec, polySpec)}")
   println(f"rec         cbits = ${ReciprocalTableCoeff .getCBits(spec, polySpec)} calcW = ${ReciprocalTableCoeff .getCalcW(spec, polySpec)}")
@@ -231,8 +231,8 @@ class MathFunctions(
   // acos
 
   val acosPre   = Module(new ACosPreProcess (spec, polySpec, stage.preStage))
-  val acosTab   = Module(new ACosTableCoeff (spec, polySpec, maxCbit, /*taylor order = */ 3))
-  val acosOther = Module(new ACosOtherPath  (spec, polySpec, stage.calcStage, /*taylor order = */ 3))
+  val acosTab   = Module(new ACosTableCoeff (spec, polySpec, maxCbit))
+  val acosOther = Module(new ACosOtherPath  (spec, polySpec, stage.calcStage))
   val acosPost  = Module(new ACosPostProcess(spec, polySpec, stage.postStage))
 
   val acosPreUseSqrtPCGapReg = ShiftRegister(acosPre.io.useSqrt, pcGap)

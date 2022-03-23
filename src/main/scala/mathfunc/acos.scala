@@ -171,7 +171,6 @@ class ACosTableCoeff(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val maxCbit  : Seq[Int], // max coeff width among all math funcs
-  val taylorOrder: Int,
 ) extends Module {
 
   val manW   = spec.manW
@@ -248,7 +247,6 @@ object ACosTableCoeff {
   def getCBits(
     spec:     RealSpec,
     polySpec: PolynomialSpec,
-    taylorOrder: Int,
   ): Seq[Int] = {
 
     val order     = polySpec.order
@@ -267,7 +265,6 @@ object ACosTableCoeff {
   def getCalcW(
     spec:     RealSpec,
     polySpec: PolynomialSpec,
-    taylorOrder: Int,
   ): Seq[Int] = {
 
     val order     = polySpec.order
@@ -320,7 +317,6 @@ class ACosOtherPath(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
-  val taylorOrder: Int
 ) extends Module {
 
   val nStage = stage.total
@@ -596,7 +592,6 @@ class ACosPostProcess(
 
 class ACosGeneric(
   val spec     : RealSpec,
-  val taylorOrder: Int,
   val nOrder: Int, val adrW : Int, val extraBits : Int, // Polynomial spec
   val stage    : MathFuncPipelineConfig,
   val enableRangeCheck : Boolean = true,
@@ -623,8 +618,8 @@ class ACosGeneric(
 
   val sqrtCbits = SqrtTableCoeff.getCBits(spec, polySpec)
   val sqrtCalcW = SqrtTableCoeff.getCalcW(spec, polySpec)
-  val acosCbits = ACosTableCoeff.getCBits(spec, polySpec, taylorOrder)
-  val acosCalcW = ACosTableCoeff.getCalcW(spec, polySpec, taylorOrder)
+  val acosCbits = ACosTableCoeff.getCBits(spec, polySpec)
+  val acosCalcW = ACosTableCoeff.getCalcW(spec, polySpec)
 
   def getCbit  = Seq(sqrtCbits, acosCbits).reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
   def getCalcW = Seq(sqrtCalcW, acosCalcW).reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
@@ -656,9 +651,9 @@ class ACosGeneric(
   // --------------------------------------------------------------------------
 
   val acosPre   = Module(new ACosPreProcess (spec, polySpec, stage.preStage))
-  val acosTab   = Module(new ACosTableCoeff (spec, polySpec, cbits, taylorOrder))
+  val acosTab   = Module(new ACosTableCoeff (spec, polySpec, cbits))
   val sqrtTab   = Module(new SqrtTableCoeff (spec, polySpec, cbits))
-  val acosOther = Module(new ACosOtherPath  (spec, polySpec, stage.calcStage, taylorOrder))
+  val acosOther = Module(new ACosOtherPath  (spec, polySpec, stage.calcStage))
   val acosPost  = Module(new ACosPostProcess(spec, polySpec, stage.postStage))
 
   val acosPreUseSqrtPCGapReg = ShiftRegister(acosPre.io.useSqrt, pcGap)
