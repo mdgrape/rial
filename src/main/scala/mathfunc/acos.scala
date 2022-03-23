@@ -664,7 +664,7 @@ class ACosGeneric(
   // ------ Preprocess-Calculate ------
   acosTab.io.en        := io.en && (!acosPreUseSqrtPCGapReg)
   acosTab.io.adr       := acosPreAdrPCGapReg
-  sqrtTab.io.en        := io.en || acosPreUseSqrtPCGapReg
+  sqrtTab.io.en        := io.en && acosPreUseSqrtPCGapReg
   sqrtTab.io.adr       := acosPreAdrPCGapReg
   acosOther.io.x       := xdecPCGapReg
   acosOther.io.useSqrt := acosPreUseSqrtPCGapReg
@@ -678,7 +678,7 @@ class ACosGeneric(
 
   // table takes input from preprocess, so table output is delayed compared to acos input.
   assert(acosTab.io.cs.asUInt === 0.U || (enPCGapReg && !acosPreUseSqrtPCGapReg))
-  assert(sqrtTab.io.cs.asUInt === 0.U || (enPCGapReg && !acosPreUseSqrtPCGapReg))
+  assert(sqrtTab.io.cs.asUInt === 0.U || (enPCGapReg &&  acosPreUseSqrtPCGapReg))
 
   // --------------------------------------------------------------------------
 
