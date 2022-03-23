@@ -87,75 +87,101 @@ class ACosPreProcess(
   val xex  = enable(io.en, io.x.ex )
   val xman = enable(io.en, io.x.man)
 
-  // ---------------------------------------------------------------------------
-  // useSqrt condition is:
-  //   0          < 1-x < 2^-4
-  //   1.0 - 2^-4 < x   < 1
-  // in this range, x.ex == -1.
-  //
-  // |x|11111110|111xxx...x|
-  //            ^  ^
-  //            |  +- 2^-4 bit
-  //            +- hidden bit = 2^-1
+  if(order == 0) {
+    // if order == 0, we do not use puiseux series but use exponent table.
+    io.useSqrt := false.B
 
-  val puiseuxThreshold = MathFuncACosSim.calcPuiseuxThreshold(manW, fracW-manW, 0)
-  // 1 for hidden bit, 1 for table exponent
-  val puiseuxMSBs = puiseuxThreshold.abs - 1 - 1
-  val useSqrt = enable(io.en, (xex === (exBias-1).U) && xman(manW-1, manW-puiseuxMSBs).andR)
-  io.useSqrt := ShiftRegister(useSqrt, nStage)
+    val adrACosShift0   = (exBias - 2 + 1).U - xex
+    val adrACosShift    = adrACosShift0(log2Up(manW+1), 0)
+    val adrACosShiftOut = adrACosShift0 > (manW+1).U
+    val adrACosAligned0 = Mux(adrACosShiftOut, 0.U, Cat(1.U(1.W), xman) >> adrACosShift)
+    val adrACosAligned  = adrACosAligned0(manW-1, 0)
 
-  // ---------------------------------------------------------------------------
-  // To use sqrt table, we need to determine the mantissa and exponent of
-  // y = 1 - x.
-  // Since the value of y will be used in the non-table path later, it should
-  // also be passed to ACosOtherPath.
+    val exAdrACos = ((exBias - 1).U(exW.W) === xex)
+    val adr0ACos  = Mux(exAdrACos, xman(manW-1, dxW), adrACosAligned(manW-1, dxW))
+    val adrACos   = Cat(exAdrACos.asUInt, adr0ACos)
 
-  val oneMinusX     = ~xman + 1.U // 1<<manW - xman
-  val oneMinusXLen  = manW.U - PriorityEncoder(Reverse(oneMinusX))
-  val oneMinusXSftW = log2UpL(manW)
-  val oneMinusXSft  = ((manW+1).U - oneMinusXLen)(oneMinusXSftW-1, 0)
-  val ymanW1        = (oneMinusX << oneMinusXSft)(manW, 0)
-  val yex           = oneMinusXLen + (exBias - manW - 2).U(exW.W)
+    val adr = enable(io.en, adrACos)
+    io.adr := ShiftRegister(adr, nStage)
 
-  io.yex  := ShiftRegister(yex(exW-1, 0),     nStage)
-  io.yman := ShiftRegister(ymanW1(manW-1, 0), nStage)
+    if(order != 0) {
+      val dxACos = Mux(exAdrACos, Cat(          ~xman(dxW-1),           xman(dxW-2, 0)),
+                                  Cat(~adrACosAligned(dxW-1), adrACosAligned(dxW-2, 0)))
+      val dx   = enable(io.en, dxACos)
+      io.dx.get := ShiftRegister(dx, nStage)
+    }
+  } else {
 
-//   printf("cir: yex    = %d\n", yex.zext - exBias.S)
-//   printf("cir: ymanW1 = %b\n", ymanW1)
+    // ------------------------------------------------------------------------
+    // useSqrt condition is:
+    //   0          < 1-x < 2^-4
+    //   1.0 - 2^-4 < x   < 1
+    // in this range, x.ex == -1.
+    //
+    // |x|11111110|111xxx...x|
+    //            ^  ^
+    //            |  +- 2^-4 bit
+    //            +- hidden bit = 2^-1
 
-  assert(!io.en || (ymanW1(manW) === 1.U))
+    val puiseuxThreshold = MathFuncACosSim.calcPuiseuxThreshold(manW, fracW-manW, 0)
+    // 1 for hidden bit, 1 for table exponent
+    val puiseuxMSBs = puiseuxThreshold.abs - 1 - 1
+    val useSqrt = enable(io.en, (xex === (exBias-1).U) && xman(manW-1, manW-puiseuxMSBs).andR)
+    io.useSqrt := ShiftRegister(useSqrt, nStage)
 
-  // ---------------------------------------------------------------------------
-  // calc adr and dx
+    // ---------------------------------------------------------------------------
+    // To use sqrt table, we need to determine the mantissa and exponent of
+    // y = 1 - x.
+    // Since the value of y will be used in the non-table path later, it should
+    // also be passed to ACosOtherPath.
 
-  // exAdr shows:
-  // - 0: 0.0 < x < 0.5 (xex <  exBias-1)
-  // - 1: 0.5 < x < 1.0 (xex == exBias-1)
+    val oneMinusX     = ~xman + 1.U // 1<<manW - xman
+    val oneMinusXLen  = manW.U - PriorityEncoder(Reverse(oneMinusX))
+    val oneMinusXSftW = log2UpL(manW)
+    val oneMinusXSft  = ((manW+1).U - oneMinusXLen)(oneMinusXSftW-1, 0)
+    val ymanW1        = (oneMinusX << oneMinusXSft)(manW, 0)
+    val yex           = oneMinusXLen + (exBias - manW - 2).U(exW.W)
 
-  val adrACosShift0   = (exBias - 2 + 1).U - xex
-  val adrACosShift    = adrACosShift0(log2Up(manW+1), 0)
-  val adrACosShiftOut = adrACosShift0 > (manW+1).U
-  val adrACosAligned0 = Mux(adrACosShiftOut, 0.U, Cat(1.U(1.W), xman) >> adrACosShift)
-  val adrACosAligned  = adrACosAligned0(manW-1, 0)
+    io.yex  := ShiftRegister(yex(exW-1, 0),     nStage)
+    io.yman := ShiftRegister(ymanW1(manW-1, 0), nStage)
 
-  val exAdrACos = ((exBias - 1).U(exW.W) === xex)
-  val adr0ACos  = Mux(exAdrACos, xman(manW-1, dxW), adrACosAligned(manW-1, dxW))
-  val adrACos   = Cat(exAdrACos.asUInt, adr0ACos)
+//     printf("cir: yex    = %d\n", yex.zext - exBias.S)
+//     printf("cir: ymanW1 = %b\n", ymanW1)
 
-  // we need sqrt(2y). Sqrt requires only 1 LSB to distinguish x in 1~2 and 2~4.
-  // To pass yex+1, the last bit is inverted.
-  val exAdrSqrt = ~yex(0)
-  val adrSqrt   = Cat(exAdrSqrt, ymanW1(manW-1, dxW))
+    assert(!io.en || (ymanW1(manW) === 1.U))
 
-  val adr = enable(io.en, Mux(useSqrt, adrSqrt, adrACos))
-  io.adr := ShiftRegister(adr, nStage)
+    // ---------------------------------------------------------------------------
+    // calc adr and dx
 
-  if(order != 0) {
-    val dxACos = Mux(exAdrACos, Cat(          ~xman(dxW-1),           xman(dxW-2, 0)),
-                                Cat(~adrACosAligned(dxW-1), adrACosAligned(dxW-2, 0)))
-    val dxSqrt = Cat(~ymanW1(dxW-1), ymanW1(dxW-2, 0))
-    val dx   = enable(io.en, Mux(useSqrt, dxSqrt, dxACos))
-    io.dx.get := ShiftRegister(dx, nStage)
+    // exAdr shows:
+    // - 0: 0.0 < x < 0.5 (xex <  exBias-1)
+    // - 1: 0.5 < x < 1.0 (xex == exBias-1)
+
+    val adrACosShift0   = (exBias - 2 + 1).U - xex
+    val adrACosShift    = adrACosShift0(log2Up(manW+1), 0)
+    val adrACosShiftOut = adrACosShift0 > (manW+1).U
+    val adrACosAligned0 = Mux(adrACosShiftOut, 0.U, Cat(1.U(1.W), xman) >> adrACosShift)
+    val adrACosAligned  = adrACosAligned0(manW-1, 0)
+
+    val exAdrACos = ((exBias - 1).U(exW.W) === xex)
+    val adr0ACos  = Mux(exAdrACos, xman(manW-1, dxW), adrACosAligned(manW-1, dxW))
+    val adrACos   = Cat(exAdrACos.asUInt, adr0ACos)
+
+    // we need sqrt(2y). Sqrt requires only 1 LSB to distinguish x in 1~2 and 2~4.
+    // To pass yex+1, the last bit is inverted.
+    val exAdrSqrt = ~yex(0)
+    val adrSqrt   = Cat(exAdrSqrt, ymanW1(manW-1, dxW))
+
+    val adr = enable(io.en, Mux(useSqrt, adrSqrt, adrACos))
+    io.adr := ShiftRegister(adr, nStage)
+
+    if(order != 0) {
+      val dxACos = Mux(exAdrACos, Cat(          ~xman(dxW-1),           xman(dxW-2, 0)),
+                                  Cat(~adrACosAligned(dxW-1), adrACosAligned(dxW-2, 0)))
+      val dxSqrt = Cat(~ymanW1(dxW-1), ymanW1(dxW-2, 0))
+      val dx   = enable(io.en, Mux(useSqrt, dxSqrt, dxACos))
+      io.dx.get := ShiftRegister(dx, nStage)
+    }
   }
 }
 
@@ -325,6 +351,10 @@ class ACosOtherPath(
   val manW   = spec.manW
   val exBias = spec.exBias
 
+  val adrW   = polySpec.adrW
+  val fracW  = polySpec.fracW
+  val order  = polySpec.order
+
   val io = IO(new Bundle {
     val x       = Flipped(new DecomposedRealOutput(spec))
     val yex     = Input(UInt(exW.W))
@@ -337,122 +367,153 @@ class ACosOtherPath(
   // Special value (x is nan or |x| is larger than 1)
 
   val znan  = io.x.nan
-  val zzero = io.x.ex > exBias.U
-  io.zother.znan  := ShiftRegister(znan, nStage)
-  io.zother.zzero := ShiftRegister(zzero, nStage)
-  io.zother.xsgn  := ShiftRegister(io.x.sgn, nStage)
-
-  // if |x| > 1, return 0 as puiseux result.
   val xMoreThan1 = exBias.U <= io.x.ex
 
-  io.zother.zIsPuiseux := ShiftRegister(xMoreThan1 || io.useSqrt, nStage)
+  io.zother.znan          := ShiftRegister(znan,       nStage)
+  io.zother.zzero         := ShiftRegister(xMoreThan1, nStage)
+  io.zother.xsgn          := ShiftRegister(io.x.sgn,   nStage)
   io.zother.xLessThanHalf := ShiftRegister(io.x.ex < (exBias-1).U, nStage)
 
-  // --------------------------------------------------------------------------
-  // helper function to multiply values
+  if(polySpec.order == 0) { // for BF16
 
-  val multiply = (xmanW1: UInt, ymanW1: UInt) => {
-    assert(xmanW1.getWidth == manW + 1)
-    assert(ymanW1.getWidth == manW + 1)
+    io.zother.zIsPuiseux := false.B
 
-    val zProd      = xmanW1 * ymanW1
-    val zMoreThan2 = zProd((manW+1)*2 - 1)
-    val zShifted   = Mux(zMoreThan2, zProd((manW+1)*2-2, manW+1), zProd((manW+1)*2-3, manW))
-    val zRounded   = zShifted +& Mux(zMoreThan2, zProd(manW), zProd(manW-1))
-    val zMoreThan2AfterRound = zRounded(manW)
-    val zmanW1     = Mux(zMoreThan2AfterRound, Cat(1.U(1.W), 0.U(manW.W)),
-                                               Cat(1.U(1.W), zRounded(manW-1, 0)))
-    val zexInc     = zMoreThan2 + zMoreThan2AfterRound
-    (zexInc, zmanW1)
+    val cbit = MathFuncACosSim.acosExTableGeneration( spec, order, adrW, manW, fracW )
+      .map( t => {t.getCBitWidth(/*sign mode = */0)} )
+      .reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
+
+    val tableIs = VecInit(
+      MathFuncACosSim.acosExTableGeneration( spec, order, adrW, manW, fracW ).map(t => {
+        t.getVectorWithWidth(cbit, /*sign mode = */ 0)
+      })
+    )
+
+    val exAdr = ((exBias - 1).U(exW.W) === io.x.ex).asUInt
+    val tableI = tableIs(exAdr)
+    val coeff = getSlices(tableI(io.x.man), cbit)
+
+    val diffWidth = exW - cbit(0)
+    assert(0 <= diffWidth)
+
+    val ci = if(diffWidth == 0) { coeff(0) } else {
+      Cat(0.U(diffWidth.W), coeff(0))
+    }
+
+    io.zother.zex  := ci
+    io.zother.zman := 0.U // not used
+
+  } else { // for FP32
+
+    // if |x| > 1, return 0 as puiseux result.
+
+    io.zother.zIsPuiseux := ShiftRegister(xMoreThan1 || io.useSqrt, nStage)
+
+    // --------------------------------------------------------------------------
+    // helper function to multiply values
+
+    val multiply = (xmanW1: UInt, ymanW1: UInt) => {
+      assert(xmanW1.getWidth == manW + 1)
+      assert(ymanW1.getWidth == manW + 1)
+
+      val zProd      = xmanW1 * ymanW1
+      val zMoreThan2 = zProd((manW+1)*2 - 1)
+      val zShifted   = Mux(zMoreThan2, zProd((manW+1)*2-2, manW+1), zProd((manW+1)*2-3, manW))
+      val zRounded   = zShifted +& Mux(zMoreThan2, zProd(manW), zProd(manW-1))
+      val zMoreThan2AfterRound = zRounded(manW)
+      val zmanW1     = Mux(zMoreThan2AfterRound, Cat(1.U(1.W), 0.U(manW.W)),
+                                                 Cat(1.U(1.W), zRounded(manW-1, 0)))
+      val zexInc     = zMoreThan2 + zMoreThan2AfterRound
+      (zexInc, zmanW1)
+    }
+
+    val shiftOut = log2UpL(manW) // for FP32, log2Up(23) = 5
+
+    // --------------------------------------------------------------------------
+    // Puiseux
+    //
+    // let y = 1 - x
+    // acos(1-y) = sqrt(2y) * (1 + y/12 + 3y^2/160 + 5y^3/896 + O(y^4))
+    //           = sqrt(2y) * ((1 + 1/3 * 2^-2 * y) + 3y^2/160 * (1 + 25/21 * 2^-2 * y))
+    //                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    //                        calc this part
+
+    val yex    = io.yex
+    val ymanW1 = Cat(1.U(1.W), io.yman)
+
+    // ----------------------------------------------------------------------
+    // 2^-5 * 3/5 y^2
+    //                                          +1 for normalize
+    val c3over5 = math.round(3.0/5.0 * (1<<(manW+1))).toLong.U((manW+1).W)
+
+    val (ySqExInc, ySqManW1) = multiply(ymanW1, ymanW1)
+    val (ySq3over5ExInc, ySq3over5ManW1) = multiply(ySqManW1, c3over5)
+    val ySq3over5Ex = yex +& yex - (exBias+1).U + ySqExInc + ySq3over5ExInc
+
+    // ----------------------------------------------------------------------
+    // 1 + 25/21 * 2^-2 * y
+    //
+    // here, y < 2^-4. so 1 + 25/21 * 2^-2 * y never exceeds 2.
+    // We don't need to check if it exceeds 2 after addition.
+
+    val c25over21 = math.round(25.0/21.0 * (1<<manW)).toLong
+
+    val (y25over21ExInc, y25over21ManW1) = multiply(ymanW1, c25over21.U((manW+1).W))
+    val y25over21Ex       = yex + y25over21ExInc
+    val y25over21ShiftVal = ((exBias + 2).U - y25over21Ex)
+    val y25over21ShiftOut = y25over21ShiftVal(y25over21ShiftVal.getWidth-1, shiftOut).orR
+    val y25over21Shift    = Mux(y25over21ShiftOut, Fill(shiftOut, 1.U(1.W)),
+                                                   y25over21ShiftVal(shiftOut-1,0))
+    val y25over21Aligned  = y25over21ManW1 >> y25over21Shift
+    // assuming y25over21Aligned < 1
+    val onePlus25over21yManW1 = Cat(1.U(1.W), y25over21Aligned(manW-1, 0))
+
+    // ----------------------------------------------------------------------
+    // (3/5 * y^2) * (1 + 25/21 * 2^-2 * y)
+    //                ^^^^^^^^^^^^^^^^^^^^ ex == 0
+
+    val (secondTermExInc, secondTermManW1) =
+      multiply(ySq3over5ManW1, onePlus25over21yManW1)
+    val secondTermEx = ySq3over5Ex + secondTermExInc
+
+    // ----------------------------------------------------------------------
+    // 1/3 * y
+
+    val c1over3 = math.round(1.0/3.0 * (1<<(manW+2))).toLong
+
+    val (yOver3ExInc, yOver3ManW1) = multiply(ymanW1, c1over3.U((manW+1).W))
+    val yOver3Ex = yex - 2.U + yOver3ExInc
+
+    // ----------------------------------------------------------------------
+    // 1 + 2^-2 * (1/3 * y) + 2^-5 * secondTerm < 2
+    //
+    // Here, y < 2^-4. so 2^-2 * (1/3 * y) < 2^-7 and secondTerm =
+    // (3/5 * y^2) * (1 + 25/21 * 2^-2 * y) < 2^-7. Thus
+    // 2^-2 * (1/3 * y) + 2^-5 * secondTerm < 2^-6. It never affect to the hidden bit, 1.
+
+    val firstTermAligned  = yOver3ManW1     >> ((exBias+2-1).U - yOver3Ex)
+    val secondTermAligned = secondTermManW1 >> ((exBias+5-1).U - secondTermEx)
+
+    // here we don't add 1<<manW because it will be omitted.
+    val puiseuxMan = firstTermAligned( firstTermAligned.getWidth-1, 1) +  firstTermAligned(0) +
+                    secondTermAligned(secondTermAligned.getWidth-1, 1) + secondTermAligned(0)
+
+    // XXX: Note that, we later multiply sqrt(2y) to this. But the information of
+    //      will not be passed to the postprocess. We add the ex to this before
+    //      postprocess.
+    //      y < 2^-4, so yex < exBias-1.
+    val sqrt2yExNobiasNeg = ((yex.zext - (exBias - 1).S) >> 1)(exW-1, 0)
+    val puiseuxEx         = sqrt2yExNobiasNeg + exBias.U(exW.W)
+
+    assert(puiseuxMan.getWidth == manW)
+
+    // sqrt(2y) is multiplied in postprocess.
+
+    val zex  = Mux(xMoreThan1, 0.U, puiseuxEx)
+    val zman = Mux(xMoreThan1, 0.U, puiseuxMan)
+
+    io.zother.zman := ShiftRegister(zman, nStage)
+    io.zother.zex  := ShiftRegister(zex,  nStage)
   }
-
-  val shiftOut = log2UpL(manW) // for FP32, log2Up(23) = 5
-
-  // --------------------------------------------------------------------------
-  // Puiseux
-  //
-  // let y = 1 - x
-  // acos(1-y) = sqrt(2y) * (1 + y/12 + 3y^2/160 + 5y^3/896 + O(y^4))
-  //           = sqrt(2y) * ((1 + 1/3 * 2^-2 * y) + 3y^2/160 * (1 + 25/21 * 2^-2 * y))
-  //                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  //                        calc this part
-
-  val yex    = io.yex
-  val ymanW1 = Cat(1.U(1.W), io.yman)
-
-  // ----------------------------------------------------------------------
-  // 2^-5 * 3/5 y^2
-  //                                          +1 for normalize
-  val c3over5 = math.round(3.0/5.0 * (1<<(manW+1))).toLong.U((manW+1).W)
-
-  val (ySqExInc, ySqManW1) = multiply(ymanW1, ymanW1)
-  val (ySq3over5ExInc, ySq3over5ManW1) = multiply(ySqManW1, c3over5)
-  val ySq3over5Ex = yex +& yex - (exBias+1).U + ySqExInc + ySq3over5ExInc
-
-  // ----------------------------------------------------------------------
-  // 1 + 25/21 * 2^-2 * y
-  //
-  // here, y < 2^-4. so 1 + 25/21 * 2^-2 * y never exceeds 2.
-  // We don't need to check if it exceeds 2 after addition.
-
-  val c25over21 = math.round(25.0/21.0 * (1<<manW)).toLong
-
-  val (y25over21ExInc, y25over21ManW1) = multiply(ymanW1, c25over21.U((manW+1).W))
-  val y25over21Ex       = yex + y25over21ExInc
-  val y25over21ShiftVal = ((exBias + 2).U - y25over21Ex)
-  val y25over21ShiftOut = y25over21ShiftVal(y25over21ShiftVal.getWidth-1, shiftOut).orR
-  val y25over21Shift    = Mux(y25over21ShiftOut, Fill(shiftOut, 1.U(1.W)),
-                                                 y25over21ShiftVal(shiftOut-1,0))
-  val y25over21Aligned  = y25over21ManW1 >> y25over21Shift
-  // assuming y25over21Aligned < 1
-  val onePlus25over21yManW1 = Cat(1.U(1.W), y25over21Aligned(manW-1, 0))
-
-  // ----------------------------------------------------------------------
-  // (3/5 * y^2) * (1 + 25/21 * 2^-2 * y)
-  //                ^^^^^^^^^^^^^^^^^^^^ ex == 0
-
-  val (secondTermExInc, secondTermManW1) =
-    multiply(ySq3over5ManW1, onePlus25over21yManW1)
-  val secondTermEx = ySq3over5Ex + secondTermExInc
-
-  // ----------------------------------------------------------------------
-  // 1/3 * y
-
-  val c1over3 = math.round(1.0/3.0 * (1<<(manW+2))).toLong
-
-  val (yOver3ExInc, yOver3ManW1) = multiply(ymanW1, c1over3.U((manW+1).W))
-  val yOver3Ex = yex - 2.U + yOver3ExInc
-
-  // ----------------------------------------------------------------------
-  // 1 + 2^-2 * (1/3 * y) + 2^-5 * secondTerm < 2
-  //
-  // Here, y < 2^-4. so 2^-2 * (1/3 * y) < 2^-7 and secondTerm =
-  // (3/5 * y^2) * (1 + 25/21 * 2^-2 * y) < 2^-7. Thus
-  // 2^-2 * (1/3 * y) + 2^-5 * secondTerm < 2^-6. It never affect to the hidden bit, 1.
-
-  val firstTermAligned  = yOver3ManW1     >> ((exBias+2-1).U - yOver3Ex)
-  val secondTermAligned = secondTermManW1 >> ((exBias+5-1).U - secondTermEx)
-
-  // here we don't add 1<<manW because it will be omitted.
-  val puiseuxMan = firstTermAligned( firstTermAligned.getWidth-1, 1) +  firstTermAligned(0) +
-                  secondTermAligned(secondTermAligned.getWidth-1, 1) + secondTermAligned(0)
-
-  // XXX: Note that, we later multiply sqrt(2y) to this. But the information of
-  //      will not be passed to the postprocess. We add the ex to this before
-  //      postprocess.
-  //      y < 2^-4, so yex < exBias-1.
-  val sqrt2yExNobiasNeg = ((yex.zext - (exBias - 1).S) >> 1)(exW-1, 0)
-  val puiseuxEx         = sqrt2yExNobiasNeg + exBias.U(exW.W)
-
-  assert(puiseuxMan.getWidth == manW)
-
-  // sqrt(2y) is multiplied in postprocess.
-
-  val zex  = Mux(xMoreThan1, 0.U, puiseuxEx)
-  val zman = Mux(xMoreThan1, 0.U, puiseuxMan)
-
-  io.zother.zman := ShiftRegister(zman, nStage)
-  io.zother.zex  := ShiftRegister(zex,  nStage)
 }
 
 // -------------------------------------------------------------------------
@@ -506,80 +567,143 @@ class ACosPostProcess(
 //   printf("cir: zexNonTable       = %d\n", zexNonTable )
 //   printf("cir: zmanNonTable      = %b\n", zmanNonTable)
 
-  // ---------------------------------------------------------------
 
-  val halfPiFixed = math.round(Pi * 0.5 * (1 << fracW)).U((fracW+1).W)
-  val piman = (new RealGeneric(spec, Pi)).man.toLong.U(manW.W)
-  val piex  = (new RealGeneric(spec, Pi)).ex.U(exW.W)
+  if(order == 0) { // order == 0, for BF16
 
-  val zOutOfRangeMan = Mux(xsgn, piman, 0.U(manW.W))
-  val zOutOfRangeEx  = Mux(xsgn, piex,  0.U(exW.W))
+    // -----------------------------------------------------------------------
+    // if x > 0, return acos(x).
 
-  val res0 = Cat(0.U(1.W), Mux(xLessThanHalf, Cat(0.U(1.W), io.zres), Cat(io.zres, 0.U(1.W))))
-  val res  = halfPiFixed + Mux(xsgn, res0, ~res0 + 1.U)
+    val zmanPos = Wire(UInt(manW.W))
+    val zexPos  = Wire(UInt(exW.W))
 
-  val shift = (fracW+2).U - (res.getWidth.U - PriorityEncoder(Reverse(res)))
-  val resShifted = (res << shift)(fracW+1, 1) - (1<<fracW).U
+    if(extraBits == 0) {
+      zmanPos := io.zres
+      zexPos  := zexNonTable
+    } else {
+      val zmanRounded = io.zres(fracW-1, extraBits) +& io.zres(extraBits-1)
+      val zmanMoreThan2AfterRound = zmanRounded(manW)
+      val zmanResult = zmanRounded(manW-1, 0)
+      zmanPos := zmanResult
+      zexPos  := zexNonTable + zmanMoreThan2AfterRound
+    }
 
-  val zexTable  = Mux(zzero, zOutOfRangeEx,  (exBias+1).U(exW.W) - shift)
-  val zmanTable = Mux(zzero, zOutOfRangeMan, (resShifted >> extraBits) + resShifted(extraBits-1))
-//   printf("cir: zexTable       = %d\n", zexTable )
-//   printf("cir: zmanTable      = %b\n", zmanTable)
+    // -----------------------------------------------------------------------
+    // if x < 0, return pi - acos(|x|)
 
-  // ---------------------------------------------------------------------------
-  // Puiseux: multiply table result `sqrt(2y)` and OtherPath result. then calc
-  //          (pi - z) or z. Note that if |x| > 1, the zNonTable is 0.
+    val zmanNeg = Wire(UInt(manW.W))
+    val zexNeg  = Wire(UInt(exW.W))
 
-  val sqrt2y = Cat(1.U(1.W), io.zres) // fracW
-  val puiseuxTermManW1 = Cat(1.U(1.W), zmanNonTable)
-//   printf("cir: sqrt2y           = %b\n", sqrt2y   )
-//   printf("cir: puiseuxTermManW1 = %b\n", puiseuxTermManW1)
+    val piEx    = 1
+    val piFixed = math.round(math.Pi * (1<<(fracW-1))).toLong
 
-  val puiseuxProd = sqrt2y * puiseuxTermManW1
-  val puiseuxMoreThan2 = puiseuxProd(manW+1+fracW+1-1)
-  val puiseuxShifted   = Mux(puiseuxMoreThan2, puiseuxProd(manW+1+fracW+1-2, fracW+1),
-                                               puiseuxProd(manW+1+fracW+1-3, fracW))
-  val puiseuxRounded   = puiseuxShifted +&
-                         Mux(puiseuxMoreThan2, puiseuxProd(fracW), puiseuxProd(fracW-1))
-  val puiseuxMoreThan2AfterRound = puiseuxRounded(manW)
+    val zmanShift   = (piEx + exBias).U - zexNonTable
+    val zmanShift0  = zmanShift(log2Up(fracW), 0)
+    val zmanAligned = Mux(zmanShift > fracW.U, 0.U, Cat(1.U(1.W), io.zres) >> zmanShift0)
 
-  val puiseuxManW1     = Mux(puiseuxMoreThan2AfterRound,
-                             Cat(1.U(1.W), 0.U(manW.W)),
-                             Cat(1.U(1.W), puiseuxRounded(manW-1, 0)))
+    val res0 = piFixed.U - zmanAligned
+    val res0MoreThan2 = res0(fracW)
 
-  val puiseuxEx        = zexNonTable + puiseuxMoreThan2 + puiseuxMoreThan2AfterRound
-//   printf("cir: puiseuxEx      = %d\n", puiseuxEx   )
-//   printf("cir: puiseuxManW1   = %b\n", puiseuxManW1)
+    val res = Mux(res0MoreThan2.asBool, res0(fracW-1, 0), Cat(res0, 0.U(1.W))(fracW-1, 0))
 
-  // pi - z
+    if(extraBits == 0) {
+      zmanPos := res
+      zexPos  := exBias.U + res0MoreThan2
+    } else {
+      val zmanRounded = res(fracW-1, extraBits) +& res(extraBits-1)
+      val zmanMoreThan2AfterRound = zmanRounded(manW)
+      val zmanResult = zmanRounded(manW-1, 0)
+      zmanPos := zmanResult
+      zexPos  := exBias.U + res0MoreThan2 + zmanMoreThan2AfterRound
+    }
 
-  val piExNobias = 1
-  val piManW1    = math.round(Pi * (1<<(manW-piExNobias))).toLong.U((1+manW).W)
+    // -----------------------------------------------------------------------
+    // merge them
 
-  val puiseuxShiftVal = (exBias+1).U(exW.W) - puiseuxEx
-  val puiseuxShiftOut = puiseuxShiftVal(puiseuxShiftVal.getWidth-1, shiftOut).orR
-  val puiseuxShift    = Mux(puiseuxShiftOut, Fill(shiftOut, 1.U(1.W)), puiseuxShiftVal(shiftOut-1, 0))
+    val zsgn = znan & xsgn.asUInt // if znan, keep sign of nan. if non-nan(znan==0), 0.
+    val zex  = Mux(znan, Fill(exW, 1.U(1.W)),
+               Mux(xsgn, zexNeg, zexPos))
+    val zman = Mux(znan, Cat(1.U(1.W), Fill(manW-1, 0.U(1.W))),
+               Mux(xsgn, zmanNeg, zmanPos))
 
-  val puiseuxAligned = puiseuxManW1 >> puiseuxShift
-  val puiseuxSub     = piManW1 - puiseuxAligned
+    val z  = enable(io.en, Cat(zsgn, zex, zman))
 
-  val zexPuiseux  = Mux(xsgn, (piExNobias+exBias).U(exW.W), puiseuxEx)
-  val zmanPuiseux = Mux(xsgn, puiseuxSub(manW-1, 0),        puiseuxManW1(manW-1, 0))
-//   printf("cir: zexPuiseux   = %d\n", zexPuiseux )
-//   printf("cir: zmanPuiseux  = %b\n", zmanPuiseux)
+    io.z := ShiftRegister(z, nStage)
 
-  // ---------------------------------------------------------------------------
-  // select
+  } else { // order != 0, for FP32
 
-  val zsgn = znan & xsgn.asUInt // if znan, keep sign of nan. if non-nan(znan==0), 0.
-  val zex  = Mux(znan, Fill(exW, 1.U(1.W)),
-             Mux(zIsPuiseux, zexPuiseux,  zexTable(exW-1, 0)))
-  val zman = Mux(znan, Cat(1.U(1.W), Fill(manW-1, 0.U(1.W))),
-             Mux(zIsPuiseux, zmanPuiseux(manW-1, 0), zmanTable(manW-1, 0)))
+    val halfPiFixed = math.round(Pi * 0.5 * (1 << fracW)).U((fracW+1).W)
+    val piman = (new RealGeneric(spec, Pi)).man.toLong.U(manW.W)
+    val piex  = (new RealGeneric(spec, Pi)).ex.U(exW.W)
 
-  val z  = enable(io.en, Cat(zsgn, zex, zman))
+    val zOutOfRangeMan = Mux(xsgn, piman, 0.U(manW.W))
+    val zOutOfRangeEx  = Mux(xsgn, piex,  0.U(exW.W))
 
-  io.z := ShiftRegister(z, nStage)
+    val res0 = Cat(0.U(1.W), Mux(xLessThanHalf, Cat(0.U(1.W), io.zres), Cat(io.zres, 0.U(1.W))))
+    val res  = halfPiFixed + Mux(xsgn, res0, ~res0 + 1.U)
+
+    val shift = (fracW+2).U - (res.getWidth.U - PriorityEncoder(Reverse(res)))
+    val resShifted = (res << shift)(fracW+1, 1) - (1<<fracW).U
+
+    val zexTable  = Mux(zzero, zOutOfRangeEx,  (exBias+1).U(exW.W) - shift)
+    val zmanTable = Mux(zzero, zOutOfRangeMan, (resShifted >> extraBits) + resShifted(extraBits-1))
+  //   printf("cir: zexTable       = %d\n", zexTable )
+  //   printf("cir: zmanTable      = %b\n", zmanTable)
+
+    // ---------------------------------------------------------------------------
+    // Puiseux: multiply table result `sqrt(2y)` and OtherPath result. then calc
+    //          (pi - z) or z. Note that if |x| > 1, the zNonTable is 0.
+
+    val sqrt2y = Cat(1.U(1.W), io.zres) // fracW
+    val puiseuxTermManW1 = Cat(1.U(1.W), zmanNonTable)
+  //   printf("cir: sqrt2y           = %b\n", sqrt2y   )
+  //   printf("cir: puiseuxTermManW1 = %b\n", puiseuxTermManW1)
+
+    val puiseuxProd = sqrt2y * puiseuxTermManW1
+    val puiseuxMoreThan2 = puiseuxProd(manW+1+fracW+1-1)
+    val puiseuxShifted   = Mux(puiseuxMoreThan2, puiseuxProd(manW+1+fracW+1-2, fracW+1),
+                                                 puiseuxProd(manW+1+fracW+1-3, fracW))
+    val puiseuxRounded   = puiseuxShifted +&
+                           Mux(puiseuxMoreThan2, puiseuxProd(fracW), puiseuxProd(fracW-1))
+    val puiseuxMoreThan2AfterRound = puiseuxRounded(manW)
+
+    val puiseuxManW1     = Mux(puiseuxMoreThan2AfterRound,
+                               Cat(1.U(1.W), 0.U(manW.W)),
+                               Cat(1.U(1.W), puiseuxRounded(manW-1, 0)))
+
+    val puiseuxEx        = zexNonTable + puiseuxMoreThan2 + puiseuxMoreThan2AfterRound
+  //   printf("cir: puiseuxEx      = %d\n", puiseuxEx   )
+  //   printf("cir: puiseuxManW1   = %b\n", puiseuxManW1)
+
+    // pi - z
+
+    val piExNobias = 1
+    val piManW1    = math.round(Pi * (1<<(manW-piExNobias))).toLong.U((1+manW).W)
+
+    val puiseuxShiftVal = (exBias+1).U(exW.W) - puiseuxEx
+    val puiseuxShiftOut = puiseuxShiftVal(puiseuxShiftVal.getWidth-1, shiftOut).orR
+    val puiseuxShift    = Mux(puiseuxShiftOut, Fill(shiftOut, 1.U(1.W)), puiseuxShiftVal(shiftOut-1, 0))
+
+    val puiseuxAligned = puiseuxManW1 >> puiseuxShift
+    val puiseuxSub     = piManW1 - puiseuxAligned
+
+    val zexPuiseux  = Mux(xsgn, (piExNobias+exBias).U(exW.W), puiseuxEx)
+    val zmanPuiseux = Mux(xsgn, puiseuxSub(manW-1, 0),        puiseuxManW1(manW-1, 0))
+  //   printf("cir: zexPuiseux   = %d\n", zexPuiseux )
+  //   printf("cir: zmanPuiseux  = %b\n", zmanPuiseux)
+
+    // ---------------------------------------------------------------------------
+    // select
+
+    val zsgn = znan & xsgn.asUInt // if znan, keep sign of nan. if non-nan(znan==0), 0.
+    val zex  = Mux(znan, Fill(exW, 1.U(1.W)),
+               Mux(zIsPuiseux, zexPuiseux,  zexTable(exW-1, 0)))
+    val zman = Mux(znan, Cat(1.U(1.W), Fill(manW-1, 0.U(1.W))),
+               Mux(zIsPuiseux, zmanPuiseux(manW-1, 0), zmanTable(manW-1, 0)))
+
+    val z  = enable(io.en, Cat(zsgn, zex, zman))
+
+    io.z := ShiftRegister(z, nStage)
+  }
 }
 
 // -------------------------------------------------------------------------
