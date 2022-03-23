@@ -90,6 +90,8 @@ class ACosPreProcess(
   if(order == 0) {
     // if order == 0, we do not use puiseux series but use exponent table.
     io.useSqrt := false.B
+    io.yman := 0.U
+    io.yex  := 0.U
 
     val adrACosShift0   = (exBias - 2 + 1).U - xex
     val adrACosShift    = adrACosShift0(log2Up(manW+1), 0)
@@ -110,6 +112,7 @@ class ACosPreProcess(
       val dx   = enable(io.en, dxACos)
       io.dx.get := ShiftRegister(dx, nStage)
     }
+
   } else {
 
     // ------------------------------------------------------------------------
@@ -217,27 +220,21 @@ class ACosTableCoeff(
   if(order == 0) {
 
     val cbit = MathFuncACosSim.acosTableGeneration( spec, order, adrW, manW, fracW )
-      .map( t => {t.getCBitWidth(/*sign mode = */0)} )
+      .map( t => {t.getCBitWidth(/*sign mode = */1)} )
       .reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
 
     val tableIs = VecInit(
       MathFuncACosSim.acosTableGeneration( spec, order, adrW, manW, fracW ).map(t => {
-        t.getVectorWithWidth(cbit, /*sign mode = */ 0)
+        t.getVectorWithWidth(cbit, /*sign mode = */ 1)
       })
     )
     val tableI = tableIs(exAdr)
     val coeff = getSlices(tableI(adr), cbit)
 
-    val diffWidth = maxCbit(0) - cbit(0)
-    assert(0 <= diffWidth)
+    assert(maxCbit(0) == fracW)
+    assert(coeff(0).getWidth == fracW, f"coeff = ${coeff(0).getWidth}, fracW = ${fracW}")
 
-    val ci = if(diffWidth == 0) { coeff(0) } else {
-      Cat(0.U(diffWidth.W), coeff(0))
-    }
-    val coeffs = Wire(new TableCoeffInput(maxCbit))
-    coeffs.cs(0) := ci
-
-    io.cs := enable(io.en, coeffs)
+    io.cs.cs(0) := enable(io.en, coeff(0))
 
   } else {
 
@@ -606,14 +603,14 @@ class ACosPostProcess(
     val res = Mux(res0MoreThan2.asBool, res0(fracW-1, 0), Cat(res0, 0.U(1.W))(fracW-1, 0))
 
     if(extraBits == 0) {
-      zmanPos := res
-      zexPos  := exBias.U + res0MoreThan2
+      zmanNeg := res
+      zexNeg  := exBias.U + res0MoreThan2
     } else {
       val zmanRounded = res(fracW-1, extraBits) +& res(extraBits-1)
       val zmanMoreThan2AfterRound = zmanRounded(manW)
       val zmanResult = zmanRounded(manW-1, 0)
-      zmanPos := zmanResult
-      zexPos  := exBias.U + res0MoreThan2 + zmanMoreThan2AfterRound
+      zmanNeg := zmanResult
+      zexNeg  := exBias.U + res0MoreThan2 + zmanMoreThan2AfterRound
     }
 
     // -----------------------------------------------------------------------
