@@ -77,7 +77,7 @@ class MathFuncACosTest extends AnyFlatSpec
             RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBits,
             Some(maxCalcW), Some(maxCbit))
 
-          val reference  = MathFuncACosSim.acosSimGeneric(taylorOrder, acosF32TableI, sqrtF32TableI, _ )
+          val reference  = MathFuncACosSim.acosSimGeneric(taylorOrder, acosF32TableI, sqrtF32TableI, _, None )
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
             val xi = generator(spec,r)

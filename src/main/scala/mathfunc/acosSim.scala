@@ -56,18 +56,10 @@ object MathFuncACosSim {
   //   acos( x) = pi/2 - pi/2 + acos(x) = pi/2 - [pi/2 - acos(x)]
   //   acos(-x) = pi - acos(x)          = pi/2 + [pi/2 - acos(x)]
   //
-  // for small x, pi/2 - acos(x) = x + x^3/6 + 3x^5/40 + O(x^7)
-  // for x < 0.5, pi/2 - acos(x) is approximated by polynomial.
-  // for x > 0.5, acos(x) is approximated by polynomial.
+  // for x < 0.5,  pi/2 - acos(x)      is approximated by polynomial.
+  // for x > 0.5, (pi/2 - acos(x)) / 2 is approximated by polynomial.
   // for x close to 1, use puiseux series:
   //   acos(1-x) = sqrt(2x) * (1 + x/12 + 3x^2/160 + 5x^3/896 + 35x^4/18432 + O(x^5))
-  //
-  // In case of Taylor series, the condition where pi/2 - acos(x) has enough
-  // precision is:
-  //   3x^5/40 < 2^-23
-  //       x^5 < 2^-20
-  //       x   < 2^-4.
-  // So if x < 2^-4, that means that x.ex < 2^-5, use Taylor series.
   //
   // In case of Puiseux series, the condition is:
   //   35x^4/18432 < 2^-23
@@ -77,7 +69,8 @@ object MathFuncACosSim {
   // So if 1-2^-4 < x, that means that x.man(22,20).andR === 1, use Puiseux series.
   //
   def acosSimGeneric(taylorOrder: Int,
-      tACos: Seq[FuncTableInt], tSqrt: FuncTableInt, x: RealGeneric
+      tACos: Seq[FuncTableInt], tSqrt: FuncTableInt, x: RealGeneric,
+      exTable: Option[Seq[FuncTableInt]] = None
     ) : RealGeneric = {
 
     val spec   = x.spec
@@ -117,7 +110,7 @@ object MathFuncACosSim {
 
     val puiseuxThreshold = calcPuiseuxThreshold(manW, extraBits, 0)
 
-    if(x.ex == exBias-1 && slice(manW-3, 3, x.man) == 7) {
+    if(tACos(0).nOrder != 0 && x.ex == exBias-1 && slice(manW-3, 3, x.man) == 7) {
 //       println(f"use Puiseux series: |x| = ${x.toDouble.abs}, y = ${1.0 - x.toDouble.abs}")
 
       // for x close to 1, use puiseux series:
@@ -297,29 +290,32 @@ object MathFuncACosSim {
         }
 
       val (zEx, zMan) = if (order == 0) {
-        val adr   = xAligned.toInt
+        val adr = xAligned.toInt
 
-        (0, 0L)
+        assert(exTable.isDefined, "if order == 0, exTable should be provided")
+        val exts = exTable.get
 
-//         if (sgn == 1) {
-//           val halfpiFixed = (math.round(Pi * 0.5 * (1<<fracW))).toLong
-//           val res0    = halfpiFixed + t.interval(adr).eval(0L, 0)
-//           // res0 range is [1.57, 3.14]. exponent should be 0 or 1
-// 
-//           val shift = bit(fracW+1, res0) // if res0 > 2, shift right by 1
-//           val resShifted = res0 >> shift
-//           val res = resShifted - (1<<fracW)
-// 
-//           (shift.toInt, res)
-//         } else {
-//           val res0       = t.interval(adr).eval(0L, 0)
-//           val shift      = fracW+1 - res0.toLong.toBinaryString.length
-//           val resShifted = if(shift > 0) {res0 << shift} else {res0}
-//           val res = resShifted - (1<<fracW)
-// 
-//           (-shift.toInt, res)
-//         }
+        val zex0  = exts(0).interval(adr).eval(0L, 0)
+        val zman0 = t.interval(adr).eval(0L, 0)
 
+        if(x.sgn == 0) {
+          (zex0.toInt - exBias, zman0.toLong)
+        } else {
+          val piEx    = 1
+          val piFixed = math.round(math.Pi * (1<<(fracW-1))).toLong
+          val zmanShift = piEx - (zex0 - exBias)
+          val zmanAligned = if(zmanShift > fracW) {0} else {
+            (zman0+(1<<fracW)) >> zmanShift
+          }
+          val res0 = piFixed - zmanAligned // > 1.57.., ex = 1 (in [2, 4))
+          val res0MoreThan2 = bit(fracW, res0)
+
+          if(res0MoreThan2 == 1) {
+            (1, res0 - (1<<fracW))
+          } else {
+            (0, (res0 << 1) - (1<<fracW))
+          }
+        }
       } else { // non-zero order
 
         val dxbp = manW - adrW - 1
@@ -352,7 +348,6 @@ object MathFuncACosSim {
       val zmanMoreThan2AfterRound = bit(manW, zmanRound)
       val zman = slice(0, manW, zmanRound)
       val zex  = zEx + zmanMoreThan2AfterRound + exBias
-//       println(f"Sim: zman = ${z.toBinaryString}")
 
       return new RealGeneric(x.spec, zSgn, zex.toInt, SafeLong(zman))
 
@@ -375,37 +370,32 @@ object MathFuncACosSim {
         }
 
       val (zEx, zMan) = if (order == 0) {
-        // TODO
-        (0, 0L)
-//         val adr   = man.toInt
-// 
-//         if (sgn == 1) {
-//           val piFixed = (math.round(Pi * (1<<fracW))).toLong
-//           val res0    = piFixed - t.interval(adr).eval(0L, 0)
-//           // res0 range is [1.57, 3.14]. exponent should be 0 or 1
-// 
-//           val shift = bit(fracW+1, res0) // if res0 > 2, shift right by 1
-//           val resShifted = res0 >> shift
-//           val res = resShifted - (1<<fracW)
-// 
-// //           println(f"sim: x          = ${x.toDouble}")
-// //           println(f"sim: acos(x)    = ${acos(x.toDouble)}")
-// //           println(f"sim: acos(x)<<W = ${math.round(acos(x.toDouble) * (1<<fracW)).toLong}")
-// //           println(f"sim: piFixed    = ${piFixed.toLong.toBinaryString}")
-// //           println(f"sim: res0       = ${res0.toLong.toBinaryString}")
-// //           println(f"sim: shift      = ${shift}")
-// //           println(f"sim: resShifted = ${resShifted.toLong.toBinaryString}")
-// 
-//           (shift.toInt, res)
-//         } else {
-//           val res0  = t.interval(adr).eval(0L, 0)
-//           val shift      = fracW+1 - res0.toLong.toBinaryString.length
-//           val resShifted = if(shift > 0) {res0 << shift} else {res0}
-//           val res = resShifted - (1<<fracW)
-// 
-//           (-shift.toInt, res)
-//         }
+        val adr = x.man.toInt
 
+        assert(exTable.isDefined, "if order == 0, exTable should be provided")
+        val exts = exTable.get
+
+        val zex0  = exts(1).interval(adr).eval(0L, 0)
+        val zman0 = t.interval(adr).eval(0L, 0)
+
+        if(x.sgn == 0) {
+          (zex0.toInt - exBias, zman0.toLong)
+        } else {
+          val piEx    = 1
+          val piFixed = math.round(math.Pi * (1<<(fracW-1))).toLong
+          val zmanShift = piEx - (zex0 - exBias)
+          val zmanAligned = if(zmanShift > fracW) {0} else {
+            (zman0 + (1<<fracW)) >> zmanShift
+          }
+          val res0 = piFixed - zmanAligned // > 1.57.., ex = 1 (in [2, 4))
+          val res0MoreThan2 = bit(fracW, res0)
+
+          if(res0MoreThan2 == 1) {
+            (1, res0 - (1<<fracW))
+          } else {
+            (0, (res0 << 1) - (1<<fracW))
+          }
+        }
       } else { // non-zero order
 
         val dxbp = manW - adrW - 1
@@ -525,13 +515,13 @@ object MathFuncACosSim {
     if (order == 0 || adrW >= manW) {
       // 0 ~ 0.5 (ex <= -2)
       val f = (x: Double) => {
-        // acos(0) = pi/2, acos(0.5) = 1.047.. > 1
-        // pi/2-acos(0) = 0, pi/2 - acos(0.5) = 0.5.. > 0.5
-        math.Pi * 0.5 - acos(x)
+        val z = new RealGeneric(spec, acos(x * 0.5))
+        z.man.toDouble / (1<<manW)
       }
       // 0.5 ~ 1 (ex == -1)
       val g = (x:Double) => {
-        val z = new RealGeneric(spec, acos(x))
+        val s = (1.0 + x) * 0.5
+        val z = new RealGeneric(spec, acos(s))
         z.man.toDouble / (1<<manW)
       }
 
@@ -582,5 +572,42 @@ object MathFuncACosSim {
         new FuncTableInt( tableD, fracW, Some(maxCalcWidth), cbitSetting )
       })
     }
+  }
+
+  def acosExTableGeneration(spec: RealSpec,
+      order : Int, adrW : Int, manW : Int, fracW : Int,
+      calcWidthSetting: Option[Seq[Int]] = None,
+      cbitSetting: Option[Seq[Int]] = None
+    ) = {
+      assert(order == 0)
+
+      val exW = spec.exW
+
+      // 0 ~ 0.5 (ex <= -2).
+      val f = (x: Double) => {
+        val z = new RealGeneric(spec, acos(x * 0.5))
+        z.ex.toDouble / (1 << exW)
+      }
+      // 0.5 ~ 1.0 (ex == -1).
+      val g = (x: Double) => {
+        val s = (1.0 + x) * 0.5 // 0~1 => 0.5~1
+        val z = new RealGeneric(spec, acos(s))
+        z.ex.toDouble / (1 << exW)
+      }
+
+      val maxCalcWidth = Seq(f, g).map(func => {
+        val tableD = new FuncTableDouble( func, order )
+        tableD.addRange(0.0, 1.0, 1<<adrW)
+        val tableI = new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
+        tableI.calcWidth
+      }).reduce( (lhs, rhs) => {
+        lhs.zip(rhs).map( x => max(x._1, x._2))
+      })
+
+      Seq(f, g).map( func => {
+        val tableD = new FuncTableDouble( func, order )
+        tableD.addRange(0.0, 1.0, 1<<adrW)
+        new FuncTableInt( tableD, fracW, Some(maxCalcWidth), cbitSetting )
+      })
   }
 }
