@@ -109,8 +109,10 @@ object MathFuncACosSim {
     assert(x.ex < exBias)
 
     val puiseuxThreshold = calcPuiseuxThreshold(manW, extraBits, 0)
-
-    if(tACos(0).nOrder != 0 && x.ex == exBias-1 && slice(manW-3, 3, x.man) == 7) {
+    // 1 for hidden bit, 1 for table exponent
+    val puiseuxMSBs = puiseuxThreshold.abs - 1 - 1
+    if(tACos(0).nOrder != 0 && x.ex == exBias-1 &&
+       slice(manW-puiseuxMSBs, puiseuxMSBs, x.man) == maskL(puiseuxMSBs)) {
 //       println(f"use Puiseux series: |x| = ${x.toDouble.abs}, y = ${1.0 - x.toDouble.abs}")
 
       // for x close to 1, use puiseux series:
@@ -134,21 +136,6 @@ object MathFuncACosSim {
 
 //       println(f"yref = ${1.0 - x.toDouble.abs}")
 //       println(f"ysim = ${ymanW1.toDouble / (1<<manW) * pow(2.0, yexNobias)}")
-
-      // ----------------------------------------------------------------------
-      // sqrt(2y)
-      // sqrt table uses the last bit of exponent.
-
-      val adrW      = tSqrt.adrW
-      val extraBits = tSqrt.bp - manW
-      val y2man  = slice(0, manW+1, ((yex + 1)<<manW) + yman)
-
-      val dxbp   = (manW+1)-adrW-1
-      val d      = slice(0, (manW+1)-adrW, y2man) - (SafeLong(1)<<dxbp)
-      val adr    = slice((manW+1)-adrW, adrW, y2man).toInt
-
-      // sqrt table returns the mantissa only. we need to add 1<<fracW
-      val sqrt2y = tSqrt.interval(adr).eval(d.toLong, dxbp) + (1<<(tSqrt.bp))
 
       // ----------------------------------------------------------------------
       // 2^-5 * 3/5 y^2
@@ -218,6 +205,21 @@ object MathFuncACosSim {
 //       println(f"sim:  firstTermRounded = ${bit(-yOver3ExNobias+2-1,     yOver3ManW1)}")
 //       println(f"sim: secondTermRounded = ${bit(-secondTermExNobias+5-1, secondTermManW1)}")
       assert(puiseuxTermManW1 < (1<<(manW+1)))
+
+      // ----------------------------------------------------------------------
+      // sqrt(2y)
+      // sqrt table uses the last bit of exponent.
+
+      val adrW      = tSqrt.adrW
+      val extraBits = tSqrt.bp - manW
+      val y2man  = slice(0, manW+1, ((yex + 1)<<manW) + yman)
+
+      val dxbp   = (manW+1)-adrW-1
+      val d      = slice(0, (manW+1)-adrW, y2man) - (SafeLong(1)<<dxbp)
+      val adr    = slice((manW+1)-adrW, adrW, y2man).toInt
+
+      // sqrt table returns the mantissa only. we need to add 1<<fracW
+      val sqrt2y = tSqrt.interval(adr).eval(d.toLong, dxbp) + (1<<(tSqrt.bp))
 
       // ----------------------------------------------------------------------
       // sqrt(2y) * (1 + 2^-2 * (1/3 * y) + 2^-5 * (3/5 * y^2) * (1 + 25/21 * 2^-2 * y))
@@ -352,7 +354,7 @@ object MathFuncACosSim {
       return new RealGeneric(x.spec, zSgn, zex.toInt, SafeLong(zman))
 
     } else {
-//       println("x is in [0.5, 1.0-2^puiseuxThreshold]. use acos large x table.")
+//       println("x is in [0.5, 1.0]. use acos large x table.")
 
       val t = tACos(1)
 
