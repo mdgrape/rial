@@ -68,7 +68,7 @@ object MathFuncACosSim {
   //     x   < 2^-4
   // So if 1-2^-4 < x, that means that x.man(22,20).andR === 1, use Puiseux series.
   //
-  def acosSimGeneric(taylorOrder: Int,
+  def acosSimGeneric(
       tACos: Seq[FuncTableInt], tSqrt: FuncTableInt, x: RealGeneric,
       exTable: Option[Seq[FuncTableInt]] = None
     ) : RealGeneric = {

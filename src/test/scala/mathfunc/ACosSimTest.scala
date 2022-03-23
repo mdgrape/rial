@@ -53,7 +53,7 @@ class MathFuncACosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         val z0   = acos(x0)
         val z0r  = new RealGeneric(spec, z0)
 
-        val zi   = MathFuncACosSim.acosSimGeneric(0, t, tSqrt, x, exTable )
+        val zi   = MathFuncACosSim.acosSimGeneric(t, tSqrt, x, exTable )
         val zd   = zi.toDouble
         val erri = errorLSB(zi, z0r.toDouble).toLong
 //         val errf = zi.toDouble - z0r.toDouble
@@ -131,24 +131,26 @@ class MathFuncACosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val sqrtFP32Table = MathFuncACosSim.sqrtTableGeneration(
     nOrderFP32, adrWFP32, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBitsFP32)
 
+  val smallValueFP32 = -4
+
   // acos(-|x|) is in [pi/2, pi]. this does not require super high resolution.
   acosTest(acosFP32Table, sqrtFP32Table, None, RealSpec.Float32Spec, n, r,
-    "Test Taylor: close to 0.0:  [0.0, -2^-4]", generateRealWithin(-pow(2.0, -4), 0.0,_,_), 1)
+    "Test close to 0.0:  [0.0, -2^-4]", generateRealWithin(-pow(2.0, smallValueFP32), 0.0,_,_), 1)
   acosTest(acosFP32Table, sqrtFP32Table, None, RealSpec.Float32Spec, n, r,
-    "Test normal table x < 0.5:  [-2^-4, -0.5]", generateRealWithin(-0.5, -pow(2.0, -4),_,_), 1)
+    "Test normal table x < 0.5:  [-2^-4, -0.5]", generateRealWithin(-0.5, -pow(2.0, smallValueFP32),_,_), 1)
   acosTest(acosFP32Table, sqrtFP32Table, None, RealSpec.Float32Spec, n, r,
-    "Test normal table x > 0.5:  [-0.5, -1+2^-4]", generateRealWithin(-1.0+pow(2.0, -4)-pow(2.0, -23), -0.5-pow(2.0, -23),_,_), 1)
+    "Test normal table x > 0.5:  [-0.5, -1+2^-4]", generateRealWithin(-1.0+pow(2.0, smallValueFP32)-pow(2.0, -23), -0.5-pow(2.0, -23),_,_), 1)
   acosTest(acosFP32Table, sqrtFP32Table, None, RealSpec.Float32Spec, n, r,
-    "Test Puiseux: close to 1.0: [-1-2^+4, -1.0]", generateRealWithin(-1.0, -1.0+pow(2.0, -4)-pow(2.0, -23),_,_), 3) // 2ULPs
+    "Test Puiseux: close to 1.0: [-1-2^+4, -1.0]", generateRealWithin(-1.0, -1.0+pow(2.0, smallValueFP32)-pow(2.0, -23),_,_), 3) // 2ULPs
 
   acosTest(acosFP32Table, sqrtFP32Table, None, RealSpec.Float32Spec, n, r,
-    "Test Taylor: close to 0.0:  [0.0, 2^-4]", generateRealWithin(0.0, pow(2.0, -4),_,_), 1)
+    "Test close to 0.0:  [0.0, 2^-4]", generateRealWithin(0.0, pow(2.0, smallValueFP32),_,_), 1)
   acosTest(acosFP32Table, sqrtFP32Table, None, RealSpec.Float32Spec, n, r,
-    "Test normal table x < 0.5:  [2^-4, 0.5]", generateRealWithin(pow(2.0, -4), 0.5,_,_), 1)
+    "Test normal table x < 0.5:  [2^-4, 0.5]", generateRealWithin(pow(2.0, smallValueFP32), 0.5,_,_), 1)
   acosTest(acosFP32Table, sqrtFP32Table, None, RealSpec.Float32Spec, n, r,
-    "Test normal table x > 0.5:  [0.5, 1-2^-4]", generateRealWithin(0.5+pow(2.0, -23), 1.0-pow(2.0, -4)+pow(2.0, -23),_,_), 3) // 2ULPs
+    "Test normal table x > 0.5:  [0.5, 1-2^-4]", generateRealWithin(0.5+pow(2.0, -23), 1.0-pow(2.0, smallValueFP32)+pow(2.0, -23),_,_), 3) // 2ULPs
   acosTest(acosFP32Table, sqrtFP32Table, None, RealSpec.Float32Spec, n, r,
-    "Test Puiseux: close to 1.0: [1-2^-4, 1.0]", generateRealWithin(1.0-pow(2.0, -4)+pow(2.0, -23), 1.0,_,_), 3) // 2ULPs
+    "Test Puiseux: close to 1.0: [1-2^-4, 1.0]", generateRealWithin(1.0-pow(2.0, smallValueFP32)+pow(2.0, -23), 1.0,_,_), 3) // 2ULPs
 
 
   val nOrderBF16    = 0
@@ -168,20 +170,20 @@ class MathFuncACosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val smallValueBF16 = -4
 
   acosTest(acosBF16Table, sqrtBF16Table, Some(acosExBF16Table), RealSpec.BFloat16Spec, n, r,
-    f"Test Puiseux: close to -1.0: [-1, -1+2^${smallValueBF16}]", generateRealWithin(-1.0, -1.0+pow(2.0, smallValueBF16),_,_), 1)
+    f"Test close to -1.0: [-1, -1+2^${smallValueBF16}]", generateRealWithin(-1.0, -1.0+pow(2.0, smallValueBF16),_,_), 1)
   acosTest(acosBF16Table, sqrtBF16Table, Some(acosExBF16Table), RealSpec.BFloat16Spec, n, r,
     f"Test normal table -1.0 < x < -0.5:  [-1+2^${smallValueBF16}, -0.5]", generateRealWithin(-1.0, -0.5,_,_), 1)
   acosTest(acosBF16Table, sqrtBF16Table, Some(acosExBF16Table), RealSpec.BFloat16Spec, n, r,
     f"Test normal table -0.5 < x < 0:  [-0.5, 0.0]", generateRealWithin(-0.5, 0.0,_,_), 1)
   acosTest(acosBF16Table, sqrtBF16Table, Some(acosExBF16Table), RealSpec.BFloat16Spec, n, r,
-    f"Test Puiseux: close to 0.0: [-2^${smallValueBF16},  0.0]", generateRealWithin(-pow(2.0, smallValueBF16), 0.0,_,_), 1)
+    f"Test close to 0.0: [-2^${smallValueBF16},  0.0]", generateRealWithin(-pow(2.0, smallValueBF16), 0.0,_,_), 1)
 
   acosTest(acosBF16Table, sqrtBF16Table, Some(acosExBF16Table), RealSpec.BFloat16Spec, n, r,
-    f"Test Taylor: close to 0.0:  [0.0, 2^${smallValueBF16}]", generateRealWithin(0.0, pow(2.0, smallValueBF16),_,_), 1)
+    f"Test close to 0.0:  [0.0, 2^${smallValueBF16}]", generateRealWithin(0.0, pow(2.0, smallValueBF16),_,_), 1)
   acosTest(acosBF16Table, sqrtBF16Table, Some(acosExBF16Table), RealSpec.BFloat16Spec, n, r,
     f"Test normal table 0.0 < x < 0.5:  [0.0, 0.5]", generateRealWithin(0.0, 0.5,_,_), 1)
   acosTest(acosBF16Table, sqrtBF16Table, Some(acosExBF16Table), RealSpec.BFloat16Spec, n, r,
     f"Test normal table 0.5 < x < 1.0:  [0.5, 1.0]", generateRealWithin(0.5, 1.0,_,_), 1)
   acosTest(acosBF16Table, sqrtBF16Table, Some(acosExBF16Table), RealSpec.BFloat16Spec, n, r,
-    f"Test Puiseux: close to 1.0: [1-2^${smallValueBF16}, 1.0]", generateRealWithin(1.0-pow(2.0, smallValueBF16)+pow(2.0, -RealSpec.BFloat16Spec.manW), 1.0,_,_), 1)
+    f"Test close to 1.0: [1-2^${smallValueBF16}, 1.0]", generateRealWithin(1.0-pow(2.0, smallValueBF16)+pow(2.0, -RealSpec.BFloat16Spec.manW), 1.0,_,_), 1)
 }

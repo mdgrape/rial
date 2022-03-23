@@ -56,7 +56,7 @@ class MathFuncACosTest extends AnyFlatSpec
     java.lang.Math.scalb(err, -x.exNorm+x.spec.manW)
   }
 
-  private def runtest ( spec : RealSpec, taylorOrder: Int,
+  private def runtest ( spec : RealSpec,
       nOrder : Int, adrW : Int, extraBits : Int, stage: MathFuncPipelineConfig,
       n : Int, r : Random, generatorStr : String,
       generator : ( (RealSpec, Random) => RealGeneric)
@@ -77,7 +77,7 @@ class MathFuncACosTest extends AnyFlatSpec
             RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBits,
             Some(maxCalcW), Some(maxCbit))
 
-          val reference  = MathFuncACosSim.acosSimGeneric(taylorOrder, acosF32TableI, sqrtF32TableI, _, None )
+          val reference  = MathFuncACosSim.acosSimGeneric(acosF32TableI, sqrtF32TableI, _, None )
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
             val xi = generator(spec,r)
@@ -120,18 +120,17 @@ class MathFuncACosTest extends AnyFlatSpec
   val nOrder = 2
   val adrW = 8
   val extraBits = 3
-  val taylorOrderFP32 = 3
-  runtest(RealSpec.Float32Spec, taylorOrderFP32, nOrder, adrW, extraBits, MathFuncPipelineConfig.none,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, MathFuncPipelineConfig.none,
     n, r, "Test Within (-1, -1+2^-4)",     generateRealWithin(-1.0, -1.0+pow(2.0, -4)-pow(2.0, -23),_,_))
-  runtest(RealSpec.Float32Spec, taylorOrderFP32, nOrder, adrW, extraBits, MathFuncPipelineConfig.none,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, MathFuncPipelineConfig.none,
     n, r, "Test Within (-1+2^-4,  -2^-4)",    generateRealWithin(-1.0+pow(2.0, -4), -pow(2.0, -4),_,_))
-  runtest(RealSpec.Float32Spec, taylorOrderFP32, nOrder, adrW, extraBits, MathFuncPipelineConfig.none,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, MathFuncPipelineConfig.none,
     n, r, "Test Within (-2^-4, 0)",   generateRealWithin(-pow(2.0, -4), 0,_,_))
-  runtest(RealSpec.Float32Spec, taylorOrderFP32, nOrder, adrW, extraBits, MathFuncPipelineConfig.none,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, MathFuncPipelineConfig.none,
     n, r, "Test Within ( 0, 2^-4)",     generateRealWithin(0,pow(2.0, -4),_,_))
-  runtest(RealSpec.Float32Spec, taylorOrderFP32, nOrder, adrW, extraBits, MathFuncPipelineConfig.none,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, MathFuncPipelineConfig.none,
     n, r, "Test Within ( 2^-4,  1-2^-4)",     generateRealWithin(pow(2.0, -4), 1.0 - pow(2.0, -4),_,_))
-  runtest(RealSpec.Float32Spec, taylorOrderFP32, nOrder, adrW, extraBits, MathFuncPipelineConfig.none,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, MathFuncPipelineConfig.none,
     n, r, "Test Within (1-2^-4, 1)",     generateRealWithin(1.0-pow(2.0, -4)+pow(2.0, -23), 1.0,_,_))
 
   val simplePipeline = new MathFuncPipelineConfig(
@@ -139,17 +138,17 @@ class MathFuncACosTest extends AnyFlatSpec
       PipelineStageConfig.none,
       PipelineStageConfig.none,
       true, true)
-  runtest(RealSpec.Float32Spec, taylorOrderFP32, nOrder, adrW, extraBits, simplePipeline,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline,
     n, r, "Test Within (-1, -1+2^-4)",     generateRealWithin(-1.0, -1.0+pow(2.0, -4)-pow(2.0, -23),_,_))
-  runtest(RealSpec.Float32Spec, taylorOrderFP32, nOrder, adrW, extraBits, simplePipeline,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline,
     n, r, "Test Within (-1+2^-4,  -2^-4)",    generateRealWithin(-1.0+pow(2.0, -4), -pow(2.0, -4),_,_))
-  runtest(RealSpec.Float32Spec, taylorOrderFP32, nOrder, adrW, extraBits, simplePipeline,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline,
     n, r, "Test Within (-2^-4, 0)",   generateRealWithin(-pow(2.0, -4), 0,_,_))
-  runtest(RealSpec.Float32Spec, taylorOrderFP32, nOrder, adrW, extraBits, simplePipeline,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline,
     n, r, "Test Within ( 0, 2^-4)",     generateRealWithin(0,pow(2.0, -4),_,_))
-  runtest(RealSpec.Float32Spec, taylorOrderFP32, nOrder, adrW, extraBits, simplePipeline,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline,
     n, r, "Test Within ( 2^-4,  1-2^-4)",     generateRealWithin(pow(2.0, -4), 1.0 - pow(2.0, -4),_,_))
-  runtest(RealSpec.Float32Spec, taylorOrderFP32, nOrder, adrW, extraBits, simplePipeline,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline,
     n, r, "Test Within (1-2^-4, 1)",     generateRealWithin(1.0-pow(2.0, -4)+pow(2.0, -23), 1.0,_,_))
 
   val complexPipeline = new MathFuncPipelineConfig(
@@ -158,17 +157,17 @@ class MathFuncACosTest extends AnyFlatSpec
       PipelineStageConfig.atOut(2),
       true, true)
 
-  runtest(RealSpec.Float32Spec, taylorOrderFP32, nOrder, adrW, extraBits, complexPipeline,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline,
     n, r, "Test Within (-1, -1+2^-4)",     generateRealWithin(-1.0, -1.0+pow(2.0, -4)-pow(2.0, -23),_,_))
-  runtest(RealSpec.Float32Spec, taylorOrderFP32, nOrder, adrW, extraBits, complexPipeline,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline,
     n, r, "Test Within (-1+2^-4,  -2^-4)",    generateRealWithin(-1.0+pow(2.0, -4), -pow(2.0, -4),_,_))
-  runtest(RealSpec.Float32Spec, taylorOrderFP32, nOrder, adrW, extraBits, complexPipeline,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline,
     n, r, "Test Within (-2^-4, 0)",   generateRealWithin(-pow(2.0, -4), 0,_,_))
-  runtest(RealSpec.Float32Spec, taylorOrderFP32, nOrder, adrW, extraBits, complexPipeline,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline,
     n, r, "Test Within ( 0, 2^-4)",     generateRealWithin(0,pow(2.0, -4),_,_))
-  runtest(RealSpec.Float32Spec, taylorOrderFP32, nOrder, adrW, extraBits, complexPipeline,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline,
     n, r, "Test Within ( 2^-4,  1-2^-4)",     generateRealWithin(pow(2.0, -4), 1.0 - pow(2.0, -4),_,_))
-  runtest(RealSpec.Float32Spec, taylorOrderFP32, nOrder, adrW, extraBits, complexPipeline,
+  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline,
     n, r, "Test Within (1-2^-4, 1)",     generateRealWithin(1.0-pow(2.0, -4)+pow(2.0, -23), 1.0,_,_))
 
 }
