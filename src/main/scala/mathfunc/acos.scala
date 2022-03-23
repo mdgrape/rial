@@ -786,9 +786,9 @@ class ACosGeneric(
   acosPre.io.en        := io.en
   acosPre.io.x         := xdecomp.io.decomp
   // ------ Preprocess-Calculate ------
-  acosTab.io.en        := io.en && (!acosPreUseSqrtPCGapReg)
+  acosTab.io.en        := enPCGapReg && (!acosPreUseSqrtPCGapReg)
   acosTab.io.adr       := acosPreAdrPCGapReg
-  sqrtTab.io.en        := io.en && acosPreUseSqrtPCGapReg
+  sqrtTab.io.en        := enPCGapReg && acosPreUseSqrtPCGapReg
   sqrtTab.io.adr       := acosPreAdrPCGapReg
   acosOther.io.x       := xdecPCGapReg
   acosOther.io.useSqrt := acosPreUseSqrtPCGapReg
