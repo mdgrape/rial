@@ -225,7 +225,12 @@ class ACosOnlyTest extends AnyFlatSpec
           val sqrtTableI = MathFuncACosSim.sqrtTableGeneration(nOrder, adrW,
             spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit))
 
-          val reference  = MathFuncACosSim.acosSimGeneric(acosTableI, sqrtTableI, _, None )
+          val acosExTableI = if(nOrder != 0) {None} else {
+            Some(MathFuncACosSim.acosExTableGeneration(spec, nOrder, adrW,
+              spec.manW, spec.manW+extraBits))
+          }
+
+          val reference  = MathFuncACosSim.acosSimGeneric(acosTableI, sqrtTableI, _, acosExTableI )
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
             val xi = generator(spec,r)
