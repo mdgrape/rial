@@ -567,6 +567,9 @@ class ACosPostProcess(
 
   if(order == 0) { // order == 0, for BF16
 
+    val zex0  = Mux(zzero, 0.U, zexNonTable)
+    val zman0 = Mux(zzero, 0.U, io.zres)
+
     // -----------------------------------------------------------------------
     // if x > 0, return acos(x).
 
@@ -574,14 +577,14 @@ class ACosPostProcess(
     val zexPos  = Wire(UInt(exW.W))
 
     if(extraBits == 0) {
-      zmanPos := io.zres
-      zexPos  := zexNonTable
+      zmanPos := zman0
+      zexPos  := zex0
     } else {
-      val zmanRounded = io.zres(fracW-1, extraBits) +& io.zres(extraBits-1)
+      val zmanRounded = zman0(fracW-1, extraBits) +& zman0(extraBits-1)
       val zmanMoreThan2AfterRound = zmanRounded(manW)
       val zmanResult = zmanRounded(manW-1, 0)
       zmanPos := zmanResult
-      zexPos  := zexNonTable + zmanMoreThan2AfterRound
+      zexPos  := zex0 + zmanMoreThan2AfterRound
     }
 
     // -----------------------------------------------------------------------
@@ -593,9 +596,10 @@ class ACosPostProcess(
     val piEx    = 1
     val piFixed = math.round(math.Pi * (1<<(fracW-1))).toLong
 
-    val zmanShift   = (piEx + exBias).U - zexNonTable
+    val zmanShift   = (piEx + exBias).U - zex0
     val zmanShift0  = zmanShift(log2Up(fracW), 0)
-    val zmanAligned = Mux(zmanShift > fracW.U, 0.U, Cat(1.U(1.W), io.zres) >> zmanShift0)
+    val zmanShifted = Cat(1.U(1.W), zman0) >> zmanShift0
+    val zmanAligned = Mux(zmanShift > fracW.U, 0.U, zmanShifted)
 
     val res0 = piFixed.U - zmanAligned
     val res0MoreThan2 = res0(fracW)
