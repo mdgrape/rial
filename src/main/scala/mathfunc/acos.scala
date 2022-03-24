@@ -564,7 +564,6 @@ class ACosPostProcess(
 //   printf("cir: zexNonTable       = %d\n", zexNonTable )
 //   printf("cir: zmanNonTable      = %b\n", zmanNonTable)
 
-
   if(order == 0) { // order == 0, for BF16
 
     val zex0  = Mux(zzero, 0.U, zexNonTable)
@@ -596,7 +595,7 @@ class ACosPostProcess(
     val piEx    = 1
     val piFixed = math.round(math.Pi * (1<<(fracW-1))).toLong
 
-    val zmanShift   = (piEx + exBias).U - zex0
+    val zmanShift   = (piEx + exBias).U(exW.W) - zex0
     val zmanShift0  = zmanShift(log2Up(fracW), 0)
     val zmanShifted = Cat(1.U(1.W), zman0) >> zmanShift0
     val zmanAligned = Mux(zmanShift > fracW.U, 0.U, zmanShifted)
@@ -608,13 +607,13 @@ class ACosPostProcess(
 
     if(extraBits == 0) {
       zmanNeg := res
-      zexNeg  := exBias.U + res0MoreThan2
+      zexNeg  := exBias.U(exW.W) + res0MoreThan2
     } else {
       val zmanRounded = res(fracW-1, extraBits) +& res(extraBits-1)
       val zmanMoreThan2AfterRound = zmanRounded(manW)
       val zmanResult = zmanRounded(manW-1, 0)
       zmanNeg := zmanResult
-      zexNeg  := exBias.U + res0MoreThan2 + zmanMoreThan2AfterRound
+      zexNeg  := exBias.U(exW.W) + res0MoreThan2 + zmanMoreThan2AfterRound
     }
 
     // -----------------------------------------------------------------------
