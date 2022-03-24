@@ -374,19 +374,22 @@ class ATan2Stage2TableCoeff(
 
   if(order == 0) {
 
-    val tbl = VecInit( (-1 to linearThreshold.toInt by -1 ).map( exponent => {
-      VecInit((0L to (1L<<adrW)-1L).map( n => {
-        // atan(x) < x.
-        val x = scalb(1.0 + n.toDouble / (1L<<adrW), exponent.toInt)
-        val y = math.round(scalb(atan(x), -exponent-1) * (1L<<fracW))
-        assert(y < (1L << fracW))
-        y.U((fracW+1).W)
-      } ) )
-    } ) )
+    val cbit = ATan2Sim.atanTableGeneration( order, adrW, manW, fracW )
+      .map( t => {t.getCBitWidth(/*sign mode = */1)} )
+      .reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
+
+    val tableIs = VecInit(
+      ATan2Sim.atanTableGeneration( order, adrW, manW, fracW ).map(t => {
+        t.getVectorWithWidth(cbit, /*sign mode = */ 1)
+      })
+    )
+    val tableI = tableIs(exAdr)
+    val coeff = getSlices(tableI(adr), cbit)
 
     assert(maxCbit(0) == fracW)
+    assert(coeff(0).getWidth == fracW, f"coeff = ${coeff(0).getWidth}, fracW = ${fracW}")
 
-    io.cs.cs(0) := enable(io.en, tbl(exAdr)(adr))
+    io.cs.cs(0) := enable(io.en, coeff(0))
 
   } else {
 
@@ -592,12 +595,17 @@ class ATan2Stage2PostProcess(
 //   printf("zresMTH = %b\n", zresMoreThanHalf)
 //   printf("zres    = %b\n", zres )
 
-  assert(extraBits >= 2)
+  assert(extraBits >= 1)
 
-  val zresRounded = zres(fracW-1, extraBits-1) + zres(extraBits-2)
-  assert((zresRounded.getWidth == manW+1).B)
+  val zresRounded = if(extraBits == 1) {Cat(0.U(1.W), zres)} else {
+    zres(fracW-1, extraBits-1) +& zres(extraBits-2)
+  }
+  assert(zresRounded.getWidth == manW+2)
 
-  val atanEx  = Mux(io.zother.zIsNonTable || zresMoreThanHalf, io.zother.zex, io.zother.zex - 1.U)
+  val zresMoreThan2AfterRound = zresRounded(zresRounded.getWidth-1)
+
+  val atanEx  = Mux(io.zother.zIsNonTable || zresMoreThanHalf,
+                    io.zother.zex, io.zother.zex - 1.U) + zresMoreThan2AfterRound
   val atanMan = Mux(io.zother.zIsNonTable, io.zother.zman, zresRounded(manW-1, 0))
 
 //   printf("atan = %d|%b\n", atanEx, atanMan)
