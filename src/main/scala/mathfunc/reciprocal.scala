@@ -93,15 +93,15 @@ class ReciprocalTableCoeff(
     val tbl = VecInit( (0L to (1L<<adrW)-1L).map(
       n => {
         val x = 1.0+n.toDouble/(1L<<adrW)
-        val y = round((2.0/x-1.0)*(1L<<manW))
+        val y = round((2.0/x-1.0)*(1L<<fracW))
         //println(f"$n $x $y")
         if (n==0) {
-          0.U(manW.W)
-        } else if (y>=(1L<<manW)) {
+          0.U(fracW.W)
+        } else if (y>=(1L<<fracW)) {
           println("WARNING: mantissa reaches to 2")
-          maskL(manW).U(manW.W)
+          maskL(fracW).U(fracW.W)
         } else {
-          y.U(manW.W)
+          y.U(fracW.W)
         }
       }
     ) )
