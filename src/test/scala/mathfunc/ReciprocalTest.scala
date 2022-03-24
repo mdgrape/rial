@@ -271,5 +271,24 @@ class ReciprocalOnlyTest extends AnyFlatSpec
     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline,
     n, r, "Test All range",generateRealFull(_,_) )
+
+  val nOrderBF16exBit    = 0
+  val adrWBF16exBit      = 7
+  val extraBitsBF16exBit = 1 // XXX
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16exBit, adrWBF16exBit, extraBitsBF16exBit, MathFuncPipelineConfig.none,
+    n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16exBit, adrWBF16exBit, extraBitsBF16exBit, MathFuncPipelineConfig.none,
+    n, r, "Test All range",generateRealFull(_,_) )
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16exBit, adrWBF16exBit, extraBitsBF16exBit, simplePipeline,
+    n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16exBit, adrWBF16exBit, extraBitsBF16exBit, simplePipeline,
+    n, r, "Test All range",generateRealFull(_,_) )
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16exBit, adrWBF16exBit, extraBitsBF16exBit, complexPipeline,
+    n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16exBit, adrWBF16exBit, extraBitsBF16exBit, complexPipeline,
+    n, r, "Test All range",generateRealFull(_,_) )
 }
 
