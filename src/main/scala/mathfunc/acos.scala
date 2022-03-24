@@ -376,12 +376,12 @@ class ACosOtherPath(
     io.zother.zIsPuiseux := false.B
 
     val cbit = MathFuncACosSim.acosExTableGeneration( spec, order, adrW, manW, fracW )
-      .map( t => {t.getCBitWidth(/*sign mode = */0)} )
+      .map( t => {t.getCBitWidth(/*sign mode = */1)} )
       .reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
 
     val tableIs = VecInit(
       MathFuncACosSim.acosExTableGeneration( spec, order, adrW, manW, fracW ).map(t => {
-        t.getVectorWithWidth(cbit, /*sign mode = */ 0)
+        t.getVectorWithWidth(cbit, /*sign mode = */ 1)
       })
     )
 
