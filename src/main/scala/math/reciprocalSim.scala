@@ -27,7 +27,7 @@ object ReciprocalSim {
     val expW = x.spec.exW
     val manW = x.spec.manW
     val exBias = x.spec.exBias
-    val extraBits = if (t.nOrder==0) 0 else (t.bp - manW)
+    val extraBits = t.bp - manW
 
     val man    = x.man
     val exRaw  = x.ex
