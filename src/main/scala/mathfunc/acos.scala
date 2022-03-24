@@ -396,7 +396,7 @@ class ACosOtherPath(
       Cat(0.U(diffWidth.W), coeff(0))
     }
 
-    io.zother.zex  := ci
+    io.zother.zex  := ShiftRegister(ci, nStage)
     io.zother.zman := 0.U // not used
 
   } else { // for FP32
