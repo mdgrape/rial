@@ -31,7 +31,7 @@ object InvSqrtSim {
     val expW = x.spec.exW
     val manW = x.spec.manW
     val exBias = x.spec.exBias
-    val extraBits = if (nOrder==0) {0} else {(bp - manW)}
+    val extraBits = bp - manW
 
     val exRaw  = x.ex
     val sgn    = x.sgn
