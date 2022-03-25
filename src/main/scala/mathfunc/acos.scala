@@ -317,14 +317,15 @@ object ACosTableCoeff {
 // polynomial, then it calculates exponent using a table.
 //
 
-class ACosNonTableOutput(val spec: RealSpec) extends Bundle {
-  val xsgn       = Output(UInt(1.W))
+class ACosNonTableOutput(val spec: RealSpec, val polySpec: PolynomialSpec) extends Bundle {
+  val xsgn          = Output(UInt(1.W))
   val xLessThanHalf = Output(Bool())
-  val znan       = Output(Bool())
-  val zzero      = Output(Bool())
-  val zIsPuiseux = Output(Bool()) // needs pi - z if xsgn
-  val zex        = Output(UInt(spec.exW.W))
-  val zman       = Output(UInt(spec.manW.W))
+  val znan          = Output(Bool())
+  val zzero         = Output(Bool())
+  val zex           = Output(UInt(spec.exW.W))
+  val zman          = if(polySpec.order != 0) {Some(Output(UInt(spec.manW.W)))} else {None}
+  // needs pi - z if xsgn
+  val zIsPuiseux    = if(polySpec.order != 0) {Some(Output(Bool()))} else {None}
 }
 
 class ACosOtherPath(
@@ -348,7 +349,7 @@ class ACosOtherPath(
     val yex     = if(order != 0) {Some(Input(UInt(exW.W))) } else {None}
     val yman    = if(order != 0) {Some(Input(UInt(manW.W)))} else {None}
     val useSqrt = if(order != 0) {Some(Input(Bool()))      } else {None}
-    val zother  = new ACosNonTableOutput(spec)
+    val zother  = new ACosNonTableOutput(spec, polySpec)
   })
 
   // --------------------------------------------------------------------------
@@ -363,8 +364,6 @@ class ACosOtherPath(
   io.zother.xLessThanHalf := ShiftRegister(io.x.ex < (exBias-1).U, nStage)
 
   if(polySpec.order == 0) { // for BF16
-
-    io.zother.zIsPuiseux := false.B
 
     val cbit = MathFuncACosSim.acosExTableGeneration( spec, order, adrW, manW, fracW )
       .map( t => {t.getCBitWidth(/*sign mode = */1)} )
@@ -388,13 +387,12 @@ class ACosOtherPath(
     }
 
     io.zother.zex  := ShiftRegister(ci, nStage)
-    io.zother.zman := 0.U // not used
 
   } else { // for FP32
 
     // if |x| > 1, return 0 as puiseux result.
 
-    io.zother.zIsPuiseux := ShiftRegister(xMoreThan1 || io.useSqrt.get, nStage)
+    io.zother.zIsPuiseux.get := ShiftRegister(xMoreThan1 || io.useSqrt.get, nStage)
 
     // --------------------------------------------------------------------------
     // helper function to multiply values
@@ -499,8 +497,8 @@ class ACosOtherPath(
     val zex  = Mux(xMoreThan1, 0.U, puiseuxEx)
     val zman = Mux(xMoreThan1, 0.U, puiseuxMan)
 
-    io.zother.zman := ShiftRegister(zman, nStage)
-    io.zother.zex  := ShiftRegister(zex,  nStage)
+    io.zother.zman.get := ShiftRegister(zman, nStage)
+    io.zother.zex      := ShiftRegister(zex,  nStage)
   }
 }
 
@@ -535,7 +533,7 @@ class ACosPostProcess(
   val io = IO(new Bundle {
     val en = Input(UInt(1.W))
     // ex and some flags
-    val zother = Flipped(new ACosNonTableOutput(spec))
+    val zother = Flipped(new ACosNonTableOutput(spec, polySpec))
     // table interpolation results
     val zres   = Input(UInt(fracW.W))
     // output
@@ -544,11 +542,9 @@ class ACosPostProcess(
 
   val xsgn          = io.zother.xsgn.asBool
   val xLessThanHalf = io.zother.xLessThanHalf
-  val zIsPuiseux   = io.zother.zIsPuiseux
   val znan         = io.zother.znan
   val zzero        = io.zother.zzero
   val zexNonTable  = io.zother.zex
-  val zmanNonTable = io.zother.zman
 //   printf("cir: zother.xsgn       = %d\n", xsgn      )
 //   printf("cir: zother.znan       = %d\n", znan      )
 //   printf("cir: zother.zIsPuiseux = %d\n", zIsPuiseux)
@@ -621,6 +617,10 @@ class ACosPostProcess(
     io.z := ShiftRegister(z, nStage)
 
   } else { // order != 0, for FP32
+    assert(io.zother.zIsPuiseux.isDefined)
+    assert(io.zother.zman.isDefined      )
+    val zIsPuiseux   = io.zother.zIsPuiseux.get
+    val zmanNonTable = io.zother.zman.get
 
     val halfPiFixed = math.round(Pi * 0.5 * (1 << fracW)).U((fracW+1).W)
     val piman = (new RealGeneric(spec, Pi)).man.toLong.U(manW.W)
