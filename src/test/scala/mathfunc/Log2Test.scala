@@ -75,11 +75,11 @@ class MathFuncLog2Test extends AnyFlatSpec
           val maxCalcW   = c.getMaxCalcW
 
           val log2F32TableI = MathFuncLogSim.logNormalTableGeneration(
-            RealSpec.Float32Spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
+            spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
           val log2F32SmallPositiveTableI = MathFuncLogSim.logSmallPositiveTableGeneration(
-            RealSpec.Float32Spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
+            spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
           val log2F32SmallNegativeTableI = MathFuncLogSim.logSmallNegativeTableGeneration(
-            RealSpec.Float32Spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
+            spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
 
           val reference  = MathFuncLogSim.logSimGeneric(/*islog2*/true,
             log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, _ )
