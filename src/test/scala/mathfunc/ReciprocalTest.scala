@@ -111,24 +111,11 @@ class MathFuncReciprocalTest extends AnyFlatSpec
     }
   }
 
-  val nOrder = 2
-  val adrW = 8
-  val extraBits = 3
-  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, MathFuncPipelineConfig.none,
-    n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, MathFuncPipelineConfig.none,
-    n, r, "Test All range",generateRealFull(_,_) )
-
   val simplePipeline = new MathFuncPipelineConfig(
       PipelineStageConfig.none,
       PipelineStageConfig.none,
       PipelineStageConfig.none,
       true, true)
-
-  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline,
-    n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, simplePipeline,
-    n, r, "Test All range",generateRealFull(_,_) )
 
   val complexPipeline = new MathFuncPipelineConfig(
       PipelineStageConfig.atOut(1),
@@ -136,9 +123,42 @@ class MathFuncReciprocalTest extends AnyFlatSpec
       PipelineStageConfig.atOut(2),
       true, true)
 
-  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline,
+  val nOrderFP32 = 2
+  val adrWFP32 = 8
+  val extraBitsFP32 = 3
+
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none,
     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-  runtest(RealSpec.Float32Spec, nOrder, adrW, extraBits, complexPipeline,
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none,
+    n, r, "Test All range",generateRealFull(_,_) )
+
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline,
+    n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline,
+    n, r, "Test All range",generateRealFull(_,_) )
+
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline,
+    n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline,
+    n, r, "Test All range",generateRealFull(_,_) )
+
+  val nOrderBF16 = 0
+  val adrWBF16 = 7
+  val extraBitsBF16 = 1
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none,
+    n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none,
+    n, r, "Test All range",generateRealFull(_,_) )
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline,
+    n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline,
+    n, r, "Test All range",generateRealFull(_,_) )
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline,
+    n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline,
     n, r, "Test All range",generateRealFull(_,_) )
 }
 
