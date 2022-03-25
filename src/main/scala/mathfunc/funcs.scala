@@ -114,6 +114,7 @@ class MathFunctions(
   val spec : RealSpec, // Input / Output floating spec
   val nOrder: Int, val adrW : Int, val extraBits : Int, // Polynomial spec
   val stage : MathFuncPipelineConfig,
+  val sincosTaylorOrder: Int = 3,
   val enableRangeCheck : Boolean = true,
   val enablePolynomialRounding : Boolean = false,
 ) extends Module {
@@ -148,7 +149,7 @@ class MathFunctions(
     SqrtTableCoeff.getCBits(spec, polySpec),
     InvSqrtTableCoeff.getCBits(spec, polySpec),
     ReciprocalTableCoeff.getCBits(spec, polySpec),
-    SinCosTableCoeff.getCBits(spec, polySpec, /*taylor order = */ 5),
+    SinCosTableCoeff.getCBits(spec, polySpec, sincosTaylorOrder),
     ATan2Stage2TableCoeff.getCBits(spec, polySpec),
     ExpTableCoeff.getCBits(spec, polySpec),
     Log2TableCoeff.getCBits(spec, polySpec)
@@ -159,7 +160,7 @@ class MathFunctions(
     SqrtTableCoeff.getCalcW(spec, polySpec),
     InvSqrtTableCoeff.getCalcW(spec, polySpec),
     ReciprocalTableCoeff.getCalcW(spec, polySpec),
-    SinCosTableCoeff.getCalcW(spec, polySpec, /*taylor order = */ 5),
+    SinCosTableCoeff.getCalcW(spec, polySpec, sincosTaylorOrder),
     ATan2Stage2TableCoeff.getCalcW(spec, polySpec),
     ExpTableCoeff.getCalcW(spec, polySpec),
     Log2TableCoeff.getCalcW(spec, polySpec)
@@ -172,7 +173,7 @@ class MathFunctions(
   println(f"sqrt        cbits = ${SqrtTableCoeff       .getCBits(spec, polySpec)} calcW = ${SqrtTableCoeff       .getCalcW(spec, polySpec)}")
   println(f"invsqrt     cbits = ${InvSqrtTableCoeff    .getCBits(spec, polySpec)} calcW = ${InvSqrtTableCoeff    .getCalcW(spec, polySpec)}")
   println(f"rec         cbits = ${ReciprocalTableCoeff .getCBits(spec, polySpec)} calcW = ${ReciprocalTableCoeff .getCalcW(spec, polySpec)}")
-  println(f"sincos      cbits = ${SinCosTableCoeff     .getCBits(spec, polySpec, /*taylor order = */ 5)} calcW = ${SinCosTableCoeff     .getCalcW(spec, polySpec, /*taylor order = */ 5)}")
+  println(f"sincos      cbits = ${SinCosTableCoeff     .getCBits(spec, polySpec, sincosTaylorOrder)} calcW = ${SinCosTableCoeff.getCalcW(spec, polySpec, sincosTaylorOrder)}")
   println(f"atan2Stage2 cbits = ${ATan2Stage2TableCoeff.getCBits(spec, polySpec)} calcW = ${ATan2Stage2TableCoeff.getCalcW(spec, polySpec)}")
   println(f"pow2        cbits = ${ExpTableCoeff       .getCBits(spec, polySpec)} calcW = ${ExpTableCoeff       .getCalcW(spec, polySpec)}")
   println(f"log2        cbits = ${Log2TableCoeff       .getCBits(spec, polySpec)} calcW = ${Log2TableCoeff       .getCalcW(spec, polySpec)}")
@@ -334,9 +335,9 @@ class MathFunctions(
   // --------------------------------------------------------------------------
   // sincos
 
-  val sincosPre   = Module(new SinCosPreProcess (spec, polySpec, stage.preStage, /*taylor order = */ 5))
-  val sincosTab   = Module(new SinCosTableCoeff (spec, polySpec, maxCbit, /*taylor order = */ 5))
-  val sincosOther = Module(new SinCosOtherPath  (spec, polySpec, stage.calcStage, /*taylor order = */ 5))
+  val sincosPre   = Module(new SinCosPreProcess (spec, polySpec, stage.preStage, sincosTaylorOrder))
+  val sincosTab   = Module(new SinCosTableCoeff (spec, polySpec, maxCbit, sincosTaylorOrder))
+  val sincosOther = Module(new SinCosOtherPath  (spec, polySpec, stage.calcStage, sincosTaylorOrder))
   val sincosPost  = Module(new SinCosPostProcess(spec, polySpec, stage.postStage))
 
   sincosPre.io.en    := (io.sel === SelectFunc.Sin) || (io.sel === SelectFunc.Cos)
