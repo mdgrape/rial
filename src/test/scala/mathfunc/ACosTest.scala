@@ -74,8 +74,12 @@ class MathFuncACosTest extends AnyFlatSpec
             spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit))
           val sqrtF32TableI = MathFuncACosSim.sqrtTableGeneration(nOrder, adrW,
             spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit))
+          val acosExTableI  = if(nOrder != 0) {None} else {
+            Some(MathFuncACosSim.acosExTableGeneration(spec, nOrder, adrW,
+              spec.manW, spec.manW+extraBits))
+          }
 
-          val reference  = MathFuncACosSim.acosSimGeneric(acosF32TableI, sqrtF32TableI, _, None )
+          val reference  = MathFuncACosSim.acosSimGeneric(acosF32TableI, sqrtF32TableI, _, acosExTableI )
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
             val xi = generator(spec,r)
