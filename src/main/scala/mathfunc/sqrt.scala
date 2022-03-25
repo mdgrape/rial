@@ -104,13 +104,13 @@ class SqrtTableCoeff(
         } else {
           (n.toDouble / (1L<<(adrW+1))) * 2.0       // 0.5~0.999 -> 1.0~1.999
         }
-        val y = round((math.sqrt(x)-1.0) * (1L<<manW))
-        if (y >= (1L<<manW)) {
-          maskL(manW).U(manW.W)
+        val y = round((math.sqrt(x)-1.0) * (1L<<fracW))
+        if (y >= (1L<<fracW)) {
+          maskL(fracW).U(fracW.W)
         } else if (y <= 0.0) {
-          0.U(manW.W)
+          0.U(fracW.W)
         } else {
-          y.U(manW.W)
+          y.U(fracW.W)
         }
       })
     )
