@@ -78,9 +78,9 @@ class ACosPreProcess(
     // if x is close to 1, we switch to puiseux series expansion. To do that,
     // we need to calculate sqrt(2*(1-x)). This output indicates we need to
     // calc sqrt.
-    val useSqrt = Output(Bool())
-    val yex     = Output(UInt(spec.exW.W))
-    val yman    = Output(UInt(spec.manW.W))
+    val useSqrt = if(order != 0) {Some(Output(Bool()))           } else {None}
+    val yex     = if(order != 0) {Some(Output(UInt(spec.exW.W))) } else {None}
+    val yman    = if(order != 0) {Some(Output(UInt(spec.manW.W)))} else {None}
   })
 
   val xsgn = enable(io.en, io.x.sgn)
@@ -88,10 +88,6 @@ class ACosPreProcess(
   val xman = enable(io.en, io.x.man)
 
   if(order == 0) {
-    // if order == 0, we do not use puiseux series but use exponent table.
-    io.useSqrt := false.B
-    io.yman := 0.U
-    io.yex  := 0.U
 
     val adrACosShift0   = (exBias - 2 + 1).U - xex
     val adrACosShift    = adrACosShift0(log2Up(manW+1), 0)
@@ -106,14 +102,11 @@ class ACosPreProcess(
     val adr = enable(io.en, adrACos)
     io.adr := ShiftRegister(adr, nStage)
 
-    if(order != 0) {
-      val dxACos = Mux(exAdrACos, Cat(          ~xman(dxW-1),           xman(dxW-2, 0)),
-                                  Cat(~adrACosAligned(dxW-1), adrACosAligned(dxW-2, 0)))
-      val dx   = enable(io.en, dxACos)
-      io.dx.get := ShiftRegister(dx, nStage)
-    }
-
-  } else {
+  } else { // order != 0
+    assert(io.dx     .isDefined)
+    assert(io.useSqrt.isDefined)
+    assert(io.yex    .isDefined)
+    assert(io.yman   .isDefined)
 
     // ------------------------------------------------------------------------
     // useSqrt condition is:
@@ -130,7 +123,7 @@ class ACosPreProcess(
     // 1 for hidden bit, 1 for table exponent
     val puiseuxMSBs = puiseuxThreshold.abs - 1 - 1
     val useSqrt = enable(io.en, (xex === (exBias-1).U) && xman(manW-1, manW-puiseuxMSBs).andR)
-    io.useSqrt := ShiftRegister(useSqrt, nStage)
+    io.useSqrt.get := ShiftRegister(useSqrt, nStage)
 
     // ---------------------------------------------------------------------------
     // To use sqrt table, we need to determine the mantissa and exponent of
@@ -145,8 +138,8 @@ class ACosPreProcess(
     val ymanW1        = (oneMinusX << oneMinusXSft)(manW, 0)
     val yex           = oneMinusXLen + (exBias - manW - 2).U(exW.W)
 
-    io.yex  := ShiftRegister(yex(exW-1, 0),     nStage)
-    io.yman := ShiftRegister(ymanW1(manW-1, 0), nStage)
+    io.yex.get  := ShiftRegister(yex(exW-1, 0),     nStage)
+    io.yman.get := ShiftRegister(ymanW1(manW-1, 0), nStage)
 
 //     printf("cir: yex    = %d\n", yex.zext - exBias.S)
 //     printf("cir: ymanW1 = %b\n", ymanW1)
@@ -178,13 +171,11 @@ class ACosPreProcess(
     val adr = enable(io.en, Mux(useSqrt, adrSqrt, adrACos))
     io.adr := ShiftRegister(adr, nStage)
 
-    if(order != 0) {
-      val dxACos = Mux(exAdrACos, Cat(          ~xman(dxW-1),           xman(dxW-2, 0)),
-                                  Cat(~adrACosAligned(dxW-1), adrACosAligned(dxW-2, 0)))
-      val dxSqrt = Cat(~ymanW1(dxW-1), ymanW1(dxW-2, 0))
-      val dx   = enable(io.en, Mux(useSqrt, dxSqrt, dxACos))
-      io.dx.get := ShiftRegister(dx, nStage)
-    }
+    val dxACos = Mux(exAdrACos, Cat(          ~xman(dxW-1),           xman(dxW-2, 0)),
+                                Cat(~adrACosAligned(dxW-1), adrACosAligned(dxW-2, 0)))
+    val dxSqrt = Cat(~ymanW1(dxW-1), ymanW1(dxW-2, 0))
+    val dx   = enable(io.en, Mux(useSqrt, dxSqrt, dxACos))
+    io.dx.get := ShiftRegister(dx, nStage)
   }
 }
 
@@ -331,7 +322,7 @@ class ACosNonTableOutput(val spec: RealSpec) extends Bundle {
   val xLessThanHalf = Output(Bool())
   val znan       = Output(Bool())
   val zzero      = Output(Bool())
-  val zIsPuiseux = Output(Bool()) // needs pi - z     if xsgn
+  val zIsPuiseux = Output(Bool()) // needs pi - z if xsgn
   val zex        = Output(UInt(spec.exW.W))
   val zman       = Output(UInt(spec.manW.W))
 }
@@ -776,24 +767,35 @@ class ACosGeneric(
 
   val acosPre   = Module(new ACosPreProcess (spec, polySpec, stage.preStage))
   val acosTab   = Module(new ACosTableCoeff (spec, polySpec, cbits))
-  val sqrtTab   = Module(new SqrtTableCoeff (spec, polySpec, cbits))
   val acosOther = Module(new ACosOtherPath  (spec, polySpec, stage.calcStage))
   val acosPost  = Module(new ACosPostProcess(spec, polySpec, stage.postStage))
+  val sqrtTab   = if(order != 0) {Some(Module(new SqrtTableCoeff (spec, polySpec, cbits)))} else {None}
 
-  val acosPreUseSqrtPCGapReg = ShiftRegister(acosPre.io.useSqrt, pcGap)
+  val acosPreUseSqrtPCGapReg = if(order != 0) {
+    Some(ShiftRegister(acosPre.io.useSqrt.get, pcGap))
+  } else {None}
+
   val acosPreAdrPCGapReg     = ShiftRegister(acosPre.io.adr,     pcGap)
 
   acosPre.io.en        := io.en
   acosPre.io.x         := xdecomp.io.decomp
   // ------ Preprocess-Calculate ------
-  acosTab.io.en        := enPCGapReg && (!acosPreUseSqrtPCGapReg)
+  acosTab.io.en        := enPCGapReg && (!acosPreUseSqrtPCGapReg.getOrElse(false.B))
   acosTab.io.adr       := acosPreAdrPCGapReg
-  sqrtTab.io.en        := enPCGapReg && acosPreUseSqrtPCGapReg
-  sqrtTab.io.adr       := acosPreAdrPCGapReg
+  if(order != 0) {
+    sqrtTab.get.io.en  := enPCGapReg && acosPreUseSqrtPCGapReg.get
+    sqrtTab.get.io.adr := acosPreAdrPCGapReg
+  }
   acosOther.io.x       := xdecPCGapReg
-  acosOther.io.useSqrt := acosPreUseSqrtPCGapReg
-  acosOther.io.yex     := ShiftRegister(acosPre.io.yex,  pcGap)
-  acosOther.io.yman    := ShiftRegister(acosPre.io.yman, pcGap)
+  if(order != 0) {
+    acosOther.io.useSqrt := acosPreUseSqrtPCGapReg.get
+    acosOther.io.yex     := ShiftRegister(acosPre.io.yex.get,  pcGap)
+    acosOther.io.yman    := ShiftRegister(acosPre.io.yman.get, pcGap)
+  } else {
+    acosOther.io.useSqrt := 0.U
+    acosOther.io.yex     := 0.U
+    acosOther.io.yman    := 0.U
+  }
 
   // after preprocess
   // XXX Since `PCReg`s are delayed by nPreStage, the timing is the same as acosPre output.
@@ -801,8 +803,10 @@ class ACosGeneric(
   assert(acosPre.io.dx.getOrElse(0.U) === 0.U || enPCReg)
 
   // table takes input from preprocess, so table output is delayed compared to acos input.
-  assert(acosTab.io.cs.asUInt === 0.U || (enPCGapReg && !acosPreUseSqrtPCGapReg))
-  assert(sqrtTab.io.cs.asUInt === 0.U || (enPCGapReg &&  acosPreUseSqrtPCGapReg))
+  assert(acosTab.io.cs.asUInt === 0.U || (enPCGapReg && !acosPreUseSqrtPCGapReg.getOrElse(false.B)))
+  if(order != 0) {
+    assert(sqrtTab.get.io.cs.asUInt === 0.U || (enPCGapReg &&  acosPreUseSqrtPCGapReg.getOrElse(false.B)))
+  }
 
   // --------------------------------------------------------------------------
 
@@ -810,9 +814,11 @@ class ACosGeneric(
 
   if(order != 0) {
     polynomialEval.io.dx.get := ShiftRegister(acosPre.io.dx.get, pcGap)
+    polynomialEval.io.coeffs.cs := (acosTab.io.cs.cs.asUInt | sqrtTab.get.io.cs.cs.asUInt).
+      asTypeOf(new MixedVec(cbits.map{w => UInt(w.W)}))
+  } else {
+    polynomialEval.io.coeffs.cs := acosTab.io.cs.cs
   }
-  polynomialEval.io.coeffs.cs := (acosTab.io.cs.cs.asUInt | sqrtTab.io.cs.cs.asUInt).
-    asTypeOf(new MixedVec(cbits.map{w => UInt(w.W)}))
 
   val polynomialResultCPGapReg = ShiftRegister(polynomialEval.io.result, cpGap)
 
