@@ -114,9 +114,9 @@ class MathFunctions(
   val spec : RealSpec, // Input / Output floating spec
   val nOrder: Int, val adrW : Int, val extraBits : Int, // Polynomial spec
   val stage : MathFuncPipelineConfig,
-  val sincosTaylorOrder: Int = 3,
   val enableRangeCheck : Boolean = true,
   val enablePolynomialRounding : Boolean = false,
+  val sincosTaylorOrder: Int = 3,
 ) extends Module {
 
   assert(!spec.disableSign) // assuming the float type allows negative values
