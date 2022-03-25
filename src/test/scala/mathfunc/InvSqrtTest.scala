@@ -204,18 +204,21 @@ class InvSqrtOnlyTest extends AnyFlatSpec
               val xidsgn = bit(spec.W-1, xid).toInt
               val xidexp = slice(spec.manW, spec.exW, xid)
               val xidman = xid & maskSL(spec.manW)
+              val xidd   = new RealGeneric(spec, xidsgn, xidexp.toInt, xidman).toDouble
 
               val zisgn = bit(spec.W-1, zi).toInt
               val ziexp = slice(spec.manW, spec.exW, zi)
               val ziman = zi & maskSL(spec.manW)
+              val zidd   = new RealGeneric(spec, zisgn, ziexp.toInt, ziman).toDouble
 
               val z0dsgn = bit(spec.W-1, z0d).toInt
               val z0dexp = slice(spec.manW, spec.exW, z0d)
               val z0dman = z0d & maskSL(spec.manW)
+              val z0dd   = new RealGeneric(spec, z0dsgn, z0dexp.toInt, z0dman).toDouble
 
-              assert(zi == z0d, f"x = (${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman.toLong.toBinaryString}), " +
-                                f"test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString}) != " +
-                                f"ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})")
+              assert(zi == z0d, f"x = (${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman.toLong.toBinaryString})(1/sqrt(${xidd}) = ${1.0 / sqrt(xidd)}), " +
+                                f"test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString})(${zidd}) != " +
+                                f"ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})(${z0dd})")
             }
             c.clock.step(1)
           }
@@ -258,17 +261,37 @@ class InvSqrtOnlyTest extends AnyFlatSpec
   val extraBitsBF16 = 0
 
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none,
-    n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+    n, r, "Test Within (-128,128) BF16, ex=0",generateRealWithin(128.0,_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none,
-    n, r, "Test All range",generateRealFull(_,_) )
+    n, r, "Test All range BF16, ex=0",generateRealFull(_,_) )
 
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline,
-    n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+    n, r, "Test Within (-128,128) BF16, ex=0",generateRealWithin(128.0,_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline,
-    n, r, "Test All range",generateRealFull(_,_) )
+    n, r, "Test All range BF16, ex=0",generateRealFull(_,_) )
 
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline,
-    n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+    n, r, "Test Within (-128,128) BF16, ex=0",generateRealWithin(128.0,_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline,
-    n, r, "Test All range",generateRealFull(_,_) )
+    n, r, "Test All range BF16, ex=0",generateRealFull(_,_) )
+
+  val nOrderBF16ex1 = 0
+  val adrWBF16ex1 = 7
+  val extraBitsBF16ex1 = 1
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16ex1, adrWBF16ex1, extraBitsBF16ex1, MathFuncPipelineConfig.none,
+    n, r, "Test Within (-128,128) BF16, ex=1",generateRealWithin(128.0,_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16ex1, adrWBF16ex1, extraBitsBF16ex1, MathFuncPipelineConfig.none,
+    n, r, "Test All range BF16, ex=1",generateRealFull(_,_) )
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16ex1, adrWBF16ex1, extraBitsBF16ex1, simplePipeline,
+    n, r, "Test Within (-128,128) BF16, ex=1",generateRealWithin(128.0,_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16ex1, adrWBF16ex1, extraBitsBF16ex1, simplePipeline,
+    n, r, "Test All range BF16, ex=1",generateRealFull(_,_) )
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16ex1, adrWBF16ex1, extraBitsBF16ex1, complexPipeline,
+    n, r, "Test Within (-128,128) BF16, ex=1",generateRealWithin(128.0,_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16ex1, adrWBF16ex1, extraBitsBF16ex1, complexPipeline,
+    n, r, "Test All range BF16, ex=1",generateRealFull(_,_) )
+
 }
