@@ -585,11 +585,20 @@ class MathFunctions(
   io.z := z0
 }
 
-class MathFuncUnit( stage : MathFuncPipelineConfig )
+class MathFuncUnitFP32( stage : MathFuncPipelineConfig )
     extends MathFunctions( RealSpec.Float32Spec, 2, 8, 3, stage) {
 }
 
-object MathFuncUnit_driver extends App {
+object MathFuncUnitFP32_driver extends App {
+  (new chisel3.stage.ChiselStage).execute(args,
+    Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new MathFuncUnit(MathFuncPipelineConfig.none)) ) )
+}
+
+class MathFuncUnitBF16( stage : MathFuncPipelineConfig )
+    extends MathFunctions( RealSpec.BFloat16Spec, 0, 7, 1, stage) {
+}
+
+object MathFuncUnitBF16_driver extends App {
   (new chisel3.stage.ChiselStage).execute(args,
     Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new MathFuncUnit(MathFuncPipelineConfig.none)) ) )
 }
