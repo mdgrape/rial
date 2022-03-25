@@ -88,25 +88,31 @@ object ATan2Stage1Sim {
 
     val recMan = if (t_rec.nOrder==0) {
       val adr = maxxy.man.toInt
-      if (maxxy.man==0) {
-        0
+
+//       println(f"sim: atan2-1: rec adr = ${adr.toBinaryString}")
+      val res = if (maxxy.man==0) {
+        0L
       } else {
-        t_rec.interval(adr).eval(0L, 0)
+        t_rec.interval(adr).eval(0L, 0).toLong
       }
+//       println(f"sim: atan2-1: rec res = ${res.toBinaryString}")
+
+      res
     } else {
       val adrW = t_rec.adrW
       val dxbp = manW-adrW-1
       val d    = (SafeLong(1)<<dxbp) - slice(0, manW-adrW, maxxy.man)-1
       val adr  = maskI(adrW)-slice(manW-adrW, adrW, maxxy.man).toInt
       if (maxxyMan0) {
-        0
+        0L
       } else {
-        t_rec.interval(adr).eval(d.toLong, dxbp)
+        t_rec.interval(adr).eval(d.toLong, dxbp).toLong
       }
     }
     val zExInc = if(xySameMan || maxxyMan0) {1} else {0}
     val zEx0 = minxy.ex - maxxy.ex - 1 + zExInc + exBias
 
+//     println(f"sim: zres = ${recMan.toLong.toBinaryString}")
 //     println(f"sim: zEx0 = ${zEx0.toLong.toBinaryString}")
 
     // ------------------------------------------------------------------------
@@ -152,6 +158,10 @@ object ATan2Stage1Sim {
       zMan0.toLong
     }
 
-    (new RealGeneric(x.spec, zSgn, zEx, zMan), atan2Status, atan2SpecialValue, ysgn)
+    val z = new RealGeneric(x.spec, zSgn, zEx, zMan)
+
+//     println(f"sim: atan2-1: z = (${zSgn}|${zEx}(${zEx-exBias})|${zMan.toBinaryString}) (${z.toDouble}) should be (${min(x.toDouble, y.toDouble) / max(x.toDouble, y.toDouble)})")
+
+    (z, atan2Status, atan2SpecialValue, ysgn)
   }
 }
