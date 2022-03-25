@@ -92,14 +92,16 @@ class ATan2Stage1PreProcess(
     val special = Output(UInt(ATan2SpecialValue.W.W))
   })
 
+  val samexy    = io.x.ex === io.y.ex && io.x.man === io.y.man
+
   val xpos      = io.x.sgn === 0.U
   val xneg      = io.x.sgn === 1.U
   val znan      =  (io.x.nan ||  io.y.nan) || ( io.x.zero &&  io.y.zero)
   val zzero     = ((io.x.inf && !io.y.inf) || (!io.x.zero &&  io.y.zero)) && xpos
   val zpi       = ((io.x.inf && !io.y.inf) || (!io.x.zero &&  io.y.zero)) && xneg
   val zhalfpi   = (!io.x.inf &&  io.y.inf) || ( io.x.zero && !io.y.zero)
-  val z1piover4 =  (io.x.inf &&  io.y.inf) &&  xpos
-  val z3piover4 =  (io.x.inf &&  io.y.inf) &&  xneg
+  val z1piover4 = ((io.x.inf &&  io.y.inf) || (samexy && !io.x.nan && !io.y.nan)) && xpos
+  val z3piover4 = ((io.x.inf &&  io.y.inf) || (samexy && !io.x.nan && !io.y.nan)) && xneg
 
   val special0 = MuxCase(ATan2SpecialValue.zNormal, Seq(
     znan      -> ATan2SpecialValue.zNaN,
@@ -862,13 +864,14 @@ class ATan2Generic(
   recTab.io.en  := enPC1GapReg
   recTab.io.adr := ShiftRegister(recPre.io.adr, pcGap1)
 
-  val atan2FlagReg = Reg(new ATan2Flags())
-  // the timing is at the cycle when atan2Stage1Pre completes
-  when(enPC1Reg) {
-    atan2FlagReg.status  := Cat(yIsLargerPCReg, xdecPCReg.sgn)
-    atan2FlagReg.special := atan2Stage1Pre.io.special
-    atan2FlagReg.ysgn    := ydecPCReg.sgn
-  }
+  val atan2FlagReg = Wire(new ATan2Flags())
+  atan2FlagReg.status  := Cat(yIsLargerPCReg, xdecPCReg.sgn)
+  atan2FlagReg.special := atan2Stage1Pre.io.special
+  atan2FlagReg.ysgn    := ydecPCReg.sgn
+
+//   printf("cir: atan2FlagReg.status  = %b\n", atan2FlagReg.status )
+//   printf("cir: atan2FlagReg.special = %b\n", atan2FlagReg.special)
+//   printf("cir: atan2FlagReg.ysgn    = %b\n", atan2FlagReg.ysgn   )
 
   // --------------------------------------------------------------------------
 
