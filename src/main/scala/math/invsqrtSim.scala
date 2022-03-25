@@ -89,7 +89,11 @@ object InvSqrtSim {
       res
     }
     // Simple rounding
-    val zman = if (extraBits>0) { (zman0>>extraBits) + bit(extraBits-1, zman0)} else {zman0}
+    val zmanRounded = if (extraBits>0) {
+      (zman0>>extraBits) + bit(extraBits-1, zman0)
+    } else {zman0}
+
+    val zman = if(bit(manW, zmanRounded) == 1) {maskL(manW)} else {zmanRounded}
 
     new RealGeneric(x.spec, zSgn, zEx, SafeLong(zman))
   }
