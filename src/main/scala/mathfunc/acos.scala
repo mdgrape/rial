@@ -345,9 +345,9 @@ class ACosOtherPath(
 
   val io = IO(new Bundle {
     val x       = Flipped(new DecomposedRealOutput(spec))
-    val yex     = Input(UInt(exW.W))
-    val yman    = Input(UInt(manW.W))
-    val useSqrt = Input(Bool()) // == use Puiseux series
+    val yex     = if(order != 0) {Some(Input(UInt(exW.W))) } else {None}
+    val yman    = if(order != 0) {Some(Input(UInt(manW.W)))} else {None}
+    val useSqrt = if(order != 0) {Some(Input(Bool()))      } else {None}
     val zother  = new ACosNonTableOutput(spec)
   })
 
@@ -394,7 +394,7 @@ class ACosOtherPath(
 
     // if |x| > 1, return 0 as puiseux result.
 
-    io.zother.zIsPuiseux := ShiftRegister(xMoreThan1 || io.useSqrt, nStage)
+    io.zother.zIsPuiseux := ShiftRegister(xMoreThan1 || io.useSqrt.get, nStage)
 
     // --------------------------------------------------------------------------
     // helper function to multiply values
@@ -425,8 +425,8 @@ class ACosOtherPath(
     //                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     //                        calc this part
 
-    val yex    = io.yex
-    val ymanW1 = Cat(1.U(1.W), io.yman)
+    val yex    = io.yex.get
+    val ymanW1 = Cat(1.U(1.W), io.yman.get)
 
     // ----------------------------------------------------------------------
     // 2^-5 * 3/5 y^2
@@ -788,13 +788,9 @@ class ACosGeneric(
   }
   acosOther.io.x       := xdecPCGapReg
   if(order != 0) {
-    acosOther.io.useSqrt := acosPreUseSqrtPCGapReg.get
-    acosOther.io.yex     := ShiftRegister(acosPre.io.yex.get,  pcGap)
-    acosOther.io.yman    := ShiftRegister(acosPre.io.yman.get, pcGap)
-  } else {
-    acosOther.io.useSqrt := 0.U
-    acosOther.io.yex     := 0.U
-    acosOther.io.yman    := 0.U
+    acosOther.io.useSqrt.get := acosPreUseSqrtPCGapReg.get
+    acosOther.io.yex.get     := ShiftRegister(acosPre.io.yex.get,  pcGap)
+    acosOther.io.yman.get    := ShiftRegister(acosPre.io.yman.get, pcGap)
   }
 
   // after preprocess

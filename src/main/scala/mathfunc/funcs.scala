@@ -250,13 +250,9 @@ class MathFunctions(
   acosTab.io.adr       := acosPreAdrPCGapReg
   acosOther.io.x       := xdecPCGapReg
   if(order != 0) {
-    acosOther.io.useSqrt := acosPreUseSqrtPCGapReg.get
-    acosOther.io.yex     := ShiftRegister(acosPre.io.yex.get,  pcGap)
-    acosOther.io.yman    := ShiftRegister(acosPre.io.yman.get, pcGap)
-  } else {
-    acosOther.io.useSqrt := 0.U
-    acosOther.io.yex     := 0.U
-    acosOther.io.yman    := 0.U
+    acosOther.io.useSqrt.get := acosPreUseSqrtPCGapReg.get
+    acosOther.io.yex.get     := ShiftRegister(acosPre.io.yex.get,  pcGap)
+    acosOther.io.yman.get    := ShiftRegister(acosPre.io.yman.get, pcGap)
   }
 
   // after preprocess
