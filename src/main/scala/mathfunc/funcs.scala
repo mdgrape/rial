@@ -422,13 +422,13 @@ class MathFunctions(
   // --------------------------------------------------------------------------
   // pow2/exp
 
-  val pow2Pre   = Module(new ExpPreProcess (spec, polySpec, stage.preStage))
+  val pow2Pre   = Module(new ExpPreProcess (spec, polySpec, stage.preStage, false))
   val pow2Tab   = Module(new ExpTableCoeff (spec, polySpec, maxCbit))
   val pow2Other = Module(new ExpOtherPath  (spec, polySpec, stage.calcStage))
   val pow2Post  = Module(new ExpPostProcess(spec, polySpec, stage.postStage))
 
   pow2Pre.io.en     := (io.sel === SelectFunc.Exp) || (io.sel === SelectFunc.Pow2)
-  pow2Pre.io.isexp  := (io.sel === SelectFunc.Exp)
+  pow2Pre.io.isexp.get := (io.sel === SelectFunc.Exp)
   pow2Pre.io.x      := xdecomp.io.decomp
   // ------ Preprocess-Calculate ------
   pow2Tab.io.en     := (selPCGapReg === SelectFunc.Exp) ||

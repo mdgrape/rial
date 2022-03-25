@@ -31,6 +31,7 @@ class ExpPreProcess(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
+  val isAlwaysExp: Boolean = false
 ) extends Module {
 
   val nStage = stage.total
@@ -50,7 +51,7 @@ class ExpPreProcess(
 
   val io = IO(new Bundle {
     val en        = Input (UInt(1.W))
-    val isexp     = Input (Bool())
+    val isexp     = if(!isAlwaysExp) {Some(Input(Bool()))} else {None}
     val x         = Flipped(new DecomposedRealOutput(spec))
     val adr       = Output(UInt(adrW.W))
     val dx        = if(order != 0) { Some(Output(UInt(dxW.W))) } else { None }
@@ -115,14 +116,14 @@ class ExpPreProcess(
 
   assert(xprodMoreThan2AfterRounded +& xprodMoreThan2 =/= 2.U)
 
-  val xexd0 = enable(io.en, io.isexp & (xprodMoreThan2AfterRounded + xprodMoreThan2))
+  val xexd0 = enable(io.en, io.isexp.getOrElse(true.B) & (xprodMoreThan2AfterRounded + xprodMoreThan2))
   io.xexd := ShiftRegister(xexd0, nStage)
 
   // ------------------------------------------------------------------------
   // select exp or pow2 based on io.isexp
 
-  val xex  = Mux(io.isexp, xexExp,  xex0)
-  val xman = Mux(io.isexp, xmanExp, Cat(xman0, 0.U(extraMan.W)))
+  val xex  = if(isAlwaysExp) {xexExp } else {Mux(io.isexp.get, xexExp,  xex0)                       }
+  val xman = if(isAlwaysExp) {xmanExp} else {Mux(io.isexp.get, xmanExp, Cat(xman0, 0.U(extraMan.W)))}
 
   val xVal = Cat(1.U(1.W), xman)
 
@@ -527,13 +528,13 @@ class ExpGeneric(
 
   // --------------------------------------------------------------------------
 
-  val expPre   = Module(new ExpPreProcess (spec, polySpec, stage.preStage))
+  val expPre   = Module(new ExpPreProcess (spec, polySpec, stage.preStage, false))
   val expTab   = Module(new ExpTableCoeff (spec, polySpec, cbits))
   val expOther = Module(new ExpOtherPath  (spec, polySpec, stage.calcStage))
   val expPost  = Module(new ExpPostProcess(spec, polySpec, stage.postStage))
 
   expPre.io.en     := io.en
-  expPre.io.isexp  := (!isPow2).B
+  expPre.io.isexp.get := (!isPow2).B
   expPre.io.x      := xdecomp.io.decomp
   // ------ Preprocess-Calculate ------
   expTab.io.en     := enPCGapReg
