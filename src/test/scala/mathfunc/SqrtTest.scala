@@ -257,7 +257,7 @@ class SqrtOnlyTest extends AnyFlatSpec
 
   val nOrderBF16    = 0
   val adrWBF16      = 7
-  val extraBitsBF16 = 0
+  val extraBitsBF16 = 1
 
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none,
     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
