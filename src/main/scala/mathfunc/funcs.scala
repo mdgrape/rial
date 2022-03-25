@@ -591,7 +591,7 @@ class MathFuncUnitFP32( stage : MathFuncPipelineConfig )
 
 object MathFuncUnitFP32_driver extends App {
   (new chisel3.stage.ChiselStage).execute(args,
-    Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new MathFuncUnit(MathFuncPipelineConfig.none)) ) )
+    Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new MathFuncUnitFP32(MathFuncPipelineConfig.none)) ) )
 }
 
 class MathFuncUnitBF16( stage : MathFuncPipelineConfig )
@@ -600,6 +600,6 @@ class MathFuncUnitBF16( stage : MathFuncPipelineConfig )
 
 object MathFuncUnitBF16_driver extends App {
   (new chisel3.stage.ChiselStage).execute(args,
-    Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new MathFuncUnit(MathFuncPipelineConfig.none)) ) )
+    Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new MathFuncUnitBF16(MathFuncPipelineConfig.none)) ) )
 }
 
