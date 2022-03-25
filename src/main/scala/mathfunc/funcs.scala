@@ -422,59 +422,59 @@ class MathFunctions(
   // --------------------------------------------------------------------------
   // pow2/exp
 
-  val pow2Pre   = Module(new ExpPreProcess (spec, polySpec, stage.preStage, false))
-  val pow2Tab   = Module(new ExpTableCoeff (spec, polySpec, maxCbit))
-  val pow2Other = Module(new ExpOtherPath  (spec, polySpec, stage.calcStage))
-  val pow2Post  = Module(new ExpPostProcess(spec, polySpec, stage.postStage))
+  val expPre   = Module(new ExpPreProcess (spec, polySpec, stage.preStage, false))
+  val expTab   = Module(new ExpTableCoeff (spec, polySpec, maxCbit))
+  val expOther = Module(new ExpOtherPath  (spec, polySpec, stage.calcStage))
+  val expPost  = Module(new ExpPostProcess(spec, polySpec, stage.postStage))
 
-  pow2Pre.io.en     := (io.sel === SelectFunc.Exp) || (io.sel === SelectFunc.Pow2)
-  pow2Pre.io.isexp.get := (io.sel === SelectFunc.Exp)
-  pow2Pre.io.x      := xdecomp.io.decomp
+  expPre.io.en     := (io.sel === SelectFunc.Exp) || (io.sel === SelectFunc.Pow2)
+  expPre.io.isexp.get := (io.sel === SelectFunc.Exp)
+  expPre.io.x      := xdecomp.io.decomp
   // ------ Preprocess-Calculate ------
-  pow2Tab.io.en     := (selPCGapReg === SelectFunc.Exp) ||
-                       (selPCGapReg === SelectFunc.Pow2)
-  pow2Tab.io.adr    := ShiftRegister(pow2Pre.io.adr, pcGap)
-  pow2Other.io.x    := xdecPCGapReg
-  pow2Other.io.xint := ShiftRegister(pow2Pre.io.xint, pcGap)
-  pow2Other.io.xexd := ShiftRegister(pow2Pre.io.xexd, pcGap)
+  expTab.io.en     := (selPCGapReg === SelectFunc.Exp) ||
+                      (selPCGapReg === SelectFunc.Pow2)
+  expTab.io.adr    := ShiftRegister(expPre.io.adr, pcGap)
+  expOther.io.x    := xdecPCGapReg
+  expOther.io.xint := ShiftRegister(expPre.io.xint, pcGap)
+  expOther.io.xexd := ShiftRegister(expPre.io.xexd, pcGap)
 
-  if(pow2Pre.io.xfracLSBs.isDefined) {
-    pow2Other.io.xfracLSBs.get := ShiftRegister(pow2Pre.io.xfracLSBs.get, pcGap)
+  if(expPre.io.xfracLSBs.isDefined) {
+    expOther.io.xfracLSBs.get := ShiftRegister(expPre.io.xfracLSBs.get, pcGap)
   }
 
   when(selPCReg =/= SelectFunc.Exp && selPCReg =/= SelectFunc.Pow2) {
-    assert(pow2Pre.io.adr === 0.U)
-    assert(pow2Pre.io.dx.getOrElse(0.U) === 0.U)
+    assert(expPre.io.adr === 0.U)
+    assert(expPre.io.dx.getOrElse(0.U) === 0.U)
   }
 
   when(selPCGapReg =/= SelectFunc.Exp && selPCGapReg =/= SelectFunc.Pow2) {
-    assert(pow2Tab.io.cs.asUInt === 0.U)
+    assert(expTab.io.cs.asUInt === 0.U)
   }
 
   // --------------------------------------------------------------------------
   // log2/ln
 
-  val log2Pre   = Module(new Log2PreProcess (spec, polySpec, stage.preStage))
-  val log2Tab   = Module(new Log2TableCoeff (spec, polySpec, maxCbit))
-  val log2Other = Module(new Log2OtherPath  (spec, polySpec, stage.calcStage))
-  val log2Post  = Module(new Log2PostProcess(spec, polySpec, stage.postStage, false)) // can be both log2 and log
+  val logPre   = Module(new Log2PreProcess (spec, polySpec, stage.preStage))
+  val logTab   = Module(new Log2TableCoeff (spec, polySpec, maxCbit))
+  val logOther = Module(new Log2OtherPath  (spec, polySpec, stage.calcStage))
+  val logPost  = Module(new Log2PostProcess(spec, polySpec, stage.postStage, false)) // can be both log2 and log
 
-  log2Pre.io.en      := (io.sel === SelectFunc.Log) || (io.sel === SelectFunc.Log2)
-  log2Pre.io.x       := xdecomp.io.decomp
+  logPre.io.en      := (io.sel === SelectFunc.Log) || (io.sel === SelectFunc.Log2)
+  logPre.io.x       := xdecomp.io.decomp
   // ------ Preprocess-Calculate ------
-  val log2PreExAdr = log2Pre.io.adr(log2Pre.io.adr.getWidth-1, log2Pre.io.adr.getWidth-2)
-  log2Tab.io.en      := (selPCGapReg === SelectFunc.Log) ||
-                        (selPCGapReg === SelectFunc.Log2)
-  log2Tab.io.adr     := ShiftRegister(log2Pre.io.adr, pcGap)
-  log2Other.io.x     := xdecPCGapReg
-  log2Other.io.exadr := ShiftRegister(log2PreExAdr,   pcGap)
+  val logPreExAdr = logPre.io.adr(logPre.io.adr.getWidth-1, logPre.io.adr.getWidth-2)
+  logTab.io.en      := (selPCGapReg === SelectFunc.Log) ||
+                       (selPCGapReg === SelectFunc.Log2)
+  logTab.io.adr     := ShiftRegister(logPre.io.adr, pcGap)
+  logOther.io.x     := xdecPCGapReg
+  logOther.io.exadr := ShiftRegister(logPreExAdr,   pcGap)
 
   when(selPCReg =/= SelectFunc.Log && selPCReg =/= SelectFunc.Log2) {
-    assert(log2Pre.io.adr === 0.U)
-    assert(log2Pre.io.dx.getOrElse(0.U) === 0.U)
+    assert(logPre.io.adr === 0.U)
+    assert(logPre.io.dx.getOrElse(0.U) === 0.U)
   }
   when(selPCGapReg =/= SelectFunc.Log && selPCGapReg =/= SelectFunc.Log2) {
-    assert(log2Tab.io.cs.asUInt === 0.U)
+    assert(logTab.io.cs.asUInt === 0.U)
   }
 
   // ------------------------------------------------------------------------
@@ -497,8 +497,8 @@ class MathFunctions(
                                      acosPre.io.dx.get |
                                       recPre.io.dx.get |
                               atan2Stage2Pre.io.dx.get |
-                                     pow2Pre.io.dx.get |
-                                     log2Pre.io.dx.get, pcGap)
+                                      expPre.io.dx.get |
+                                      logPre.io.dx.get, pcGap)
 //     printf("polynomialEval.io.dx.get    = %b\n", polynomialDx)
     polynomialEval.io.dx.get := polynomialDx
   }
@@ -510,8 +510,8 @@ class MathFunctions(
                       sincosTab.io.cs.cs.asUInt |
                         acosTab.io.cs.cs.asUInt |
                  atan2Stage2Tab.io.cs.cs.asUInt |
-                        pow2Tab.io.cs.cs.asUInt |
-                        log2Tab.io.cs.cs.asUInt
+                         expTab.io.cs.cs.asUInt |
+                         logTab.io.cs.cs.asUInt
                         ).asTypeOf(new MixedVec(maxCbit.map{w => UInt(w.W)}))
 
 //   printf("polynomialEval.io.coeffs.cs = %b\n", polynomialCoef.asUInt)
@@ -559,23 +559,23 @@ class MathFunctions(
   atan2Stage2Post.io.zother := ShiftRegister(atan2Stage2Other.io.zother, cpGap)
   atan2Stage2Post.io.zres   := polynomialResultCPGapReg
 
-  if(pow2Pre.io.xfracLSBs.isDefined) {
-    pow2Post.io.zCorrCoef.get := ShiftRegister(pow2Other.io.zCorrCoef.get, cpGap)
+  if(expPre.io.xfracLSBs.isDefined) {
+    expPost.io.zCorrCoef.get := ShiftRegister(expOther.io.zCorrCoef.get, cpGap)
   }
-  pow2Post.io.en     := selCPGapReg === SelectFunc.Pow2 ||
-                        selCPGapReg === SelectFunc.Exp
-  pow2Post.io.zother := ShiftRegister(pow2Other.io.zother, cpGap)
-  pow2Post.io.zres   := polynomialResultCPGapReg
+  expPost.io.en     := selCPGapReg === SelectFunc.Pow2 ||
+                       selCPGapReg === SelectFunc.Exp
+  expPost.io.zother := ShiftRegister(expOther.io.zother, cpGap)
+  expPost.io.zres   := polynomialResultCPGapReg
 
-  log2Post.io.en     := selCPGapReg === SelectFunc.Log ||
-                        selCPGapReg === SelectFunc.Log2
-  log2Post.io.zother := ShiftRegister(log2Other.io.zother, cpGap)
-  log2Post.io.zres   := polynomialResultCPGapReg
-  log2Post.io.isln.get := selCPGapReg === SelectFunc.Log
-  log2Post.io.x      := xdecCPGapReg
+  logPost.io.en     := selCPGapReg === SelectFunc.Log ||
+                       selCPGapReg === SelectFunc.Log2
+  logPost.io.zother := ShiftRegister(logOther.io.zother, cpGap)
+  logPost.io.zres   := polynomialResultCPGapReg
+  logPost.io.isln.get := selCPGapReg === SelectFunc.Log
+  logPost.io.x      := xdecCPGapReg
                         // save preprocess result throughout the calc stage
-  log2Post.io.exadr  := ShiftRegister(log2PreExAdr, pcGap + nCalcStage + cpGap)
-  log2Post.io.xmanbp := ShiftRegister(log2Other.io.xmanbp, cpGap)
+  logPost.io.exadr  := ShiftRegister(logPreExAdr, pcGap + nCalcStage + cpGap)
+  logPost.io.xmanbp := ShiftRegister(logOther.io.xmanbp, cpGap)
 
   val z0 = sqrtPost.io.z        |
            invsqrtPost.io.z     |
@@ -584,8 +584,8 @@ class MathFunctions(
            acosPost.io.z        |
            atan2Stage1Post.io.z |
            atan2Stage2Post.io.z |
-           pow2Post.io.z        |
-           log2Post.io.z
+           expPost.io.z         |
+           logPost.io.z
 
   io.z := z0
 }
