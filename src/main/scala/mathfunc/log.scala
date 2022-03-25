@@ -486,6 +486,7 @@ class Log2PostProcess(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
+  val isAlwaysLn : Boolean = false
 ) extends Module {
 
   val exW    = spec.exW
@@ -504,7 +505,8 @@ class Log2PostProcess(
 
   val io = IO(new Bundle {
     val en = Input(UInt(1.W))
-    val isln   = Input(Bool()) // If log_e, true. else if log2, false.
+    // If log_e, true. else if log2, false.
+    val isln   = if(!isAlwaysLn) {Some(Input(Bool()))} else {None}
     val x      = Flipped(new DecomposedRealOutput(spec))
     val zother = Flipped(new Log2NonTableOutput(spec, polySpec))
     val exadr  = Input(UInt(2.W))
@@ -596,27 +598,42 @@ class Log2PostProcess(
   val lnxMoreThan2AfterRound = lnxRounded(manW)
   val lnxEx0       = log2xEx0 - 1.U + lnxMoreThan2 + lnxMoreThan2AfterRound
 
-  // -------------------------------------------------------------------------
-  // log2(x)
+  val zMan = Wire(UInt(manW.W))
+  val zEx  = Wire(UInt(exW.W))
 
-  val log2xManRound = Wire(UInt(manW.W))
-  val log2xEx       = Wire(UInt(exW.W))
+  if(isAlwaysLn) {
+    // we don't need to round log2x.
 
-  if(extraBits == 0) {
-    log2xManRound := log2xMan0
-    log2xEx := log2xEx0
+    zMan := Mux(io.zother.znan || io.zother.zinf || io.zother.zzero,
+                Cat(io.zother.znan.asUInt, Fill(manW-1, 0.U)),
+                lnxRounded(manW-1, 0))
+    zEx  := Mux(io.zother.znan || io.zother.zinf, Fill(exW, 1.U(1.W)),
+            Mux(io.zother.zzero, 0.U(exW.W), lnxEx0))
+
   } else {
-    val log2xManRound0 = log2xMan0(fracW-1, extraBits) +& log2xMan0(extraBits-1)
-    log2xManRound := log2xManRound0(manW-1, 0)
-    log2xEx := log2xEx0 + log2xManRound0(manW)
-  }
+    assert(io.isln.isDefined)
+    // -------------------------------------------------------------------------
+    // round and calc man and ex of log2(x)
 
-  val zMan = Mux(io.zother.znan || io.zother.zinf || io.zother.zzero,
-                 Cat(io.zother.znan.asUInt, Fill(manW-1, 0.U)),
-                 Mux(io.isln, lnxRounded(manW-1, 0), log2xManRound))
-  val zEx  = Mux(io.zother.znan || io.zother.zinf, Fill(exW, 1.U(1.W)),
-             Mux(io.zother.zzero, 0.U(exW.W),
-             Mux(io.isln, lnxEx0, log2xEx)))
+    val log2xManRound = Wire(UInt(manW.W))
+    val log2xEx       = Wire(UInt(exW.W))
+
+    if(extraBits == 0) {
+      log2xManRound := log2xMan0
+      log2xEx := log2xEx0
+    } else {
+      val log2xManRound0 = log2xMan0(fracW-1, extraBits) +& log2xMan0(extraBits-1)
+      log2xManRound := log2xManRound0(manW-1, 0)
+      log2xEx := log2xEx0 + log2xManRound0(manW)
+    }
+
+    zMan := Mux(io.zother.znan || io.zother.zinf || io.zother.zzero,
+                Cat(io.zother.znan.asUInt, Fill(manW-1, 0.U)),
+                Mux(io.isln.get, lnxRounded(manW-1, 0), log2xManRound))
+    zEx  := Mux(io.zother.znan || io.zother.zinf, Fill(exW, 1.U(1.W)),
+            Mux(io.zother.zzero, 0.U(exW.W),
+            Mux(io.isln.get, lnxEx0, log2xEx)))
+  }
 
   // --------------------------------------------------------------------------
   // select the correct result
@@ -700,7 +717,7 @@ class LogGeneric(
   val logPre   = Module(new Log2PreProcess (spec, polySpec, stage.preStage))
   val logTab   = Module(new Log2TableCoeff (spec, polySpec, cbits))
   val logOther = Module(new Log2OtherPath  (spec, polySpec, stage.calcStage))
-  val logPost  = Module(new Log2PostProcess(spec, polySpec, stage.postStage))
+  val logPost  = Module(new Log2PostProcess(spec, polySpec, stage.postStage, false)) // can be both
 
   logPre.io.en  := io.en
   logPre.io.x   := xdecomp.io.decomp
@@ -730,7 +747,7 @@ class LogGeneric(
   logPost.io.en     := enCPGapReg
   logPost.io.zother := ShiftRegister(logOther.io.zother, cpGap)
   logPost.io.zres   := polynomialResultCPGapReg
-  logPost.io.isln   := isln.B
+  logPost.io.isln.get := isln.B
   logPost.io.x      := xdecCPGapReg
   logPost.io.exadr  := ShiftRegister(logPreExAdr, pcGap + nCalcStage + cpGap)
   logPost.io.xmanbp := ShiftRegister(logOther.io.xmanbp, cpGap)

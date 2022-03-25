@@ -457,7 +457,7 @@ class MathFunctions(
   val log2Pre   = Module(new Log2PreProcess (spec, polySpec, stage.preStage))
   val log2Tab   = Module(new Log2TableCoeff (spec, polySpec, maxCbit))
   val log2Other = Module(new Log2OtherPath  (spec, polySpec, stage.calcStage))
-  val log2Post  = Module(new Log2PostProcess(spec, polySpec, stage.postStage))
+  val log2Post  = Module(new Log2PostProcess(spec, polySpec, stage.postStage, false)) // can be both log2 and log
 
   log2Pre.io.en      := (io.sel === SelectFunc.Log) || (io.sel === SelectFunc.Log2)
   log2Pre.io.x       := xdecomp.io.decomp
@@ -571,7 +571,7 @@ class MathFunctions(
                         selCPGapReg === SelectFunc.Log2
   log2Post.io.zother := ShiftRegister(log2Other.io.zother, cpGap)
   log2Post.io.zres   := polynomialResultCPGapReg
-  log2Post.io.isln   := selCPGapReg === SelectFunc.Log
+  log2Post.io.isln.get := selCPGapReg === SelectFunc.Log
   log2Post.io.x      := xdecCPGapReg
                         // save preprocess result throughout the calc stage
   log2Post.io.exadr  := ShiftRegister(log2PreExAdr, pcGap + nCalcStage + cpGap)
