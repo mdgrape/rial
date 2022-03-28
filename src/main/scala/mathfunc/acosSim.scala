@@ -13,6 +13,7 @@ import chisel3.util.log2Up
 
 import spire.math.SafeLong
 import spire.math.Numeric
+import spire.math.Real
 import spire.implicits._
 
 import rial.table._
@@ -32,8 +33,8 @@ object MathFuncACosSim {
   // since acos uses 2 different high-order series expansion,
   // this kind of helper function is useful.
   def multiply(spec: RealSpec,
-    xexNobias: Int, xmanW1: Long, yexNobias: Int, ymanW1: Long
-    ): (Int, Long) = {
+    xexNobias: Int, xmanW1: SafeLong, yexNobias: Int, ymanW1: SafeLong
+    ): (Int, SafeLong) = {
     val manW = spec.manW
 
     val zProd      = xmanW1 * ymanW1
@@ -42,7 +43,7 @@ object MathFuncACosSim {
                      bit((manW+zMoreThan2-1).toInt, zProd)
     val zMoreThan2AfterRound = bit(manW+2-1, zRounded)
     val zExNobias  = xexNobias + yexNobias + zMoreThan2 + zMoreThan2AfterRound
-    val zManW1     = if(zMoreThan2AfterRound == 1) {1<<manW} else {zRounded}
+    val zManW1     = if(zMoreThan2AfterRound == 1) {SafeLong(1) << manW} else {zRounded}
 
     assert(bit(manW, zManW1) == 1)
 
@@ -112,24 +113,24 @@ object MathFuncACosSim {
     // 1 for hidden bit, 1 for table exponent
     val puiseuxMSBs = puiseuxThreshold.abs - 1 - 1
     if(tACos(0).nOrder != 0 && x.ex == exBias-1 &&
-       slice(manW-puiseuxMSBs, puiseuxMSBs, x.man) == maskL(puiseuxMSBs)) {
-//       println(f"use Puiseux series: |x| = ${x.toDouble.abs}, y = ${1.0 - x.toDouble.abs}")
+       slice(manW-puiseuxMSBs, puiseuxMSBs, x.man) == maskSL(puiseuxMSBs)) {
+//       println(f"use Puiseux series: |x| = ${x.toDouble.abs}%10f = ${x.manW1.toLong.toBinaryString}, y = ${1.0 - x.toDouble.abs}")
 
       // for x close to 1, use puiseux series:
       //   let y = 1 - x
       //   acos(1-y) = sqrt(2y) * (1 + y/12 + 3y^2/160 + 5y^3/896 + O(y^4))
       //             = sqrt(2y) * ((1 + 1/3 * 2^-2 * y) + 3y^2/160 * (1 + 25/21 * 2^-2 * y))
 
-      val oneMinusX    = (1<<(manW+1)) - x.manW1
+      val oneMinusX    = (SafeLong(1)<<(manW+1)) - x.manW1
       // to use sqrt table, we need to normalize 1-x.
       val oneMinusXLen = oneMinusX.toLong.toBinaryString.length
       val ymanW1    = (oneMinusX << (manW+1 - oneMinusXLen)).toLong
-      val yman      = ymanW1 - (1<<manW)
+      val yman      = ymanW1 - (SafeLong(1)<<manW)
       val yexNobias = -(manW+1 - oneMinusXLen)-1 // -1 because oneMinusX has 1bit wider mantissa
       val yex       = yexNobias + exBias
 
       assert(bit(manW, ymanW1) == 1)
-      assert(yman < (1<<manW))
+      assert(yman < (SafeLong(1)<<manW))
       assert(0 < yex)
 //       println(f"sim: yex    = ${yexNobias}")
 //       println(f"sim: ymanW1 = ${ymanW1.toLong.toBinaryString}")
@@ -140,7 +141,7 @@ object MathFuncACosSim {
       // ----------------------------------------------------------------------
       // 2^-5 * 3/5 y^2
 
-      val c3over5 = math.round(3.0/5.0 * (1<<(manW+1))) // +1 for normalize
+      val c3over5 = (SafeLong(3)<<(manW+1)) / SafeLong(5) // +1 for normalize
       assert(bit(manW, c3over5) == 1)
 
       // in the circuit, the width of oneMinusX should be manW+1 because
@@ -160,7 +161,8 @@ object MathFuncACosSim {
       // here, y < 2^-4. so 1 + 25/21 * 2^-2 * y never exceeds 2.
       // We don't need to check if it exceeds 2 after addition.
 
-      val c25over21 = math.round(25.0/21.0 * (1<<manW))
+//       val c25over21 = math.round(25.0/21.0 * (SafeLong(1)<<manW))
+      val c25over21 = (SafeLong(25)<<manW) / SafeLong(21)
       assert(bit(manW, c25over21) == 1)
 
       val (y25over21ExNobias, y25over21ManW1) =
@@ -168,7 +170,7 @@ object MathFuncACosSim {
       assert(y25over21ExNobias < 0)
 
       val onePlus25over21yExNobias = 0
-      val onePlus25over21yManW1    = (1<<manW) +
+      val onePlus25over21yManW1    = (SafeLong(1)<<manW) +
         (y25over21ManW1 >> (-y25over21ExNobias + 2))
 
       // ----------------------------------------------------------------------
@@ -182,7 +184,7 @@ object MathFuncACosSim {
       // ----------------------------------------------------------------------
       // 1/3 * y
 
-      val c1over3 = math.round(1.0/3.0 * (1<<(manW+2)))
+      val c1over3 = (SafeLong(1)<<(manW+2)) / SafeLong(3)
       assert(bit(manW, c1over3) == 1)
 
       val (yOver3ExNobias, yOver3ManW1) =
@@ -195,7 +197,7 @@ object MathFuncACosSim {
       //                               secondTerm
 
       val puiseuxTermExNobias = 0
-      val puiseuxTermManW1    = (1<<manW) +
+      val puiseuxTermManW1    = (SafeLong(1)<<manW) +
         (yOver3ManW1     >> (-yOver3ExNobias+2))     + bit(-yOver3ExNobias+2-1,     yOver3ManW1) +
         (secondTermManW1 >> (-secondTermExNobias+5)) + bit(-secondTermExNobias+5-1, secondTermManW1)
       // Here, simple rounding cannot be omitted to achieve error < 3ULPs.
@@ -204,7 +206,7 @@ object MathFuncACosSim {
 //       println(f"sim: secondTermAligned = ${(secondTermManW1 >> (-secondTermExNobias+5)).toLong.toBinaryString}")
 //       println(f"sim:  firstTermRounded = ${bit(-yOver3ExNobias+2-1,     yOver3ManW1)}")
 //       println(f"sim: secondTermRounded = ${bit(-secondTermExNobias+5-1, secondTermManW1)}")
-      assert(puiseuxTermManW1 < (1<<(manW+1)))
+      assert(puiseuxTermManW1 < (SafeLong(1)<<(manW+1)))
 
       // ----------------------------------------------------------------------
       // sqrt(2y)
@@ -212,14 +214,14 @@ object MathFuncACosSim {
 
       val adrW      = tSqrt.adrW
       val extraBits = tSqrt.bp - manW
-      val y2man  = slice(0, manW+1, ((yex + 1)<<manW) + yman)
+      val y2man  = slice(0, manW+1, ((SafeLong(yex) + SafeLong(1))<<manW) + yman)
 
       val dxbp   = (manW+1)-adrW-1
       val d      = slice(0, (manW+1)-adrW, y2man) - (SafeLong(1)<<dxbp)
       val adr    = slice((manW+1)-adrW, adrW, y2man).toInt
 
       // sqrt table returns the mantissa only. we need to add 1<<fracW
-      val sqrt2y = tSqrt.interval(adr).eval(d.toLong, dxbp) + (1<<(tSqrt.bp))
+      val sqrt2y = tSqrt.interval(adr).eval(d.toLong, dxbp) + (SafeLong(1)<<(tSqrt.bp))
 
       // ----------------------------------------------------------------------
       // sqrt(2y) * (1 + 2^-2 * (1/3 * y) + 2^-5 * (3/5 * y^2) * (1 + 25/21 * 2^-2 * y))
@@ -234,7 +236,9 @@ object MathFuncACosSim {
       val puiseuxMoreThan2AfterRound = bit(manW+2-1, puiseuxRounded)
       val puiseuxExNobias  = (sqrt2yExNobias + puiseuxTermExNobias +
                              puiseuxMoreThan2 + puiseuxMoreThan2AfterRound).toInt
-      val puiseuxManW1     = if(puiseuxMoreThan2AfterRound == 1) {1<<manW} else {puiseuxRounded}
+      val puiseuxManW1     = if(puiseuxMoreThan2AfterRound == 1) {
+        SafeLong(1) << manW
+      } else {puiseuxRounded}
 //       println(f"sim: puiseuxTermEx    = ${sqrt2yExNobias + puiseuxTermExNobias + exBias}")
 //       println(f"sim: puiseuxTermManW1 = ${puiseuxTermManW1.toLong.toBinaryString}")
 
@@ -245,7 +249,8 @@ object MathFuncACosSim {
 
       if (x.sgn == 1) {
         val piExNobias = 1
-        val piManW1    = math.round(Pi * (1<<(manW-piExNobias))).toLong
+        val piManW1    = Real.pi(manW-piExNobias)
+//           math.round(Pi * (SafeLong(1)<<(manW-piExNobias))).toLong
 
         val puiseuxAligned = puiseuxManW1 >> (-puiseuxExNobias + 1)
         val puiseuxSub = piManW1 - puiseuxAligned
@@ -266,7 +271,7 @@ object MathFuncACosSim {
       }
 
     } else if (x.ex <= exBias - 2) {
-//       println("xex < -1. x is in [0.0, 0.5). use acos small x table")
+//       println(f"xex < -1. x(${x.toDouble} = ${x.manW1.toLong.toBinaryString}) is in [0.0, 0.5). use acos small x table")
 
       val xmanW1 = x.manW1
       val dex = exBias - 2 - x.ex + 1
@@ -301,21 +306,22 @@ object MathFuncACosSim {
         val zman0 = t.interval(adr).eval(0L, 0)
 
         if(x.sgn == 0) {
-          (zex0.toInt - exBias, zman0.toLong)
+          (zex0.toInt - exBias, SafeLong(zman0))
         } else {
           val piEx    = 1
-          val piFixed = math.round(math.Pi * (1<<(fracW-1))).toLong
+//           val piFixed = math.round(math.Pi * (SafeLong(1)<<(fracW-1))).toSafeLong
+          val piFixed = Real.pi(fracW-1)
           val zmanShift = piEx - (zex0 - exBias)
-          val zmanAligned = if(zmanShift > fracW) {0} else {
-            (zman0+(1<<fracW)) >> zmanShift
+          val zmanAligned = if(zmanShift > fracW) {SafeLong(0)} else {
+            (zman0+(SafeLong(1)<<fracW)) >> zmanShift.toInt
           }
           val res0 = piFixed - zmanAligned // > 1.57.., ex = 1 (in [2, 4))
           val res0MoreThan2 = bit(fracW, res0)
 
           if(res0MoreThan2 == 1) {
-            (1, res0 - (1<<fracW))
+            (1, res0 - (SafeLong(1)<<fracW))
           } else {
-            (0, (res0 << 1) - (1<<fracW))
+            (0, (res0 << 1) - (SafeLong(1)<<fracW))
           }
         }
       } else { // non-zero order
@@ -325,10 +331,12 @@ object MathFuncACosSim {
         val adr  = slice(dxbp+1, adrW, xAligned).toInt
 
         // pi/2 - acos(x)
-        val polynomial = t.interval(adr).eval(d.toLong, dxbp)
-        assert(0 <= polynomial && polynomial < (1<<fracW))
+        val polynomial = t.interval(adr).eval(d.toLong, dxbp).toSafeLong
+        assert(0 <= polynomial && polynomial < (SafeLong(1)<<fracW),
+          f"polynomial = ${polynomial} > (1<<fracW) = ${SafeLong(1)<<fracW}, fracW = ${fracW}")
 
-        val halfPiFixed = math.round(Pi * 0.5 * (1<<fracW))
+        val halfPiFixed = (Real.pi / Real.two)(fracW)
+        // math.round(Pi * 0.5 * (SafeLong(1)<<fracW)).toSafeLong
 
         val res  = if (x.sgn == 1) {
           halfPiFixed + polynomial
@@ -338,9 +346,9 @@ object MathFuncACosSim {
         val shift = fracW+2 - res.toLong.toBinaryString.length
         val resShifted = ((res << shift).toLong) >> 1
 
-        assert(resShifted > (1<<fracW))
+        assert(resShifted > (SafeLong(1)<<fracW))
 
-        ((-shift+1).toInt, resShifted - (1L << fracW))
+        ((-shift+1).toInt, resShifted - (SafeLong(1) << fracW))
       }
 
       val zmanRound = if (extraBits>0) {
@@ -351,10 +359,10 @@ object MathFuncACosSim {
       val zman = slice(0, manW, zmanRound)
       val zex  = zEx + zmanMoreThan2AfterRound + exBias
 
-      return new RealGeneric(x.spec, zSgn, zex.toInt, SafeLong(zman))
+      return new RealGeneric(x.spec, zSgn, zex.toInt, zman)
 
     } else {
-//       println("x is in [0.5, 1.0]. use acos large x table.")
+//       println(f"x(${x.toDouble}%10f = ${x.manW1.toLong.toBinaryString}) is in [0.5, 1.0]; acos(x) = ${acos(x.toDouble)}. use acos large x table.")
 
       val t = tACos(1)
 
@@ -372,22 +380,26 @@ object MathFuncACosSim {
         }
 
       val (zEx, zMan) = if (order == 0) {
+        // XXX if order == 0, all the possible value should be tabulized.
+        //     But the volume of memory in the real world is limited.
+        //     We expect that there should not be 2^32 entry table.
         val adr = x.man.toInt
 
         assert(exTable.isDefined, "if order == 0, exTable should be provided")
         val exts = exTable.get
 
         val zex0  = exts(1).interval(adr).eval(0L, 0)
-        val zman0 = t.interval(adr).eval(0L, 0)
+        val zman0 = t.interval(adr).eval(0L, 0).toSafeLong
 
         if(x.sgn == 0) {
-          (zex0.toInt - exBias, zman0.toLong)
+          (zex0.toInt - exBias, zman0)
         } else {
           val piEx    = 1
-          val piFixed = math.round(math.Pi * (1<<(fracW-1))).toLong
+//           val piFixed = math.round(math.Pi * (1<<(fracW-1))).toLong
+          val piFixed = Real.pi(fracW)
           val zmanShift = piEx - (zex0 - exBias)
-          val zmanAligned = if(zmanShift > fracW) {0} else {
-            (zman0 + (1<<fracW)) >> zmanShift
+          val zmanAligned = if(zmanShift > fracW) {SafeLong(0)} else {
+            (zman0 + (SafeLong(1)<<fracW)) >> zmanShift.toInt
           }
           val res0 = piFixed - zmanAligned // > 1.57.., ex = 1 (in [2, 4))
           val res0MoreThan2 = bit(fracW, res0)
@@ -404,11 +416,13 @@ object MathFuncACosSim {
         val d    = slice(0, dxbp+1, x.man) - (SafeLong(1)<<dxbp)
         val adr  = slice(dxbp+1, adrW, x.man).toInt
 
-        val halfPiFixed = math.round(Pi * 0.5 * (1<<fracW))
+//         val halfPiFixed = math.round(Pi * 0.5 * (1<<fracW))
+        val halfPiFixed = (Real.pi / Real.two)(fracW)
 
         // pi/2 - acos(x)
-        val polynomial = t.interval(adr).eval(d.toLong, dxbp)
-        assert(0 <= polynomial && polynomial < (1<<fracW), f"polynomial = ${polynomial}, 1<<fracW = ${1<<fracW}")
+        val polynomial = t.interval(adr).eval(d.toLong, dxbp).toSafeLong
+        assert(0 <= polynomial && polynomial < (SafeLong(1)<<fracW),
+          f"polynomial = ${polynomial} > (1<<fracW) = ${SafeLong(1)<<fracW}, fracW = ${fracW}")
 
         val res0 = polynomial << 1
         val res  = if (x.sgn == 1) {
@@ -417,9 +431,9 @@ object MathFuncACosSim {
           halfPiFixed - res0
         }
         val shift = fracW+2 - res.toLong.toBinaryString.length
-        val resShifted = ((res << shift).toLong) >> 1
+        val resShifted = (res << shift) >> 1
 
-        ((-shift+1).toInt, resShifted - (1 << fracW))
+        ((-shift+1).toInt, resShifted - (SafeLong(1) << fracW))
       }
 //       println(f"zex    = ${zEx}")
 //       println(f"zman   = ${zman.toLong.toBinaryString}")
@@ -433,7 +447,7 @@ object MathFuncACosSim {
       val zex  = zEx + zmanMoreThan2AfterRound + exBias
 //       println(f"Sim: zman = ${z.toBinaryString}")
 
-      return new RealGeneric(x.spec, zSgn, zex.toInt, SafeLong(zman))
+      return new RealGeneric(x.spec, zSgn, zex.toInt, zman)
     }
   }
 
@@ -550,9 +564,9 @@ object MathFuncACosSim {
       }
       // 0.5 ~ 1 (ex == -1)
       val g = (x:Double) => {
-        val s = (1.0 + x) * pow(2.0, -1) // scaled
+        val s = (1.0 + x) * pow(2.0, -1) // scaled 0~1 to 0.5~1
         if (1.0 - pow(2.0, puiseuxThreshold) < s) { // puiseux threshold
-          0.0 // to make 2nd order coefficient smaller
+          0.0 // to make >2nd order coefficient smaller
         } else {
           (math.Pi * 0.5 - acos(s)) * 0.5
         }
