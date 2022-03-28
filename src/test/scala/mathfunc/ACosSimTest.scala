@@ -14,7 +14,7 @@ import rial.arith._
 import rial.table._
 
 class MathFuncACosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
-  var n = 10000000
+  var n = 1000000
 
   override def beforeAll(configMap: ConfigMap) = {
     n = configMap.getOptional[String]("n").getOrElse("10000").toInt
