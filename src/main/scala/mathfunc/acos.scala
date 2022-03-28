@@ -8,6 +8,11 @@ package rial.mathfunc
 import java.lang.Math.scalb
 import scala.language.reflectiveCalls
 import scala.math._
+
+import spire.math.SafeLong
+import spire.math.Real
+import spire.implicits._
+
 import chisel3._
 import chisel3.util._
 import rial.table._
@@ -429,7 +434,8 @@ class ACosOtherPath(
     // ----------------------------------------------------------------------
     // 2^-5 * 3/5 y^2
     //                                          +1 for normalize
-    val c3over5 = math.round(3.0/5.0 * (1<<(manW+1))).toLong.U((manW+1).W)
+    val c3over5 = ((SafeLong(3)<<(manW+1)) / SafeLong(5)).toBigInt.U((manW+1).W)
+//     val c3over5 = math.round(3.0/5.0 * (1<<(manW+1))).toLong.U((manW+1).W)
 
     val (ySqExInc, ySqManW1) = multiply(ymanW1, ymanW1)
     val (ySq3over5ExInc, ySq3over5ManW1) = multiply(ySqManW1, c3over5)
@@ -441,9 +447,10 @@ class ACosOtherPath(
     // here, y < 2^-4. so 1 + 25/21 * 2^-2 * y never exceeds 2.
     // We don't need to check if it exceeds 2 after addition.
 
-    val c25over21 = math.round(25.0/21.0 * (1<<manW)).toLong
+    val c25over21 = ((SafeLong(25)<<manW) / SafeLong(21)).toBigInt.U((manW+1).W)
+//     val c25over21 = math.round(25.0/21.0 * (1<<manW)).toLong.U((manW+1).W)
 
-    val (y25over21ExInc, y25over21ManW1) = multiply(ymanW1, c25over21.U((manW+1).W))
+    val (y25over21ExInc, y25over21ManW1) = multiply(ymanW1, c25over21)
     val y25over21Ex       = yex + y25over21ExInc
     val y25over21ShiftVal = ((exBias + 2).U - y25over21Ex)
     val y25over21ShiftOut = y25over21ShiftVal(y25over21ShiftVal.getWidth-1, shiftOut).orR
@@ -464,9 +471,10 @@ class ACosOtherPath(
     // ----------------------------------------------------------------------
     // 1/3 * y
 
-    val c1over3 = math.round(1.0/3.0 * (1<<(manW+2))).toLong
+    val c1over3 = ((SafeLong(1)<<(manW+2)) / SafeLong(3)).toBigInt.U((manW+1).W)
+//     val c1over3 = math.round(1.0/3.0 * (1<<(manW+2))).toLong
 
-    val (yOver3ExInc, yOver3ManW1) = multiply(ymanW1, c1over3.U((manW+1).W))
+    val (yOver3ExInc, yOver3ManW1) = multiply(ymanW1, c1over3)
     val yOver3Ex = yex - 2.U + yOver3ExInc
 
     // ----------------------------------------------------------------------
@@ -580,7 +588,8 @@ class ACosPostProcess(
     val zexNeg  = Wire(UInt(exW.W))
 
     val piEx    = 1
-    val piFixed = math.round(math.Pi * (1<<(fracW-1))).toLong
+    val piFixed = Real.pi(fracW-1).toBigInt
+//     val piFixed = math.round(math.Pi * (1<<(fracW-1))).toLong
 
     val zmanShift   = (piEx + exBias).U(exW.W) - zex0
     val zmanShift0  = zmanShift(log2Up(fracW), 0)
@@ -622,7 +631,8 @@ class ACosPostProcess(
     val zIsPuiseux   = io.zother.zIsPuiseux.get
     val zmanNonTable = io.zother.zman.get
 
-    val halfPiFixed = math.round(Pi * 0.5 * (1 << fracW)).U((fracW+1).W)
+    val halfPiFixed = (Real.pi / Real.two)(fracW).toBigInt.U((fracW+1).W)
+//     val halfPiFixed = math.round(Pi * 0.5 * (1 << fracW)).U((fracW+1).W)
     val piman = (new RealGeneric(spec, Pi)).man.toLong.U(manW.W)
     val piex  = (new RealGeneric(spec, Pi)).ex.U(exW.W)
 
@@ -633,7 +643,7 @@ class ACosPostProcess(
     val res  = halfPiFixed + Mux(xsgn, res0, ~res0 + 1.U)
 
     val shift = (fracW+2).U - (res.getWidth.U - PriorityEncoder(Reverse(res)))
-    val resShifted = (res << shift)(fracW+1, 1) - (1<<fracW).U
+    val resShifted = (res << shift)(fracW+1, 1) - (BigInt(1)<<fracW).U
 
     val zexTable  = Mux(zzero, zOutOfRangeEx,  (exBias+1).U(exW.W) - shift)
     val zmanTable = Mux(zzero, zOutOfRangeMan, (resShifted >> extraBits) + resShifted(extraBits-1))
@@ -668,7 +678,8 @@ class ACosPostProcess(
     // pi - z
 
     val piExNobias = 1
-    val piManW1    = math.round(Pi * (1<<(manW-piExNobias))).toLong.U((1+manW).W)
+    val piManW1    = Real.pi(manW-piExNobias).toBigInt.U((1+manW).W)
+//     val piManW1    = math.round(Pi * (1<<(manW-piExNobias))).toLong.U((1+manW).W)
 
     val puiseuxShiftVal = (exBias+1).U(exW.W) - puiseuxEx
     val puiseuxShiftOut = puiseuxShiftVal(puiseuxShiftVal.getWidth-1, shiftOut).orR
