@@ -14,7 +14,7 @@ import rial.arith._
 import rial.table._
 
 class MathFuncACosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
-  var n = 1000000
+  var n = 10000000
 
   override def beforeAll(configMap: ConfigMap) = {
     n = configMap.getOptional[String]("n").getOrElse("10000").toInt
@@ -186,4 +186,36 @@ class MathFuncACosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     f"Test normal table 0.5 < x < 1.0:  [0.5, 1.0]", generateRealWithin(0.5, 1.0,_,_), 1)
   acosTest(acosBF16Table, sqrtBF16Table, Some(acosExBF16Table), RealSpec.BFloat16Spec, n, r,
     f"Test close to 1.0: [1-2^${smallValueBF16}, 1.0]", generateRealWithin(1.0-pow(2.0, smallValueBF16)+pow(2.0, -RealSpec.BFloat16Spec.manW), 1.0,_,_), 1)
+
+
+  val nOrderFP48 = 3
+  val adrWFP48 = 10
+  val extraBitsFP48 = 4
+  val float48Spec = new RealSpec(12, 2047, 35)
+
+  val acosFP48Table = MathFuncACosSim.acosTableGeneration(float48Spec,
+    nOrderFP48, adrWFP48, float48Spec.manW, float48Spec.manW+extraBitsFP48)
+  val sqrtFP48Table = MathFuncACosSim.sqrtTableGeneration(
+    nOrderFP48, adrWFP48, float48Spec.manW, float48Spec.manW+extraBitsFP48)
+
+  val smallValueFP48 = -7
+
+  // acos(-|x|) is in [pi/2, pi]. this does not require super high resolution.
+  acosTest(acosFP48Table, sqrtFP48Table, None, float48Spec, n, r,
+    "Test close to 0.0:  [0.0, -2^-4]", generateRealWithin(-pow(2.0, smallValueFP48), 0.0,_,_), 3)
+  acosTest(acosFP48Table, sqrtFP48Table, None, float48Spec, n, r,
+    "Test normal table x < 0.5:  [-2^-4, -0.5]", generateRealWithin(-0.5, -pow(2.0, smallValueFP48),_,_), 3)
+  acosTest(acosFP48Table, sqrtFP48Table, None, float48Spec, n, r,
+    "Test normal table x > 0.5:  [-0.5, -1+2^-4]", generateRealWithin(-1.0+pow(2.0, smallValueFP48)-pow(2.0, -35), -0.5-pow(2.0, -35),_,_), 3)
+  acosTest(acosFP48Table, sqrtFP48Table, None, float48Spec, n, r,
+    "Test Puiseux: close to 1.0: [-1-2^+4, -1.0]", generateRealWithin(-1.0, -1.0+pow(2.0, smallValueFP48)-pow(2.0, -35),_,_), 3) // 2ULPs
+
+  acosTest(acosFP48Table, sqrtFP48Table, None, float48Spec, n, r,
+    "Test close to 0.0:  [0.0, 2^-4]", generateRealWithin(0.0, pow(2.0, smallValueFP48),_,_), 3)
+  acosTest(acosFP48Table, sqrtFP48Table, None, float48Spec, n, r,
+    "Test normal table x < 0.5:  [2^-4, 0.5]", generateRealWithin(pow(2.0, smallValueFP48), 0.5,_,_), 3)
+  acosTest(acosFP48Table, sqrtFP48Table, None, float48Spec, n, r,
+    "Test normal table x > 0.5:  [0.5, 1-2^-4]", generateRealWithin(0.5+pow(2.0, -35), 1.0-pow(2.0, smallValueFP48)+pow(2.0, -35),_,_), 31) // XXX
+  acosTest(acosFP48Table, sqrtFP48Table, None, float48Spec, n, r,
+    "Test Puiseux: close to 1.0: [1-2^-4, 1.0]", generateRealWithin(1.0-pow(2.0, smallValueFP48)+pow(2.0, -35), 1.0,_,_), 3) // 2ULPs
 }
