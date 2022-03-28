@@ -396,7 +396,7 @@ object MathFuncACosSim {
         } else {
           val piEx    = 1
 //           val piFixed = math.round(math.Pi * (1<<(fracW-1))).toLong
-          val piFixed = Real.pi(fracW)
+          val piFixed = Real.pi(fracW-1)
           val zmanShift = piEx - (zex0 - exBias)
           val zmanAligned = if(zmanShift > fracW) {SafeLong(0)} else {
             (zman0 + (SafeLong(1)<<fracW)) >> zmanShift.toInt
