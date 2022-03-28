@@ -104,12 +104,6 @@ class MathFuncACosTest extends AnyFlatSpec
               val z0dexp = slice(spec.manW, spec.exW, z0d)
               val z0dman = z0d & maskSL(spec.manW)
 
-              if (zi != z0d) {
-                c.io.x.poke(xid.U(64.W))
-                for(i <- 1 to nstage) c.clock.step(1)
-                c.clock.step(1)
-              }
-
               assert(zi == z0d, f"x = (${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman.toLong.toBinaryString}), test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString}) != ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})")
             }
             c.clock.step(1)
@@ -270,6 +264,7 @@ class ACosOnlyTest extends AnyFlatSpec
       test( new ACosGeneric(spec, nOrder, adrW, extraBits, stage, false, false)).
         withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
         {
+//           println("----------------------------")
           val maxCbit    = c.getCbit
           val maxCalcW   = c.getCalcW
           val nstage     = c.getStage
@@ -307,9 +302,17 @@ class ACosOnlyTest extends AnyFlatSpec
               val z0dexp = slice(spec.manW, spec.exW, z0d)
               val z0dman = z0d & maskSL(spec.manW)
 
-              assert(zi == z0d, f"x = (${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman.toLong.toBinaryString})(${new RealGeneric(spec, xidsgn, xidexp.toInt, xidman).toDouble}), " +
+              val x = new RealGeneric(spec, xidsgn, xidexp.toInt, xidman)
+              val z = new RealGeneric(spec, acos(x.toDouble))
+              val zsgn = z.sgn
+              val zexp = z.ex
+              val zman = z.man
+
+              assert(zi == z0d, f"x = (${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman.toLong.toBinaryString})(${x.toDouble}), " +
                                 f"test(${zisgn }|${ziexp }(${ziexp  - spec.exBias})|${ ziman.toLong.toBinaryString})(${new RealGeneric(spec,  zisgn,  ziexp.toInt,  ziman).toDouble}) != " +
-                                f"ref(${ z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})(${new RealGeneric(spec, z0dsgn, z0dexp.toInt, z0dman).toDouble})")
+                                f"ref(${ z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})(${new RealGeneric(spec, z0dsgn, z0dexp.toInt, z0dman).toDouble}), " +
+                                f"libc(${  zsgn}|${  zexp}(${  zexp - spec.exBias})|${  zman.toLong.toBinaryString})(${z.toDouble}), "
+                                )
             }
             c.clock.step(1)
           }
@@ -427,4 +430,55 @@ class ACosOnlyTest extends AnyFlatSpec
     n, r, "Test Within ( 2^-4,  1-2^-4)",     generateRealWithin(pow(2.0, -4), 1.0 - pow(2.0, -4),_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline,
     n, r, "Test Within (1-2^-4, 1)",     generateRealWithin(1.0-pow(2.0, -4)+pow(2.0, -23), 1.0,_,_))
+
+
+//   val float48Spec = new RealSpec(12, 2047, 35)
+// 
+//   val nOrderFP48 = 3
+//   val adrWFP48 = 10
+//   val extraBitsFP48 = 4
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, MathFuncPipelineConfig.none,
+//     n, r, "Test Within (-1, -1+2^-4)",     generateRealWithin(-1.0, -1.0+pow(2.0, -4)-pow(2.0, -23),_,_))
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, MathFuncPipelineConfig.none,
+//     n, r, "Test Within (-1+2^-4,  -0.5)",    generateRealWithin(-1.0+pow(2.0, -4), -0.5,_,_))
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, MathFuncPipelineConfig.none,
+//     n, r, "Test Within (-0.5,  -2^-4)",    generateRealWithin(-0.5, -pow(2.0, -4),_,_))
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, MathFuncPipelineConfig.none,
+//     n, r, "Test Within (-2^-4, 0)",   generateRealWithin(-pow(2.0, -4), 0,_,_))
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, MathFuncPipelineConfig.none,
+//     n, r, "Test Within ( 0, 2^-4)",     generateRealWithin(0,pow(2.0, -4),_,_))
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, MathFuncPipelineConfig.none,
+//     n, r, "Test Within ( 2^-4,  0.5)",     generateRealWithin(pow(2.0, -4), 0.5,_,_))
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, MathFuncPipelineConfig.none,
+//     n, r, "Test Within ( 0.5,   1-2^-4)",     generateRealWithin(0.5, 1.0 - pow(2.0, -4),_,_))
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, MathFuncPipelineConfig.none,
+//     n, r, "Test Within (1-2^-4, 1)",     generateRealWithin(1.0-pow(2.0, -4)+pow(2.0, -23), 1.0,_,_))
+
+
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, simplePipeline,
+//     n, r, "Test Within (-1, -1+2^-4)",     generateRealWithin(-1.0, -1.0+pow(2.0, -4)-pow(2.0, -23),_,_))
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, simplePipeline,
+//     n, r, "Test Within (-1+2^-4,  -2^-4)",    generateRealWithin(-1.0+pow(2.0, -4), -pow(2.0, -4),_,_))
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, simplePipeline,
+//     n, r, "Test Within (-2^-4, 0)",   generateRealWithin(-pow(2.0, -4), 0,_,_))
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, simplePipeline,
+//     n, r, "Test Within ( 0, 2^-4)",     generateRealWithin(0,pow(2.0, -4),_,_))
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, simplePipeline,
+//     n, r, "Test Within ( 2^-4,  1-2^-4)",     generateRealWithin(pow(2.0, -4), 1.0 - pow(2.0, -4),_,_))
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, simplePipeline,
+//     n, r, "Test Within (1-2^-4, 1)",     generateRealWithin(1.0-pow(2.0, -4)+pow(2.0, -23), 1.0,_,_))
+// 
+// 
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, complexPipeline,
+//     n, r, "Test Within (-1, -1+2^-4)",     generateRealWithin(-1.0, -1.0+pow(2.0, -4)-pow(2.0, -23),_,_))
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, complexPipeline,
+//     n, r, "Test Within (-1+2^-4,  -2^-4)",    generateRealWithin(-1.0+pow(2.0, -4), -pow(2.0, -4),_,_))
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, complexPipeline,
+//     n, r, "Test Within (-2^-4, 0)",   generateRealWithin(-pow(2.0, -4), 0,_,_))
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, complexPipeline,
+//     n, r, "Test Within ( 0, 2^-4)",     generateRealWithin(0,pow(2.0, -4),_,_))
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, complexPipeline,
+//     n, r, "Test Within ( 2^-4,  1-2^-4)",     generateRealWithin(pow(2.0, -4), 1.0 - pow(2.0, -4),_,_))
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, complexPipeline,
+//     n, r, "Test Within (1-2^-4, 1)",     generateRealWithin(1.0-pow(2.0, -4)+pow(2.0, -23), 1.0,_,_))
 }
