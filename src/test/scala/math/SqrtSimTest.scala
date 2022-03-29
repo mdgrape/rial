@@ -54,25 +54,27 @@ class SqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   }
 
   def sqrtTest(t: FuncTableInt, spec : RealSpec, n : Int, r : Random,
-    generatorStr : String, generator : ( (RealSpec, Random) => RealGeneric) ) = {
+    generatorStr : String, generator : ( (RealSpec, Random) => RealGeneric),
+    tolerance: Int) = {
     test(s"sqrt(x), format ${spec.toStringShort}, ${generatorStr}") {
+
       var maxError   = 0.0
       var xatMaxError = 0.0
       var zatMaxError = 0.0
 
-      var err1lsbPos = 0
-      var err1lsbNeg = 0
+      val errs = collection.mutable.Map.empty[Long, (Int, Int)]
+
       for(i <- 1 to n) {
         val x    = generator(spec,r)
         val x0   = x.toDouble
-        val z0   = math.sqrt(x0)
+        val z0   = if(x0 < 0) {0.0} else {math.sqrt(x0)}
         val z0r  = new RealGeneric(spec, z0)
         val zi   = SqrtSim.sqrtSimGeneric( t, x )
         val zd   = zi.toDouble
         val errf = zd - z0r.toDouble
-        val erri = errorLSB(zi, z0r.toDouble)
+        val erri = errorLSB(zi, z0r.toDouble).toLong
         //println(f"${x.value.toLong}%x $z0 ${zi.toDouble}")
-        if (z0r.value != zi.value) {
+        if ((z0r.value - zi.value).abs > tolerance) {
           val xsgn = bit(spec.W-1, x.value).toInt
           val xexp = slice(spec.manW, spec.exW, x.value)
           val xman = x.value & maskSL(spec.manW)
@@ -85,7 +87,7 @@ class SqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
           val zrefexp = slice(spec.manW, spec.exW, z0r.value)
           val zrefman = z0r.value & maskSL(spec.manW)
 
-          println(f"gen = ${x0}")
+          println(f"x0  = ${x0} (${x.sgn}|${x.ex}|${x.man.toLong.toBinaryString}|)")
           println(f"ref = ${z0}, ref^2 = ${z0*z0}")
           println(f"sim = ${zd}, sim^2 = ${zd*zd}")
           println(f"test(${ztestsgn}|${ztestexp}(${ztestexp - spec.exBias})|${ztestman}(${ztestman.toLong}%x)) != ref(${zrefsgn}|${zrefexp}(${zrefexp - spec.exBias})|${zrefman}(${zrefman.toLong}%x)) = sqrt(x = ${xsgn}|${xexp}(${xexp - spec.exBias})|${xman}(${xman.toLong}%x))")
@@ -99,38 +101,54 @@ class SqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         } else if (x.sgn == 1 && !x.isZero) {
           assert(zi.isZero)
         } else {
-          if (erri.abs>=2.0) {
-            println(f"Error more than 2 LSB : ${x.toDouble}%14.7e : $z0%14.7e ${zi.toDouble}%14.7e $errf%14.7e $erri%f")
-          } else if (erri>=1.0) err1lsbPos+=1
-          else if (erri<= -1.0) err1lsbNeg+=1
-          assert(erri.abs<=1)
+          assert(erri.abs<=tolerance)
+
+          if(erri != 0) {
+            val errkey = erri.abs
+            if( ! errs.contains(errkey)) {
+              errs(errkey) = (0, 0)
+            }
+            if (erri >= 0) {
+              errs(errkey) = (errs(errkey)._1 + 1, errs(errkey)._2)
+            } else {
+              errs(errkey) = (errs(errkey)._1, errs(errkey)._2 + 1)
+            }
+          }
 
           if (maxError < erri.abs) {
-            maxError = erri.abs
+            maxError    = erri.abs.toDouble
             xatMaxError = x0
             zatMaxError = zd
           }
         }
-        //println(f"$x%14.7e : $z0%14.7e $z%14.7e $errf%14.7e $erri%d")
       }
-      println(f"N=$n%d : the largest error is ${maxError.toInt}%d where the value is ${zatMaxError} != ${math.sqrt(xatMaxError)} diff = ${zatMaxError - math.sqrt(xatMaxError)}")
-      println(f"N=$n%d : 1LSB errors positive $err1lsbPos%d / negative $err1lsbNeg%d")
+      println(f"${generatorStr} Summary")
+      if(maxError != 0.0) {
+        println(f"N=$n%d : largest errors ${maxError.toInt}%d where the value is "
+              + f"${zatMaxError} != ${sqrt(xatMaxError)}, "
+              + f"diff = ${zatMaxError - sqrt(xatMaxError)}, x = ${xatMaxError}")
+      }
+      for(kv <- errs.toSeq.sortBy(_._1)) {
+        val (k, (errPos, errNeg)) = kv
+        println(f"N=$n%d : +/- ${k}%4d errors (${log2DownL(k)+1}%2d ULPs) positive $errPos%d / negative $errNeg%d")
+      }
+      println( "---------------------------------------------------------------")
     }
   }
 
   val sqrtF32TableI = SqrtSim.sqrtTableGeneration( 2, 8, 23, 23+2 )
 
   sqrtTest(sqrtF32TableI, RealSpec.Float32Spec, n, r,
-    "Test Within [0, 4)",generateReal1to4(_,_))
+    "Test Within [0, 4)",generateReal1to4(_,_), 1)
   sqrtTest(sqrtF32TableI, RealSpec.Float32Spec, n, r,
-    "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+    "Test Within (-128,128)",generateRealWithin(128.0,_,_), 1)
   sqrtTest(sqrtF32TableI, RealSpec.Float32Spec, n, r,
-    "Test All range",generateRealFull(_,_) )
+    "Test All range",generateRealFull(_,_), 1 )
 
   val sqrtBF16TableI = SqrtSim.sqrtTableGeneration(0, 7, 7, 7 ) // [1,2) + [2,4) + 1.0
 
   sqrtTest(sqrtBF16TableI, RealSpec.BFloat16Spec, n, r,
-    "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+    "Test Within (-128,128)",generateRealWithin(128.0,_,_), 1)
   sqrtTest(sqrtBF16TableI, RealSpec.BFloat16Spec, n, r,
-    "Test All range",generateRealFull(_,_) )
+    "Test All range",generateRealFull(_,_), 1 )
 }
