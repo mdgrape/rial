@@ -7,6 +7,10 @@ package rial.table
 import scala.math._
 import java.io._
 import java.lang.Math.scalb
+
+import spire.math.SafeLong
+import spire.implicits._
+
 import chisel3._
 import chisel3.util._
 import rial.util.ScalaUtil._
@@ -192,8 +196,8 @@ class FuncTableIntervalInt (iv : FuncTableIntervalDouble, val floating: Boolean,
     val zw   = z._2
     val d    = c._2
     val dxw  = min(zw, dxBp)
-    val dxl  = dx >> (dxBp - dxw)// MSBs?
-    val prod = dxl * z._1
+    val dxl  = SafeLong(dx >> (dxBp - dxw))// MSBs?
+    val prod = dxl * SafeLong(z._1)
     val prod_sft = prod >> dxw
     val term = c._1 + prod_sft
 
@@ -207,18 +211,16 @@ class FuncTableIntervalInt (iv : FuncTableIntervalDouble, val floating: Boolean,
       }
       //println(f"${c._1}%x ${z._1}%x ${term}%x $zw $d $dxBp $dx%x $dxl")
     }
-//     println("sim----------------------------------------")
-//     println(f"c     : ${c._1.toBinaryString}(${c._1})")
-//     println(f"zw    : ${zw  .toBinaryString}(${zw  })")
-//     println(f"dx    : ${dx.toBinaryString}(${dx})")
-//     println(f"dxBp  : ${dxBp.toBinaryString}(${dxBp})")
-//     println(f"dxw   : ${dxw                }         ")
-//     println(f"dxl   : ${dxl                }         ")
-//     println(f"z     : ${z                  }         ")
-//     println(f"prod  : ${prod}")
-//     println(f"prodsf: ${prod_sft}")
-//     println(f"term  : ${term.toBinaryString}(${term})")
-    (term, d)
+//     println(f"sim: z   = ${z._1.toBinaryString}")
+//     println(f"sim: dx  = ${dx  .toBinaryString}")
+//     println(f"sim: dxBp= ${dxBp}")
+//     println(f"sim: zw  = ${zw}")
+//     println(f"sim: d   = ${d}")
+//     println(f"sim: dxw = ${dxw}")
+//     println(f"sim: dxl = ${dxl.toLong.toBinaryString}")
+//     println(f"sim: c   = ${c._1.toBinaryString}")
+//     println(f"sim: sum = ${term.toLong.toBinaryString}")
+    (term.toLong, d)
   }
 
   def eval ( dx : Long, dxBp : Int, checkOverflow: Boolean = true, skip : Int = 0 ) = {
