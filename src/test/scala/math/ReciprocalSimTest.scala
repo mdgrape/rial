@@ -49,10 +49,16 @@ class ReciprocalSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   }
 
   def reciprocalTest(t: FuncTableInt, spec : RealSpec, n : Int, r : Random,
-    generatorStr : String, generator : ( (RealSpec, Random) => RealGeneric) ) = {
+    generatorStr : String, generator : ( (RealSpec, Random) => RealGeneric),
+    tolerance: Int) = {
     test(s"1/x, format ${spec.toStringShort}, ${generatorStr}") {
-      var err1lsbPos = 0
-      var err1lsbNeg = 0
+
+      var maxError   = 0.0
+      var xatMaxError = 0.0
+      var zatMaxError = 0.0
+
+      val errs = collection.mutable.Map.empty[Long, (Int, Int)]
+
       for(i <- 1 to n) {
         val x  = generator(spec,r)
         val x0 = x.toDouble
@@ -61,7 +67,7 @@ class ReciprocalSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         val zi = ReciprocalSim.reciprocalSimGeneric( t, x )
         val zd = zi.toDouble
         val errf = zd-z0r.toDouble
-        val erri = errorLSB(zi, z0r.toDouble)
+        val erri = errorLSB(zi, z0r.toDouble).toLong
         //println(f"${x.value.toLong}%x $z0 ${zi.toDouble}")
         if (z0r.value != zi.value) {
           println(f"${x.value.toLong}%x ${z0r.value.toLong}%x ${zi.value.toLong}%x")
@@ -73,30 +79,54 @@ class ReciprocalSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         } else if (x0.isNaN) {
           assert(zi.isNaN)
         } else {
-          if (erri.abs>=2.0) {
-            println(f"Error more than 2 LSB : ${x.toDouble}%14.7e : $z0%14.7e ${zi.toDouble}%14.7e $errf%14.7e $erri%f")
-          } else if (erri>=1.0) err1lsbPos+=1
-          else if (erri<= -1.0) err1lsbNeg+=1
-          assert(erri.abs<=1)
+          assert(erri.abs<=tolerance)
+
+          if(erri != 0) {
+            val errkey = erri.abs
+            if( ! errs.contains(errkey)) {
+              errs(errkey) = (0, 0)
+            }
+            if (erri >= 0) {
+              errs(errkey) = (errs(errkey)._1 + 1, errs(errkey)._2)
+            } else {
+              errs(errkey) = (errs(errkey)._1, errs(errkey)._2 + 1)
+            }
+          }
+
+          if (maxError < erri.abs) {
+            maxError    = erri.abs.toDouble
+            xatMaxError = x0
+            zatMaxError = zd
+          }
         }
-        //println(f"$x%14.7e : $z0%14.7e $z%14.7e $errf%14.7e $erri%d")
       }
-      println(f"N=$n%d : 1LSB errors positive $err1lsbPos%d / negative $err1lsbNeg%d")
+      println(f"${generatorStr} Summary")
+      if(maxError != 0.0) {
+        println(f"N=$n%d : largest errors ${maxError.toInt}%d where the value is "
+              + f"${zatMaxError} != ${sqrt(xatMaxError)}, "
+              + f"diff = ${zatMaxError - sqrt(xatMaxError)}, x = ${xatMaxError}")
+      }
+      for(kv <- errs.toSeq.sortBy(_._1)) {
+        val (k, (errPos, errNeg)) = kv
+        println(f"N=$n%d : +/- ${k}%4d errors (${log2DownL(k)+1}%2d ULPs) positive $errPos%d / negative $errNeg%d")
+      }
+      println( "---------------------------------------------------------------")
+
     }
   }
 
   val reciprocalF32TableI = ReciprocalSim.reciprocalTableGeneration( 2, 8, 23, 23+2 )
 
   reciprocalTest(reciprocalF32TableI, RealSpec.Float32Spec, n, r,
-    "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+    "Test Within (-128,128)",generateRealWithin(128.0,_,_), 1)
   reciprocalTest(reciprocalF32TableI, RealSpec.Float32Spec, n, r,
-    "Test All range",generateRealFull(_,_) )
+    "Test All range",generateRealFull(_,_), 1 )
 
   val reciprocalBF16TableI = ReciprocalSim.reciprocalTableGeneration( 0, 7, 7, 7 )
 
   reciprocalTest(reciprocalBF16TableI, RealSpec.BFloat16Spec, n, r,
-    "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+    "Test Within (-128,128)",generateRealWithin(128.0,_,_), 1)
   reciprocalTest(reciprocalBF16TableI, RealSpec.BFloat16Spec, n, r,
-    "Test All range",generateRealFull(_,_) )
+    "Test All range",generateRealFull(_,_), 1 )
 
 }
