@@ -225,16 +225,21 @@ class SqrtOnlyTest extends AnyFlatSpec
               val xidsgn = bit(spec.W-1, xid).toInt
               val xidexp = slice(spec.manW, spec.exW, xid)
               val xidman = xid & maskSL(spec.manW)
+              val x = new RealGeneric(spec, xidsgn, xidexp.toInt, xidman)
 
               val zisgn = bit(spec.W-1, zi).toInt
               val ziexp = slice(spec.manW, spec.exW, zi)
               val ziman = zi & maskSL(spec.manW)
+              val z = new RealGeneric(spec, zisgn, ziexp.toInt, ziman)
 
               val z0dsgn = bit(spec.W-1, z0d).toInt
               val z0dexp = slice(spec.manW, spec.exW, z0d)
               val z0dman = z0d & maskSL(spec.manW)
+              val zref = new RealGeneric(spec, z0dsgn, z0dexp.toInt, z0dman)
 
-              assert(zi == z0d, f"x = (${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman.toLong.toBinaryString}), test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString}) != ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})")
+              assert(zi == z0d, f"x = (${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman.toLong.toBinaryString})(${x.toDouble}), " +
+                                f"test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString})(${z.toDouble}) != " +
+                                f"ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})(${zref.toDouble}) should be ${sqrt(x.toDouble)}")
             }
             c.clock.step(1)
           }
