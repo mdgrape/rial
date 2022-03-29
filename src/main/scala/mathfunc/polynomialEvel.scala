@@ -71,7 +71,18 @@ class PolynomialEval(
       val dxl  = dx(dxBp, dxBp-dxw).asSInt
       val prod = dxl * z
       val prod_sft = dropLSB(dxw, prod)
-      val sum = c +& prod_sft // Extend for safe
+//       val sum = c +& prod_sft // Extend for safe
+      val sum = c + prod_sft
+
+//       printf("cir: z   = %b\n", z)
+//       printf("cir: dx  = %b\n", dx)
+//       printf("cir: dxBp= %d\n", dxBp.U)
+//       printf("cir: zw  = %d\n", zw.U)
+//       printf("cir: dxw = %d\n", dxw.U)
+//       printf("cir: dxl = %b\n", dxl)
+//       printf("cir: c   = %b\n", c)
+//       printf("cir: sum = %b\n", sum)
+
       sum
     }
 
