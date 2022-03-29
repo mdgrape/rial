@@ -80,7 +80,7 @@ object SqrtSim {
     val z = if (zman<0) {
       println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=$x%h")
       0L
-    } else if (zmanRound >= (1L<<manW)) {
+    } else if (zmanRound >= (SafeLong(1)<<manW)) {
       println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=$x%h")
       maskL(manW)
     } else {

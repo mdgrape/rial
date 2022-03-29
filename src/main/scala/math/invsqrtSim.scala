@@ -65,7 +65,7 @@ object InvSqrtSim {
       val res  = if (res0 < 0) {
         println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=${x.toDouble}")
         0L
-      } else if(res0 >= (1L<<calcW)) {
+      } else if(res0 >= (SafeLong(1)<<calcW)) {
         println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=${x.toDouble}")
         maskL(calcW)
       } else {
@@ -80,7 +80,7 @@ object InvSqrtSim {
       val res  = if (res0 < 0) {
         println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=${x.toDouble}")
         0L
-      } else if(res0 >= (1L<<calcW)) {
+      } else if(res0 >= (SafeLong(1)<<calcW)) {
         println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=${x.toDouble}")
         maskL(calcW)
       } else {
