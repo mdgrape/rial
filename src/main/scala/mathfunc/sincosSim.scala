@@ -13,6 +13,7 @@ import chisel3.util.log2Up
 
 import spire.math.SafeLong
 import spire.math.Numeric
+import spire.math.Real
 import spire.implicits._
 
 import rial.table._
@@ -46,12 +47,13 @@ object MathFuncSinCosSim {
 
     val oneOverPiPad = 23
     // 1/2 > 1/pi > 1/4, (1/pi).exNobias == -2, and 2 extra bits for rounding
-    val oneOverPi = math.round(1.0 / math.Pi * (1L << (manW+2+oneOverPiPad))).toBigInt
+//     val oneOverPi = math.round(1.0 / math.Pi * (1L << (manW+2+oneOverPiPad))).toBigInt
+    val oneOverPi = (Real.one / Real.pi)(manW+2+oneOverPiPad)
     assert(bit(manW+oneOverPiPad, oneOverPi) == 1L)
 
     // no rounding! We will subtract 0.5 or 1.5 from this x/pi.
     // To keep precision, we should have enough bits here.
-    val xOverPiProd          = x.manW1.toBigInt * oneOverPi
+    val xOverPiProd          = x.manW1 * oneOverPi
     val xOverPiProdMoreThan2 = bit((1+manW)+(1+manW+oneOverPiPad)-1, xOverPiProd)
     val xOverPiEx            = x.ex - 2 + xOverPiProdMoreThan2
 
@@ -60,7 +62,7 @@ object MathFuncSinCosSim {
     val xOverPiFracW         = (1+manW) + (1+manW+oneOverPiPad) - 1
     //                              remove the top, hidden bit  ^^^
 
-    assert((1.toBigInt << (xOverPiFracW)) < xOverPi && xOverPi < (1.toBigInt << (xOverPiFracW+1)))
+    assert((SafeLong(1) << (xOverPiFracW)) < xOverPi && xOverPi < (SafeLong(1) << (xOverPiFracW+1)))
 //     println(f"xOverPi   = ${xOverPi.toDouble * pow(2.0, -xOverPiFracW) * pow(2.0, xOverPiEx-exBias)}")
 //     println(f"|x|/Pi    = ${x.toDouble.abs / Pi}")
 //     println(f"xOverPiEx = ${xOverPiEx}")
@@ -106,7 +108,7 @@ object MathFuncSinCosSim {
     // than3/2: 11, than1: 10, than1/2: 01, else: 00
     val yman0 = if(isSin) {
       if (xOverPiAlignedMoreThan3over2 || xOverPiAlignedMoreThan1over2) {
-        (1.toBigInt << (1+xOverPiFracW-1)) - slice(0, 1+xOverPiFracW-1, xOverPiAligned)
+        (SafeLong(1) << (1+xOverPiFracW-1)) - slice(0, 1+xOverPiFracW-1, xOverPiAligned)
       } else {
         slice(0, 1+xOverPiFracW-1, xOverPiAligned)
       }
@@ -114,7 +116,7 @@ object MathFuncSinCosSim {
       if (xOverPiAlignedMoreThan3over2 || xOverPiAlignedMoreThan1over2) {
         slice(0, 1+xOverPiFracW-2, xOverPiAligned)
       } else {
-        (1.toBigInt << (1+xOverPiFracW-2)) - slice(0, 1+xOverPiFracW-2, xOverPiAligned)
+        (SafeLong(1) << (1+xOverPiFracW-2)) - slice(0, 1+xOverPiFracW-2, xOverPiAligned)
       }
     }
 
@@ -123,9 +125,9 @@ object MathFuncSinCosSim {
 //     println(f"sim:yman0 = ${yman0}")
 
     val (yex, yman) = if (yman0 == 0) {
-      (0, 0L)
+      (0, SafeLong(0))
     } else {
-      val yman0W        = log2Up(yman0) //.toBinaryString.length
+      val yman0W        = log2UpSL(yman0) //.toBinaryString.length
       val yman0Shift    = 1+xOverPiFracW - yman0W
       val yman0Shifted  = yman0 << yman0Shift
       val yman0RoundBit = xOverPiFracW - manW
@@ -137,12 +139,12 @@ object MathFuncSinCosSim {
 //       println(f"sim:yman0Shifted = ${yman0Shifted}")
 //       println(f"sim:yman0Rounded = ${yman0Rounded.toLong.toBinaryString}")
 
-      ((exBias-yman0Shift+yman0MoreThan2).toInt, slice(0, manW, yman0Rounded).toLong)
+      ((exBias-yman0Shift+yman0MoreThan2).toInt, slice(0, manW, yman0Rounded))
     }
 
     assert(yex  <= exBias-1)
     assert(yex  != exBias-1 || yman == 0)
-    assert(yman < (1<<manW))
+    assert(yman < (SafeLong(1)<<manW))
 
 //     println(f"sim:yex  = ${yex}")
 //     println(f"sim:yman = ${yman.toLong.toBinaryString}")
@@ -182,17 +184,20 @@ object MathFuncSinCosSim {
       val coefPad    = 2 // for precision after rounding
       val fracW      = manW+coefPad
       val coef1Ex    = 1 + exBias
-      val coef1ManW1 = math.round(Pi * (1<<(fracW-(coef1Ex-exBias)))).toLong
+      val coef1ManW1 = Real.pi(fracW-(coef1Ex-exBias))
+//       val coef1ManW1 = math.round(Pi * (1<<(fracW-(coef1Ex-exBias)))).toLong
       val coef3Ex    = 0 + exBias
-      val coef3ManW1 = math.round(Pi * Pi / 6.0 * (1<<(fracW-(coef3Ex-exBias)))).toLong
+//       val coef3ManW1 = math.round(Pi * Pi / 6.0 * (1<<(fracW-(coef3Ex-exBias)))).toLong
+      val coef3ManW1 = (Real.pi * Real.pi / Real(6))(fracW-(coef3Ex-exBias))
       val coef5Ex    = -1 + exBias
-      val coef5ManW1 = math.round(pow(Pi, 4) / 120.0 * (1<<(fracW-(coef5Ex-exBias)))).toLong
+//       val coef5ManW1 = math.round(pow(Pi, 4) / 120.0 * (1<<(fracW-(coef5Ex-exBias)))).toLong
+      val coef5ManW1 = (Real.pi.pow(4) / Real(120))(fracW-(coef5Ex-exBias))
       assert(bit(fracW, coef1ManW1) == 1)
       assert(bit(fracW, coef3ManW1) == 1)
       assert(bit(fracW, coef5ManW1) == 1)
 
       // returning W = 1+fracW
-      val multiply = (xFracW: Int, xmanW1: Long, yFracW: Int, ymanW1: Long) => {
+      val multiply = (xFracW: Int, xmanW1: SafeLong, yFracW: Int, ymanW1: SafeLong) => {
         assert(bit(xFracW, xmanW1) == 1)
         assert(bit(yFracW, ymanW1) == 1)
         val zProd          = xmanW1 * ymanW1
@@ -201,10 +206,10 @@ object MathFuncSinCosSim {
         val zProdRounded   = (zProd >> zProdShift) + bit(zProdShift-1, zProd)
         val zProdMoreThan2AfterRound = bit(2+fracW-1, zProdRounded)
         val zExInc = zProdMoreThan2 + zProdMoreThan2AfterRound
-        val zManW1 = if(zProdMoreThan2AfterRound == 1) {1 << fracW} else {zProdRounded}
+        val zManW1 = if(zProdMoreThan2AfterRound == 1) {SafeLong(1) << fracW} else {zProdRounded}
         assert(bit(fracW, zManW1) == 1)
         assert(zExInc == 1 || zExInc == 0)
-        (zExInc.toInt, zManW1.toLong)
+        (zExInc.toInt, zManW1)
       }
 
       // 8 ops in 5 steps:
@@ -215,7 +220,8 @@ object MathFuncSinCosSim {
       //
 
       // y^2
-      val (ySqExInc, ySqManW1) = multiply(manW, (1<<manW) + yman, manW, (1<<manW) + yman)
+      val (ySqExInc, ySqManW1) = multiply(manW, (SafeLong(1)<<manW) + yman,
+                                          manW, (SafeLong(1)<<manW) + yman)
       val ySqEx = yex + yex - exBias + ySqExInc
       assert(bit(fracW, ySqManW1) == 1)
 //       println(f"sim:ySqEx    = ${ySqEx}")
@@ -223,7 +229,8 @@ object MathFuncSinCosSim {
 
 //       println("piy")
       // pi*y
-      val (piyExInc, piyManW1) = multiply(manW, (1<<manW) + yman, fracW, coef1ManW1)
+      val (piyExInc, piyManW1) = multiply(manW, (SafeLong(1)<<manW) + yman,
+                                          fracW, coef1ManW1)
       val piyEx = yex + coef1Ex - exBias + piyExInc
       assert(bit(fracW, piyManW1) == 1)
 //       println(f"sim:piyEx    = ${piyEx}")
@@ -249,10 +256,10 @@ object MathFuncSinCosSim {
       // 1 - pi^2y^2/6
       assert(c3Ex < exBias)
       val c3Shift = exBias - c3Ex
-      val c3Aligned = if(c3Shift > 63) { 0 } else {
+      val c3Aligned = if(c3Shift > 63) { SafeLong(0) } else {
         (c3ManW1 >> c3Shift) + bit(c3Shift-1, c3ManW1)
       }
-      val oneMinusC3 = (1<<fracW) - c3Aligned
+      val oneMinusC3 = (SafeLong(1)<<fracW) - c3Aligned
 //       println(f"sim:1-c3 = ${oneMinusC3.toLong.toBinaryString}")
 
       if(taylorOrder <= 4) {
@@ -295,7 +302,7 @@ object MathFuncSinCosSim {
       // ~ 1 - 1.645y^2 + 0.8117y^4
       assert(c5Ex < exBias)
       val c5Shift = exBias - c5Ex
-      val c5Aligned = if(c5Shift > 63) { 0 } else {
+      val c5Aligned = if(c5Shift > 63) { SafeLong(0) } else {
         (c5ManW1 >> c5Shift) + bit(c5Shift-1, c5ManW1)
       }
       val oneMinusC3PlusC5 = oneMinusC3 + c5Aligned
@@ -348,17 +355,17 @@ object MathFuncSinCosSim {
         val res0  = t.interval(adr).eval(0L, 0)
         val res = if (res0<0) {
             println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x = ${x.toDouble}, sin(x) = ${sin(x.toDouble)}")
-            0L
-          } else if (res0 >= (1L<<fracW)) {
+            SafeLong(0)
+          } else if (res0 >= (SafeLong(1)<<fracW)) {
             println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x = ${x.toDouble}, sin(x) = ${sin(x.toDouble)}")
-            maskL(fracW)
+            maskSL(fracW)
           } else {
-            res0
+            SafeLong(res0)
           }
 
         val lessThanHalf = if(bit(fracW-1, res) == 0) { 1 } else { 0 }
         val ex    = yex+2-lessThanHalf
-        val man   = (res << (1+lessThanHalf)).toLong - (1 << fracW)
+        val man   = (res << (1+lessThanHalf)).toLong - (SafeLong(1) << fracW)
 
         (ex.toInt, man)
 
@@ -373,16 +380,16 @@ object MathFuncSinCosSim {
         val res0 = t.interval(adr).eval(d.toLong, dxbp)
         val res = if (res0 < 0) {
             println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x = ${x.toDouble}, sin(x) = ${sin(x.toDouble)}")
-            0L
-          } else if (res0 >= (1L<<fracW)) {
+            SafeLong(0)
+          } else if (res0 >= (SafeLong(1)<<fracW)) {
             println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x = ${x.toDouble}, sin(x) = ${sin(x.toDouble)}")
-            maskL(fracW)
+            maskSL(fracW)
           } else {
-            res0
+            SafeLong(res0)
           }
 //         println(f"sim:zres = ${res.toLong.toBinaryString}")
         val lessThanHalf = if(bit(fracW-1, res) == 0) { 1 } else { 0 }
-        ((yex+2-lessThanHalf).toInt, (res << (1+lessThanHalf)).toLong - (1L<<fracW))
+        ((yex+2-lessThanHalf).toInt, (res << (1+lessThanHalf)) - (SafeLong(1)<<fracW))
       }
 
       val zmanRound = if (extraBits>0) {(zman>>extraBits) + bit(extraBits-1, zman)} else {zman}
@@ -390,7 +397,7 @@ object MathFuncSinCosSim {
       val zManMoreThan2 = bit(manW, zmanRound).toInt
 //       println(f"sim:zmanRound = ${zmanRound.toLong.toBinaryString}")
 
-      new RealGeneric(x.spec, zSgn, zEx + zManMoreThan2, SafeLong(zMan))
+      new RealGeneric(x.spec, zSgn, zEx + zManMoreThan2, zMan)
     }
   }
 
