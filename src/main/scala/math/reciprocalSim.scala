@@ -53,33 +53,33 @@ object ReciprocalSim {
       }
     val calcW = manW + extraBits
 
-    val zman = if (order==0) {
+    val zman0 = if (order==0) {
       if (adrW<manW) 
         println("WARNING: table address width < mantissa width, for polynomial order is zero. address width set to mantissa width.")
       val adr = man.toInt
-      if (man==0) 0 else t.interval(adr).eval(0L, 0)
+      if (man==0) {0} else {t.interval(adr).eval(0L, 0)}
     } else {
       val dxbp = manW-adrW-1
       val d   = (SafeLong(1)<<dxbp) - slice(0, manW-adrW, man)-1
       val adr = maskI(adrW)-slice(manW-adrW, adrW, man).toInt
       //println(f"d=$d%x")
       // From here Long is used instead of SafeLong; should be fixed
-      if (man==0) 0 else t.interval(adr).eval(d.toLong, dxbp)
+      if (man==0) {0} else {t.interval(adr).eval(d.toLong, dxbp)}
+    }
+
+    val zman = if (zman0 < 0) {
+      println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=$x%h")
+      0L
+    } else if (zman0 >= (SafeLong(1)<<calcW)) {
+      println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=$x%h")
+      maskL(calcW)
+    } else {
+      zman0
     }
 
     // Simple rounding
-    val zmanRound = if (extraBits>0) { (zman>>extraBits) + bit(extraBits-1, zman)} else zman
-    //println(f"zman=${zman}%h")
+    val z = if (extraBits>0) {(zman>>extraBits) + bit(extraBits-1, zman)} else {zman}
 
-    val z = if (zman<0) {
-      println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=$x%h")
-      0L
-    } else if (zmanRound >= (SafeLong(1)<<manW)) {
-      println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=$x%h")
-      maskL(manW)
-    } else {
-      zmanRound
-    }
     new RealGeneric(x.spec, sgn, zEx, SafeLong(z))
   }
 

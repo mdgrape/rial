@@ -49,17 +49,14 @@ object SqrtSim {
     val zSgn = 0
     val zEx  = (ex >> 1) + exBias
 
-    val order =
-      if (adrW>=manW) {
-        if (nOrder != 0)
-          println("WARNING: table address width >= mantissa width, but polynomial order is not zero. Polynomial order is set to zero.")
-        0
-      } else {
-        nOrder
-      }
+    if (adrW >= manW && nOrder != 0) {
+      println("WARNING: table address width >= mantissa width, but polynomial order is not zero. Polynomial order is set to zero.")
+    }
+
+    val order = if (adrW>=manW) {0} else {nOrder}
     val calcW = manW + extraBits
 
-    val zman = if (order==0) {
+    val zman0 = if (order==0) {
       if (adrW<manW) {
         println("WARNING: table address width < mantissa width, for polynomial order is zero. address width set to mantissa width.")
       }
@@ -69,25 +66,25 @@ object SqrtSim {
       val dxbp = (manW+1)-adrW-1
       val d    = slice(0, (manW+1)-adrW, man) - (SafeLong(1)<<dxbp)
       val adr  = slice((manW+1)-adrW, adrW, man).toInt
-      val res  = t.interval(adr).eval(d.toLong, dxbp)
-      res.toLong
+      t.interval(adr).eval(d.toLong, dxbp).toLong
     }
-    // Simple rounding
-    val zmanRound = if (extraBits>0) {
-      (zman>>extraBits) + bit(extraBits-1, zman)
-    } else { zman }
 
-    val z = if (zman<0) {
+    val zman = if(zman0 < 0) {
       println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=$x%h")
       0L
-    } else if (zmanRound >= (SafeLong(1)<<manW)) {
+    } else if (zman0 >= (SafeLong(1)<<calcW)) {
       println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=$x%h")
-      maskL(manW)
+      maskL(calcW)
     } else {
-      zmanRound
+      zman0
     }
+
+    // Simple rounding
+    val zmanRound = if (extraBits>0) {(zman>>extraBits) + bit(extraBits-1, zman)} else {zman}
+    val z = if(zmanRound >= (SafeLong(1)<<manW)) {maskSL(manW)} else {SafeLong(zmanRound)}
+
 //     println(f"z     = ${z.toLong.toBinaryString}")
-    new RealGeneric(x.spec, zSgn, zEx, SafeLong(z))
+    new RealGeneric(x.spec, zSgn, zEx, z)
   }
 
   def sqrtTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int,
