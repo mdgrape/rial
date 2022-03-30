@@ -118,8 +118,8 @@ object ATan2Stage1Sim {
     // ------------------------------------------------------------------------
     // atan2 stage1 postprocess (minxy * rec(maxxy))
 
-    val denomW1 = (1<<fracW) + recMan
-    val numerW1 = (1<<manW) + minxy.man
+    val denomW1 = (SafeLong(1)<<fracW) + recMan
+    val numerW1 = (SafeLong(1)<<manW) + minxy.man
 
 //     println(f"sim: denomW1 = ${denomW1.toLong.toBinaryString}")
 //     println(f"sim: numerW1 = ${numerW1.toLong.toBinaryString}")
@@ -151,11 +151,11 @@ object ATan2Stage1Sim {
 //     println(f"sim: zEx        = ${zEx.toLong.toBinaryString}")
 
     val zMan = if(zEx == 0 || xySameMan) {
-      0L
+      SafeLong(0)
     } else if(maxxyMan0) {
-      minxy.man.toLong
+      minxy.man
     } else {
-      zMan0.toLong
+      zMan0
     }
 
     val z = new RealGeneric(x.spec, zSgn, zEx, zMan)
