@@ -13,6 +13,7 @@ import chisel3.util.log2Up
 
 import spire.math.SafeLong
 import spire.math.Numeric
+import spire.math.Real
 import spire.implicits._
 
 import rial.table._
@@ -197,10 +198,11 @@ object MathFuncLogSim {
       } else {
         // to reproduce rounding
         val log2ex0  = exBias
-        val log2man0 = 0L
-        val oneOverLog2e = math.round(log(2.0) * (1 << (fracW+1))).toLong
-        assert((1<<fracW) < oneOverLog2e && oneOverLog2e < (1<<(fracW+1)))
-        val zmanProd = ((1<<fracW) + log2man0) * oneOverLog2e
+        val log2man0 = SafeLong(0)
+//         val oneOverLog2e = math.round(log(2.0) * (1 << (fracW+1))).toLong
+        val oneOverLog2e = (Real.log(Real.two))(fracW+1)
+        assert((SafeLong(1)<<fracW) < oneOverLog2e && oneOverLog2e < (SafeLong(1)<<(fracW+1)))
+        val zmanProd = ((SafeLong(1)<<fracW) + log2man0) * oneOverLog2e
         val zmanProdMoreThan2 = bit((fracW+1)*2-1, zmanProd).toInt
         val zmanRound = slice(fracW + extraBits + zmanProdMoreThan2, manW, zmanProd) +
                         bit(fracW + extraBits - 1 + zmanProdMoreThan2, zmanProd)
@@ -224,7 +226,7 @@ object MathFuncLogSim {
 
     val taylorThreshold = calcTaylorThreshold(x.spec)
 
-    val (log2ex0, log2man0) = if(xexNobias == 0 && x.man.toLong < (1L << (manW-taylorThreshold))) {
+    val (log2ex0, log2man0) = if(xexNobias == 0 && x.man < (SafeLong(1) << (manW-taylorThreshold))) {
       // ----------------------------------------------------------------------
       // taylor
       //
@@ -234,13 +236,16 @@ object MathFuncLogSim {
 
       val xman   = x.man // x - 1
       val xmanbp = xman.toLong.toBinaryString.length
+//       val xmanbp = log2UpSL(xman)
 
       // 1/ln2 > 1
-      val invln2   = math.round((1.0 / log(2.0)) * (1L << fracW)).toLong
-      val oneThird = math.round((1.0 / 3.0)      * (1L << fracW)).toLong
+//       val invln2   = math.round((1.0 / log(2.0)) * (1L << fracW)).toLong
+//       val oneThird = math.round((1.0 / 3.0)      * (1L << fracW)).toLong
+      val invln2   = (Real.one / Real.log(Real.two))(fracW)
+      val oneThird = (Real.one / Real(3)           )(fracW)
 
       // 1 - x/2 < 1
-      val oneMinusHalfx = (1L << fracW) - (xman << (extraBits-1))
+      val oneMinusHalfx = (SafeLong(1) << fracW) - (xman << (extraBits-1))
 
       // x^2/3
       val xsq      = xman * xman
@@ -263,7 +268,7 @@ object MathFuncLogSim {
 
       (zexTaylor.toInt + exBias, zmanTaylor)
 
-    } else if(xexNobias == -1 && (((1L<<manW) - x.man.toLong) < (1L << (manW-taylorThreshold+1)))) {
+    } else if(xexNobias == -1 && (((SafeLong(1)<<manW) - x.man) < (SafeLong(1) << (manW-taylorThreshold+1)))) {
 
       // --------------------------------------------------------------------------
       //
@@ -272,14 +277,15 @@ object MathFuncLogSim {
       //
       // the exponent is -1, so xman is "multiplied" by 2. So the threshold and
       // exponent calculation become different
-      val xman   = ((1L<<manW) - x.man.toLong).toBigInt
+      val xman   = ((SafeLong(1)<<manW) - x.man)
       val xmanbp = xman.toLong.toBinaryString.length
+//       val xmanbp = log2UpSL(xman)
 
-      val invln2   = math.round((1.0 / log(2.0)) * (1L << fracW)).toBigInt // > 1
-      val oneThird = math.round((1.0 / 3.0)      * (1L << fracW)).toBigInt
+      val invln2   = (Real.one / Real.log(Real.two))(fracW)
+      val oneThird = (Real.one / Real(3)           )(fracW)
 
       // 1 + x/2 > 1
-      val onePlusHalfx = (1L << fracW).toBigInt + (xman << (extraBits-2))
+      val onePlusHalfx = (SafeLong(1) << fracW) + (xman << (extraBits-2))
 
       // x^2/3
       val xsq      = xman * xman
@@ -299,7 +305,7 @@ object MathFuncLogSim {
       val zmanTaylor = slice(0, fracW, resShifted)
       val zexTaylor = -(manW - (xmanbp-1)) - 1 + resMoreThan2 + resMoreThan2AfterRound
 
-      (zexTaylor.toInt + exBias, SafeLong(zmanTaylor))
+      (zexTaylor.toInt + exBias, zmanTaylor)
 
     } else if(xexNobias == 0) {
 
@@ -314,7 +320,8 @@ object MathFuncLogSim {
       // log table should return full precision
       //
       val xman  = x.man.toLong
-      val xex   = -(manW - xman.toBinaryString.length)
+      val xex   = -(manW - xman.toLong.toBinaryString.length)
+//       val xex   = -(manW - log2UpSL(xman))
 
       assert(tSmallPos.adrW == t.adrW)
       assert(tSmallPos.bp   == t.bp)
@@ -326,12 +333,12 @@ object MathFuncLogSim {
       val z00  = tSmallPos.interval(adr.toInt).eval(d.toLong, dxbp)
       val z0 = if (z00<0) {
         println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=${x.value.toLong.toBinaryString}(${x.toDouble})")
-        0L
-      } else if (z00 >= (1L<<fracW)) {
+        SafeLong(0)
+      } else if (z00 >= (SafeLong(1)<<fracW)) {
         println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=${x.value.toLong.toBinaryString}(${x.toDouble})")
-        maskL(fracW)
+        maskSL(fracW)
       } else {
-        z00.toLong
+        SafeLong(z00)
       }
 
       val (zex0, zman0) = if(bit(fracW-1, z0) == 1) {
@@ -343,20 +350,21 @@ object MathFuncLogSim {
         (xex-2 + exBias, z0 << 3)
       }
       assert(bit(fracW, zman0) == 1)
-      assert(zman0 < (1<<(fracW+1))) // zman0.getWidth == 1+fracW
+      assert(zman0 < (SafeLong(1)<<(fracW+1))) // zman0.getWidth == 1+fracW
 
       val zman   = slice(0, fracW, zman0)
       val zex    = zex0 + bit(fracW+1, zman0)
 
-      (zex.toInt, SafeLong(zman))
+      (zex.toInt, zman)
 
     } else if(xexNobias == -1) {
 
       // --------------------------------------------------------------------------
       // polynomial (x is in [0.5, 1))
       //
-      val xman  = ((1L<<manW) - x.man.toLong) // 1-x
-      val xex   = -(manW - xman.toBinaryString.length)
+      val xman  = ((SafeLong(1)<<manW) - x.man.toLong) // 1-x
+      val xex   = -(manW - xman.toLong.toBinaryString.length)
+//       val xex   = -(manW - log2UpSL(xman))
 
       assert(tSmallNeg.adrW  == t.adrW)
       assert(tSmallNeg.bp    == t.bp)
@@ -368,12 +376,12 @@ object MathFuncLogSim {
       val z00 = tSmallNeg.interval(adr.toInt).eval(d.toLong, dxbp)
       val z0 = if (z00<0) {
         println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=${x.value.toLong.toBinaryString}(${x.toDouble})")
-        0L
-      } else if (z00 >= (1L<<fracW)) {
+        SafeLong(0)
+      } else if (z00 >= (SafeLong(1)<<fracW)) {
         println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=${x.value.toLong.toBinaryString}(${x.toDouble})")
-        maskL(fracW)
+        maskSL(fracW)
       } else {
-        z00.toLong
+        SafeLong(z00)
       }
 
       val (zex0, zman0) = if(bit(fracW-1, z0) == 1) {
@@ -385,12 +393,12 @@ object MathFuncLogSim {
         (xex-3 + exBias, z0 << 3)
       }
       assert(bit(fracW, zman0) == 1)
-      assert(zman0 < (1<<(fracW+1))) // zman0.getWidth == 1+fracW
+      assert(zman0 < (SafeLong(1)<<(fracW+1))) // zman0.getWidth == 1+fracW
 
       val zman   = slice(0, fracW, zman0)
       val zex    = zex0 + bit(fracW+1, zman0)
 
-      (zex.toInt, SafeLong(zman))
+      (zex.toInt, zman)
     } else {
       // --------------------------------------------------------------------------
       // polynomial (0.0 < x < 0.5, 2.0 < x < inf)
@@ -403,20 +411,20 @@ object MathFuncLogSim {
       // overflow check
       val zfrac0Pos = if (zfrac0Pos0<0) {
         println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=${x.value.toLong.toBinaryString}(${x.toDouble})")
-        0L
-      } else if (zfrac0Pos0 >= (1L<<fracW)) {
+        SafeLong(0)
+      } else if (zfrac0Pos0 >= (SafeLong(1)<<fracW)) {
         println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=${x.value.toLong.toBinaryString}(${x.toDouble})")
-        maskL(fracW)
+        maskSL(fracW)
       } else {
-        zfrac0Pos0.toLong
+        SafeLong(zfrac0Pos0)
       }
 
       val zfrac0 = if(xexNobias >= 0) {zfrac0Pos} else {
-        if(zfrac0Pos == 0) {maskL(fracW)} else {(1<<fracW) - zfrac0Pos}
+        if(zfrac0Pos == 0) {maskSL(fracW)} else {(SafeLong(1)<<fracW) - zfrac0Pos}
       }
-      assert(0L <= zfrac0 && zfrac0 < (1L<<fracW))
-      val zfrac  = zfrac0 & maskL(fracW)
-      val zfull0 = (zint0 << fracW) + zfrac.toLong
+      assert(0L <= zfrac0 && zfrac0 < (SafeLong(1)<<fracW))
+      val zfrac  = zfrac0 & maskSL(fracW)
+      val zfull0 = (zint0 << fracW) + zfrac
 
 //       println(f"sim: zfrac0Pos0 = ${zfrac0Pos0.toLong.toBinaryString}")
 //       println(f"sim: zfrac0Pos  = ${zfrac0Pos .toLong.toBinaryString}")
@@ -424,9 +432,10 @@ object MathFuncLogSim {
 //       println(f"sim: zfrac0 = ${zfrac0.toLong.toBinaryString}")
 //       println(f"sim: zfull0 = ${zfull0.toLong.toBinaryString}")
 
-      assert(0L <= zfrac && zfrac < (1L<<fracW)) // avoid overflow in polynomial
+      assert(0L <= zfrac && zfrac < (SafeLong(1)<<fracW)) // avoid overflow in polynomial
       assert(0 <= zfull0)
-      val zfullW  = zfull0.toBinaryString.length
+      val zfullW  = zfull0.toLong.toBinaryString.length
+//       val zfullW  = log2UpSL(zfull0)
       val zShiftW = exW + fracW - zfullW
 //       println(f"sim: zfullW = ${zfullW}")
 //       println(f"sim: exW+fracW = ${exW+fracW}")
@@ -438,7 +447,7 @@ object MathFuncLogSim {
       val zman0 = slice(exW-1, fracW, zShifted) // -1 for the hidden bit
       val zex0  = exBias + (exW-1) - zShiftW
 
-      (zex0.toInt, SafeLong(zman0))
+      (zex0.toInt, zman0)
     }
 
 //     println(f"sim: log2xEx0  = ${log2ex0 .toLong.toBinaryString}")
@@ -459,12 +468,13 @@ object MathFuncLogSim {
       // convert log2 to ln
 
       // 1/log2(e) < 1
-      val oneOverLog2e = math.round(log(2.0) * (1 << (fracW+1))).toLong
-      assert((1<<fracW) < oneOverLog2e && oneOverLog2e < (1<<(fracW+1)))
+//       val oneOverLog2e = math.round(log(2.0) * (1 << (fracW+1))).toLong
+      val oneOverLog2e = Real.log(Real.two)(fracW+1)
+      assert((SafeLong(1)<<fracW) < oneOverLog2e && oneOverLog2e < (SafeLong(1)<<(fracW+1)))
 
   //     println(f"sim: oneOverLog2e = ${oneOverLog2e.toLong.toBinaryString}")
 
-      val zmanProd = ((1<<fracW) + log2man0) * oneOverLog2e
+      val zmanProd = ((SafeLong(1)<<fracW) + log2man0) * oneOverLog2e
       val zmanProdMoreThan2 = bit((fracW+1)*2-1, zmanProd).toInt
       val zmanRound = slice(fracW + extraBits + zmanProdMoreThan2, manW, zmanProd) +
                       bit(fracW + extraBits - 1 + zmanProdMoreThan2, zmanProd)

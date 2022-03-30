@@ -13,6 +13,7 @@ import chisel3.util.log2Up
 
 import spire.math.SafeLong
 import spire.math.Numeric
+import spire.math.Real
 import spire.implicits._
 
 import rial.table._
@@ -78,16 +79,19 @@ object MathFuncExpSim {
       // --------------------------------------------------------------------------
       // x = x * log2e
 
-      val log2eSpec = new RealSpec(8, 0x7F, 37, false, false, true) // determined empirically
-      val log2e = new RealGeneric(log2eSpec, log2(E)) // ~ 1.4427
+//       val log2eSpec = new RealSpec(8, 0x7F, 37, false, false, true) // determined empirically
+//       val log2e     = new RealGeneric(log2eSpec, log2(E)) // ~ 1.4427
 
-      val xprod = x.manW1 * log2e.manW1
-      val xprodW = (1+manW) + (1+log2eSpec.manW)
+      val log2eManW  = x.spec.manW + 14 // determined empirically
+      val log2eFixed = (Real.one / Real.log2)(log2eManW)
+
+      val xprod = x.manW1 * log2eFixed
+      val xprodW = (1+manW) + (1+log2eManW)
       val xprodMoreThan2 = bit(xprodW-1, xprod)
 
-      assert(log2eSpec.manW + xprodMoreThan2 - extraMan > 0)
+      assert(log2eManW + xprodMoreThan2 - extraMan > 0)
       val xprodRoundedW1 = Rounding.roundToEven(
-        log2eSpec.manW + xprodMoreThan2 - extraMan, xprod)
+        log2eManW + xprodMoreThan2 - extraMan, xprod)
 
       assert(bit(manW+1+extraMan, xprodRoundedW1) == 1 ||
              bit(manW+  extraMan, xprodRoundedW1) == 1)
@@ -121,15 +125,15 @@ object MathFuncExpSim {
     // | integer part | fractional part |
 
     val xValW = xIntW + xFracW + 1
-    val xVal  = (1L<<(manW+extraMan)) + xman // xman is large enough, no shift is needed
+    val xVal  = (SafeLong(1)<<(manW+extraMan)) + xman // xman is large enough, no shift is needed
 
-    assert(xVal < maskL(xValW))
+    assert(xVal < maskSL(xValW))
     assert(xexNobias < xIntW)
 
     val xshift = xIntW - xexNobias
     val xValShifted = (xVal >> xshift) + bit(xshift-1, xVal) // simple rounding
-    val xint0  = slice(xFracW, xIntW,  xValShifted).toLong
-    val xfrac0 = slice(0,      xFracW, xValShifted).toLong
+    val xint0  = slice(xFracW, xIntW,  xValShifted)
+    val xfrac0 = slice(0,      xFracW, xValShifted)
 
 //     println(f"xint0  = ${xint0}")
 //     println(f"xfrac0 = ${xfrac0.toDouble / (1<<xFracW)}")
@@ -138,9 +142,9 @@ object MathFuncExpSim {
       (xint0, xfrac0)
     } else {
       if(xfrac0 != 0) {
-        (-xint0 - 1L, (1L<<xFracW) - xfrac0)
+        (-xint0 - 1L, (SafeLong(1)<<xFracW) - xfrac0)
       } else {
-        (-xint0, 0L)
+        (-xint0, SafeLong(0))
       }
     }
 
@@ -148,8 +152,8 @@ object MathFuncExpSim {
     val d    = slice(padding, dxbp+1, xfrac) - (SafeLong(1) << dxbp) // DO NOT round here, because we have correction term
     val adr  = slice(padding+dxbp+1, adrW, xfrac)
 
-    val zman = t.interval(adr.toInt).eval(d.toLong, dxbp)
-    assert(0 <= zman && zman < (1<<fracW))
+    val zman = t.interval(adr.toInt).eval(d.toLong, dxbp).toSafeLong
+    assert(0 <= zman && zman < (SafeLong(1)<<fracW))
 
     val zmanRound = if(extraBits > 0) {
       (zman >> extraBits) + bit(extraBits-1, zman)
@@ -158,11 +162,12 @@ object MathFuncExpSim {
     }
 
     val corrTermW = min(10, 1+manW+padding) // XXX determined empirically
-    val coefficient = new RealGeneric(x.spec, log(2.0))
+//     val coefficient = new RealGeneric(x.spec, log(2.0))
+    val coefficient = (Real.log(Real.two))(x.spec.manW+1)
     val xShiftedOut = slice(0, padding, xfrac)
-    val zCorrectionCoef0 = (coefficient.manW1 * xShiftedOut)
+    val zCorrectionCoef0 = (coefficient * xShiftedOut)
     val zCorrectionCoef  = zCorrectionCoef0 >> ((manW + 1) + padding - corrTermW)
-    val zCorrectionTerm0 = (((1<<manW) + zmanRound) * zCorrectionCoef)
+    val zCorrectionTerm0 = (((SafeLong(1)<<manW) + zmanRound) * zCorrectionCoef)
     val zCorrectionTerm  = zCorrectionTerm0 >> (manW+1 + corrTermW - corrTermW)
     val zCorrectionShifted = bit(corrTermW-1, zCorrectionTerm) + bit(corrTermW-2, zCorrectionTerm)
     assert(0 <= zCorrectionShifted && zCorrectionShifted <= 1)
@@ -181,6 +186,6 @@ object MathFuncExpSim {
     if      (zex>=maskI(exW)) { return RealGeneric.inf (x.spec, 0) }
     else if (zex<=0)          { return RealGeneric.zero(x.spec) }
 
-    new RealGeneric(x.spec, 0, zex.toInt, SafeLong(z))
+    new RealGeneric(x.spec, 0, zex.toInt, z)
   }
 }
