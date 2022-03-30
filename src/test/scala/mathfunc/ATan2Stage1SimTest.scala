@@ -170,4 +170,41 @@ class MathFuncATan2Stage1SimTest extends AnyFunSuite with BeforeAndAfterAllConfi
     "Test Within 2^-12 < y/x < 1", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, -12), 1.0,_,_), 2)
   atan2Test(atan2BF16ReciprocalTableI, RealSpec.BFloat16Spec, n, r,
     "Test Within y/x < 2^-12", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(0.0, pow(2.0, -12),_,_), 2)
+
+  val float48Spec = new RealSpec(10, 511, 37)
+  val nOrderFP48 = 3
+  val adrWFP48 = 10
+  val extraBitsFP48 = 4
+  val atan2FP48ReciprocalTableI = ReciprocalSim.reciprocalTableGeneration(
+        nOrderFP48, adrWFP48, float48Spec.manW, float48Spec.manW+extraBitsFP48)
+
+  atan2Test(atan2FP48ReciprocalTableI, float48Spec, n, r,
+    "Test Within y/x > 2^24", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, 24), pow(2.0, 128),_,_), 2)
+  atan2Test(atan2FP48ReciprocalTableI, float48Spec, n, r,
+    "Test Within y/x > 2^12",  generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, 12), pow(2.0, 24),_,_), 2)
+  atan2Test(atan2FP48ReciprocalTableI, float48Spec, n, r,
+    "Test Within 1 < y/x < 2^12", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(1.0, pow(2.0, 8),_,_), 2)
+  atan2Test(atan2FP48ReciprocalTableI, float48Spec, n, r,
+    "Test Within 2^-12 < y/x < 1", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, -12), 1.0,_,_), 2)
+  atan2Test(atan2FP48ReciprocalTableI, float48Spec, n, r,
+    "Test Within y/x < 2^-12", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(0.0, pow(2.0, -12),_,_), 2)
+
+  val nOrderFP64 = 3
+  val adrWFP64 = 12
+  val extraBitsFP64 = 4
+  val atan2FP64ReciprocalTableI = ReciprocalSim.reciprocalTableGeneration(
+        nOrderFP64, adrWFP64, RealSpec.Float64Spec.manW, RealSpec.Float64Spec.manW+extraBitsFP64)
+
+  atan2Test(atan2FP64ReciprocalTableI, RealSpec.Float64Spec, n, r,
+    "Test Within y/x > 2^24", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, 24), pow(2.0, 128),_,_), 3)
+  atan2Test(atan2FP64ReciprocalTableI, RealSpec.Float64Spec, n, r,
+    "Test Within y/x > 2^12",  generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, 12), pow(2.0, 24),_,_), 3)
+  atan2Test(atan2FP64ReciprocalTableI, RealSpec.Float64Spec, n, r,
+    "Test Within 1 < y/x < 2^12", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(1.0, pow(2.0, 8),_,_), 3)
+  atan2Test(atan2FP64ReciprocalTableI, RealSpec.Float64Spec, n, r,
+    "Test Within 2^-12 < y/x < 1", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, -12), 1.0,_,_), 3)
+  atan2Test(atan2FP64ReciprocalTableI, RealSpec.Float64Spec, n, r,
+    "Test Within y/x < 2^-12", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(0.0, pow(2.0, -12),_,_), 3)
+
+
 }
