@@ -8,6 +8,12 @@ package rial.mathfunc
 import java.lang.Math.scalb
 import scala.language.reflectiveCalls
 import scala.math._
+
+import spire.math.SafeLong
+import spire.math.Numeric
+import spire.math.Real
+import spire.implicits._
+
 import chisel3._
 import chisel3.util._
 import rial.table._
@@ -529,10 +535,10 @@ class ATan2Stage2OtherPath(
   io.zother.zman := MuxCase(defaultMan, Seq(
     (io.flags.special === ATan2SpecialValue.zNaN)        -> Fill(manW, 1.U(1.W)),
     (io.flags.special === ATan2SpecialValue.zZero)       -> 0.U(manW.W),
-    (io.flags.special === ATan2SpecialValue.zPi)         -> pi.man.toLong.U(manW.W),
-    (io.flags.special === ATan2SpecialValue.zHalfPi)     -> halfPi.man.toLong.U(manW.W),
-    (io.flags.special === ATan2SpecialValue.zQuarterPi)  -> quarterPi.man.toLong.U(manW.W),
-    (io.flags.special === ATan2SpecialValue.z3QuarterPi) -> quarter3Pi.man.toLong.U(manW.W)
+    (io.flags.special === ATan2SpecialValue.zPi)         -> pi        .man.toBigInt.U(manW.W),
+    (io.flags.special === ATan2SpecialValue.zHalfPi)     -> halfPi    .man.toBigInt.U(manW.W),
+    (io.flags.special === ATan2SpecialValue.zQuarterPi)  -> quarterPi .man.toBigInt.U(manW.W),
+    (io.flags.special === ATan2SpecialValue.z3QuarterPi) -> quarter3Pi.man.toBigInt.U(manW.W)
     ))
 }
 
@@ -634,9 +640,13 @@ class ATan2Stage2PostProcess(
   //           '---------'
   //        2 +  manW   +  2
 
-  val piManW1        = Cat(1.U(1.W), pi.man.toLong.U(manW.W),     0.U(3.W))
-  val halfPiManW1    = Cat(1.U(2.W), halfPi.man.toLong.U(manW.W), 0.U(2.W))
-  val atanManW1      = Cat(1.U(2.W), atanMan,                     0.U(2.W))
+//  val piManW1        = Cat(1.U(1.W), pi.man.toLong.U(manW.W),     0.U(3.W))
+//  val halfPiManW1    = Cat(1.U(2.W), halfPi.man.toLong.U(manW.W), 0.U(2.W))
+//  val atanManW1      = Cat(1.U(2.W), atanMan,                     0.U(2.W))
+
+  val piManW1        = Real.pi(manW+2).toBigInt.U((manW+4).W)
+  val halfPiManW1    = (Real.pi / Real.two)(manW+2).toBigInt.U((manW+4).W)
+  val atanManW1      = Cat(1.U(2.W), atanMan, 0.U(2.W))
 
   assert(piManW1    .getWidth == 2+manW+2)
   assert(halfPiManW1.getWidth == 2+manW+2)
@@ -735,12 +745,12 @@ class ATan2Stage2PostProcess(
   val special = io.flags.special
   val z0 = MuxCase(zNormal, Seq(
       (special === ATan2SpecialValue.zNormal    ) -> zNormal,
-      (special === ATan2SpecialValue.zNaN       ) -> Cat(0.U(1.W), nan   .ex.U(exW.W), nan       .man.toLong.U(manW.W)),
-      (special === ATan2SpecialValue.zZero      ) -> Cat(0.U(1.W), zero  .ex.U(exW.W), zero      .man.toLong.U(manW.W)),
-      (special === ATan2SpecialValue.zPi        ) -> Cat(zSgn, pi        .ex.U(exW.W), pi        .man.toLong.U(manW.W)),
-      (special === ATan2SpecialValue.zHalfPi    ) -> Cat(zSgn, halfPi    .ex.U(exW.W), halfPi    .man.toLong.U(manW.W)),
-      (special === ATan2SpecialValue.zQuarterPi ) -> Cat(zSgn, quarterPi .ex.U(exW.W), quarterPi .man.toLong.U(manW.W)),
-      (special === ATan2SpecialValue.z3QuarterPi) -> Cat(zSgn, quarter3Pi.ex.U(exW.W), quarter3Pi.man.toLong.U(manW.W))
+      (special === ATan2SpecialValue.zNaN       ) -> Cat(0.U(1.W), nan   .ex.U(exW.W), nan       .man.toBigInt.U(manW.W)),
+      (special === ATan2SpecialValue.zZero      ) -> Cat(0.U(1.W), zero  .ex.U(exW.W), zero      .man.toBigInt.U(manW.W)),
+      (special === ATan2SpecialValue.zPi        ) -> Cat(zSgn, pi        .ex.U(exW.W), pi        .man.toBigInt.U(manW.W)),
+      (special === ATan2SpecialValue.zHalfPi    ) -> Cat(zSgn, halfPi    .ex.U(exW.W), halfPi    .man.toBigInt.U(manW.W)),
+      (special === ATan2SpecialValue.zQuarterPi ) -> Cat(zSgn, quarterPi .ex.U(exW.W), quarterPi .man.toBigInt.U(manW.W)),
+      (special === ATan2SpecialValue.z3QuarterPi) -> Cat(zSgn, quarter3Pi.ex.U(exW.W), quarter3Pi.man.toBigInt.U(manW.W))
     ))
   val z = enable(io.en, z0)
 
