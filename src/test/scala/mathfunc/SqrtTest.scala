@@ -161,6 +161,49 @@ class MathFuncSqrtTest extends AnyFlatSpec
     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline,
     n, r, "Test All range",generateRealFull(_,_) )
+
+// It takes too long(at least >6min) to compile verilator-generated sources.
+//   val float48Spec = new RealSpec(10, 511, 37)
+//
+//   val nOrderFP48 = 3
+//   val adrWFP48 = 10
+//   val extraBitsFP48 = 4
+//
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, MathFuncPipelineConfig.none,
+//     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, MathFuncPipelineConfig.none,
+//     n, r, "Test All range",generateRealFull(_,_) )
+//
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, simplePipeline,
+//     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, simplePipeline,
+//     n, r, "Test All range",generateRealFull(_,_) )
+//
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, complexPipeline,
+//     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, complexPipeline,
+//     n, r, "Test All range",generateRealFull(_,_) )
+//
+//   val nOrderFP64 = 3
+//   val adrWFP64 = 12
+//   val extraBitsFP64 = 4
+//
+//   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, MathFuncPipelineConfig.none,
+//     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+//   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, MathFuncPipelineConfig.none,
+//     n, r, "Test All range",generateRealFull(_,_) )
+//
+//   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, simplePipeline,
+//     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+//   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, simplePipeline,
+//     n, r, "Test All range",generateRealFull(_,_) )
+//
+//   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, complexPipeline,
+//     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+//   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, complexPipeline,
+//     n, r, "Test All range",generateRealFull(_,_) )
+
+
 }
 
 // =============================================================================
