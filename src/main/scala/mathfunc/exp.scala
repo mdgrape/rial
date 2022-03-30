@@ -7,6 +7,11 @@ package rial.mathfunc
 
 import scala.language.reflectiveCalls
 import scala.math._
+
+import spire.math.SafeLong
+import spire.math.Real
+import spire.implicits._
+
 import chisel3._
 import chisel3.util._
 import rial.table._
@@ -84,17 +89,20 @@ class ExpPreProcess(
   // for exponential, multiply x by log2e.
 
   // XXX the width (37) is determined empirically
-  val log2eSpec = new RealSpec(8, 0x7F, 37, false, false, true)
-  val log2e = new RealGeneric(log2eSpec, log2(E)) // ~ 1.4427
+//   val log2eSpec = new RealSpec(8, 0x7F, 37, false, false, true)
+//   val log2e = new RealGeneric(log2eSpec, log2(E)) // ~ 1.4427
 
-  val xprod = Cat(1.U(1.W), xman0) * log2e.manW1.toBigInt.U((log2eSpec.manW+1).W)
+  val log2eManW  = spec.manW + 14 // determined empirically
+  val log2eFixed = (Real.one / Real.log2)(log2eManW).toBigInt.U((log2eManW+1).W)
+
+  val xprod = Cat(1.U(1.W), xman0) * log2eFixed //.manW1.toBigInt.U((log2eSpec.manW+1).W)
   val xprodW = xprod.getWidth
-  assert(xprodW == (1+manW) + (1+log2eSpec.manW))
+  assert(xprodW == (1+manW) + (1+log2eManW))
   val xprodMoreThan2 = xprod(xprodW - 1) === 1.U
 
-  assert(log2eSpec.manW - extraMan > 0)
+  assert(log2eManW - extraMan > 0)
 
-  val xprodbp        = spec.manW + log2eSpec.manW
+  val xprodbp        = spec.manW + log2eManW
   val xprodRoundBits = xprodbp - (spec.manW + extraMan)
 
   val xprodSticky  = (xprodMoreThan2 & xprod(xprodRoundBits-1)) |
@@ -327,8 +335,7 @@ class ExpOtherPath(
   //
   // note: z isn't calculated yet, so here we can only calculate xfracLSBs * ln2
   if(padding != 0) {
-    val ln2         = new RealGeneric(spec, log(2.0))
-    val coefficient = ln2.manW1.toLong.U((1+manW).W)
+    val coefficient = (Real.log(Real.two))(spec.manW+1).toBigInt.U((1+manW).W)
 
     val xfracLSBs  = io.xfracLSBs.get
     val zCorrCoef0 = coefficient * xfracLSBs

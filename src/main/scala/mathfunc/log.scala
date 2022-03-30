@@ -7,6 +7,11 @@ package rial.mathfunc
 
 import scala.language.reflectiveCalls
 import scala.math._
+
+import spire.math.SafeLong
+import spire.math.Real
+import spire.implicits._
+
 import chisel3._
 import chisel3.util._
 import rial.table._
@@ -296,17 +301,17 @@ class Log2OtherPath(
     val xmanbp = Output(UInt(log2Up(manW).W))
   })
 
-  val xmanNeg = (1L<<manW).U - io.x.man
+  val xmanNeg = (BigInt(1)<<manW).U - io.x.man
 
-  val xmanbpPos =  manW.U - PriorityEncoder(Reverse(io.x.man))
+  val xmanbpPos = manW.U     - PriorityEncoder(Reverse(io.x.man))
   val xmanbpNeg = (1+manW).U - PriorityEncoder(Reverse(xmanNeg)) // the width changed
 
   val taylorThreshold = MathFuncLogSim.calcTaylorThreshold(spec)
-  val invln2   = math.round((1.0 / log(2.0)) * (1L << fracW)).toLong.U((fracW+1).W)
-  val oneThird = math.round((1.0 / 3.0)      * (1L << fracW)).toLong.U( fracW   .W)
+  val invln2   = (Real.one / Real.log(Real.two))(fracW).toBigInt.U((fracW+1).W)
+  val oneThird = (Real.one / Real(3)           )(fracW).toBigInt.U( fracW   .W)
 
-  val isTaylorSmallPos = (io.exadr === 2.U) && (io.x.man < (1L << (manW-taylorThreshold)).U)
-  val isTaylorSmallNeg = (io.exadr === 1.U) && (xmanNeg  < (1L << (manW-taylorThreshold+1)).U)
+  val isTaylorSmallPos = (io.exadr === 2.U) && (io.x.man < (BigInt(1) << (manW-taylorThreshold)).U)
+  val isTaylorSmallNeg = (io.exadr === 1.U) && (xmanNeg  < (BigInt(1) << (manW-taylorThreshold+1)).U)
 
 //   printf("cir: xmanNeg           = %b\n", xmanNeg)
 //   printf("cir: xmanbpPos         = %d\n", xmanbpPos)
@@ -326,11 +331,11 @@ class Log2OtherPath(
 
   // 1 - x/2 < 1
   val oneMinusHalfx = if(extraBits == 0) {
-    (1L << fracW).U - io.x.man(manW-1, 1)
+    (BigInt(1) << fracW).U - io.x.man(manW-1, 1)
   } else if(extraBits == 1) {
-    (1L << fracW).U - io.x.man
+    (BigInt(1) << fracW).U - io.x.man
   } else {
-    (1L << fracW).U - Cat(io.x.man, 0.U((extraBits-1).W))
+    (BigInt(1) << fracW).U - Cat(io.x.man, 0.U((extraBits-1).W))
   }
 
   // x^2/3
@@ -367,11 +372,11 @@ class Log2OtherPath(
   // 1 + x/2 > 1
   val onePlusHalfx = Wire(UInt((fracW+1).W))
   if(extraBits > 2) {
-    onePlusHalfx := (1L << fracW).U + Cat(xmanNeg, 0.U((extraBits-2).W))
+    onePlusHalfx := (BigInt(1) << fracW).U + Cat(xmanNeg, 0.U((extraBits-2).W))
   } else if (extraBits == 2) {
-    onePlusHalfx := (1L << fracW).U + xmanNeg
+    onePlusHalfx := (BigInt(1) << fracW).U + xmanNeg
   } else {
-    onePlusHalfx := (1L << fracW).U + (xmanNeg >> (2-extraBits))
+    onePlusHalfx := (BigInt(1) << fracW).U + (xmanNeg >> (2-extraBits))
   }
 //   printf("cir: onePlusHalfx  = %b\n", onePlusHalfx     )
 
@@ -585,7 +590,7 @@ class Log2PostProcess(
   // ln(x)
 
   // ln2 = 0.6931... < 1
-  val ln2 = math.round(log(2.0) * (1<<(fracW+1))).toLong.U((fracW+1).W)
+  val ln2 = (Real.log(Real.two))(fracW+1).toBigInt.U((fracW+1).W)
   assert(ln2(fracW) === 1.U)
 
   val lnxProd      = Cat(1.U(1.W), log2xMan0) * ln2
