@@ -92,6 +92,34 @@ object ScalaUtil {
     n
   }
 
+  def binaryWidthI( x: Int ): Int = {
+    var y = x.abs
+    var n = 0
+    while (y > 0) {
+      y >>= 1
+      n += 1
+    }
+    n
+  }
+  def binaryWidthL( x: Long ): Int = {
+    var y = x.abs
+    var n = 0
+    while (y > 0) {
+      y >>= 1
+      n += 1
+    }
+    n
+  }
+  def binaryWidthSL( x: SafeLong ): Int = {
+    var y = x.abs
+    var n = 0
+    while (y > 0) {
+      y >>= 1
+      n += 1
+    }
+    n
+  }
+
   def maskL( n : Int ) = {
     if (n<=0) { 0 }
     else if (n<63) { (1L << n)-1 }
