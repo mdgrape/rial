@@ -235,8 +235,8 @@ object MathFuncLogSim {
       //
 
       val xman   = x.man // x - 1
-      val xmanbp = xman.toLong.toBinaryString.length
-//       val xmanbp = log2UpSL(xman)
+//       val xmanbp = xman.toLong.toBinaryString.length
+      val xmanbp = binaryWidthSL(xman)
 
       // 1/ln2 > 1
 //       val invln2   = math.round((1.0 / log(2.0)) * (1L << fracW)).toLong
@@ -278,8 +278,8 @@ object MathFuncLogSim {
       // the exponent is -1, so xman is "multiplied" by 2. So the threshold and
       // exponent calculation become different
       val xman   = ((SafeLong(1)<<manW) - x.man)
-      val xmanbp = xman.toLong.toBinaryString.length
-//       val xmanbp = log2UpSL(xman)
+//       val xmanbp = xman.toLong.toBinaryString.length
+      val xmanbp = binaryWidthSL(xman)
 
       val invln2   = (Real.one / Real.log(Real.two))(fracW)
       val oneThird = (Real.one / Real(3)           )(fracW)
@@ -320,8 +320,8 @@ object MathFuncLogSim {
       // log table should return full precision
       //
       val xman  = x.man.toLong
-      val xex   = -(manW - xman.toLong.toBinaryString.length)
-//       val xex   = -(manW - log2UpSL(xman))
+//       val xex   = -(manW - xman.toLong.toBinaryString.length)
+      val xex   = -(manW - binaryWidthSL(xman))
 
       assert(tSmallPos.adrW == t.adrW)
       assert(tSmallPos.bp   == t.bp)
@@ -363,8 +363,8 @@ object MathFuncLogSim {
       // polynomial (x is in [0.5, 1))
       //
       val xman  = ((SafeLong(1)<<manW) - x.man.toLong) // 1-x
-      val xex   = -(manW - xman.toLong.toBinaryString.length)
-//       val xex   = -(manW - log2UpSL(xman))
+//       val xex   = -(manW - xman.toLong.toBinaryString.length)
+      val xex   = -(manW - binaryWidthSL(xman))
 
       assert(tSmallNeg.adrW  == t.adrW)
       assert(tSmallNeg.bp    == t.bp)
@@ -434,8 +434,8 @@ object MathFuncLogSim {
 
       assert(0L <= zfrac && zfrac < (SafeLong(1)<<fracW)) // avoid overflow in polynomial
       assert(0 <= zfull0)
-      val zfullW  = zfull0.toLong.toBinaryString.length
-//       val zfullW  = log2UpSL(zfull0)
+//       val zfullW  = zfull0.toLong.toBinaryString.length
+      val zfullW  = binaryWidthSL(zfull0)
       val zShiftW = exW + fracW - zfullW
 //       println(f"sim: zfullW = ${zfullW}")
 //       println(f"sim: exW+fracW = ${exW+fracW}")

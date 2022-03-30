@@ -123,8 +123,8 @@ object MathFuncACosSim {
 
       val oneMinusX    = (SafeLong(1)<<(manW+1)) - x.manW1
       // to use sqrt table, we need to normalize 1-x.
-      val oneMinusXLen = oneMinusX.toLong.toBinaryString.length
-      val ymanW1    = (oneMinusX << (manW+1 - oneMinusXLen)).toLong
+      val oneMinusXLen = binaryWidthSL(oneMinusX)
+      val ymanW1    = (oneMinusX << (manW+1 - oneMinusXLen))
       val yman      = ymanW1 - (SafeLong(1)<<manW)
       val yexNobias = -(manW+1 - oneMinusXLen)-1 // -1 because oneMinusX has 1bit wider mantissa
       val yex       = yexNobias + exBias
@@ -343,7 +343,7 @@ object MathFuncACosSim {
         } else {
           halfPiFixed - polynomial
         }
-        val shift = fracW+2 - res.toLong.toBinaryString.length
+        val shift = fracW+2 - binaryWidthSL(res)
         val resShifted = ((res << shift).toLong) >> 1
 
         assert(resShifted > (SafeLong(1)<<fracW))
@@ -430,7 +430,7 @@ object MathFuncACosSim {
         } else {
           halfPiFixed - res0
         }
-        val shift = fracW+2 - res.toLong.toBinaryString.length
+        val shift = fracW+2 - binaryWidthSL(res)
         val resShifted = (res << shift) >> 1
 
         ((-shift+1).toInt, resShifted - (SafeLong(1) << fracW))

@@ -127,7 +127,7 @@ object MathFuncSinCosSim {
     val (yex, yman) = if (yman0 == 0) {
       (0, SafeLong(0))
     } else {
-      val yman0W        = log2UpSL(yman0) //.toBinaryString.length
+      val yman0W        = binaryWidthSL(yman0)
       val yman0Shift    = 1+xOverPiFracW - yman0W
       val yman0Shifted  = yman0 << yman0Shift
       val yman0RoundBit = xOverPiFracW - manW
