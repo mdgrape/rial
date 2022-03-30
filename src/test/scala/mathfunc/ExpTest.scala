@@ -500,7 +500,6 @@ class ExpOnlyTest extends AnyFlatSpec
     "Test Tiny Negative [-2^-7, 0]", generateRealWithin(-pow(2.0, -7), 0.0,_,_))
 
 
-
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
     "Test Safe Positive [1, 127]", generateRealWithin(1.0, 127.0,_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
@@ -517,6 +516,46 @@ class ExpOnlyTest extends AnyFlatSpec
     "Test Tiny Positive [0, 2^-7]", generateRealWithin(0.0, pow(2.0, -7),_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
     "Test Tiny Negative [-2^-7, 0]", generateRealWithin(-pow(2.0, -7), 0.0,_,_))
+
+  val float48Spec = new RealSpec(10, 511, 37)
+  val nOrderFP48 = 3
+  val adrWFP48 = 10
+  val extraBitsFP48 = 4
+
+  runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, MathFuncPipelineConfig.none, n, r,
+    "Test Safe Positive [0, 127]", generateRealWithin(0.0, 127.0,_,_))
+  runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, MathFuncPipelineConfig.none, n, r,
+    "Test Safe Negative [-127, -0]", generateRealWithin(-126.0, -0.0,_,_))
+
+  runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, simplePipeline, n, r,
+    "Test Safe Positive [0, 127]", generateRealWithin(0.0, 127.0,_,_))
+  runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, simplePipeline, n, r,
+    "Test Safe Negative [-126, -0]", generateRealWithin(-126.0, -0.0,_,_))
+
+  runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, complexPipeline, n, r,
+    "Test Safe Positive [0, 127]", generateRealWithin(0.0, 127.0,_,_))
+  runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, complexPipeline, n, r,
+    "Test Safe Negative [-126, -0]", generateRealWithin(-126.0, -0.0,_,_))
+
+  val nOrderFP64 = 3
+  val adrWFP64 = 12
+  val extraBitsFP64 = 4
+
+  runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, MathFuncPipelineConfig.none, n, r,
+    "Test Safe Positive [0, 127]", generateRealWithin(0.0, 127.0,_,_))
+  runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, MathFuncPipelineConfig.none, n, r,
+    "Test Safe Negative [-127, -0]", generateRealWithin(-126.0, -0.0,_,_))
+
+  runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, simplePipeline, n, r,
+    "Test Safe Positive [0, 127]", generateRealWithin(0.0, 127.0,_,_))
+  runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, simplePipeline, n, r,
+    "Test Safe Negative [-126, -0]", generateRealWithin(-126.0, -0.0,_,_))
+
+  runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, complexPipeline, n, r,
+    "Test Safe Positive [0, 127]", generateRealWithin(0.0, 127.0,_,_))
+  runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, complexPipeline, n, r,
+    "Test Safe Negative [-126, -0]", generateRealWithin(-126.0, -0.0,_,_))
+
 
 
 }
