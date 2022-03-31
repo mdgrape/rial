@@ -1,13 +1,5 @@
-
-//package rial.tests
-
-
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
-
-
-
-//import scopt.OptionParser
 
 import scala.collection.mutable.Map
 import scala.util.Random
@@ -17,13 +9,12 @@ import spire.math.SafeLong
 import spire.math.Numeric
 import spire.implicits._
 
-import rial.math._
+import rial.mathfunc._
 import rial.util.ScalaUtil._
 import rial.arith._
 import rial.table._
 
-class InvSqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
-//class InvSqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
+class MathFuncInvSqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   var n = 100000
 
   override def beforeAll(configMap: ConfigMap) = {

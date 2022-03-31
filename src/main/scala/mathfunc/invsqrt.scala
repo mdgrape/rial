@@ -17,7 +17,6 @@ import rial.util.PipelineStageConfig._
 import rial.arith.RealSpec
 import rial.arith.FloatChiselUtil
 
-import rial.math.InvSqrtSim
 import rial.mathfunc._
 
 // -------------------------------------------------------------------------

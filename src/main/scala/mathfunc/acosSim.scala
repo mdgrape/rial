@@ -25,8 +25,6 @@ import rial.arith.RealGeneric
 import rial.arith.Rounding._
 import rial.arith._
 
-import rial.math.SqrtSim
-
 object MathFuncACosSim {
 
   // assuming x, y, and z have the same spec.

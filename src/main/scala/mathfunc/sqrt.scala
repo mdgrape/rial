@@ -17,7 +17,6 @@ import rial.util.PipelineStageConfig._
 import rial.arith.RealSpec
 import rial.arith.FloatChiselUtil
 
-import rial.math.SqrtSim
 import rial.mathfunc._
 
 // An implementation of sqrt using (normally 2nd-order) polynomial interpolation
