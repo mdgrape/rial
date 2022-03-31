@@ -25,8 +25,6 @@ import rial.arith.RealGeneric
 import rial.arith.Rounding._
 import rial.arith._
 
-import rial.math.ATan2Sim
-
 object ATan2Stage2Sim {
 
   def atan2Stage2SimGeneric(
@@ -66,7 +64,7 @@ object ATan2Stage2Sim {
 
     // ------------------------------------------------------------------------
     // atan table
-    val linearThreshold = ATan2Sim.calcLinearThreshold(manW)
+    val linearThreshold = calcLinearThreshold(manW)
 
 //     println(f"sim: xex = ${x.ex}")
 //     println(f"sim: linearThreshold = ${linearThreshold}")
@@ -232,4 +230,56 @@ object ATan2Stage2Sim {
       return new RealGeneric(x.spec, zsgn, zex, zman)
     }
   }
+
+  def calcLinearThreshold(manW: Int): Int = {
+    -math.round(math.ceil(manW / 2.0 + 1.0)).toInt
+  }
+
+  // number of tables depending on the exponent and linearThreshold
+  def calcExAdrW(spec: RealSpec): Int = {
+    val linearThreshold = calcLinearThreshold(spec.manW)
+    log2Up(abs(linearThreshold)+1)
+  }
+
+  def atanTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int,
+      calcWidthSetting: Option[Seq[Int]] = None,
+      cbitSetting: Option[Seq[Int]] = None
+    ) = {
+
+    // atan(x) = x - x^3/3 + x^5/5 + O(x^7)
+    //
+    // If x is in [0, 1],
+    //                  x/2 < atan(x)          < x
+    //         2^ex-1 * 1.m < atan(x)          < 2^ex * 1.m
+    //   1/4 < 2^-2   * 1.m < 2^(-ex-1)atan(x) < 1.m / 2 < 1
+    //        0.01 ==_2 1/4 < 2^(-ex-1)atan(x) < 1
+    //                        ~~~~~~~~~~~~~~~~
+    //                        this is calculated in polynomial
+    //
+    // So the result may take 0.010000 ~ 0.111111.
+
+    val linearThreshold = calcLinearThreshold(manW)
+
+    val nOrder = if (adrW >= manW) { 0 } else { order }
+
+    val maxCalcWidth = (-1 to linearThreshold by -1).map(ex => {
+        val tableD = new FuncTableDouble(
+          x => scalb(atan(scalb(1.0 + x, ex)), -ex-1),
+          nOrder)
+        tableD.addRange(0.0, 1.0, 1<<adrW)
+        val tableI = new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
+        tableI.calcWidth
+      }).reduce( (lhs, rhs) => {
+        lhs.zip(rhs).map( x => max(x._1, x._2))
+      })
+
+    (-1 to linearThreshold by -1).map( ex => {
+      val tableD = new FuncTableDouble(
+        x => scalb(atan(scalb(1.0 + x, ex)), -ex-1),
+        nOrder)
+      tableD.addRange(0.0, 1.0, 1<<adrW)
+      new FuncTableInt( tableD, fracW, Some(maxCalcWidth), cbitSetting )
+    })
+  }
+
 }

@@ -14,7 +14,6 @@ import spire.math.Numeric
 import spire.implicits._
 
 import rial.math.ReciprocalSim
-import rial.math.ATan2Sim
 import rial.mathfunc._
 import rial.arith._
 import rial.table._
@@ -75,7 +74,7 @@ class MathFuncATan2Stage2Test extends AnyFlatSpec
 
           val recTable  = ReciprocalSim.reciprocalTableGeneration(
             nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit))
-          val atanTable = ATan2Sim.atanTableGeneration(
+          val atanTable = ATan2Stage2Sim.atanTableGeneration(
             nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit))
 
           val refstage1  = ATan2Stage1Sim.atan2Stage1SimGeneric(recTable, _, _)

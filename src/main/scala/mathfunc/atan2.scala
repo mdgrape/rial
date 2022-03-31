@@ -23,7 +23,6 @@ import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig._
 import rial.arith._
 
-import rial.math.ATan2Sim
 import rial.mathfunc._
 
 // ATan2 Stage1 calculates min(x,y)/max(x,y).
@@ -89,7 +88,6 @@ class ATan2Stage1PreProcess(
   val fracW  = polySpec.fracW
   val dxW    = polySpec.dxW
   val order  = polySpec.order
-  val exAdrW = ATan2Sim.calcExAdrW(spec)
 
   val io = IO(new Bundle {
     val en      = Input (UInt(1.W))
@@ -323,7 +321,7 @@ class ATan2Stage2PreProcess(
   val fracW  = polySpec.fracW
   val dxW    = polySpec.dxW
   val order  = polySpec.order
-  val exAdrW = ATan2Sim.calcExAdrW(spec)
+  val exAdrW = ATan2Stage2Sim.calcExAdrW(spec)
 
   val io = IO(new Bundle {
     val en  = Input (UInt(1.W))
@@ -368,7 +366,7 @@ class ATan2Stage2TableCoeff(
   val adrW   = polySpec.adrW
   val fracW  = polySpec.fracW
   val order  = polySpec.order
-  val exAdrW = ATan2Sim.calcExAdrW(spec)
+  val exAdrW = ATan2Stage2Sim.calcExAdrW(spec)
 
   val io = IO(new Bundle {
     val en  = Input(UInt(1.W))
@@ -379,16 +377,16 @@ class ATan2Stage2TableCoeff(
   val exAdr = io.adr(exAdrW + adrW - 1, adrW)
   val adr   = io.adr(adrW - 1, 0)
 
-  val linearThreshold = ATan2Sim.calcLinearThreshold(manW)
+  val linearThreshold = ATan2Stage2Sim.calcLinearThreshold(manW)
 
   if(order == 0) {
 
-    val cbit = ATan2Sim.atanTableGeneration( order, adrW, manW, fracW )
+    val cbit = ATan2Stage2Sim.atanTableGeneration( order, adrW, manW, fracW )
       .map( t => {t.getCBitWidth(/*sign mode = */1)} )
       .reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
 
     val tableIs = VecInit(
-      ATan2Sim.atanTableGeneration( order, adrW, manW, fracW ).map(t => {
+      ATan2Stage2Sim.atanTableGeneration( order, adrW, manW, fracW ).map(t => {
         t.getVectorWithWidth(cbit, /*sign mode = */ 1)
       })
     )
@@ -402,12 +400,12 @@ class ATan2Stage2TableCoeff(
 
   } else {
 
-    val cbit = ATan2Sim.atanTableGeneration( order, adrW, manW, fracW )
+    val cbit = ATan2Stage2Sim.atanTableGeneration( order, adrW, manW, fracW )
       .map( t => {t.getCBitWidth(/*sign mode = */0)} )
       .reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
 
     val tableIs = VecInit(
-      ATan2Sim.atanTableGeneration( order, adrW, manW, fracW ).map(t => {
+      ATan2Stage2Sim.atanTableGeneration( order, adrW, manW, fracW ).map(t => {
         t.getVectorWithWidth(cbit, /*sign mode = */ 0)
       })
     )
@@ -444,7 +442,7 @@ object ATan2Stage2TableCoeff {
     if(order == 0) {
       return Seq(fracW)
     } else {
-      return ATan2Sim.atanTableGeneration( order, adrW, spec.manW, fracW ).
+      return ATan2Stage2Sim.atanTableGeneration( order, adrW, spec.manW, fracW ).
         map( t => {t.getCBitWidth(/*sign mode = */0)} ).
         reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
     }
@@ -463,7 +461,7 @@ object ATan2Stage2TableCoeff {
     if(order == 0) {
       return Seq(fracW)
     } else {
-      return ATan2Sim.atanTableGeneration( order, adrW, spec.manW, fracW ).
+      return ATan2Stage2Sim.atanTableGeneration( order, adrW, spec.manW, fracW ).
         map( t => {t.calcWidth} ).
         reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
     }
@@ -511,7 +509,7 @@ class ATan2Stage2OtherPath(
   val quarterPi  = new RealGeneric(spec, Pi * 0.25)
   val quarter3Pi = new RealGeneric(spec, Pi * 0.75)
 
-  val linearThreshold = (ATan2Sim.calcLinearThreshold(manW) + exBias)
+  val linearThreshold = (ATan2Stage2Sim.calcLinearThreshold(manW) + exBias)
   val isLinear = io.x.ex < linearThreshold.U(exW.W)
 
   val xzero = !io.x.ex.orR

@@ -16,7 +16,6 @@ import spire.math.Numeric
 import spire.implicits._
 
 import rial.math.ReciprocalSim
-import rial.math.ATan2Sim
 import rial.mathfunc._
 import rial.util.ScalaUtil._
 import rial.arith._
@@ -151,7 +150,7 @@ class MathFuncATan2Stage2SimTest extends AnyFunSuite with BeforeAndAfterAllConfi
   val extraBitsFP32 = 3
   val atan2FP32ReciprocalTableI = ReciprocalSim.reciprocalTableGeneration(
         nOrderFP32, adrWFP32, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBitsFP32)
-  val atan2FP32ATanTableI       = ATan2Sim.atanTableGeneration(
+  val atan2FP32ATanTableI       = ATan2Stage2Sim.atanTableGeneration(
         nOrderFP32, adrWFP32, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBitsFP32)
 
   atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r,
@@ -171,7 +170,7 @@ class MathFuncATan2Stage2SimTest extends AnyFunSuite with BeforeAndAfterAllConfi
   val extraBitsBF16 = 1
   val atan2BF16ReciprocalTableI = ReciprocalSim.reciprocalTableGeneration(
         nOrderBF16, adrWBF16, RealSpec.BFloat16Spec.manW, RealSpec.BFloat16Spec.manW+extraBitsBF16)
-  val atan2BF16ATanTableI       = ATan2Sim.atanTableGeneration(
+  val atan2BF16ATanTableI       = ATan2Stage2Sim.atanTableGeneration(
         nOrderBF16, adrWBF16, RealSpec.BFloat16Spec.manW, RealSpec.BFloat16Spec.manW+extraBitsBF16)
 
   atan2Test(atan2BF16ReciprocalTableI, atan2BF16ATanTableI, RealSpec.BFloat16Spec, n, r,
@@ -192,7 +191,7 @@ class MathFuncATan2Stage2SimTest extends AnyFunSuite with BeforeAndAfterAllConfi
   val extraBitsFP48 = 4
   val atan2FP48ReciprocalTableI = ReciprocalSim.reciprocalTableGeneration(
         nOrderFP48, adrWFP48, float48Spec.manW, float48Spec.manW+extraBitsFP48)
-  val atan2FP48ATanTableI       = ATan2Sim.atanTableGeneration(
+  val atan2FP48ATanTableI       = ATan2Stage2Sim.atanTableGeneration(
         nOrderFP48, adrWFP48, float48Spec.manW, float48Spec.manW+extraBitsFP48)
 
   atan2Test(atan2FP48ReciprocalTableI, atan2FP48ATanTableI, float48Spec, n, r,
@@ -211,7 +210,7 @@ class MathFuncATan2Stage2SimTest extends AnyFunSuite with BeforeAndAfterAllConfi
   val extraBitsFP64 = 4
   val atan2FP64ReciprocalTableI = ReciprocalSim.reciprocalTableGeneration(
         nOrderFP64, adrWFP64, RealSpec.Float64Spec.manW, RealSpec.Float64Spec.manW+extraBitsFP64)
-  val atan2FP64ATanTableI       = ATan2Sim.atanTableGeneration(
+  val atan2FP64ATanTableI       = ATan2Stage2Sim.atanTableGeneration(
         nOrderFP64, adrWFP64, RealSpec.Float64Spec.manW, RealSpec.Float64Spec.manW+extraBitsFP64)
 
   atan2Test(atan2FP64ReciprocalTableI, atan2FP64ATanTableI, RealSpec.Float64Spec, n, r,
