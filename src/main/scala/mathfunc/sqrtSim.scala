@@ -71,17 +71,17 @@ object SqrtSim {
 
     val zman = if(zman0 < 0) {
       println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=$x%h")
-      0L
+      SafeLong(0)
     } else if (zman0 >= (SafeLong(1)<<calcW)) {
       println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=$x%h")
-      maskL(calcW)
+      maskSL(calcW)
     } else {
-      zman0
+      SafeLong(zman0)
     }
 
     // Simple rounding
     val zmanRound = if (extraBits>0) {(zman>>extraBits) + bit(extraBits-1, zman)} else {zman}
-    val z = if(zmanRound >= (SafeLong(1)<<manW)) {maskSL(manW)} else {SafeLong(zmanRound)}
+    val z = if(zmanRound >= (SafeLong(1)<<manW)) {maskSL(manW)} else {zmanRound}
 
 //     println(f"z     = ${z.toLong.toBinaryString}")
     new RealGeneric(x.spec, zSgn, zEx, z)

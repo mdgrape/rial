@@ -64,12 +64,12 @@ object InvSqrtSim {
       val res0 = t.interval(adr).eval(0L, 0).toLong
       val res  = if (res0 < 0) {
         println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=${x.toDouble}")
-        0L
+        SafeLong(0)
       } else if(res0 >= (SafeLong(1)<<calcW)) {
         println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=${x.toDouble}")
-        maskL(calcW)
+        maskSL(calcW)
       } else {
-        res0
+        SafeLong(res0)
       }
       res
     } else {
@@ -79,12 +79,12 @@ object InvSqrtSim {
       val res0 = t.interval(adr).eval(d.toLong, dxbp).toLong
       val res  = if (res0 < 0) {
         println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=${x.toDouble}")
-        0L
+        SafeLong(0)
       } else if(res0 >= (SafeLong(1)<<calcW)) {
         println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=${x.toDouble}")
-        maskL(calcW)
+        maskSL(calcW)
       } else {
-        res0
+        SafeLong(res0)
       }
       res
     }
@@ -93,9 +93,9 @@ object InvSqrtSim {
       (zman0>>extraBits) + bit(extraBits-1, zman0)
     } else {zman0}
 
-    val zman = if(bit(manW, zmanRounded) == 1) {maskL(manW)} else {zmanRounded}
+    val zman = if(bit(manW, zmanRounded) == 1) {maskSL(manW)} else {zmanRounded}
 
-    new RealGeneric(x.spec, zSgn, zEx, SafeLong(zman))
+    new RealGeneric(x.spec, zSgn, zEx, zman)
   }
 
   def invsqrtTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int,
