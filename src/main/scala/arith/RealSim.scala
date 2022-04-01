@@ -141,6 +141,54 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
     if (this.isInfinite) {return inf(resSpec, sgn)}
     if (that.isInfinite) {return inf(resSpec, that.sgn)}
 
+    if (this.isZero && that.isZero) {
+      val resSgn = if(roundSpec == RoundSpec.truncate) {
+        (this.sgn, that.sgn) match {
+          case (0, 0) => 0
+          case _      => 1
+        }
+      } else {
+        (this.sgn, that.sgn) match {
+          case (1, 1) => 1
+          case _      => 0
+        }
+      }
+      return RealGeneric.zero(resSpec, resSgn)
+    }
+    if(this.isZero) {
+      // convert that.spec to resSpec
+      val resSgn = that.sgn
+      val resEx0 = that.ex - that.spec.exBias + resSpec.exBias
+      val (resMan, resExInc) = if(resSpec.manW >= that.spec.manW) {
+        (that.man << (resSpec.manW - that.spec.manW), 0)
+      } else {
+        val thatRounded = roundBySpec(roundSpec, that.spec.manW - resSpec.manW, that.man)
+        val moreThan2AfterRound = bit(resSpec.manW+1, thatRounded)
+        (slice(0, resSpec.manW, thatRounded), moreThan2AfterRound)
+      }
+      val resEx = resEx0 + resExInc
+      if(resEx >= maskI(resSpec.exW)) {
+        return RealGeneric.inf(resSpec, resSgn)
+      }
+      return new RealGeneric(resSpec, resSgn, resEx, resMan)
+    }
+    if(that.isZero) {
+      val resSgn = this.sgn
+      val resEx0 = this.ex - this.spec.exBias + resSpec.exBias
+      val (resMan, resExInc) = if(resSpec.manW >= this.spec.manW) {
+        (this.man << (resSpec.manW - this.spec.manW), 0)
+      } else {
+        val thisRounded = roundBySpec(roundSpec, this.spec.manW - resSpec.manW, this.man)
+        val moreThan2AfterRound = bit(resSpec.manW+1, thisRounded)
+        (slice(0, resSpec.manW, thisRounded), moreThan2AfterRound)
+      }
+      val resEx = resEx0 + resExInc
+      if(resEx >= maskI(resSpec.exW)) {
+        return RealGeneric.inf(resSpec, resSgn)
+      }
+      return new RealGeneric(resSpec, resSgn, resEx, resMan)
+    }
+
     // Normal values
     val thisEx = this.ex - this.spec.exBias
     val thatEx = that.ex - that.spec.exBias
@@ -464,7 +512,7 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
 }
 
 object RealGeneric {
-  def zero(spec : RealSpec) : RealGeneric = { new RealGeneric(spec, SafeLong(0)) }
+  def zero(spec : RealSpec, sgn: Int = 0) : RealGeneric = { new RealGeneric(spec, sgn, 0, SafeLong(0)) }
   def nan(spec : RealSpec) : RealGeneric = { new RealGeneric(spec, 0, maskI(spec.exW), SafeLong(1)<<(spec.manW-1)) }
   def inf(spec : RealSpec, sgn: Int) : RealGeneric = { new RealGeneric(spec, sgn, maskI(spec.exW), SafeLong(0)) }
 
