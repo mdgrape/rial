@@ -64,6 +64,14 @@ class AddFPTest extends AnyFlatSpec
     (x,y)
   }
 
+  def generateRealZeroNonZeroPair ( xIsZero: Boolean, xSpec: RealSpec, ySpec: RealSpec, r : Random ) = {
+    if(xIsZero) {
+      (RealGeneric.zero(xSpec), generateRealFull(ySpec, r))
+    } else {
+      (generateRealFull(xSpec, r), RealGeneric.zero(ySpec))
+    }
+  }
+
   // p : x range
   // q : result scale min
   def generateRealSmallDifferencePair ( p : Double, q: Double, xSpec: RealSpec, ySpec: RealSpec, r : Random ) = {
@@ -102,7 +110,9 @@ class AddFPTest extends AnyFlatSpec
         for (gen <- List(
           ("Test Within (-128,128)",generateRealWithinPair(128.0,_,_,_)),
           ("Test All range",generateRealFullPair(_,_,_)),
-          ("Test small result",generateRealSmallDifferencePair(128.0,60.0,_,_,_))
+          ("Test small result",generateRealSmallDifferencePair(128.0,60.0,_,_,_)),
+          ("Test zero+y result",generateRealZeroNonZeroPair(true,_,_,_)),
+          ("Test x+zero result",generateRealZeroNonZeroPair(false,_,_,_))
         ) ) {
           println(gen._1)
           for(i <- 1 to n+nstage) {
@@ -112,20 +122,23 @@ class AddFPTest extends AnyFlatSpec
             val zr = xr.add(zSpec, roundSpec, yr)
             val z0i= zr.value.toBigInt
             q += ((xi,yi,z0i))
-            c.io.x.poke(xi.U(64.W))
-            c.io.y.poke(yi.U(64.W))
+            assert(xi < (BigInt(1) << xSpec.W))
+            assert(yi < (BigInt(1) << ySpec.W))
+            c.io.x.poke(xi.U(xSpec.W.W))
+            c.io.y.poke(yi.U(ySpec.W.W))
             val zi = c.io.z.peek().litValue.toBigInt
             //if (zi != z0d) c.debugControlIO.poke(true.B)
             c.clock.step(1)
             if (i > nstage) {
               val (xid,yid,z0d) = q.dequeue()
               if (zi != z0d) {
-                c.io.x.poke(xid.U(64.W))
-                c.io.y.poke(yid.U(64.W))
+                c.io.x.poke(xid.U(xSpec.W.W))
+                c.io.y.poke(yid.U(ySpec.W.W))
                 for(i <- 1 to nstage) c.clock.step(1)
                 c.debugEnableIO.poke(true.B)
                 c.clock.step(1)
               }
+
               val xsgn = bit(xSpec.W-1, xid)
               val xex  = slice(xSpec.manW, xSpec.exW, xid).toInt
               val xman = slice(0, xSpec.manW, xid)
@@ -167,5 +180,10 @@ class AddFPTest extends AnyFlatSpec
     addTest( RealSpec.Float32Spec, RealSpec.Float64Spec, RealSpec.Float64Spec,
       RoundSpec.roundToEven, n, PipelineStageConfig.none)
   }
+  it should f"Add Double+Float=Double with pipereg 0" in {
+    addTest( RealSpec.Float64Spec, RealSpec.Float32Spec, RealSpec.Float64Spec,
+      RoundSpec.roundToEven, n, PipelineStageConfig.none)
+  }
+
 }
 
