@@ -77,7 +77,8 @@ class AddFPTest extends AnyFlatSpec
         } else {
           x.scalbn( -scale.toInt )
         }
-      (y.negate().add(ySpec, RoundSpec.roundToEven,z), y)
+      val xgen = y.negate().add(ySpec, RoundSpec.roundToEven, z)
+      (new RealGeneric(xSpec, xgen.toDouble), y)
     } else {
       val z =
         if (scale>=q) {
@@ -85,7 +86,8 @@ class AddFPTest extends AnyFlatSpec
         } else {
           y.scalbn( -scale.toInt )
         }
-      (x,x.negate().add(ySpec, RoundSpec.roundToEven,z))
+      val ygen = x.negate().add(ySpec, RoundSpec.roundToEven, z)
+      (x, new RealGeneric(ySpec, ygen.toDouble))
     }
   }
 
