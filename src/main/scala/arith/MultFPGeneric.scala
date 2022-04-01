@@ -52,15 +52,37 @@ class MultFPGeneric(
   val bp = xSpec.manW+ySpec.manW
   val roundBits = bp-zSpec.manW
   val moreThan2 = prod(bp+1)
-  val stickey = prod(roundBits-2,0).orR | (moreThan2 & prod(roundBits-1))
-  val round = Mux(moreThan2, prod(roundBits), prod(roundBits-1))
-  val prodShift = Mux(moreThan2, prod(bp, roundBits+1), prod(bp-1, roundBits))
-  val lsb   = prodShift(0)
-  // RoundSpec : truncate/ceil always towards 0/infinite
-  val inc = FloatChiselUtil.roundIncBySpec(roundSpec, lsb, round, stickey)
-  val prodRound = prodShift +& inc
-  val moreThan2AfterRound = prodRound(zSpec.manW)
-  val resMan = prodRound(zSpec.manW-1,0)
+
+  val (moreThan2AfterRound, resMan) =
+    if(roundBits >= 0) {
+      val stickey = if(roundBits >= 2) {
+        prod(roundBits-2,0).orR | (moreThan2 & prod(roundBits-1))
+      } else if(roundBits == 0) {
+        moreThan2 & prod(roundBits-1)
+      } else {
+        0.U(1.W).asBool
+      }
+      val round = if(roundBits >= 1) {
+        Mux(moreThan2, prod(roundBits), prod(roundBits-1))
+      } else {
+        moreThan2 & prod(0)
+      }
+      val prodShift = Mux(moreThan2, prod(bp, roundBits+1), prod(bp-1, roundBits))
+      val lsb   = prodShift(0)
+      // RoundSpec : truncate/ceil always towards 0/infinite
+      val inc = FloatChiselUtil.roundIncBySpec(roundSpec, lsb, round, stickey)
+      val prodRound = prodShift +& inc
+      val moreThan2AfterRound = prodRound(zSpec.manW)
+      (moreThan2AfterRound, prodRound(zSpec.manW-1, 0))
+    } else {
+      assert(prod(prod.getWidth-1) | prod(prod.getWidth-2))
+      val prodShift = Mux(moreThan2, prod, Cat(prod(prod.getWidth-2, 0), 0.U(1.W)))
+      assert(prodShift.getWidth == prod.getWidth)
+      assert(prodShift(prodShift.getWidth-1) === 1.U(1.W))
+      val prodRound = Cat(prodShift, Fill(zSpec.manW - bp-1, 0.U(1.W)))
+      assert(prodRound(zSpec.manW) === 1.U(1.W))
+      (0.U(1.W), Cat(prod, Fill(zSpec.manW-bp, 0.U(1.W))))
+    }
 
   //----------------------------------------------------------------------
   // Exponent
@@ -81,7 +103,13 @@ class MultFPGeneric(
   val exZero = !exInc.orR.asBool
   val exNeg  = (minEx<0).B && (exInc(exW-1)=/=0.U)
   val exZN   = exZero || exNeg || zzero
-  val exInf  = zinf || exInc(zSpec.exW-1,0).andR | exInc(exW-1, zSpec.exW).orR
+  val exInf  = if(exW > zSpec.exW) {
+    zinf || exInc(zSpec.exW-1,0).andR | exInc(exW-1, zSpec.exW).orR
+  } else if(exW == zSpec.exW) {
+    zinf || exInc(zSpec.exW-1,0).andR
+  } else {
+    zinf
+  }
 
   val zex =
     Mux(exZN, 0.U(zSpec.exW),
