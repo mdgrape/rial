@@ -118,35 +118,68 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
 
     if (this.isNaN || that.isNaN) {
       if (resSpec.disableNaN) {
-        return ( if (this.isNaN) inf(resSpec, sgn) else inf(resSpec, that.sgn) )
-      } else return nan(resSpec)
+        if (this.isNaN) {
+          return inf(resSpec, sgn)
+        } else {
+          return inf(resSpec, that.sgn)
+        }
+      } else {
+        return nan(resSpec)
+      }
     }
     if (this.isInfinite && that.isInfinite) {
       if (this.sgn == that.sgn) {
         if(resSpec.disableNaN) {
           return inf(resSpec, this.sgn)
-        } else return nan(resSpec)
-      } else return inf(resSpec, this.sgn)
+        } else {
+          return nan(resSpec)
+        }
+      } else {
+        return inf(resSpec, this.sgn)
+      }
     }
-    if (this.isInfinite) return inf(resSpec, sgn)
-    if (that.isInfinite) return inf(resSpec, that.sgn)
+    if (this.isInfinite) {return inf(resSpec, sgn)}
+    if (that.isInfinite) {return inf(resSpec, that.sgn)}
 
     // Normal values
-    val thisEx=ex-this.spec.exBias
-    val thatEx=that.ex-that.spec.exBias
-    val (x,y,exMax) = if (thisEx<thatEx) (that, this, thatEx) else (this, that, thisEx)
+    val thisEx = this.ex - this.spec.exBias
+    val thatEx = that.ex - that.spec.exBias
+    val (x,y,exMax) = if (thisEx<thatEx) {
+      (that, this, thatEx)
+    } else {
+      (this, that, thisEx)
+    }
+
+    // resolve difference in mantissa width
+    val (xmanW1, ymanW1) = if(x.spec.manW == y.spec.manW) {
+      (x.manW1, y.manW1)
+    } else if (x.spec.manW > y.spec.manW) {
+      (x.manW1, y.manW1 << (x.spec.manW - y.spec.manW))
+    } else {
+      (x.manW1 << (y.spec.manW - x.spec.manW), y.manW1)
+    }
+
+    // align x with y
     val diffEx = abs(thisEx-thatEx)
-    val xshift = x.manW1 << diffEx
-    val sum =  if (this.sgn!=that.sgn) xshift-y.manW1 else xshift+y.manW1
+    val xshift = xmanW1 << diffEx
+    val sum =  if (this.sgn!=that.sgn) {
+      xshift - ymanW1
+    } else {
+      xshift + ymanW1
+    }
     //println(s"Sim: ${sum.toLong.toBinaryString}")
+
     // In case of diffEx==0, this can be negative
-    val (sumPos, resSgn) = if (sum<0) (-sum, x.sgn^1) else (sum,x.sgn)
-    if (sumPos==0) return zero(resSpec)
+    val (sumPos, resSgn) = if (sum<0) {(-sum, x.sgn^1)} else {(sum,x.sgn)}
+
+    if (sumPos==0) {return zero(resSpec)}
+
     // Normalization
     val leading1 = sumPos.bitLength-1
     //val ml=sumPos.toLong; println(f"$ml%x $leading1%d $diffEx%d")
-    val roundbits = leading1-resSpec.manW
-    val (resMan, exInc)  =
+
+    val roundbits = leading1 - resSpec.manW
+    val (resMan, exInc) =
       if (roundbits>0) {
         val sumRound = roundBySpec(roundSpec, roundbits, sumPos)
         val moreThan2AfterRound = bit(resSpec.manW+1, sumRound)
@@ -154,8 +187,10 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
       } else {
         ( sumPos << (-roundbits), 0)
       }
+
     // no exponent change if leading1 = x.manW+diffEx
-    val resEx = exMax+leading1-x.spec.manW-diffEx+exInc+resSpec.exBias
+    val resEx = exMax + leading1 - max(x.spec.manW, y.spec.manW) - diffEx + exInc + resSpec.exBias
+
     if (resEx <= 0) { // result is zero : currently subnormal not supported
       zero(resSpec)
     } else if (resEx >= maskI(resSpec.exW)) { // result is inf
