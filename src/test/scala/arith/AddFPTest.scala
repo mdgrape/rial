@@ -124,7 +124,27 @@ class AddFPTest extends AnyFlatSpec
                 c.debugEnableIO.poke(true.B)
                 c.clock.step(1)
               }
-              assert(zi == z0d, f"x=$xid%16x y=$yid%16x $zi%16x!=$z0d%16x")
+              val xsgn = bit(xSpec.W-1, xid)
+              val xex  = slice(xSpec.manW, xSpec.exW, xid).toInt
+              val xman = slice(0, xSpec.manW, xid)
+
+              val ysgn = bit(ySpec.W-1, yid)
+              val yex  = slice(ySpec.manW, ySpec.exW, yid).toInt
+              val yman = slice(0, ySpec.manW, yid)
+
+              val zsgn = bit(zSpec.W-1, zi)
+              val zex  = slice(zSpec.manW, zSpec.exW, zi).toInt
+              val zman = slice(0, zSpec.manW, zi)
+
+              val rsgn = bit(zSpec.W-1, z0d)
+              val rex  = slice(zSpec.manW, zSpec.exW, z0d).toInt
+              val rman = slice(0, zSpec.manW, z0d)
+
+              assert(zi == z0d, f"x=${xsgn}|${xex-xSpec.exBias}|${xman.toLong.toBinaryString}(${new RealGeneric(xSpec, xsgn, xex, xman).toDouble}), " +
+                                f"y=${ysgn}|${yex-ySpec.exBias}|${yman.toLong.toBinaryString}(${new RealGeneric(ySpec, ysgn, yex, yman).toDouble}), " +
+                                f"test=${zsgn}|${zex-zSpec.exBias}|${zman.toLong.toBinaryString}(${new RealGeneric(zSpec, zsgn, zex, zman).toDouble}) != " +
+                                f"zref=${rsgn}|${rex-zSpec.exBias}|${rman.toLong.toBinaryString}(${new RealGeneric(zSpec, rsgn, rex, rman).toDouble})")
+
             }
           }
           q.clear()
@@ -132,11 +152,18 @@ class AddFPTest extends AnyFlatSpec
       }
     }
   }
-  
+
   it should f"Add Double with pipereg 0" in {
     addTest( RealSpec.Float64Spec, RealSpec.Float64Spec, RealSpec.Float64Spec,
       RoundSpec.roundToEven, n, PipelineStageConfig.none)
   }
-
+  it should f"Add Float with pipereg 0" in {
+    addTest( RealSpec.Float32Spec, RealSpec.Float32Spec, RealSpec.Float32Spec,
+      RoundSpec.roundToEven, n, PipelineStageConfig.none)
+  }
+  it should f"Add Float+Double=Double with pipereg 0" in {
+    addTest( RealSpec.Float32Spec, RealSpec.Float64Spec, RealSpec.Float64Spec,
+      RoundSpec.roundToEven, n, PipelineStageConfig.none)
+  }
 }
 
