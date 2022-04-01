@@ -53,7 +53,7 @@ class AddFPGeneric(
   // Exponent comparison
   val diffMaxXY = xSpec.exMax - ySpec.exMin // x:max, y:min
   val diffMaxYX = ySpec.exMax - xSpec.exMin // y:max, x:min
-  val diffExW = log2Up(max(diffMaxXY,diffMaxYX)+1)+1 
+  val diffExW = log2Up(max(diffMaxXY,diffMaxYX)+1)+1
   val diffExXY = ( xex.pad(diffExW).asSInt-yex.pad(diffExW).asSInt
     +(-xSpec.exBias+ySpec.exBias).S(diffExW.W) )
   // The following is just negative of diffExXY but in some case the separate calculation
@@ -62,7 +62,17 @@ class AddFPGeneric(
     +(xSpec.exBias-ySpec.exBias).S(diffExW.W) )
   val near = (!xzero) && (!yzero) && diffSgn && ((diffExXY(diffExW-1,1) === 0.U)|| (diffExXY=== -1.S)) // abs(xEx-yEx) <= 1
   val nearShift = diffExXY(0)
-  val exXlargerThanY = diffExXY(diffExW-1) === 0.U // exponent of x >= y
+
+  // exponent of x >= y
+  // - x=FP32 -127(==zero) + y=FP64 -300 => zex should be -300
+  //   diffExXY > 0: true
+  //   xzero: true
+  //   yzero: false
+  // - x=FP64 -300 + y=FP32 -127(==zero) => zex should be -300
+  //   diffExXY > 0: false
+  //   xzero: false
+  //   yzero: true
+  val exXlargerThanY = (diffExXY(diffExW-1) === 0.U && (!xzero)) || yzero
 
   val zexBaseMax = max( xSpec.exMax + zSpec.exBias, ySpec.exMax + zSpec.exBias)
   val zexBaseMin = max( xSpec.exMin + zSpec.exBias, ySpec.exMin + zSpec.exBias)
@@ -74,9 +84,11 @@ class AddFPGeneric(
   } else {
     val xexPad = xex.pad(zexBaseW).asSInt
     val yexPad = yex.pad(zexBaseW).asSInt
+
     val zexDiff = Mux (exXlargerThanY,
       (zSpec.exBias-xSpec.exBias).S(zexBaseW.W),
       (zSpec.exBias-ySpec.exBias).S(zexBaseW.W) )
+
     zexNorm := Mux (exXlargerThanY, xexPad, yexPad) + zexDiff
   }
   dbgPrintf("near=%b zexNorm=%x diffExXY/XY=%x / %x\n", near, zexNorm, diffExXY, diffExYX)
@@ -90,7 +102,6 @@ class AddFPGeneric(
 
   val xmanPadXyz = Mux(xzero, 0.U((maxManWxyz+1).W), 1.U(1.W) ## padLSB(maxManWxyz, xman))
   val ymanPadXyz = Mux(yzero, 0.U((maxManWxyz+1).W), 1.U(1.W) ## padLSB(maxManWxyz, yman))
-  
 
   //----------------------------------------------------------------------
   // Far path
@@ -104,7 +115,7 @@ class AddFPGeneric(
   val yzeroFar = Mux(exXlargerThanY, xzero, yzero)
   val xFarSign = Mux(exXlargerThanY, xsgn, ysgn).asBool
   val yFarR = yFar ## 0.U(2.W)
-  // Drop sign bit 
+  // Drop sign bit
   val diffFar = Mux(exXlargerThanY, diffExXY(diffExW-2,0), diffExYX(diffExW-2,0))
 
   // Shift y
@@ -112,8 +123,8 @@ class AddFPGeneric(
   val shiftW0 = log2Up(maxManWxyz+1+2+1) // +2 for round bits, +1 for Leading 1
   // Note diffExW includes the width for sign bit
   val (shiftW, shiftOut) =
-    if   (shiftW0<(diffExW-2)) (shiftW0, dropLSB(shiftW0,diffFar).orR)
-    else (diffExW-1, false.B) // Usually this never happens
+    if   (shiftW0<(diffExW-2)) {(shiftW0, dropLSB(shiftW0,diffFar).orR)}
+    else {(diffExW-1, false.B)} // Usually this never happens
   val yFarShift = Mux(shiftOut, 0.U, yFarR >> diffFar(shiftW-1, 0))
   println(f"shiftW = $shiftW%d diffExW = $diffExW%d ${diffFar.getWidth}%d")
   when (!near) {
@@ -192,7 +203,7 @@ class AddFPGeneric(
   // Implementation without mantissa comparison - use XFar/YFar
   val xNear = getMSB(2+maxManWxy, xFar) ## 0.U(1.W)
   val yNear = getMSB(2+maxManWxy, yFar)
-  
+
   val yNearShift = Mux( nearShift, 0.U(2.W) ## yNear, 0.U(1.W) ## yNear ## 0.U(1.W) )
   val sumNear = xNear - yNearShift
   // The below includes 1.xxxx+round bit
@@ -224,14 +235,14 @@ class AddFPGeneric(
     zmanNear := padLSB( zSpec.manW, sumNearNorm(maxManWxy, 0) )
   }
   when (near) {
-    dbgPrintf("xNear=%x yNear=%x nearShift=%d yNearShift=%x\n", xNear, yNear, nearShift, yNearShift) 
+    dbgPrintf("xNear=%x yNear=%x nearShift=%d yNearShift=%x\n", xNear, yNear, nearShift, yNearShift)
     dbgPrintf("sumNear=%x sumNearAbs=%x\n", sumNear, sumNearAbs)
     dbgPrintf("sumNearAbs=%b\n", sumNearAbs)
     dbgPrintf("shiftSum=%d(%x) sumNearNorm=%x incNear=%b\n", shiftSum, shiftSum, sumNearNorm, incNear)
   }
 
   //----------------------------------------------------------------------
-  // Merge Far / Near 
+  // Merge Far / Near
   val zmanSel = Mux(near, zmanNear, zmanFar)
   val incSel  = Mux(near, incNear, incFar)
   val zeroSel = near && sumNearZero
@@ -256,7 +267,11 @@ class AddFPGeneric(
   val zex = Mux (infOrNaN, maskU(zSpec.exW),
     Mux (zero, 0.U(zSpec.exW), zex0(zSpec.exW-1,0)))
   val zman = Mux(infOrNaN || zero, xyNaN ## 0.U((zSpec.manW-1).W), zman0(zSpec.manW-1, 0))
-  val zsgn = (!xyInf) && Mux(xyInf, xyInfSgn, zsgn0)
+  val zsgn = if(roundSpec == RoundSpec.truncate) {
+    Mux(xyBothZero, xsgn | ysgn, (!xyInf) && Mux(xyInf, xyInfSgn, zsgn0))
+  } else {
+    Mux(xyBothZero, xsgn & ysgn, (!xyInf) && Mux(xyInf, xyInfSgn, zsgn0))
+  }
 
   val z0 = zsgn ## zex ## zman
 
