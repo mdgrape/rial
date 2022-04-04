@@ -151,7 +151,7 @@ class MathFuncSqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   sqrtTest(sqrtFP48TableI, float48Spec, n, r,
     "Test All range",generateRealFull(_,_), 1 )
 
-  val sqrtFP64TableI = SqrtSim.sqrtTableGeneration(3, 12, 52, 52+4 )
+  val sqrtFP64TableI = SqrtSim.sqrtTableGeneration(3, 10, 52, 52+1 )
 
   sqrtTest(sqrtFP64TableI, RealSpec.Float64Spec, n, r,
     "Test Within (-128,128)",generateRealWithin(128.0,_,_), 3) // XXX 3!
