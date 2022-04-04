@@ -342,7 +342,7 @@ object MathFuncACosSim {
           halfPiFixed - polynomial
         }
         val shift = fracW+2 - binaryWidthSL(res)
-        val resShifted = ((res << shift).toLong) >> 1
+        val resShifted = (res << shift) >> 1
 
         assert(resShifted > (SafeLong(1)<<fracW))
 
