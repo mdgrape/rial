@@ -5,8 +5,6 @@ import chisel3._
 import chisel3.experimental.BundleLiterals._
 import chiseltest._
 
-
-
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
@@ -68,8 +66,8 @@ class MultFPTest extends AnyFlatSpec
               val zr = xr.multiply(zSpec, roundSpec, yr)
               val z0i= zr.value.toBigInt
               q += ((xi,yi,z0i))
-              c.io.x.poke(xi.U(64.W))
-              c.io.y.poke(yi.U(64.W))
+              c.io.x.poke(xi.U(xSpec.W.W))
+              c.io.y.poke(yi.U(ySpec.W.W))
               val zi = c.io.z.peek().litValue.toBigInt
               c.clock.step(1)
               if (i > nstage) {
@@ -93,8 +91,8 @@ class MultFPTest extends AnyFlatSpec
 
                 assert(zi == z0d, f"x=${xsgn}|${xex-xSpec.exBias}|${xman.toLong.toBinaryString}(${new RealGeneric(xSpec, xsgn, xex, xman).toDouble}), " +
                                   f"y=${ysgn}|${yex-ySpec.exBias}|${yman.toLong.toBinaryString}(${new RealGeneric(ySpec, ysgn, yex, yman).toDouble}), " +
-                                  f"test=${zsgn}|${zex-zSpec.exBias}|${zman.toLong.toBinaryString}(${new RealGeneric(zSpec, zsgn, zex, zman).toDouble}) != " +
-                                  f"zref=${rsgn}|${rex-zSpec.exBias}|${rman.toLong.toBinaryString}(${new RealGeneric(zSpec, rsgn, rex, rman).toDouble})")
+                                  f"test=${zsgn}|${zex-zSpec.exBias}(${zex})|${zman.toLong.toBinaryString}(${new RealGeneric(zSpec, zsgn, zex, zman).toDouble}) != " +
+                                  f"zref=${rsgn}|${rex-zSpec.exBias}(${rex})|${rman.toLong.toBinaryString}(${new RealGeneric(zSpec, rsgn, rex, rman).toDouble})")
               }
             }
             q.clear()
@@ -119,10 +117,10 @@ class MultFPTest extends AnyFlatSpec
     multTest( RealSpec.Float32Spec, RealSpec.Float64Spec, RealSpec.Float64Spec,
       RoundSpec.roundToEven, n, PipelineStageConfig.none)
   }
-//   it should f"Multiplier Float*Float->Double with pipereg 0" in {
-//     multTest( RealSpec.Float32Spec, RealSpec.Float32Spec, RealSpec.Float64Spec,
-//       RoundSpec.roundToEven, n, PipelineStageConfig.none)
-//   }
+  it should f"Multiplier Float*Float->Double with pipereg 0" in {
+    multTest( RealSpec.Float32Spec, RealSpec.Float32Spec, RealSpec.Float64Spec,
+      RoundSpec.roundToEven, n, PipelineStageConfig.none)
+  }
   //runtest(n, PipelineStageConfig.default(2))
 }
 
