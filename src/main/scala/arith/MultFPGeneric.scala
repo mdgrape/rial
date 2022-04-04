@@ -75,28 +75,27 @@ class MultFPGeneric(
       val moreThan2AfterRound = prodRound(zSpec.manW)
       (moreThan2AfterRound, prodRound(zSpec.manW-1, 0))
     } else {
-      assert(prod(prod.getWidth-1) | prod(prod.getWidth-2))
       val prodShift = Mux(moreThan2, prod, Cat(prod(prod.getWidth-2, 0), 0.U(1.W)))
       assert(prodShift.getWidth == prod.getWidth)
       assert(prodShift(prodShift.getWidth-1) === 1.U(1.W))
-      val prodRound = Cat(prodShift, Fill(zSpec.manW - bp-1, 0.U(1.W)))
+      assert(-1 >= roundBits)
+      val prodRound = Cat(prodShift, Fill(-roundBits-1, 0.U(1.W)))
       assert(prodRound(zSpec.manW) === 1.U(1.W))
-      (0.U(1.W), Cat(prod, Fill(zSpec.manW-bp, 0.U(1.W))))
+      (0.U(1.W), prodRound(zSpec.manW-1, 0))
     }
 
   //----------------------------------------------------------------------
   // Exponent
-  val maxEx = ( maskI(xSpec.exW)-1-xSpec.exBias +
-    maskI(ySpec.exW)-1-ySpec.exBias + 1 + zSpec.exBias )
+  val maxEx = ( xSpec.exMax + ySpec.exMax + 1 + zSpec.exBias )
   //println(f"${xSpec.exBias}%x ${ySpec.exBias}%x ${zSpec.exBias}%x")
   //println(f"${xSpec.exW}%d ${ySpec.exW}%d")
   //println(f"${maskI(xSpec.exW)}%x ${maskI(ySpec.exW)}%x")
-  val minEx = 1-xSpec.exBias+1-ySpec.exBias+zSpec.exBias
+  val minEx = xSpec.exMin + ySpec.exMin + zSpec.exBias
   val exW0 = max( log2Up(maxEx+1), log2Up(abs(minEx)+1))
-  val exW  = if (minEx<0) exW0+1 else exW0 // width for calculation
+  val exW  = if (minEx<0) {exW0+1} else {exW0} // width for calculation
   //println(f"maxEX=$maxEx%x minEx=-${-minEx}%x exW=$exW%d")
   val exAdd = (-xSpec.exBias-ySpec.exBias+zSpec.exBias).S(exW.W).asUInt
-  val ex0 = xex.pad(exW) + yex.pad(exW) + exAdd 
+  val ex0 = xex.pad(exW) + yex.pad(exW) + exAdd
 
   val exInc = ex0 + (moreThan2 | moreThan2AfterRound)
 
@@ -117,11 +116,13 @@ class MultFPGeneric(
 
   // Final mantissa
   val zman =
-    Mux(exZN || exInf || znan, znan ## 0.U((zSpec.manW-1).W), resMan) 
+    Mux(exZN || exInf || znan, znan ## 0.U((zSpec.manW-1).W), resMan)
   val zsgn = ( !(exZN || znan) ) && zsgn0.asBool
   //printf("%x\n", zman)
 
-  val z0 = if (zSpec.disableSign) (zex ## zman) else (zsgn ## zex ## zman)
+  assert(zman.getWidth == zSpec.manW)
+
+  val z0 = if (zSpec.disableSign) {(zex ## zman)} else {(zsgn ## zex ## zman)}
 
   io.z   := ShiftRegister(z0, nStage)
   //printf("x=%x y=%x z=%x\n", io.x, io.y, io.z)
