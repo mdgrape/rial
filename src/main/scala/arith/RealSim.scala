@@ -83,23 +83,36 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
   def multiply( resSpec : RealSpec, roundSpec : RoundSpec, that : RealGeneric ) : RealGeneric = {
     val resSgn = this.sgn ^ that.sgn
 
-    if (this.isZero || that.isZero)    return zero(resSpec)
-    else if (this.isNaN || that.isNaN) {
-      if (resSpec.disableNaN) return inf(resSpec, resSgn)
-      else return nan(resSpec)
-    } else if (this.isInfinite || that.isInfinite) return inf(resSpec, resSgn)
+    if (this.isZero || that.isZero) {
+      return zero(resSpec)
+    } else if (this.isNaN || that.isNaN) {
+      if (resSpec.disableNaN) {
+        return inf(resSpec, resSgn)
+      } else {
+        return nan(resSpec)
+      }
+    } else if (this.isInfinite || that.isInfinite) {
+      return inf(resSpec, resSgn)
+    }
 
     // Normal values
-    val ex0=(ex-spec.exBias)+(that.ex-that.spec.exBias)
-    val prod= manW1 * that.manW1
-    val bp = spec.manW+that.spec.manW
+
+    val prod= this.manW1 * that.manW1
+    val bp = this.spec.manW + that.spec.manW
     val moreThan2 = bit(bp+1,prod)
     val roundbits = bp-resSpec.manW+moreThan2
-    val prodRound = roundBySpec(roundSpec, roundbits, prod)
+    val prodRound = if(roundbits >= 0) {
+      roundBySpec(roundSpec, roundbits, prod)
+    } else {
+      prod << (-roundbits)
+    }
     val moreThan2AfterRound = bit(resSpec.manW+1, prodRound)
     val resMan = prodRound >> moreThan2AfterRound
+
+    val ex0 = (this.ex-this.spec.exBias) + (that.ex-that.spec.exBias)
     val exNobias = ex0+(moreThan2|moreThan2AfterRound)
     val resEx = exNobias + resSpec.exBias
+
     if (resEx <= 0) { // result is zero : currently subnormal not supported
       zero(resSpec)
     } else if (resEx >= maskI(resSpec.exW)) { // result is inf
