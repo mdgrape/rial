@@ -9,6 +9,11 @@ import scala.language.reflectiveCalls
 import scala.math._
 import java.lang.Math.scalb
 
+import spire.math.SafeLong
+import spire.math.Numeric
+import spire.math.Real
+import spire.implicits._
+
 import chisel3._
 import chisel3.util._
 
@@ -91,7 +96,7 @@ class SinCosPreProcess(
   // calc x/pi
 
   val oneOverPiPad = 23
-  val oneOverPi  = BigInt(math.round(1.0 / math.Pi * pow(2.0, manW+2+oneOverPiPad)))
+  val oneOverPi = (Real.one / Real.pi)(manW+2+oneOverPiPad).toBigInt
   val oneOverPiW = 1 + manW + oneOverPiPad
 
   val xOverPiProd          = Cat(1.U(1.W), xman) * oneOverPi.U(oneOverPiW.W)
@@ -434,11 +439,11 @@ class SinCosOtherPath(
   // yman to avoid needless voltage change for the sake of energy efficiency?
 
   val coef1Ex    = 1 + exBias
-  val coef1ManW1 = math.round(Pi * (1<<(fracW-(coef1Ex-exBias)))).toLong
+  val coef1ManW1 = Real.pi(fracW-(coef1Ex-exBias)).toBigInt
   val coef3Ex    = 0 + exBias
-  val coef3ManW1 = math.round(Pi * Pi / 6.0 * (1<<(fracW-(coef3Ex-exBias)))).toLong
+  val coef3ManW1 = (Real.pi * Real.pi / Real(6))(fracW-(coef3Ex-exBias)).toBigInt
   val coef5Ex    = -1 + exBias
-  val coef5ManW1 = math.round(pow(Pi, 4) / 120.0 * (1<<(fracW-(coef5Ex-exBias)))).toLong
+  val coef5ManW1 = (Real.pi.pow(4) / Real(120))(fracW-(coef5Ex-exBias)).toBigInt
 
   // helper function because we will multiply a lot in this path
   val multiply = (xFracW: Int, xmanW1: UInt, yFracW: Int, ymanW1: UInt) => {
