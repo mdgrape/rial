@@ -185,12 +185,9 @@ object MathFuncSinCosSim {
       val fracW      = manW+coefPad
       val coef1Ex    = 1 + exBias
       val coef1ManW1 = Real.pi(fracW-(coef1Ex-exBias))
-//       val coef1ManW1 = math.round(Pi * (1<<(fracW-(coef1Ex-exBias)))).toLong
       val coef3Ex    = 0 + exBias
-//       val coef3ManW1 = math.round(Pi * Pi / 6.0 * (1<<(fracW-(coef3Ex-exBias)))).toLong
       val coef3ManW1 = (Real.pi * Real.pi / Real(6))(fracW-(coef3Ex-exBias))
       val coef5Ex    = -1 + exBias
-//       val coef5ManW1 = math.round(pow(Pi, 4) / 120.0 * (1<<(fracW-(coef5Ex-exBias)))).toLong
       val coef5ManW1 = (Real.pi.pow(4) / Real(120))(fracW-(coef5Ex-exBias))
       assert(bit(fracW, coef1ManW1) == 1)
       assert(bit(fracW, coef3ManW1) == 1)
@@ -365,7 +362,7 @@ object MathFuncSinCosSim {
 
         val lessThanHalf = if(bit(fracW-1, res) == 0) { 1 } else { 0 }
         val ex    = yex+2-lessThanHalf
-        val man   = (res << (1+lessThanHalf)).toLong - (SafeLong(1) << fracW)
+        val man   = (res << (1+lessThanHalf)) - (SafeLong(1) << fracW)
 
         (ex.toInt, man)
 

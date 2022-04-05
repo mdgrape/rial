@@ -199,7 +199,6 @@ object MathFuncLogSim {
         // to reproduce rounding
         val log2ex0  = exBias
         val log2man0 = SafeLong(0)
-//         val oneOverLog2e = math.round(log(2.0) * (1 << (fracW+1))).toLong
         val oneOverLog2e = (Real.log(Real.two))(fracW+1)
         assert((SafeLong(1)<<fracW) < oneOverLog2e && oneOverLog2e < (SafeLong(1)<<(fracW+1)))
         val zmanProd = ((SafeLong(1)<<fracW) + log2man0) * oneOverLog2e
@@ -218,7 +217,7 @@ object MathFuncLogSim {
 
     // --------------------------------------------------------------------------
 
-    val xexNobias = x.ex.toLong - exBias.toLong
+    val xexNobias = x.ex - exBias
     val zint0     = if(xexNobias >= 0) {xexNobias} else {-xexNobias - 1}
 
 //     println(f"xexNobias = ${xexNobias}")
@@ -235,12 +234,9 @@ object MathFuncLogSim {
       //
 
       val xman   = x.man // x - 1
-//       val xmanbp = xman.toLong.toBinaryString.length
       val xmanbp = binaryWidthSL(xman)
 
       // 1/ln2 > 1
-//       val invln2   = math.round((1.0 / log(2.0)) * (1L << fracW)).toLong
-//       val oneThird = math.round((1.0 / 3.0)      * (1L << fracW)).toLong
       val invln2   = (Real.one / Real.log(Real.two))(fracW)
       val oneThird = (Real.one / Real(3)           )(fracW)
 
@@ -278,7 +274,6 @@ object MathFuncLogSim {
       // the exponent is -1, so xman is "multiplied" by 2. So the threshold and
       // exponent calculation become different
       val xman   = ((SafeLong(1)<<manW) - x.man)
-//       val xmanbp = xman.toLong.toBinaryString.length
       val xmanbp = binaryWidthSL(xman)
 
       val invln2   = (Real.one / Real.log(Real.two))(fracW)
@@ -319,8 +314,7 @@ object MathFuncLogSim {
       //
       // log table should return full precision
       //
-      val xman  = x.man.toLong
-//       val xex   = -(manW - xman.toLong.toBinaryString.length)
+      val xman  = x.man
       val xex   = -(manW - binaryWidthSL(xman))
 
       assert(tSmallPos.adrW == t.adrW)
@@ -362,8 +356,7 @@ object MathFuncLogSim {
       // --------------------------------------------------------------------------
       // polynomial (x is in [0.5, 1))
       //
-      val xman  = ((SafeLong(1)<<manW) - x.man.toLong) // 1-x
-//       val xex   = -(manW - xman.toLong.toBinaryString.length)
+      val xman  = ((SafeLong(1)<<manW) - x.man) // 1-x
       val xex   = -(manW - binaryWidthSL(xman))
 
       assert(tSmallNeg.adrW  == t.adrW)
@@ -434,7 +427,6 @@ object MathFuncLogSim {
 
       assert(0L <= zfrac && zfrac < (SafeLong(1)<<fracW)) // avoid overflow in polynomial
       assert(0 <= zfull0)
-//       val zfullW  = zfull0.toLong.toBinaryString.length
       val zfullW  = binaryWidthSL(zfull0)
       val zShiftW = exW + fracW - zfullW
 //       println(f"sim: zfullW = ${zfullW}")
@@ -468,7 +460,6 @@ object MathFuncLogSim {
       // convert log2 to ln
 
       // 1/log2(e) < 1
-//       val oneOverLog2e = math.round(log(2.0) * (1 << (fracW+1))).toLong
       val oneOverLog2e = Real.log(Real.two)(fracW+1)
       assert((SafeLong(1)<<fracW) < oneOverLog2e && oneOverLog2e < (SafeLong(1)<<(fracW+1)))
 

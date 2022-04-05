@@ -435,7 +435,6 @@ class ACosOtherPath(
     // 2^-5 * 3/5 y^2
     //                                          +1 for normalize
     val c3over5 = ((SafeLong(3)<<(manW+1)) / SafeLong(5)).toBigInt.U((manW+1).W)
-//     val c3over5 = math.round(3.0/5.0 * (1<<(manW+1))).toLong.U((manW+1).W)
 
     val (ySqExInc, ySqManW1) = multiply(ymanW1, ymanW1)
     val (ySq3over5ExInc, ySq3over5ManW1) = multiply(ySqManW1, c3over5)
@@ -448,7 +447,6 @@ class ACosOtherPath(
     // We don't need to check if it exceeds 2 after addition.
 
     val c25over21 = ((SafeLong(25)<<manW) / SafeLong(21)).toBigInt.U((manW+1).W)
-//     val c25over21 = math.round(25.0/21.0 * (1<<manW)).toLong.U((manW+1).W)
 
     val (y25over21ExInc, y25over21ManW1) = multiply(ymanW1, c25over21)
     val y25over21Ex       = yex + y25over21ExInc
@@ -472,7 +470,6 @@ class ACosOtherPath(
     // 1/3 * y
 
     val c1over3 = ((SafeLong(1)<<(manW+2)) / SafeLong(3)).toBigInt.U((manW+1).W)
-//     val c1over3 = math.round(1.0/3.0 * (1<<(manW+2))).toLong
 
     val (yOver3ExInc, yOver3ManW1) = multiply(ymanW1, c1over3)
     val yOver3Ex = yex - 2.U + yOver3ExInc
@@ -589,7 +586,6 @@ class ACosPostProcess(
 
     val piEx    = 1
     val piFixed = Real.pi(fracW-1).toBigInt
-//     val piFixed = math.round(math.Pi * (1<<(fracW-1))).toLong
 
     val zmanShift   = (piEx + exBias).U(exW.W) - zex0
     val zmanShift0  = zmanShift(log2Up(fracW), 0)
@@ -632,7 +628,6 @@ class ACosPostProcess(
     val zmanNonTable = io.zother.zman.get
 
     val halfPiFixed = (Real.pi / Real.two)(fracW).toBigInt.U((fracW+1).W)
-//     val halfPiFixed = math.round(Pi * 0.5 * (1 << fracW)).U((fracW+1).W)
     val piman = (new RealGeneric(spec, Pi)).man.toLong.U(manW.W)
     val piex  = (new RealGeneric(spec, Pi)).ex.U(exW.W)
 
