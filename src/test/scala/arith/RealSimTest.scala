@@ -59,5 +59,21 @@ class RealSimTest extends AnyFunSuite with Matchers with BeforeAndAfterAllConfig
       zd should be (z0)
     }
   }
-  
+
+  test("Float 3-op add test") {
+    for(i <- 1 to n) {
+      val x = (r.nextDouble()-0.5)*128.0
+      val y = (r.nextDouble()-0.5)*128.0
+      val z = (r.nextDouble()-0.5)*128.0
+      val w0 = RealGeneric.fromDouble(RealSpec.Float64Spec, x + y + z)
+      val xr = RealGeneric.fromDouble(RealSpec.Float64Spec, x)
+      val yr = RealGeneric.fromDouble(RealSpec.Float64Spec, y)
+      val zr = RealGeneric.fromDouble(RealSpec.Float64Spec, z)
+      val wr = xr.add3op(RealSpec.Float64Spec, RoundSpec.roundToEven, yr, zr)
+
+      val diff = (w0.value - wr.value).toInt
+
+      diff should be <= 1
+    }
+  }
 }
