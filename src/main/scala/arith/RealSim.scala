@@ -438,6 +438,100 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
     }
   }
 
+  def add3op( resSpec : RealSpec, roundSpec : RoundSpec, y : RealGeneric, z : RealGeneric ) : RealGeneric = {
+
+    val (xnan,  ynan,  znan)  = (this.isNaN, y.isNaN, z.isNaN)
+    val (xinf,  yinf,  zinf)  = (this.isInfinite, y.isInfinite, z.isInfinite)
+    val (xzero, yzero, zzero) = (this.isZero, y.isZero, z.isZero)
+
+    val (xsgn,   ysgn,   zsgn)   = (this.sgn, y.sgn, z.sgn)
+    val (xex,    yex,    zex)    = (this.ex,  y.ex,  z.ex)
+    val (xmanW1, ymanW1, zmanW1) = (this.manW1, y.manW1, z.manW1)
+
+    val (xSpec, ySpec, zSpec) = (this.spec, y.spec, z.spec)
+
+    val wnan = znan || ynan || znan ||
+              (xinf && yinf && (xsgn != ysgn)) ||
+              (yinf && zinf && (ysgn != zsgn)) ||
+              (zinf && xinf && (zsgn != xsgn))
+
+    val winf0 = (xinf || yinf || zinf) && !wnan
+    val winf0sgn = ! ((xinf && (xsgn != 1)) || (yinf && (ysgn != 1)) || (zinf && (zsgn != 1)))
+
+    val wzero0 = xzero && yzero && zzero
+    val wzero0sgn = if(roundSpec == RoundSpec.truncate) {
+      if(xsgn == 1 || ysgn == 1 || zsgn == 1) {1} else {0}
+    } else {
+      if(xsgn == 1 && ysgn == 1 && zsgn == 1) {1} else {0}
+    }
+
+    if (wnan) {
+      if (resSpec.disableNaN) {
+        return inf(resSpec, 0)
+      } else {
+        return nan(resSpec)
+      }
+    }
+    if (winf0) {
+      return inf(resSpec, (if(winf0sgn) {1} else {0}))
+    }
+    if (wzero0) {
+      return zero(resSpec, wzero0sgn)
+    }
+
+    val fracW = Seq(xSpec.manW, ySpec.manW, zSpec.manW).max
+    val maxEx = Seq(xex - xSpec.exBias, yex - ySpec.exBias, zex - zSpec.exBias).max
+
+    // 1 for leading1, 2 for guard and rounding bits (stickies follows later)
+    val xmanPad = (1+fracW+fracW+2 - xSpec.manW)
+    val ymanPad = (1+fracW+fracW+2 - ySpec.manW)
+    val zmanPad = (1+fracW+fracW+2 - zSpec.manW)
+
+    val xmanW1padded = xmanW1 << xmanPad
+    val ymanW1padded = ymanW1 << ymanPad
+    val zmanW1padded = zmanW1 << zmanPad
+
+    val xShift = maxEx - (xex - xSpec.exBias)
+    val yShift = maxEx - (yex - ySpec.exBias)
+    val zShift = maxEx - (zex - zSpec.exBias)
+
+    val xSticky = if((xmanW1padded & maskSL(xShift - xmanPad)) != 0) {1} else {0}
+    val ySticky = if((ymanW1padded & maskSL(yShift - ymanPad)) != 0) {1} else {0}
+    val zSticky = if((zmanW1padded & maskSL(zShift - zmanPad)) != 0) {1} else {0}
+
+    val xmanW1Aligned =  ((xmanW1padded >> xShift) << 1) + xSticky
+    val ymanW1Aligned = (((ymanW1padded >> yShift) << 1) + ySticky) * (if(xsgn != ysgn) {-1} else {1})
+    val zmanW1Aligned = (((zmanW1padded >> zShift) << 1) + zSticky) * (if(xsgn != zsgn) {-1} else {1})
+
+    // note that the circuit uses 3:2 CSA and early normalization.
+    val sumAligned  = xmanW1Aligned + ymanW1Aligned + zmanW1Aligned
+    val sumNegative = sumAligned <  0
+    val sumZero     = sumAligned == 0
+    val sumPos      = if(sumNegative) {-sumAligned} else {sumAligned}
+
+    val resSgn = if(sumNegative) {xsgn ^ 1} else {xsgn}
+
+    val sumLeadingOne = sumPos.bitLength - 1
+    val sumRoundBits  = sumLeadingOne - resSpec.manW
+    val (resMan, exInc) = if(sumRoundBits > 0){
+      val rounded = roundBySpec(roundSpec, sumRoundBits, sumPos)
+      val moreThan2AfterRound = bit(resSpec.manW+1, rounded)
+      (rounded >> moreThan2AfterRound, moreThan2AfterRound)
+    } else {
+      (sumPos << (-sumRoundBits), 0)
+    }
+
+    // +3 means +2+sticky
+    val resEx = maxEx + (sumLeadingOne - (1+fracW+fracW+3)) + exInc + resSpec.exBias
+    if(resEx <= 0 || sumZero) {
+      zero(resSpec)
+    } else if(resEx >= maskI(resSpec.exW)) {
+      inf(resSpec, resSgn)
+    } else {
+      new RealGeneric(resSpec, resSgn, resEx, resMan)
+    }
+  }
+
   def toDouble : Double = {
     //println(sgn, ex, man)
     if (isNaN) return Double.NaN
