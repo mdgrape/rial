@@ -487,9 +487,9 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
     val ymanPad = (1+fracW+fracW+2 - ySpec.manW)
     val zmanPad = (1+fracW+fracW+2 - zSpec.manW)
 
-    val xmanW1padded = xmanW1 << xmanPad
-    val ymanW1padded = ymanW1 << ymanPad
-    val zmanW1padded = zmanW1 << zmanPad
+    val xmanW1padded = if(xzero) {SafeLong(0)} else {xmanW1 << xmanPad}
+    val ymanW1padded = if(yzero) {SafeLong(0)} else {ymanW1 << ymanPad}
+    val zmanW1padded = if(zzero) {SafeLong(0)} else {zmanW1 << zmanPad}
 
     val xShift = maxEx - (xex - xSpec.exBias)
     val yShift = maxEx - (yex - ySpec.exBias)
