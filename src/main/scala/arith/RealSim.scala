@@ -450,7 +450,7 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
 
     val (xSpec, ySpec, zSpec) = (this.spec, y.spec, z.spec)
 
-    val wnan = znan || ynan || znan ||
+    val wnan = xnan || ynan || znan ||
               (xinf && yinf && (xsgn != ysgn)) ||
               (yinf && zinf && (ysgn != zsgn)) ||
               (zinf && xinf && (zsgn != xsgn))
