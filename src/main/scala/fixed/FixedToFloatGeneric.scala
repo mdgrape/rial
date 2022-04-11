@@ -89,8 +89,8 @@ class FixedToFloatGeneric(
   }
   val zex0 = (zSpec.exBias + xSpec.W - 1 - xSpec.fracW).U - xclz + zexInc
 
-  printf("zman0 = %b\n", zman0)
-  printf("zex0  = %b\n", zex0 )
+//   printf("zman0 = %b\n", zman0)
+//   printf("zex0  = %b\n", zex0 )
 
   val zEx  = Wire(UInt(zSpec.exW.W))
   val zMan = Wire(UInt(zSpec.manW.W))
@@ -103,11 +103,11 @@ class FixedToFloatGeneric(
     zEx  := Mux(xzero, 0.U(zSpec.exW.W),  zex0)
     zMan := Mux(xzero, 0.U(zSpec.manW.W), zman0)
   }
-  printf("zEx   = %b\n", zEx  )
-  printf("zMan  = %b\n", zMan )
+//   printf("zEx   = %b\n", zEx  )
+//   printf("zMan  = %b\n", zMan )
 
   val z0 = if (zSpec.disableSign) {Cat(zEx, zMan)} else {Cat(zSgn, zEx, zMan)}
-  printf("z0    = %b(w=%d)\n", z0 , z0.getWidth.U)
+//   printf("z0    = %b(w=%d)\n", z0 , z0.getWidth.U)
 
   io.z := ShiftRegister(z0, nStage)
 }
