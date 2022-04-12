@@ -256,7 +256,11 @@ class AddFPGeneric(
   val zexMin = zexBaseMin - sumNearAbs.getWidth
   val zexW   = getWidthToRepresentNumbersAlwaysSigned( Seq(zexMin,  zexMax) )
   val zex0   = zexNorm.pad(zexW) - exSub + zman0(zSpec.manW).zext
-  val zeroAfterAdd = (zex0 < 0.S) || zeroSel
+  val zeroAfterAdd = if(zSpec.disableSubnormal){
+    (zex0 <= 0.S) || zeroSel // if subnormal is disabled, include ex==0 as zero.
+  } else {
+    (zex0 <  0.S) || zeroSel
+  }
   val infAfterAdd = zex0 >= maskI(zSpec.exW).S
 
   val zsgn0 = Mux(near, nearSign, xFarSign)
@@ -264,6 +268,9 @@ class AddFPGeneric(
   // Final
   val infOrNaN = xyInf || xyNaN || infAfterAdd
   val zero     = zeroAfterAdd||xyBothZero
+
+  dbgPrintf("zex0 = %d, zeroAfterAdd = %d\n", zex0, zeroAfterAdd)
+
   val zex = Mux (infOrNaN, maskU(zSpec.exW),
     Mux (zero, 0.U(zSpec.exW), zex0(zSpec.exW-1,0)))
   val zman = Mux(infOrNaN || zero, xyNaN ## 0.U((zSpec.manW-1).W), zman0(zSpec.manW-1, 0))
