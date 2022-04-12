@@ -21,7 +21,8 @@ class AddFPGeneric(
   xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, // Input / Output floating spec
   roundSpec : RoundSpec, // Rounding spec
   stage : PipelineStageConfig,
-  val enableDebug : Boolean = false
+  val enableDebug : Boolean = false,
+  val useParallelLZA : Boolean = false
 ) extends Module with DebugControlSlave {
 
   val nStage = stage.total
@@ -211,12 +212,50 @@ class AddFPGeneric(
   val sumNearSign = getMSB1(0,sumNear)
   val sumNearAbs = Mux(sumNearSign, -sumNear(maxManWxy+1,0), sumNear(maxManWxy+1,0))
 
-  val shiftSum    = PriorityEncoder(Reverse(sumNearAbs))
-  // 0 .. >=1
-  // 1 .. >=1/2 ...
-  val sumNearNorm = (sumNearAbs << shiftSum)(maxManWxy,0) // include (possible) round bit
+  val (shiftSum, sumNearNorm) = if(useParallelLZA) {
+    // --------------------------------------------------------------------------
+    // leading zero anticipation in parallel with subtraction
+    // (TODO: carry correction does not run in parallel)
+    val sumNearG  =   xNear  & (~yNearShift) // x > y  (Greater)
+    val sumNearS  = (~xNear) &   yNearShift  // x < y  (Smaller)
+    val sumNearE  = ~(sumNearG | sumNearS)   // x == y (otherwise)
+    val sumNearF  = VecInit(Seq.tabulate(sumNearE.getWidth)( i => {
+        val eNext = if(i+1 < sumNearE.getWidth) {sumNearE(i+1)} else {1.U(1.W)}
+        val sPrev = if(0 <= i-1) {sumNearS(i-1)} else {0.U(1.W)}
+        val gPrev = if(0 <= i-1) {sumNearG(i-1)} else {0.U(1.W)}
+        val sCurr = sumNearS(i)
+        val gCurr = sumNearG(i)
+        val term1 =   eNext  & ((gCurr & (~sPrev)) | (sCurr & (~gPrev)))
+        val term2 = (~eNext) & ((sCurr & (~sPrev)) | (gCurr & (~gPrev)))
+        term1 | term2
+      })).asUInt
+
+    assert(sumNearF.getWidth == sumNearE.getWidth)
+
+    val shiftApprox  = PriorityEncoder(Reverse(sumNearF))
+    val sumNearNorm0 = (sumNearAbs << shiftApprox)(maxManWxy+2,0)
+    val sumNearNorm  = Mux(sumNearNorm0(maxManWxy+2) === 1.U, // carry correction
+      sumNearNorm0(maxManWxy+1,1), sumNearNorm0(maxManWxy,0))
+    val shiftSum = shiftApprox - sumNearNorm0(maxManWxy+2)
+
+    if(enableDebug) {
+      val shiftRef = PriorityEncoder(Reverse(sumNearAbs))
+      assert(shiftRef === shiftSum)
+    }
+
+    (shiftSum, sumNearNorm)
+
+  } else {
+    // 0 .. >=1
+    // 1 .. >=1/2 ...
+    val shiftSum    = PriorityEncoder(Reverse(sumNearAbs))
+    val sumNearNorm = (sumNearAbs << shiftSum)(maxManWxy,0) // include (possible) round bit
+    (shiftSum, sumNearNorm)
+  }
+
   val sumNearZero = !sumNear.orR
   val nearSign    = (!sumNearZero) && (sumNearSign ^ xFarSign)
+
 
   // Rounding
   val zmanNear = Wire(UInt((zSpec.manW).W))
@@ -235,10 +274,10 @@ class AddFPGeneric(
     zmanNear := padLSB( zSpec.manW, sumNearNorm(maxManWxy, 0) )
   }
   when (near) {
-    dbgPrintf("xNear=%x yNear=%x nearShift=%d yNearShift=%x\n", xNear, yNear, nearShift, yNearShift)
-    dbgPrintf("sumNear=%x sumNearAbs=%x\n", sumNear, sumNearAbs)
+    dbgPrintf("xNear=%b yNear=%b nearShift=%d yNearShift=%b\n", xNear, yNear, nearShift, yNearShift)
+    dbgPrintf("sumNear=%b sumNearAbs=%b\n", sumNear, sumNearAbs)
     dbgPrintf("sumNearAbs=%b\n", sumNearAbs)
-    dbgPrintf("shiftSum=%d(%x) sumNearNorm=%x incNear=%b\n", shiftSum, shiftSum, sumNearNorm, incNear)
+    dbgPrintf("shiftSum=%d(%b) sumNearNorm=%b incNear=%b\n", shiftSum, shiftSum, sumNearNorm, incNear)
   }
 
   //----------------------------------------------------------------------
