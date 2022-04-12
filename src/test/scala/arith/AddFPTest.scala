@@ -72,31 +72,12 @@ class AddFPTest extends AnyFlatSpec
     }
   }
 
-  // p : x range
-  // q : result scale min
-  def generateRealSmallDifferencePair ( p : Double, q: Double, xSpec: RealSpec, ySpec: RealSpec, r : Random ) = {
+  def generateRealSmallDifferencePair ( p : Double, xSpec: RealSpec, ySpec: RealSpec, r : Random ) = {
     val x = generateRealWithin( p, xSpec, r )
-    val y = generateRealWithin( p, ySpec, r )
-    val scale = r.nextDouble() * (q+1.0)
-    if (r.nextInt(2)==0) {
-      val z =
-        if (scale>=q) {
-          new RealGeneric(xSpec, 0.0)
-        } else {
-          x.scalbn( -scale.toInt )
-        }
-      val xgen = y.negate().add(ySpec, RoundSpec.roundToEven, z)
-      (new RealGeneric(xSpec, xgen.toDouble), y)
-    } else {
-      val z =
-        if (scale>=q) {
-          new RealGeneric(ySpec, 0.0)
-        } else {
-          y.scalbn( -scale.toInt )
-        }
-      val ygen = x.negate().add(ySpec, RoundSpec.roundToEven, z)
-      (x, new RealGeneric(ySpec, ygen.toDouble))
-    }
+    val coef = ((r.nextDouble) * 3.0 + 1.0) / 2.0 // [0,1) -> [0,3) -> [1,4) -> [1/2, 2)
+    val yd = -1 * x.toDouble * coef
+
+    (x, new RealGeneric(ySpec, yd))
   }
 
   def addTest(xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, roundSpec : RoundSpec,
@@ -110,7 +91,7 @@ class AddFPTest extends AnyFlatSpec
         for (gen <- List(
           ("Test Within (-128,128)",generateRealWithinPair(128.0,_,_,_)),
           ("Test All range",generateRealFullPair(_,_,_)),
-          ("Test small result",generateRealSmallDifferencePair(128.0,60.0,_,_,_)),
+          ("Test near path result",generateRealSmallDifferencePair(128.0,_,_,_)),
           ("Test zero+y result",generateRealZeroNonZeroPair(true,_,_,_)),
           ("Test x+zero result",generateRealZeroNonZeroPair(false,_,_,_))
         ) ) {
