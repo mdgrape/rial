@@ -86,9 +86,10 @@ class ThreeOpAddFPGeneric(
   val zleqx = dexXZ.head(1).asBool || !dexXZ.orR
   assert(xleqy || yleqz || zleqx)
 
-  // 2*fracW + 6 includes sticky bit.
+  val intermedW = 1 + 2 + 1 + 2*fracW + 3
+
   def shiftAndCollectSticky(spec: RealSpec, manW1: UInt, shf: UInt, isZero: Bool) = {
-    val padded   = Cat(Seq(0.U(2.W), manW1, 0.U((2*fracW+6 - (2+1+spec.manW) - 1).W),
+    val padded   = Cat(Seq(0.U(3.W), manW1, 0.U((intermedW - (3+1+spec.manW) - 1).W),
                            0.U(manW1.getWidth.W)))
     val shiftOut = shf >= log2Up(2*fracW+6-2).U
     val shifted  = padded >> shf
@@ -100,15 +101,15 @@ class ThreeOpAddFPGeneric(
   val shiftXY = Mux(xleqy, shiftAndCollectSticky(ySpec, ymanW1, dexXY, yzero), shiftAndCollectSticky(xSpec, xmanW1, dexYX, xzero))
   val shiftYZ = Mux(yleqz, shiftAndCollectSticky(zSpec, zmanW1, dexYZ, zzero), shiftAndCollectSticky(ySpec, ymanW1, dexZY, yzero))
   val shiftZX = Mux(zleqx, shiftAndCollectSticky(xSpec, xmanW1, dexZX, xzero), shiftAndCollectSticky(zSpec, zmanW1, dexXZ, zzero))
-  val xpadded = Cat(Seq(0.U(2.W), Mux(xzero, 0.U((xSpec.manW+1).W), xmanW1), 0.U((2*fracW+6 - (2+1+xSpec.manW)).W)))
-  val ypadded = Cat(Seq(0.U(2.W), Mux(yzero, 0.U((ySpec.manW+1).W), ymanW1), 0.U((2*fracW+6 - (2+1+ySpec.manW)).W)))
-  val zpadded = Cat(Seq(0.U(2.W), Mux(zzero, 0.U((zSpec.manW+1).W), zmanW1), 0.U((2*fracW+6 - (2+1+zSpec.manW)).W)))
-  assert(shiftXY.getWidth == 2*fracW+6)
-  assert(shiftYZ.getWidth == 2*fracW+6)
-  assert(shiftZX.getWidth == 2*fracW+6)
-  assert(xpadded.getWidth == 2*fracW+6)
-  assert(ypadded.getWidth == 2*fracW+6)
-  assert(zpadded.getWidth == 2*fracW+6)
+  val xpadded = Cat(Seq(0.U(3.W), Mux(xzero, 0.U((xSpec.manW+1).W), xmanW1), 0.U((intermedW - (3+1+xSpec.manW)).W)))
+  val ypadded = Cat(Seq(0.U(3.W), Mux(yzero, 0.U((ySpec.manW+1).W), ymanW1), 0.U((intermedW - (3+1+ySpec.manW)).W)))
+  val zpadded = Cat(Seq(0.U(3.W), Mux(zzero, 0.U((zSpec.manW+1).W), zmanW1), 0.U((intermedW - (3+1+zSpec.manW)).W)))
+  assert(shiftXY.getWidth == intermedW)
+  assert(shiftYZ.getWidth == intermedW)
+  assert(shiftZX.getWidth == intermedW)
+  assert(xpadded.getWidth == intermedW)
+  assert(ypadded.getWidth == intermedW)
+  assert(zpadded.getWidth == intermedW)
 
   val exWidth   = Seq(xSpec.exW, ySpec.exW, zSpec.exW).max + 3
   val xexNobias = xex.zext.pad(exWidth) - xSpec.exBias.S(exWidth.W)
@@ -192,46 +193,51 @@ class ThreeOpAddFPGeneric(
   val xAlignedPos = Cat(Mux(xEffSgn.asBool, ~xAligned, xAligned), xPosLSBs)
   val yAlignedPos = Cat(Mux(yEffSgn.asBool, ~yAligned, yAligned), yPosLSBs)
   val zAlignedPos = Cat(Mux(zEffSgn.asBool, ~zAligned, zAligned), zPosLSBs)
-  dbgPrintf("xAlignedPos   = %b\n", xAlignedPos)
-  dbgPrintf("yAlignedPos   = %b\n", yAlignedPos)
-  dbgPrintf("zAlignedPos   = %b\n", zAlignedPos)
+  dbgPrintf("xAlignedPos = %b\n", xAlignedPos)
+  dbgPrintf("yAlignedPos = %b\n", yAlignedPos)
+  dbgPrintf("zAlignedPos = %b\n", zAlignedPos)
 
   val xAlignedNeg = Cat(Mux(xNegSgn.asBool, ~xAligned, xAligned), xNegLSBs)
   val yAlignedNeg = Cat(Mux(yNegSgn.asBool, ~yAligned, yAligned), yNegLSBs)
   val zAlignedNeg = Cat(Mux(zNegSgn.asBool, ~zAligned, zAligned), zNegLSBs)
-  dbgPrintf("xAlignedNeg   = %b\n", xAlignedNeg)
-  dbgPrintf("yAlignedNeg   = %b\n", yAlignedNeg)
-  dbgPrintf("zAlignedNeg   = %b\n", zAlignedNeg)
+  dbgPrintf("xAlignedNeg = %b\n", xAlignedNeg)
+  dbgPrintf("yAlignedNeg = %b\n", yAlignedNeg)
+  dbgPrintf("zAlignedNeg = %b\n", zAlignedNeg)
 
   // we assume that the aligned mantissas have overflow bit at their MSB
   def csa3to2(x: UInt, y: UInt, z: UInt) = {
     assert(x.getWidth == y.getWidth && x.getWidth == z.getWidth)
     val xyz0 = x ^ y ^ z
     val xyz1 = (x & y) | (y & z) | (z & x)
-    (xyz0, Cat(xyz1, 0.U(1.W)).tail(1))
+    (Cat(0.U(1.W), xyz0), Cat(xyz1, 0.U(1.W)))
   }
 
-  // TODO use 3:2CSA and 3-input LZA in parallel and early normalization to reduce delay
+  val (sum0Pos, sum1Pos) = csa3to2(xAlignedPos, yAlignedPos, zAlignedPos)
+  val (sum0Neg, sum1Neg) = csa3to2(xAlignedNeg, yAlignedNeg, zAlignedNeg)
 
-  val sumPos = xAlignedPos.asSInt +& yAlignedPos.asSInt +& zAlignedPos.asSInt
-  val sumNeg = xAlignedNeg.asSInt +& yAlignedNeg.asSInt +& zAlignedNeg.asSInt
-  dbgPrintf("sumPos    = %b\n", sumPos)
-  dbgPrintf("sumNeg    = %b\n", sumNeg)
-  val msbBits = 4 // 2 for overflow and here +2
+  val sumPos = (sum0Pos + sum1Pos).tail(1)
+  val sumNeg = (sum0Neg + sum1Neg).tail(1)
+  dbgPrintf("sum0Pos = %b\n", sum0Pos)
+  dbgPrintf("sum1Pos = %b\n", sum1Pos)
+  dbgPrintf("sumPos  = %b\n", sumPos)
+  dbgPrintf("sum0Neg = %b\n", sum0Neg)
+  dbgPrintf("sum1Neg = %b\n", sum1Neg)
+  dbgPrintf("sumNeg  = %b\n", sumNeg)
 
-  val useNeg = sumPos < 0.S
-  dbgPrintf("useNeg    = %b\n", useNeg)
-
+  val useNeg = sumPos.head(1).asBool
   val sum = Mux(useNeg, sumNeg.asUInt, sumPos.asUInt)
-  dbgPrintf("sum   = %b\n", sum)
+  val msbBits = 3
 
   val sumLeading1 = PriorityEncoder(Reverse(sum))
+  dbgPrintf("sumLeading1 = %d\n", sumLeading1)
+
   val sumShifted = (sum << sumLeading1)(sum.getWidth-1, 0)
   assert(sumShifted(sumShifted.getWidth-1) === 1.U || wzero0)
   val sumRoundBit = sum.getWidth-1 - (1+wSpec.manW)
   val sumLSB    = sumShifted(sumRoundBit+1)
   val sumRound  = sumShifted(sumRoundBit)
   val sumSticky = sumShifted(sumRoundBit-1, 0).orR
+  dbgPrintf("sumShift = %d\n", sumLeading1 - 2.U)
 
   val sumRoundInc = FloatChiselUtil.roundIncBySpec(roundSpec, sumLSB, sumRound, sumSticky)
 
@@ -240,8 +246,6 @@ class ThreeOpAddFPGeneric(
   val wexNobias = exMax -& sumLeading1.zext + msbBits.S + sumMoreThan2AfterRound.zext
   val wex0  = (wexNobias + wSpec.exBias.S)(wSpec.exW-1, 0)
   dbgPrintf("exMax       = %d\n", exMax)
-  dbgPrintf("sumLeading1 = %d\n", sumLeading1)
-  dbgPrintf("sum>2       = %d\n", sumMoreThan2AfterRound)
   dbgPrintf("wexNobias   = %d\n", wexNobias)
 
   val wzero = (wexNobias < wSpec.exMin.S) || wzero0
