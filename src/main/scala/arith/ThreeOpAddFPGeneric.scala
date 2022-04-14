@@ -210,14 +210,14 @@ class ThreeOpAddFPGeneric(
     assert(x.getWidth == y.getWidth && x.getWidth == z.getWidth)
     val xyz0 = x ^ y ^ z
     val xyz1 = (x & y) | (y & z) | (z & x)
-    (Cat(0.U(1.W), xyz0), Cat(xyz1, 0.U(1.W)))
+    (xyz0, Cat(xyz1, 0.U(1.W)).tail(1))
   }
 
   val (sum0Pos, sum1Pos) = csa3to2(xAlignedPos, yAlignedPos, zAlignedPos)
   val (sum0Neg, sum1Neg) = csa3to2(xAlignedNeg, yAlignedNeg, zAlignedNeg)
 
-  val sumPos = (sum0Pos + sum1Pos).tail(1)
-  val sumNeg = (sum0Neg + sum1Neg).tail(1)
+  val sumPos = sum0Pos + sum1Pos
+  val sumNeg = sum0Neg + sum1Neg
   dbgPrintf("sum0Pos = %b\n", sum0Pos)
   dbgPrintf("sum1Pos = %b\n", sum1Pos)
   dbgPrintf("sumPos  = %b\n", sumPos)
