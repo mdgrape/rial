@@ -86,12 +86,13 @@ class ThreeOpAddFPGeneric(
   val zleqx = dexXZ.head(1).asBool || !dexXZ.orR
   assert(xleqy || yleqz || zleqx)
 
-  val intermedW = 1 + 2 + 1 + 2*fracW + 3
+  val ovfBits = 3 // bits to protect from overflow
+  val intermedW = ovfBits + 1 + 2*fracW + 3
 
   def shiftAndCollectSticky(spec: RealSpec, manW1: UInt, shf: UInt, isZero: Bool) = {
-    val padded   = Cat(Seq(0.U(3.W), manW1, 0.U((intermedW - (3+1+spec.manW) - 1).W),
+    val padded   = Cat(Seq(0.U(ovfBits.W), manW1, 0.U((intermedW - (ovfBits+1+spec.manW) - 1).W),
                            0.U(manW1.getWidth.W)))
-    val shiftOut = shf >= log2Up(2*fracW+6-2).U
+    val shiftOut = shf >= log2Up(intermedW-ovfBits).U
     val shifted  = padded >> shf
     val sticky   = shifted(manW1.getWidth-1, 0).orR || shiftOut
     val retval   = Mux(isZero, 0.U, shifted(shifted.getWidth-1, manW1.getWidth))
@@ -101,9 +102,9 @@ class ThreeOpAddFPGeneric(
   val shiftXY = Mux(xleqy, shiftAndCollectSticky(ySpec, ymanW1, dexXY, yzero), shiftAndCollectSticky(xSpec, xmanW1, dexYX, xzero))
   val shiftYZ = Mux(yleqz, shiftAndCollectSticky(zSpec, zmanW1, dexYZ, zzero), shiftAndCollectSticky(ySpec, ymanW1, dexZY, yzero))
   val shiftZX = Mux(zleqx, shiftAndCollectSticky(xSpec, xmanW1, dexZX, xzero), shiftAndCollectSticky(zSpec, zmanW1, dexXZ, zzero))
-  val xpadded = Cat(Seq(0.U(3.W), Mux(xzero, 0.U((xSpec.manW+1).W), xmanW1), 0.U((intermedW - (3+1+xSpec.manW)).W)))
-  val ypadded = Cat(Seq(0.U(3.W), Mux(yzero, 0.U((ySpec.manW+1).W), ymanW1), 0.U((intermedW - (3+1+ySpec.manW)).W)))
-  val zpadded = Cat(Seq(0.U(3.W), Mux(zzero, 0.U((zSpec.manW+1).W), zmanW1), 0.U((intermedW - (3+1+zSpec.manW)).W)))
+  val xpadded = Cat(Seq(0.U(ovfBits.W), Mux(xzero, 0.U((xSpec.manW+1).W), xmanW1), 0.U((intermedW - (ovfBits+1+xSpec.manW)).W)))
+  val ypadded = Cat(Seq(0.U(ovfBits.W), Mux(yzero, 0.U((ySpec.manW+1).W), ymanW1), 0.U((intermedW - (ovfBits+1+ySpec.manW)).W)))
+  val zpadded = Cat(Seq(0.U(ovfBits.W), Mux(zzero, 0.U((zSpec.manW+1).W), zmanW1), 0.U((intermedW - (ovfBits+1+zSpec.manW)).W)))
   assert(shiftXY.getWidth == intermedW)
   assert(shiftYZ.getWidth == intermedW)
   assert(shiftZX.getWidth == intermedW)
@@ -226,13 +227,12 @@ class ThreeOpAddFPGeneric(
 
   val useNeg = sumPos.head(1).asBool
   val sum = Mux(useNeg, sumNeg.asUInt, sumPos.asUInt)
-  val msbBits = 3
 
   val sumLeading1 = PriorityEncoder(Reverse(sum))
-  dbgPrintf("sumLeading1 = %d\n", sumLeading1)
-
   val sumShifted = (sum << sumLeading1)(sum.getWidth-1, 0)
+  dbgPrintf("sumLeading1 = %d\n", sumLeading1)
   assert(sumShifted(sumShifted.getWidth-1) === 1.U || wzero0)
+
   val sumRoundBit = sum.getWidth-1 - (1+wSpec.manW)
   val sumLSB    = sumShifted(sumRoundBit+1)
   val sumRound  = sumShifted(sumRoundBit)
@@ -243,7 +243,7 @@ class ThreeOpAddFPGeneric(
 
   val wman0 = sumShifted(sum.getWidth-1, sum.getWidth - (1+wSpec.manW)) +& sumRoundInc
   val sumMoreThan2AfterRound = wman0(wSpec.manW+1)
-  val wexNobias = exMax -& sumLeading1.zext + msbBits.S + sumMoreThan2AfterRound.zext
+  val wexNobias = exMax -& sumLeading1.zext + ovfBits.S + sumMoreThan2AfterRound.zext
   val wex0  = (wexNobias + wSpec.exBias.S)(wSpec.exW-1, 0)
   dbgPrintf("exMax       = %d\n", exMax)
   dbgPrintf("wexNobias   = %d\n", wexNobias)
