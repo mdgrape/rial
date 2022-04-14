@@ -228,22 +228,22 @@ class ThreeOpAddFPGeneric(
   val useNeg = sumPos.head(1).asBool
   val sum = Mux(useNeg, sumNeg.asUInt, sumPos.asUInt)
 
-  val sumLeading1 = PriorityEncoder(Reverse(sum))
-  val sumShifted = (sum << sumLeading1)(sum.getWidth-1, 0)
-  dbgPrintf("sumLeading1 = %d\n", sumLeading1)
+  val sumShift = PriorityEncoder(Reverse(sum))
+  val sumShifted  = (sum << sumShift)(sum.getWidth-1, 0)
+  dbgPrintf("sumShift = %d\n", sumShift)
   assert(sumShifted(sumShifted.getWidth-1) === 1.U || wzero0)
 
   val sumRoundBit = sum.getWidth-1 - (1+wSpec.manW)
-  val sumLSB    = sumShifted(sumRoundBit+1)
-  val sumRound  = sumShifted(sumRoundBit)
-  val sumSticky = sumShifted(sumRoundBit-1, 0).orR
-  dbgPrintf("sumShift = %d\n", sumLeading1 - 2.U)
+  val sumLSB      = sumShifted(sumRoundBit+1)
+  val sumRound    = sumShifted(sumRoundBit)
+  val sumSticky   = sumShifted(sumRoundBit-1, 0).orR
+  dbgPrintf("sumShift = %d\n", sumShift - 2.U)
 
   val sumRoundInc = FloatChiselUtil.roundIncBySpec(roundSpec, sumLSB, sumRound, sumSticky)
 
   val wman0 = sumShifted(sum.getWidth-1, sum.getWidth - (1+wSpec.manW)) +& sumRoundInc
   val sumMoreThan2AfterRound = wman0(wSpec.manW+1)
-  val wexNobias = exMax -& sumLeading1.zext + ovfBits.S + sumMoreThan2AfterRound.zext
+  val wexNobias = exMax -& sumShift.zext + ovfBits.S + sumMoreThan2AfterRound.zext
   val wex0  = (wexNobias + wSpec.exBias.S)(wSpec.exW-1, 0)
   dbgPrintf("exMax       = %d\n", exMax)
   dbgPrintf("wexNobias   = %d\n", wexNobias)
