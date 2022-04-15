@@ -3,7 +3,7 @@
 // Simulators for reciprocal function
 // Copyright (C) Makoto Taiji RIKEN BDR 2020
 //
-package rial.math
+package rial.mathfunc
 
 import scala.language.reflectiveCalls
 import scala.math._
