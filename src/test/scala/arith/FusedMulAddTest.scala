@@ -9,7 +9,6 @@ import chiseltest.VerilatorBackendAnnotation
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
-import rial.math._
 import rial.arith._
 import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig
