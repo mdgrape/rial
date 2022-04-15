@@ -3,7 +3,7 @@
 // Reciprocal function
 // Copyright (C) Toru Niina RIKEN BDR 2020
 //
-package rial.mathfunc
+package rial.math
 
 import scala.language.reflectiveCalls
 import scala.math._
@@ -17,7 +17,7 @@ import rial.util.PipelineStageConfig._
 import rial.arith.RealSpec
 import rial.arith.FloatChiselUtil
 
-import rial.mathfunc._
+import rial.math._
 
 // 1/x, floating input, floating output
 // x   = 2^e * 1.m

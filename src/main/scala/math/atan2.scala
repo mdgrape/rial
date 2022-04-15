@@ -3,7 +3,7 @@
 // ATan2 function
 // Copyright (C) Toru Niina RIKEN BDR 2021
 //
-package rial.mathfunc
+package rial.math
 
 import java.lang.Math.scalb
 import scala.language.reflectiveCalls
@@ -23,7 +23,7 @@ import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig._
 import rial.arith._
 
-import rial.mathfunc._
+import rial.math._
 
 // ATan2 Stage1 calculates min(x,y)/max(x,y).
 //       Stage2 calculates atan(min(x,y)/max(x,y)) +/- constant.

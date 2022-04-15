@@ -3,7 +3,7 @@
 // Simulators for atan2(y, x) stage 1, calculating min(x,y)/max(x,y)
 // Copyright (C) Toru Niina RIKEN BDR 2021
 //
-package rial.mathfunc
+package rial.math
 
 import scala.language.reflectiveCalls
 import scala.math._

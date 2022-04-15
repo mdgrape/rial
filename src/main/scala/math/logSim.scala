@@ -3,7 +3,7 @@
 // Simulators for log2 and log(x)
 // Copyright (C) Toru Niina RIKEN BDR 2022
 //
-package rial.mathfunc
+package rial.math
 
 import scala.language.reflectiveCalls
 import scala.math._

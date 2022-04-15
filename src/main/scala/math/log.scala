@@ -3,7 +3,7 @@
 // log2 and ln function
 // Copyright (C) Toru Niina RIKEN BDR 2021
 //
-package rial.mathfunc
+package rial.math
 
 import scala.language.reflectiveCalls
 import scala.math._

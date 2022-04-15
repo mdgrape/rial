@@ -15,7 +15,7 @@ import spire.math.SafeLong
 import spire.math.Numeric
 import spire.implicits._
 
-import rial.mathfunc._
+import rial.math._
 import rial.util.ScalaUtil._
 import rial.testUtil.ScalaTestUtil._ // errorLSB
 import rial.arith._
