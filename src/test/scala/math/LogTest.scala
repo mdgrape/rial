@@ -28,7 +28,7 @@ import scala.language.reflectiveCalls
 // Testing Log using ChiselTest
 //
 
-class MathFuncLogTest extends AnyFlatSpec
+class LogTest extends AnyFlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
   behavior of "Test log"
@@ -74,14 +74,14 @@ class MathFuncLogTest extends AnyFlatSpec
           val maxCbits   = c.getMaxCbit
           val maxCalcW   = c.getMaxCalcW
 
-          val log2TableI = MathFuncLogSim.logNormalTableGeneration(
+          val log2TableI = LogSim.logNormalTableGeneration(
             spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
-          val log2SmallPositiveTableI = MathFuncLogSim.logSmallPositiveTableGeneration(
+          val log2SmallPositiveTableI = LogSim.logSmallPositiveTableGeneration(
             spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
-          val log2SmallNegativeTableI = MathFuncLogSim.logSmallNegativeTableGeneration(
+          val log2SmallNegativeTableI = LogSim.logSmallNegativeTableGeneration(
             spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
 
-          val reference  = MathFuncLogSim.logSimGeneric(/*islog2*/ false,
+          val reference  = LogSim.logSimGeneric(/*islog2*/ false,
             log2TableI, log2SmallPositiveTableI, log2SmallNegativeTableI, _ )
 
           // To avoid timeoutException while testing z == neg.
@@ -304,17 +304,17 @@ class LogOnlyTest extends AnyFlatSpec
           val maxCbits   = c.getCbit
           val maxCalcW   = c.getCalcW
 
-          val log2TableI = MathFuncLogSim.logNormalTableGeneration(
+          val log2TableI = LogSim.logNormalTableGeneration(
             spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
-          val log2SmallPositiveTableI = MathFuncLogSim.logSmallPositiveTableGeneration(
+          val log2SmallPositiveTableI = LogSim.logSmallPositiveTableGeneration(
             spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
-          val log2SmallNegativeTableI = MathFuncLogSim.logSmallNegativeTableGeneration(
+          val log2SmallNegativeTableI = LogSim.logSmallNegativeTableGeneration(
             spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
 
-          val reference  = MathFuncLogSim.logSimGeneric(/*islog2*/ false,
+          val reference  = LogSim.logSimGeneric(/*islog2*/ false,
             log2TableI, log2SmallPositiveTableI, log2SmallNegativeTableI, _ )
 
-          println(f"taylorThreshold = ${MathFuncLogSim.calcTaylorThreshold(spec)}")
+          println(f"taylorThreshold = ${LogSim.calcTaylorThreshold(spec)}")
 
           // To avoid timeoutException while testing z == neg.
           // Detailed explanation follows.
@@ -449,7 +449,7 @@ class LogOnlyTest extends AnyFlatSpec
   val adrWBF16 = 7
   val extraBitsBF16 = 1
 
-  val taylorThresholdBF16 = MathFuncLogSim.calcTaylorThreshold(RealSpec.BFloat16Spec)
+  val taylorThresholdBF16 = LogSim.calcTaylorThreshold(RealSpec.BFloat16Spec)
 
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
     "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))

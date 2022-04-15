@@ -124,7 +124,7 @@ class ACosPreProcess(
     //            |  +- 2^-4 bit
     //            +- hidden bit = 2^-1
 
-    val puiseuxThreshold = MathFuncACosSim.calcPuiseuxThreshold(manW, fracW-manW, 0)
+    val puiseuxThreshold = ACosSim.calcPuiseuxThreshold(manW, fracW-manW, 0)
     // 1 for hidden bit, 1 for table exponent
     val puiseuxMSBs = puiseuxThreshold.abs - 1 - 1
     val useSqrt = enable(io.en, (xex === (exBias-1).U) && xman(manW-1, manW-puiseuxMSBs).andR)
@@ -215,12 +215,12 @@ class ACosTableCoeff(
 
   if(order == 0) {
 
-    val cbit = MathFuncACosSim.acosTableGeneration( spec, order, adrW, manW, fracW )
+    val cbit = ACosSim.acosTableGeneration( spec, order, adrW, manW, fracW )
       .map( t => {t.getCBitWidth(/*sign mode = */1)} )
       .reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
 
     val tableIs = VecInit(
-      MathFuncACosSim.acosTableGeneration( spec, order, adrW, manW, fracW ).map(t => {
+      ACosSim.acosTableGeneration( spec, order, adrW, manW, fracW ).map(t => {
         t.getVectorWithWidth(cbit, /*sign mode = */ 1)
       })
     )
@@ -234,12 +234,12 @@ class ACosTableCoeff(
 
   } else {
 
-    val cbit = MathFuncACosSim.acosTableGeneration( spec, order, adrW, manW, fracW )
+    val cbit = ACosSim.acosTableGeneration( spec, order, adrW, manW, fracW )
       .map( t => {t.getCBitWidth(/*sign mode = */0)} )
       .reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
 
     val tableIs = VecInit(
-      MathFuncACosSim.acosTableGeneration( spec, order, adrW, manW, fracW ).map(t => {
+      ACosSim.acosTableGeneration( spec, order, adrW, manW, fracW ).map(t => {
         t.getVectorWithWidth(cbit, /*sign mode = */ 0)
       })
     )
@@ -276,7 +276,7 @@ object ACosTableCoeff {
     if(order == 0) {
       return Seq(fracW)
     } else {
-      return MathFuncACosSim.acosTableGeneration( spec, order, adrW, spec.manW, fracW ).
+      return ACosSim.acosTableGeneration( spec, order, adrW, spec.manW, fracW ).
         map( t => {t.getCBitWidth(/*sign mode = */0)} ).
         reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
     }
@@ -294,7 +294,7 @@ object ACosTableCoeff {
     if(order == 0) {
       return Seq(fracW)
     } else {
-      return MathFuncACosSim.acosTableGeneration( spec, order, adrW, spec.manW, fracW ).
+      return ACosSim.acosTableGeneration( spec, order, adrW, spec.manW, fracW ).
         map( t => {t.calcWidth} ).
         reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
     }
@@ -370,12 +370,12 @@ class ACosOtherPath(
 
   if(polySpec.order == 0) { // for BF16
 
-    val cbit = MathFuncACosSim.acosExTableGeneration( spec, order, adrW, manW, fracW )
+    val cbit = ACosSim.acosExTableGeneration( spec, order, adrW, manW, fracW )
       .map( t => {t.getCBitWidth(/*sign mode = */1)} )
       .reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
 
     val tableIs = VecInit(
-      MathFuncACosSim.acosExTableGeneration( spec, order, adrW, manW, fracW ).map(t => {
+      ACosSim.acosExTableGeneration( spec, order, adrW, manW, fracW ).map(t => {
         t.getVectorWithWidth(cbit, /*sign mode = */ 1)
       })
     )

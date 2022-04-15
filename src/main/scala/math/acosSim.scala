@@ -25,7 +25,7 @@ import rial.arith.RealGeneric
 import rial.arith.Rounding._
 import rial.arith._
 
-object MathFuncACosSim {
+object ACosSim {
 
   // assuming x, y, and z have the same spec.
   // since acos uses 2 different high-order series expansion,
@@ -148,10 +148,10 @@ object MathFuncACosSim {
       // additional cost.
 
       val (ySqExNobias, ySqManW1) =
-        MathFuncACosSim.multiply(spec, yexNobias, ymanW1, yexNobias, ymanW1)
+        ACosSim.multiply(spec, yexNobias, ymanW1, yexNobias, ymanW1)
 
       val (ySq3over5ExNobias, ySq3over5ManW1) =
-        MathFuncACosSim.multiply(spec, ySqExNobias, ySqManW1, -1, c3over5)
+        ACosSim.multiply(spec, ySqExNobias, ySqManW1, -1, c3over5)
 
       // ----------------------------------------------------------------------
       // 1 + 25/21 * 2^-2 * y
@@ -164,7 +164,7 @@ object MathFuncACosSim {
       assert(bit(manW, c25over21) == 1)
 
       val (y25over21ExNobias, y25over21ManW1) =
-        MathFuncACosSim.multiply(spec, yexNobias, ymanW1, 0, c25over21)
+        ACosSim.multiply(spec, yexNobias, ymanW1, 0, c25over21)
       assert(y25over21ExNobias < 0)
 
       val onePlus25over21yExNobias = 0
@@ -175,7 +175,7 @@ object MathFuncACosSim {
       // (3/5 * y^2) * (1 + 25/21 * 2^-2 * y)
 
       val (secondTermExNobias, secondTermManW1) =
-        MathFuncACosSim.multiply(spec, ySq3over5ExNobias, ySq3over5ManW1,
+        ACosSim.multiply(spec, ySq3over5ExNobias, ySq3over5ManW1,
           onePlus25over21yExNobias, onePlus25over21yManW1)
       assert(secondTermExNobias < 0)
 
@@ -186,7 +186,7 @@ object MathFuncACosSim {
       assert(bit(manW, c1over3) == 1)
 
       val (yOver3ExNobias, yOver3ManW1) =
-        MathFuncACosSim.multiply(spec, yexNobias, ymanW1, -2, c1over3)
+        ACosSim.multiply(spec, yexNobias, ymanW1, -2, c1over3)
       assert(yOver3ExNobias < 0)
 
       // ----------------------------------------------------------------------

@@ -28,7 +28,7 @@ import scala.language.reflectiveCalls
 // Testing Exp using ChiselTest
 //
 
-class MathFuncExpTest extends AnyFlatSpec
+class ExpTest extends AnyFlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
   behavior of "Test exp"
@@ -84,9 +84,9 @@ class MathFuncExpTest extends AnyFlatSpec
           val maxCbit    = c.getMaxCbit
           val maxCalcW   = c.getMaxCalcW
           val nstage     = c.getStage
-          val reftable   = MathFuncExpSim.pow2TableGeneration(
+          val reftable   = ExpSim.pow2TableGeneration(
             nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit) )
-          val reference  = MathFuncExpSim.expSimGeneric(false, reftable, _ )
+          val reference  = ExpSim.expSimGeneric(false, reftable, _ )
 
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
@@ -336,9 +336,9 @@ class ExpOnlyTest extends AnyFlatSpec
           val maxCbits   = c.getCbit
           val maxCalcW   = c.getCalcW
           val nstage     = c.getStage
-          val reftable   = MathFuncExpSim.pow2TableGeneration(
+          val reftable   = ExpSim.pow2TableGeneration(
             nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbits) )
-          val reference  = MathFuncExpSim.expSimGeneric(false, reftable, _ )
+          val reference  = ExpSim.expSimGeneric(false, reftable, _ )
 
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {

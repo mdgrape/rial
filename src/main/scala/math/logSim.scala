@@ -25,7 +25,7 @@ import rial.arith.RealGeneric
 import rial.arith.Rounding._
 import rial.arith._
 
-object MathFuncLogSim {
+object LogSim {
 
   def calcTaylorThreshold(spec: RealSpec): Int = {
     // log(1+x) = 1/ln(2) * (x - x^2/2 + x^3/3 - x^4/4 + O(x^5))

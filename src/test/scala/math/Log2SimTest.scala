@@ -13,7 +13,7 @@ import rial.util.ScalaUtil._
 import rial.arith._
 import rial.table._
 
-class MathFuncLog2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
+class Log2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   var n = 1000000
 
   override def beforeAll(configMap: ConfigMap) = {
@@ -59,7 +59,7 @@ class MathFuncLog2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         val z0   = log2(x0)
         val z0r  = new RealGeneric(spec, z0)
 
-        val zi   = MathFuncLogSim.logSimGeneric(/*islog2*/true, t, tSmallPos, tSmallNeg, x )
+        val zi   = LogSim.logSimGeneric(/*islog2*/true, t, tSmallPos, tSmallNeg, x )
         val zd   = zi.toDouble
         val erri = errorLSB(zi, z0r.toDouble)
         val errf = zi.toDouble - z0r.toDouble
@@ -136,11 +136,11 @@ class MathFuncLog2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val nOrderFP32    = 2
   val adrWFP32      = 8
   val extraBitsFP32 = 3
-  val log2FP32TableI              = MathFuncLogSim.logNormalTableGeneration       (RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32)
-  val log2FP32SmallPositiveTableI = MathFuncLogSim.logSmallPositiveTableGeneration(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32)
-  val log2FP32SmallNegativeTableI = MathFuncLogSim.logSmallNegativeTableGeneration(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32)
+  val log2FP32TableI              = LogSim.logNormalTableGeneration       (RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32)
+  val log2FP32SmallPositiveTableI = LogSim.logSmallPositiveTableGeneration(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32)
+  val log2FP32SmallNegativeTableI = LogSim.logSmallNegativeTableGeneration(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32)
 
-  val taylorThresholdFP32 = MathFuncLogSim.calcTaylorThreshold(RealSpec.Float32Spec)
+  val taylorThresholdFP32 = LogSim.calcTaylorThreshold(RealSpec.Float32Spec)
 
   log2Test(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
     "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_), 1)
@@ -185,11 +185,11 @@ class MathFuncLog2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val nOrderBF16    = 0
   val adrWBF16      = 7
   val extraBitsBF16 = 1
-  val log2BF16TableI              = MathFuncLogSim.logNormalTableGeneration       (RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16)
-  val log2BF16SmallPositiveTableI = MathFuncLogSim.logSmallPositiveTableGeneration(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16)
-  val log2BF16SmallNegativeTableI = MathFuncLogSim.logSmallNegativeTableGeneration(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16)
+  val log2BF16TableI              = LogSim.logNormalTableGeneration       (RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16)
+  val log2BF16SmallPositiveTableI = LogSim.logSmallPositiveTableGeneration(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16)
+  val log2BF16SmallNegativeTableI = LogSim.logSmallNegativeTableGeneration(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16)
 
-  val taylorThresholdBF16 = MathFuncLogSim.calcTaylorThreshold(RealSpec.BFloat16Spec)
+  val taylorThresholdBF16 = LogSim.calcTaylorThreshold(RealSpec.BFloat16Spec)
 
   log2Test(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
     "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_), 1)

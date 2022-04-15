@@ -20,7 +20,7 @@ import rial.util.ScalaUtil._
 import rial.arith._
 import rial.table._
 
-class MathFuncATan2Stage1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
+class ATan2Stage1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   var n = 10000
 
   override def beforeAll(configMap: ConfigMap) = {

@@ -13,7 +13,7 @@ import rial.util.ScalaUtil._
 import rial.arith._
 import rial.table._
 
-class MathFuncACosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
+class ACosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   var n = 1000000
 
   override def beforeAll(configMap: ConfigMap) = {
@@ -53,7 +53,7 @@ class MathFuncACosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         val z0   = acos(x0)
         val z0r  = new RealGeneric(spec, z0)
 
-        val zi   = MathFuncACosSim.acosSimGeneric(t, tSqrt, x, exTable )
+        val zi   = ACosSim.acosSimGeneric(t, tSqrt, x, exTable )
         val zd   = zi.toDouble
         val erri = errorLSB(zi, z0r.toDouble).toLong
 //         val errf = zi.toDouble - z0r.toDouble
@@ -126,9 +126,9 @@ class MathFuncACosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val adrWFP32      = 8
   val extraBitsFP32 = 3
 
-  val acosFP32Table = MathFuncACosSim.acosTableGeneration(RealSpec.Float32Spec,
+  val acosFP32Table = ACosSim.acosTableGeneration(RealSpec.Float32Spec,
     nOrderFP32, adrWFP32, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBitsFP32)
-  val sqrtFP32Table = MathFuncACosSim.sqrtTableGeneration(
+  val sqrtFP32Table = ACosSim.sqrtTableGeneration(
     nOrderFP32, adrWFP32, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBitsFP32)
 
   val smallValueFP32 = -4
@@ -157,12 +157,12 @@ class MathFuncACosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val adrWBF16      = 7
   val extraBitsBF16 = 1
 
-  val acosBF16Table = MathFuncACosSim.acosTableGeneration(RealSpec.BFloat16Spec,
+  val acosBF16Table = ACosSim.acosTableGeneration(RealSpec.BFloat16Spec,
     nOrderBF16, adrWBF16, RealSpec.BFloat16Spec.manW, RealSpec.BFloat16Spec.manW+extraBitsBF16)
-  val sqrtBF16Table = MathFuncACosSim.sqrtTableGeneration(
+  val sqrtBF16Table = ACosSim.sqrtTableGeneration(
     nOrderBF16, adrWBF16, RealSpec.BFloat16Spec.manW, RealSpec.BFloat16Spec.manW+extraBitsBF16)
 
-  val acosExBF16Table = MathFuncACosSim.acosExTableGeneration(RealSpec.BFloat16Spec,
+  val acosExBF16Table = ACosSim.acosExTableGeneration(RealSpec.BFloat16Spec,
     nOrderBF16, adrWBF16, RealSpec.BFloat16Spec.manW, RealSpec.BFloat16Spec.manW+extraBitsBF16)
 
   // since acos[BF16] does not use series expansion, we actually don't need to check the edge cases basically.
@@ -193,9 +193,9 @@ class MathFuncACosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val extraBitsFP48 = 4
   val float48Spec = new RealSpec(12, 2047, 35)
 
-  val acosFP48Table = MathFuncACosSim.acosTableGeneration(float48Spec,
+  val acosFP48Table = ACosSim.acosTableGeneration(float48Spec,
     nOrderFP48, adrWFP48, float48Spec.manW, float48Spec.manW+extraBitsFP48)
-  val sqrtFP48Table = MathFuncACosSim.sqrtTableGeneration(
+  val sqrtFP48Table = ACosSim.sqrtTableGeneration(
     nOrderFP48, adrWFP48, float48Spec.manW, float48Spec.manW+extraBitsFP48)
 
   val smallValueFP48 = -7

@@ -25,7 +25,7 @@ import rial.arith.RealGeneric
 import rial.arith.Rounding._
 import rial.arith._
 
-object MathFuncExpSim {
+object ExpSim {
 
   def expSimGeneric( isPow2: Boolean, t: FuncTableInt, x: RealGeneric ): RealGeneric = {
 

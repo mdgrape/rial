@@ -24,7 +24,7 @@ import scala.math._
 import scala.collection.mutable.Queue
 import scala.language.reflectiveCalls
 
-class MathFuncSinTest extends AnyFlatSpec
+class SinTest extends AnyFlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
   behavior of "Test sin"
@@ -67,10 +67,10 @@ class MathFuncSinTest extends AnyFlatSpec
           val maxCalcW   = c.getMaxCalcW
           val nstage     = c.getStage
 
-          val sinF32TableI = MathFuncSinCosSim.sincosTableGeneration(
+          val sinF32TableI = SinCosSim.sincosTableGeneration(
             nOrder, adrW, spec.manW, spec.manW+extraBits,
             Some(maxCalcW), Some(maxCbit), taylorOrder )
-          val reference  = MathFuncSinCosSim.sincosSimGeneric(/*isSin =*/true, sinF32TableI, _, taylorOrder )
+          val reference  = SinCosSim.sincosSimGeneric(/*isSin =*/true, sinF32TableI, _, taylorOrder )
 
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
@@ -272,10 +272,10 @@ class SinOnlyTest extends AnyFlatSpec
           val maxCalcW   = c.getCalcW
           val nstage     = c.getStage
 
-          val sinF32TableI = MathFuncSinCosSim.sincosTableGeneration(
+          val sinF32TableI = SinCosSim.sincosTableGeneration(
             nOrder, adrW, spec.manW, spec.manW+extraBits,
             Some(maxCalcW), Some(maxCbit), taylorOrder )
-          val reference  = MathFuncSinCosSim.sincosSimGeneric(/*isSin = */true, sinF32TableI, _, taylorOrder )
+          val reference  = SinCosSim.sincosSimGeneric(/*isSin = */true, sinF32TableI, _, taylorOrder )
 
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {

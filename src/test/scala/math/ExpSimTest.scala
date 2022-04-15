@@ -21,7 +21,7 @@ import rial.testUtil.ScalaTestUtil._ // errorLSB
 import rial.arith._
 import rial.table._
 
-class MathFuncExpSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
+class ExpSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   var n = 1000000
 
   override def beforeAll(configMap: ConfigMap) = {
@@ -56,7 +56,7 @@ class MathFuncExpSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         val z0   = exp(x0) // .toFloat
         val z0r  = new RealGeneric(spec, z0)
 
-        val zi   = MathFuncExpSim.expSimGeneric(/*isPow2*/ false, t, x )
+        val zi   = ExpSim.expSimGeneric(/*isPow2*/ false, t, x )
         val zd   = zi.toDouble
         val erri = errorLSB(zi, z0r).toLong
 
@@ -130,7 +130,7 @@ class MathFuncExpSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val adrWFP32      = 8
   val extraBitsFP32 = 3
 
-  val pow2FP32TableI = MathFuncExpSim.pow2TableGeneration(
+  val pow2FP32TableI = ExpSim.pow2TableGeneration(
     nOrderFP32, adrWFP32, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBitsFP32)
 
   expTest(pow2FP32TableI, RealSpec.Float32Spec, n, r,
@@ -157,7 +157,7 @@ class MathFuncExpSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val adrWBF16      = 7
   val extraBitsBF16 = 1
 
-  val pow2BF16TableI = MathFuncExpSim.pow2TableGeneration(
+  val pow2BF16TableI = ExpSim.pow2TableGeneration(
     nOrderBF16, adrWBF16, RealSpec.BFloat16Spec.manW, RealSpec.BFloat16Spec.manW+extraBitsBF16)
 
   expTest(pow2BF16TableI, RealSpec.BFloat16Spec, n, r,
@@ -184,7 +184,7 @@ class MathFuncExpSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val adrWFP64      = 12
   val extraBitsFP64 = 4
 
-  val pow2FP64TableI = MathFuncExpSim.pow2TableGeneration(
+  val pow2FP64TableI = ExpSim.pow2TableGeneration(
     nOrderFP64, adrWFP64, RealSpec.Float64Spec.manW, RealSpec.Float64Spec.manW+extraBitsFP64)
 
   expTest(pow2FP64TableI, RealSpec.Float64Spec, n, r,

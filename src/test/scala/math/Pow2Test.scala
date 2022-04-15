@@ -28,7 +28,7 @@ import scala.language.reflectiveCalls
 // Testing Pow2 using ChiselTest
 //
 
-class MathFuncPow2Test extends AnyFlatSpec
+class Pow2Test extends AnyFlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
   behavior of "Test pow2"
@@ -89,9 +89,9 @@ class MathFuncPow2Test extends AnyFlatSpec
           val maxCbit    = c.getMaxCbit
           val maxCalcW   = c.getMaxCalcW
           val nstage     = c.getStage
-          val reftable   = MathFuncExpSim.pow2TableGeneration(
+          val reftable   = ExpSim.pow2TableGeneration(
             nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit) )
-          val reference  = MathFuncExpSim.expSimGeneric(true, reftable, _ )
+          val reference  = ExpSim.expSimGeneric(true, reftable, _ )
 
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
@@ -339,9 +339,9 @@ class Pow2OnlyTest extends AnyFlatSpec
           val maxCbits   = c.getCbit
           val maxCalcW   = c.getCalcW
           val nstage     = c.getStage
-          val reftable   = MathFuncExpSim.pow2TableGeneration(
+          val reftable   = ExpSim.pow2TableGeneration(
             nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbits) )
-          val reference  = MathFuncExpSim.expSimGeneric(true, reftable, _ )
+          val reference  = ExpSim.expSimGeneric(true, reftable, _ )
 
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {

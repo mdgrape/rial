@@ -14,7 +14,7 @@ import rial.util.ScalaUtil._
 import rial.arith._
 import rial.table._
 
-class MathFuncInvSqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
+class InvSqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   var n = 100000
 
   override def beforeAll(configMap: ConfigMap) = {

@@ -28,7 +28,7 @@ import scala.language.reflectiveCalls
 // Testing InvSqrt using ChiselTest
 //
 
-class MathFuncInvSqrtTest extends AnyFlatSpec
+class InvSqrtTest extends AnyFlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
   behavior of "Test invsqrt"

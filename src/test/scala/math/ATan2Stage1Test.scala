@@ -28,7 +28,7 @@ import scala.language.reflectiveCalls
 // Testing ATan2Stage1 using ChiselTest
 //
 
-class MathFuncATan2Stage1Test extends AnyFlatSpec
+class ATan2Stage1Test extends AnyFlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
   behavior of "Test atan2Stage1"

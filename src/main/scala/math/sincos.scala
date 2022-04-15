@@ -72,7 +72,7 @@ class SinCosPreProcess(
   val exW    = spec.exW
   val manW   = spec.manW
   val exBias = spec.exBias
-  val exAdrW = MathFuncSinCosSim.calcExAdrW(spec, taylorOrder)
+  val exAdrW = SinCosSim.calcExAdrW(spec, taylorOrder)
 
   val adrW      = polySpec.adrW
   val fracW     = polySpec.fracW
@@ -245,8 +245,8 @@ class SinCosTableCoeff(
   val dxW       = polySpec.dxW
   val order     = polySpec.order
 
-  val taylorThreshold = MathFuncSinCosSim.calcTaylorThreshold(manW, taylorOrder)
-  val exAdrW = MathFuncSinCosSim.calcExAdrW(spec, taylorOrder)
+  val taylorThreshold = SinCosSim.calcTaylorThreshold(manW, taylorOrder)
+  val exAdrW = SinCosSim.calcExAdrW(spec, taylorOrder)
 
   val io = IO(new Bundle {
     val en  = Input(UInt(1.W))
@@ -275,12 +275,12 @@ class SinCosTableCoeff(
 
   } else {
 
-    val cbit = MathFuncSinCosSim.sincosTableGeneration( order, adrW, manW, fracW, None, None, taylorOrder )
+    val cbit = SinCosSim.sincosTableGeneration( order, adrW, manW, fracW, None, None, taylorOrder )
       .map( t => {t.getCBitWidth(/*sign mode = */0)} )
       .reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
 
     val tableIs = VecInit(
-      MathFuncSinCosSim.sincosTableGeneration( order, adrW, manW, fracW, None, None, taylorOrder ).map(t => {
+      SinCosSim.sincosTableGeneration( order, adrW, manW, fracW, None, None, taylorOrder ).map(t => {
         t.getVectorWithWidth(cbit, /*sign mode = */ 0)
       })
     )
@@ -319,7 +319,7 @@ object SinCosTableCoeff {
     if(order == 0) {
       return Seq(fracW)
     } else {
-      return MathFuncSinCosSim.
+      return SinCosSim.
         sincosTableGeneration( order, adrW, spec.manW, fracW, None, None, taylorOrder ).
         map( t => {t.getCBitWidth(/*sign mode = */0)} ).
         reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
@@ -339,7 +339,7 @@ object SinCosTableCoeff {
     if(order == 0) {
       return Seq(fracW)
     } else {
-      return MathFuncSinCosSim.
+      return SinCosSim.
         sincosTableGeneration( order, adrW, spec.manW, fracW, None, None, taylorOrder ).
         map( t => {t.calcWidth} ).
         reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
@@ -429,7 +429,7 @@ class SinCosOtherPath(
   // --------------------------------------------------------------------------
   // taylor expansion
 
-  val taylorThreshold = MathFuncSinCosSim.calcTaylorThreshold(manW, taylorOrder)
+  val taylorThreshold = SinCosSim.calcTaylorThreshold(manW, taylorOrder)
   val isTaylor        = yex < (taylorThreshold + exBias).U(exW.W)
 
   val zExTaylor  = Wire(UInt(exW.W))

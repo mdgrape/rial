@@ -13,7 +13,7 @@ import rial.util.ScalaUtil._
 import rial.arith._
 import rial.table._
 
-class MathFuncSqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
+class SqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   var n = 10000
 
   override def beforeAll(configMap: ConfigMap) = {

@@ -28,7 +28,7 @@ import scala.language.reflectiveCalls
 // Testing Sqrt using ChiselTest
 //
 
-class MathFuncSqrtTest extends AnyFlatSpec
+class SqrtTest extends AnyFlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
   behavior of "Test sqrt"

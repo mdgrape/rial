@@ -28,7 +28,7 @@ import scala.language.reflectiveCalls
 // Testing ACos using ChiselTest
 //
 
-class MathFuncACosTest extends AnyFlatSpec
+class ACosTest extends AnyFlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
   behavior of "Test acos"
@@ -70,16 +70,16 @@ class MathFuncACosTest extends AnyFlatSpec
           val maxCbit    = c.getMaxCbit
           val maxCalcW   = c.getMaxCalcW
           val nstage     = c.getStage
-          val acosF32TableI = MathFuncACosSim.acosTableGeneration(spec, nOrder, adrW,
+          val acosF32TableI = ACosSim.acosTableGeneration(spec, nOrder, adrW,
             spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit))
-          val sqrtF32TableI = MathFuncACosSim.sqrtTableGeneration(nOrder, adrW,
+          val sqrtF32TableI = ACosSim.sqrtTableGeneration(nOrder, adrW,
             spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit))
           val acosExTableI  = if(nOrder != 0) {None} else {
-            Some(MathFuncACosSim.acosExTableGeneration(spec, nOrder, adrW,
+            Some(ACosSim.acosExTableGeneration(spec, nOrder, adrW,
               spec.manW, spec.manW+extraBits))
           }
 
-          val reference  = MathFuncACosSim.acosSimGeneric(acosF32TableI, sqrtF32TableI, _, acosExTableI )
+          val reference  = ACosSim.acosSimGeneric(acosF32TableI, sqrtF32TableI, _, acosExTableI )
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
             val xi = generator(spec,r)
@@ -268,17 +268,17 @@ class ACosOnlyTest extends AnyFlatSpec
           val maxCbit    = c.getCbit
           val maxCalcW   = c.getCalcW
           val nstage     = c.getStage
-          val acosTableI = MathFuncACosSim.acosTableGeneration(spec, nOrder, adrW,
+          val acosTableI = ACosSim.acosTableGeneration(spec, nOrder, adrW,
             spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit))
-          val sqrtTableI = MathFuncACosSim.sqrtTableGeneration(nOrder, adrW,
+          val sqrtTableI = ACosSim.sqrtTableGeneration(nOrder, adrW,
             spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit))
 
           val acosExTableI = if(nOrder != 0) {None} else {
-            Some(MathFuncACosSim.acosExTableGeneration(spec, nOrder, adrW,
+            Some(ACosSim.acosExTableGeneration(spec, nOrder, adrW,
               spec.manW, spec.manW+extraBits))
           }
 
-          val reference  = MathFuncACosSim.acosSimGeneric(acosTableI, sqrtTableI, _, acosExTableI )
+          val reference  = ACosSim.acosSimGeneric(acosTableI, sqrtTableI, _, acosExTableI )
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
             val xi = generator(spec,r)

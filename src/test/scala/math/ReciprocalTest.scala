@@ -28,7 +28,7 @@ import scala.language.reflectiveCalls
 // Testing Reciprocal using ChiselTest
 //
 
-class MathFuncReciprocalTest extends AnyFlatSpec
+class ReciprocalTest extends AnyFlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
   behavior of "Test reciprocal"

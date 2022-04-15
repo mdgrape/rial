@@ -14,7 +14,7 @@ import rial.testUtil.ScalaTestUtil._ // errorLSB
 import rial.arith._
 import rial.table._
 
-class MathFuncSinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
+class SinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   var n = 1000000
 
   override def beforeAll(configMap: ConfigMap) = {
@@ -48,7 +48,7 @@ class MathFuncSinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         val z0   = sin(x0)
         val z0r  = new RealGeneric(spec, z0)
 
-        val zi   = MathFuncSinCosSim.sincosSimGeneric(true, ts, x, taylorOrder )
+        val zi   = SinCosSim.sincosSimGeneric(true, ts, x, taylorOrder )
         val zd   = zi.toDouble
         val erri = errorLSB(zi, z0r).toInt
 
@@ -122,7 +122,7 @@ class MathFuncSinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val adrWFP32       = 8
   val extraBitsFP32  = 3
 
-  val sinFP32TableItaylor5th = MathFuncSinCosSim.sincosTableGeneration(
+  val sinFP32TableItaylor5th = SinCosSim.sincosTableGeneration(
     nOrderFP32, adrWFP32, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBitsFP32,
     None, None, taylorOrder5th)
 
@@ -161,7 +161,7 @@ class MathFuncSinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   sinTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
     "Test 5th-order Within [-64pi, -32pi]", generateRealWithin( -64.0 * Pi,-32.0 * Pi, _,_), 3)
 
-  val sinFP32TableItaylor3rd = MathFuncSinCosSim.sincosTableGeneration(
+  val sinFP32TableItaylor3rd = SinCosSim.sincosTableGeneration(
     nOrderFP32, adrWFP32, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBitsFP32,
     None, None, taylorOrder3rd)
 
@@ -204,7 +204,7 @@ class MathFuncSinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val adrWBF16       = 7
   val extraBitsBF16  = 1
 
-  val sinBF16TableItaylor3rd = MathFuncSinCosSim.sincosTableGeneration(
+  val sinBF16TableItaylor3rd = SinCosSim.sincosTableGeneration(
     nOrderBF16, adrWBF16, RealSpec.BFloat16Spec.manW, RealSpec.BFloat16Spec.manW+extraBitsBF16,
     None, None, taylorOrder3rd)
 
@@ -249,7 +249,7 @@ class MathFuncSinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val adrWFP48       = 10
   val extraBitsFP48  = 4
 
-  val sinFP48TableItaylor3rd = MathFuncSinCosSim.sincosTableGeneration(
+  val sinFP48TableItaylor3rd = SinCosSim.sincosTableGeneration(
     nOrderFP48, adrWFP48, float48Spec.manW, float48Spec.manW+extraBitsFP48,
     None, None, taylorOrder3rd)
 
@@ -292,7 +292,7 @@ class MathFuncSinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val adrWFP64       = 12
   val extraBitsFP64  = 4
 
-  val sinFP64TableItaylor3rd = MathFuncSinCosSim.sincosTableGeneration(
+  val sinFP64TableItaylor3rd = SinCosSim.sincosTableGeneration(
     nOrderFP64, adrWFP64, RealSpec.Float64Spec.manW, RealSpec.Float64Spec.manW+extraBitsFP64,
     None, None, taylorOrder3rd)
 
