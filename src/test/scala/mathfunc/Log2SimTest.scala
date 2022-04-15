@@ -8,7 +8,6 @@ import spire.math.SafeLong
 import spire.math.Numeric
 import spire.implicits._
 
-import rial.math.Log2Sim
 import rial.mathfunc._
 import rial.util.ScalaUtil._
 import rial.arith._
