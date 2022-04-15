@@ -218,7 +218,7 @@ object MathFuncLogSim {
     // --------------------------------------------------------------------------
 
     val xexNobias = x.ex - exBias
-    val zint0     = if(xexNobias >= 0) {xexNobias} else {-xexNobias - 1}
+    val zint0     = SafeLong(if(xexNobias >= 0) {xexNobias} else {-xexNobias - 1})
 
 //     println(f"xexNobias = ${xexNobias}")
 //     println(f"zint0     = ${zint0}")
@@ -426,7 +426,7 @@ object MathFuncLogSim {
 //       println(f"sim: zfull0 = ${zfull0.toLong.toBinaryString}")
 
       assert(0L <= zfrac && zfrac < (SafeLong(1)<<fracW)) // avoid overflow in polynomial
-      assert(0 <= zfull0)
+      assert(0 <= zfull0, f"zfull0 = ${zfull0} < 0, zint = ${zint0}, zfrac = ${zfrac}")
       val zfullW  = binaryWidthSL(zfull0)
       val zShiftW = exW + fracW - zfullW
 //       println(f"sim: zfullW = ${zfullW}")
