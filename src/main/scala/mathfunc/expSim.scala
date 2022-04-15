@@ -188,4 +188,13 @@ object MathFuncExpSim {
 
     new RealGeneric(x.spec, 0, zex.toInt, z)
   }
+
+  def pow2TableGeneration(order: Int, adrW: Int, manW: Int, fracW: Int,
+      calcWidthSetting: Option[Seq[Int]] = None,
+      cbitSetting: Option[Seq[Int]] = None
+    ) = {
+    val tableD = new FuncTableDouble( x => pow(2.0, x)-1.0, order )
+    tableD.addRange(0.0, 1.0, 1<<adrW)
+    new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
+  }
 }

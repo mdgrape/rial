@@ -13,7 +13,6 @@ import spire.math.SafeLong
 import spire.math.Numeric
 import spire.implicits._
 
-import rial.math.ExponentialSim
 import rial.mathfunc._
 import rial.arith._
 import rial.table._
@@ -85,7 +84,7 @@ class MathFuncExpTest extends AnyFlatSpec
           val maxCbit    = c.getMaxCbit
           val maxCalcW   = c.getMaxCalcW
           val nstage     = c.getStage
-          val reftable   = ExponentialSim.pow2TableGeneration(
+          val reftable   = MathFuncExpSim.pow2TableGeneration(
             nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit) )
           val reference  = MathFuncExpSim.expSimGeneric(false, reftable, _ )
 
@@ -337,7 +336,7 @@ class ExpOnlyTest extends AnyFlatSpec
           val maxCbits   = c.getCbit
           val maxCalcW   = c.getCalcW
           val nstage     = c.getStage
-          val reftable   = ExponentialSim.pow2TableGeneration(
+          val reftable   = MathFuncExpSim.pow2TableGeneration(
             nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbits) )
           val reference  = MathFuncExpSim.expSimGeneric(false, reftable, _ )
 
