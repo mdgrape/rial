@@ -81,7 +81,7 @@ class GenRandomFloat01(
   val zmanW1     = Reverse((rndBits >> zerosAtLSB)(manW, 0))
 
   assert(exBias - (rndBits.getWidth+1) >= 0)
-  assert(zmanW1(manW) === 0.U)
+  assert(zmanW1(manW) === 1.U)
 
   val z = Cat(zsgn, zex, zmanW1.tail(1))
   assert(z.getWidth == spec.W)
@@ -129,7 +129,8 @@ class GenRandomFloat01Full(
   val rndForMan = rndBits(manW-1 + nBitsForEx, nBitsForEx)
 
   val zsgn = 0.U(1.W)
-  val zex  = Mux(rndForEx === 0.U, 0.U, PriorityEncoder(rndForEx) + 1.U)
+  val zex  = Mux(rndForEx === 0.U, 0.U(exW.W),
+                 (exBias - 1).U(exW.W) - PriorityEncoder(rndForEx))
   val zman0 = rndForMan
   val zman = if(spec.disableSubnormal) {
     Mux(zex === 0.U, 0.U(manW.W), zman0)
