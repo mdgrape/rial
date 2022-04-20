@@ -274,8 +274,22 @@ class Uniform01FullTest extends AnyFlatSpec
       test( new GenRandomFloat01Full(32, spec, stage)).
         withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
         {
-          val nstage = stage.total
           val nnum = c.nRndInt
+
+          // check if it works with rnd === 0.U first
+          var zerochecked = false
+          for(i <- 1 until 2) {
+            for(j <- 0 until nnum) {
+              c.io.rnds(j).poke(0.U(32.W))
+            }
+            val z = c.io.z.peek().litValue.toBigInt
+            assert(z == 0, "if all the rnds are zero, z should also be zero")
+            zerochecked = true
+            c.clock.step(1)
+          }
+          assert(zerochecked, "zero case should be checked")
+
+          val nstage = stage.total
           var zs = scala.collection.mutable.ArraySeq.empty[Double]
 
           val xmax   = 1.0
