@@ -143,3 +143,74 @@ class GenRandomFloat01Full(
 
   io.z := ShiftRegister(z, nStage)
 }
+
+// generate Float in [0, 1).
+// This generates all the possible normalized numbers in [0, 1).
+class GenRandomFloat01FullPipe(
+  rndW: Int, // random number width
+  spec: RealSpec,
+  ) extends Module {
+
+  def getParam = { (rndW, spec) }
+
+  val exW  = spec.exW
+  val manW = spec.manW
+  val exBias = spec.exBias
+
+  // If the exponent differs by 1, the region that has smaller exponent has
+  // 2 times less numbers than the larger exponent region. That means that,
+  // there are the same number of FP numbers between a region that corresponds
+  // to exponent = n and exponent = m where m < n. So the probability of getting
+  // exponent = n is 1/2.
+  // So, to determine the exponent, we do "coin toss" until we get "head".
+  // Each bit of random numbers should have no correlation, so we can use those
+  // bits as a result of coin toss. This means that, the exponent can be
+  // calculated as the 0s at one end (or 1s, whatever).
+
+  val nRndsForEx  = (exBias / rndW) + (if(exBias % rndW == 0) {0} else {1})
+  val nRndsForMan = (manW   / rndW) + (if(manW   % rndW == 0) {0} else {1})
+
+  val io = IO(new Bundle {
+    val rnd   = Input(UInt(rndW.W))
+    val valid = Output(Bool())
+    val z     = Output(UInt(spec.W.W))
+  })
+
+  val doneEx   = RegInit(false.B)
+  val countMan = RegInit(nRndsForMan.U)
+
+  val zsgn  = 0.U(1.W)
+  val zex   = RegInit((exBias - 1).U(exW.W))
+  val zman  = RegInit(0.U(manW.W))
+
+  // default output (overwritten later)
+  io.valid := false.B
+  io.z     := 0.U
+
+  when(doneEx) {
+    val countManNext = countMan - 1.U
+    val zmanNext     = (zman << rndW.U)(manW-1, 0) | (io.rnd)(manW.min(rndW)-1, 0)
+    when(countManNext === 0.U) {
+      // output and reset
+      val z = Cat(zsgn, zex, zmanNext)
+      assert(z.getWidth == spec.W)
+      io.z     := z
+      io.valid := true.B
+
+      zex      := (exBias-1).U(exW.W)
+      zman     := 0.U
+      doneEx   := false.B
+      countMan := nRndsForMan.U
+    } otherwise {
+      zman     := zmanNext
+      countMan := countManNext
+    }
+  } otherwise {
+    val rndHas1 = io.rnd =/= 0.U
+    val nZeros  = Mux( !rndHas1, rndW.U, PriorityEncoder(io.rnd))
+    val zexNext = zex -& nZeros
+    val zexNeg  = zexNext.head(1) === 1.U
+    zex    := Mux(zexNeg, 0.U(exW.W), zexNext)
+    doneEx := rndHas1 || zexNeg
+  }
+}
