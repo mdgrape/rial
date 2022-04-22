@@ -29,10 +29,8 @@ object SinCosSim {
 
   def sincosSimGeneric(
     isSin: Boolean,
-    ts: Seq[FuncTableInt],
     t:  FuncTableInt,
     x:  RealGeneric,
-    taylorOrder: Int
   ) : RealGeneric = {
 
     val spec = x.spec
