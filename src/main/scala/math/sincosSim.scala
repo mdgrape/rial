@@ -296,8 +296,8 @@ object SinCosSim {
     ) = {
     val tableD = new FuncTableDouble( x0 => {
       val x = x0 / 2.0 // convert [0, 1) into [0, 1/2)
-      val z = sin(Pi*x)/(4.0*x)
-      assert(0.5 <= z && z < 1.0)
+      val z = if(x == 0) {Pi/4.0} else {sin(Pi*x)/(4.0*x)}
+      assert(0.5 <= z && z < 1.0, f"x = ${x}, sin(Pi*x) = ${sin(Pi*x)}, z = ${z}")
       z
     }, order )
     tableD.addRange(0.0, 1.0, 1<<adrW)
