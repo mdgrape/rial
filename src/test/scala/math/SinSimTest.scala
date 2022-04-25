@@ -32,7 +32,8 @@ class SinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   def sinTest(ts : Seq[FuncTableInt], taylorOrder: Int, spec : RealSpec, n : Int, r : Random,
     generatorStr    : String,
     generator       : ( (RealSpec, Random) => RealGeneric),
-    tolerance       : Int ) = {
+    tolerance       : Int
+    ) = {
     test(s"sin(x), format ${spec.toStringShort}, ${generatorStr}") {
 
       var maxError    = SafeLong(0)
@@ -92,7 +93,7 @@ class SinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
             }
           }
 
-          assert(erri.abs<=tolerance)
+          assert(erri.abs <= tolerance)
 
           if (maxError < erri.abs) {
             maxError    = erri.abs
@@ -325,11 +326,26 @@ class SinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
 //     "Test 3rd-order Within [16pi, 32pi]", generateRealWithin(16.0 * Pi, 32.0 * Pi,_,_), 7)
 //   sinTest(sinFP64TableItaylor3rd, taylorOrder3rd, RealSpec.Float64Spec, n, r,
 //     "Test 3rd-order Within [32pi, 64pi]", generateRealWithin(32.0 * Pi, 64.0 * Pi,_,_), 7)
-// 
+//
 //   sinTest(sinFP64TableItaylor3rd, taylorOrder3rd, RealSpec.Float64Spec, n, r,
 //     "Test 3rd-order Within [-32pi, -16pi]", generateRealWithin( -32.0 * Pi,-16.0 * Pi, _,_), 7)
 //   sinTest(sinFP64TableItaylor3rd, taylorOrder3rd, RealSpec.Float64Spec, n, r,
 //     "Test 3rd-order Within [-64pi, -32pi]", generateRealWithin( -64.0 * Pi,-32.0 * Pi, _,_), 7)
 
-
+  val delta = pow(2.0, -32)
+  sinTest(sinFP64TableItaylor3rd, taylorOrder3rd, RealSpec.Float64Spec, n, r,
+    "Test sin around 0", generateRealWithin(-delta*Pi, delta*Pi,_,_), 8)
+  sinTest(sinFP64TableItaylor3rd, taylorOrder3rd, RealSpec.Float64Spec, n, r,
+    "Test sin around pi/2", generateRealWithin((0.5-delta)*Pi, (0.5+delta)*Pi,_,_), 8)
+// XXX since sin(x) is evaluated by converting x into the range [0, pi/2],
+//     sin(pi - eps) is converted to sin(eps). So, if x is close to pi,
+//     cancellation error extremely reduces the precision of the result.
+//     So the following test case cannot gain as much precision as others.
+//     If eps is enough small, the result from taylor path will be selected,
+//     but sin(x) = x - x^3/pi cannot gain precision if x^2/pi < 2^-manW
+//     because of numerical error.
+//   sinTest(sinFP64TableItaylor3rd, taylorOrder3rd, RealSpec.Float64Spec, n, r,
+//     "Test sin around pi", generateRealWithin((1-delta)*Pi, (1+delta)*Pi,_,_), 8)
+  sinTest(sinFP64TableItaylor3rd, taylorOrder3rd, RealSpec.Float64Spec, n, r,
+    "Test sin around 3pi/2", generateRealWithin((1.5-delta)*Pi, (1.5+delta)*Pi,_,_), 8)
 }
