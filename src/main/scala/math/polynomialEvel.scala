@@ -25,13 +25,14 @@ class PolynomialSpec (
   val nOrder          : Int,
   val adrW            : Int,
   val extraBits       : Int,
+      dxW0            : Option[Int] = None,
   val enableRangeCheck: Boolean = true,
-  val enableRounding  : Boolean = false
+  val enableRounding  : Boolean = false,
 ) {
   val manW = spec.manW
   def order : Int = {if(adrW == manW) {0} else {nOrder}}
   def fracW : Int = {manW + extraBits}
-  def dxW   : Int = {manW - adrW}
+  def dxW   : Int = {dxW0.getOrElse(manW - adrW)}
 }
 
 class PolynomialEval(
