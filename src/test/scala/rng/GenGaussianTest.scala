@@ -23,14 +23,10 @@ import scala.math._
 import scala.collection.mutable.Queue
 import scala.language.reflectiveCalls
 
-//
-// Test GenRandomFloat12 using chi-squared test.
-//
-
 class SinCos2PiTest extends AnyFlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
-  behavior of "Test uniform real distribution [1, 2)"
+  behavior of "Test Fixed -> FP sin(2Pi*x)/cos(2Pi*x) for BoxMuller"
 
   var n = 10000
 
@@ -159,4 +155,93 @@ class SinCos2PiTest extends AnyFlatSpec
     n, r, "Test FP32 sin",generateRandomUInt, 3)
   runtest(false, 32, RealSpec.Float32Spec, polySpecFP32, PipelineStageConfig.none,
     n, r, "Test FP32 cos",generateRandomUInt, 3)
+}
+
+
+class Sqrt2LogXTest extends AnyFlatSpec
+    with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
+
+  behavior of "Test Fixed -> FP sqrt(-2log(x)) for Box-Muller"
+
+  var n = 10000
+
+  override def beforeAll(configMap: ConfigMap) = {
+    n = configMap.getOptional[String]("n").getOrElse("10000").toInt
+    println(s"ncycle=$n")
+  }
+
+  val r = new Random(123456789)
+
+  def generateRandomUInt(width: Int, r: Random) = {
+    val rnd = SafeLong(r.nextLong)
+    rnd & maskSL(width)
+  }
+
+  private def runtest ( rndW: Int, spec : RealSpec, polySpec: PolynomialSpec,
+      stage: PipelineStageConfig,
+      n : Int, r : Random, generatorStr : String,
+      generator : ( (Int, Random) => SafeLong),
+      tolerance : Double
+  ) = {
+    val total = stage.total
+    val pipeconfig = stage.getString
+    it should f"sqrt(-2log(x)) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
+      test( new Sqrt2LogX(rndW, spec, polySpec, stage)).
+        withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
+        {
+          val nstage = stage.total
+
+          val reference = (x: SafeLong) => {
+            val xr = x.toDouble / (SafeLong(1) << rndW).toDouble
+            val z  = sqrt(-2.0 * log(1.0 - xr))
+            new RealGeneric(spec, z)
+          }
+
+          val q  = new Queue[(BigInt,RealGeneric)]
+          for(i <- 1 to n+nstage) {
+            val xi  = generator(rndW, r)
+            val z0r = reference(xi)
+            q += ((xi.toBigInt, z0r))
+
+            c.io.x.poke(xi.toBigInt.U(spec.W.W))
+            val zi = c.io.z.peek().litValue.toBigInt
+            c.clock.step(1)
+            if (i > nstage) {
+              val (xid,z0d) = q.dequeue()
+
+              val xidsgn = bit(spec.W-1, xid).toInt
+              val xidexp = slice(spec.manW, spec.exW, xid)
+              val xidman = xid & maskSL(spec.manW)
+
+              val zisgn = bit(spec.W-1, zi).toInt
+              val ziexp = slice(spec.manW, spec.exW, zi)
+              val ziman = zi & maskSL(spec.manW)
+              val zid = new RealGeneric(spec, zisgn, ziexp.toInt, ziman)
+
+              val z0dsgn = z0d.sgn
+              val z0dexp = z0d.ex
+              val z0dman = z0d.man
+
+              val diff = (zid.toDouble - z0d.toDouble).abs
+
+              val xr = xid.toDouble / (SafeLong(1) << rndW).toDouble
+
+              assert(diff <= Seq(tolerance, z0d.toDouble * tolerance).max,
+                     f"x = ${xid.toLong.toBinaryString}(${xr}), z = ${sqrt(-2.0*log(1.0 - xr))}, "+
+                     f"test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString})(${new RealGeneric(spec, zisgn, ziexp.toInt, ziman).toDouble}) != " +
+                     f"ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})(${new RealGeneric(spec, z0dsgn, z0dexp.toInt, z0dman).toDouble})")
+            }
+          }
+        }
+      }
+    }
+  }
+  val rndW = 32
+  val nOrderFP32    = 2
+  val adrWFP32      = 8
+  val extraBitsFP32 = 3 // should be >= 3
+  val polySpecFP32  = new PolynomialSpec(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, Some(rndW - adrWFP32))
+
+  runtest(rndW, RealSpec.Float32Spec, polySpecFP32, PipelineStageConfig.none,
+    n, r, "Test Fixed sqrt(-2log(x)) to FP32",generateRandomUInt, 15 * pow(2.0, -23))
 }
