@@ -65,7 +65,7 @@ class Log2Test extends AnyFlatSpec
     val total = stage.total
     val pipeconfig = stage.getString
     it should f"log2(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
-      test( new MathFunctions(spec, nOrder, adrW, extraBits, stage, false, false)).
+      test( new MathFunctions(spec, nOrder, adrW, extraBits, stage, None, false, false)).
         withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
         {
           // since table result depends on these values, it is unavoidable to
@@ -307,7 +307,7 @@ class Log2OnlyTest extends AnyFlatSpec
     val total = stage.total
     val pipeconfig = stage.getString
     it should f"log(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
-      test( new LogGeneric(false, spec, nOrder, adrW, extraBits, stage, false, false)).
+      test( new LogGeneric(false, spec, nOrder, adrW, extraBits, stage, None, false, false)).
         withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
         {
           // since table result depends on these values, it is unavoidable to

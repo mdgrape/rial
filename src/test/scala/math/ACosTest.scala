@@ -64,7 +64,7 @@ class ACosTest extends AnyFlatSpec
     val total = stage.total
     val pipeconfig = stage.getString
     it should f"acos(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
-      test( new MathFunctions(spec, nOrder, adrW, extraBits, stage, false, false)).
+      test( new MathFunctions(spec, nOrder, adrW, extraBits, stage, None, false, false)).
         withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
         {
           val maxCbit    = c.getMaxCbit
@@ -261,7 +261,7 @@ class ACosOnlyTest extends AnyFlatSpec
     val total = stage.total
     val pipeconfig = stage.getString
     it should f"acos(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
-      test( new ACosGeneric(spec, nOrder, adrW, extraBits, stage, false, false)).
+      test( new ACosGeneric(spec, nOrder, adrW, extraBits, stage, None, false, false)).
         withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
         {
 //           println("----------------------------")

@@ -65,7 +65,7 @@ class ReciprocalTest extends AnyFlatSpec
     val total = stage.total
     val pipeconfig = stage.getString
     it should f"reciprocal(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
-      test( new MathFunctions(spec, nOrder, adrW, extraBits, stage, false, false)).
+      test( new MathFunctions(spec, nOrder, adrW, extraBits, stage, None, false, false)).
         withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
         {
           val maxCbit    = c.getMaxCbit
@@ -198,7 +198,7 @@ class ReciprocalOnlyTest extends AnyFlatSpec
     val total = stage.total
     val pipeconfig = stage.getString
     it should f"reciprocal(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
-      test( new ReciprocalGeneric(spec, nOrder, adrW, extraBits, stage, false, false)).
+      test( new ReciprocalGeneric(spec, nOrder, adrW, extraBits, stage, None, false, false)).
         withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
         {
           val maxCbit    = c.getCbit

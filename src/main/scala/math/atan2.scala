@@ -770,8 +770,9 @@ class ATan2Generic(
   val stage1: MathFuncPipelineConfig, // x/y stage config
   val stage2: MathFuncPipelineConfig, // atan stagel config
   val stageGap: Boolean,              // register between stage1 result to stage2
+  val dxW0 : Option[Int] = None,
   val enableRangeCheck: Boolean = true,
-  val enablePolynomialRounding: Boolean = false,
+  val enablePolynomialRounding: Boolean = false
 ) extends Module {
 
   val pcGap1 = if(stage1.preCalcGap ) {1} else {0}
@@ -790,10 +791,10 @@ class ATan2Generic(
 
   val sGap = if(stageGap) {1} else {0}
 
-  val nStage   = stage1.total + stage2.total
+  val nStage   = stage1.total + sGap + stage2.total
   def getStage = nStage
 
-  val polySpec = new PolynomialSpec(spec, nOrder, adrW, extraBits,
+  val polySpec = new PolynomialSpec(spec, nOrder, adrW, extraBits, dxW0,
     enableRangeCheck, enablePolynomialRounding)
   val order = polySpec.order
 

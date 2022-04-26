@@ -68,7 +68,7 @@ class ATan2OnlyTest extends AnyFlatSpec
     val pipeconfig2 = if(stage2.preStage.total != 0) {"complex"} else if (stage1.preCalcGap) {"simple"} else {"none"}
     val pipeconfig = pipeconfig1 + " + " + pipeconfig2
     it should f"atan2(x, y) pipereg ${pipeconfig} spec ${spec.toStringShort} $generatorStr " in {
-      test( new ATan2Generic(spec, nOrder, adrW, extraBits, stage1, stage2, false, false)).
+      test( new ATan2Generic(spec, nOrder, adrW, extraBits, stage1, stage2, true, None, false, false)).
         withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
         {
           val maxCbit    = c.getCbit
@@ -86,7 +86,7 @@ class ATan2OnlyTest extends AnyFlatSpec
           val generatorX = generateRealWithin(-1.0, 1.0, _, _)
 
           val q  = new Queue[(BigInt,BigInt,BigInt)]
-          for(i <- 1 to n+2*nstage) {
+          for(i <- 1 to n+nstage) {
 //             println("test: -----------------------------------------------------")
             val xi = generatorX(spec,r)
             val yi = generatorYoverX(spec,r)
@@ -105,6 +105,7 @@ class ATan2OnlyTest extends AnyFlatSpec
             for(j <- 0 until stage1.total) {
               c.clock.step(1)
             }
+            c.clock.step(1) // stage gap
             for(j <- 0 until stage2.total) {
               c.clock.step(1)
             }

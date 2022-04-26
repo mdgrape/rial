@@ -64,7 +64,7 @@ class ATan2Stage1Test extends AnyFlatSpec
     val total = stage.total
     val pipeconfig = stage.getString
     it should f"atan2Stage1(x, y) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
-      test( new MathFunctions(spec, nOrder, adrW, extraBits, stage, false, false)).
+      test( new MathFunctions(spec, nOrder, adrW, extraBits, stage, None, false, false)).
         withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
         {
           val maxCbit    = c.getMaxCbit

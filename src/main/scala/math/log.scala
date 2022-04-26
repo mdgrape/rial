@@ -668,6 +668,7 @@ class LogGeneric(
   val spec: RealSpec,
   val nOrder: Int, val adrW : Int, val extraBits : Int, // Polynomial spec
   val stage: MathFuncPipelineConfig,
+  val dxW0 : Option[Int] = None,
   val enableRangeCheck: Boolean = true,
   val enablePolynomialRounding: Boolean = false,
 ) extends Module {
@@ -682,7 +683,7 @@ class LogGeneric(
   val nStage   = stage.total
   def getStage = nStage
 
-  val polySpec = new PolynomialSpec(spec, nOrder, adrW, extraBits,
+  val polySpec = new PolynomialSpec(spec, nOrder, adrW, extraBits, dxW0,
     enableRangeCheck, enablePolynomialRounding)
   val order = polySpec.order
 
