@@ -48,17 +48,39 @@ class SinCos2Pi(
     val z     = Output(UInt(spec.W.W))
   })
 
+  // detect special values
+  val xExactQuot = io.x(rndW-3, 0) === 0.U
+  val xHighIs0   = io.x(rndW-1, rndW-2) === 0.U
+  val xHighIs1   = io.x(rndW-1, rndW-2) === 1.U
+  val xHighIs2   = io.x(rndW-1, rndW-2) === 2.U
+  val xHighIs3   = io.x(rndW-1, rndW-2) === 3.U
+
   // convert x in [0, 1) to [0, 1/4).
+  // Since we convert x range, in case of x is exactly N/4, the resulting x
+  // will become indistinguishable from 0. but sin(0) and sin(2pi/4) completely
+  // differ to each other. We need to check if x is exactly 1/4, 2/4, or 3/4.
+  val zone = Wire(Bool())
   val zsgn = Wire(UInt(1.W))
   val x = Wire(UInt((rndW-2).W))
   when(io.isSin) {
-    zsgn := io.x(rndW-1)
-    x := Mux(io.x(rndW-2) === 1.U, ~(io.x(rndW-3, 0))+1.U, io.x(rndW-3, 0))
-  } otherwise {
-    zsgn := io.x(rndW-1) ^ io.x(rndW-2)
-    x := Mux(io.x(rndW-2) === 0.U, ~(io.x(rndW-3, 0))+1.U, io.x(rndW-3, 0))
-  }
 
+    x := Mux(io.x(rndW-2) === 1.U, ~(io.x(rndW-3, 0))+1.U, io.x(rndW-3, 0))
+
+    // x is exactly 1/4 or 3/4
+    zone := (xHighIs1 || xHighIs3) && xExactQuot
+    // if x is exactly 0 or 1/2, then the result is exactly zero, not -0.
+    zsgn := io.x(rndW-1) & ~((xHighIs0 || xHighIs2) && xExactQuot).asUInt
+
+  } otherwise {
+
+    x := Mux(io.x(rndW-2) === 0.U, ~(io.x(rndW-3, 0))+1.U, io.x(rndW-3, 0))
+
+    // x is exactly 0 or 1/2
+    zone := (xHighIs0 || xHighIs2) && xExactQuot
+    // if x is exactly 1/4 or 3/4, then the result is exactly zero, not -0.
+    zsgn := (io.x(rndW-1) ^ io.x(rndW-2)) &
+            ~((xHighIs1 || xHighIs3) && xExactQuot).asUInt
+  }
   val adr = x(x.getWidth-1, x.getWidth-adrW)
 
   // in a range x in [0, 1/4), 4 < sin(2pix)/x <= 2pi.
@@ -94,7 +116,7 @@ class SinCos2Pi(
   val xzero  = x === 0.U
   val xShift = Mux(xzero, 0.U, PriorityEncoder(Reverse(x)))
   val xAligned = (x << xShift)(x.getWidth-1, 0)
-  assert(xAligned(x.getWidth-1) === 1.U)
+  assert(xAligned(x.getWidth-1) === 1.U || xzero)
 
   val zProd      = xAligned * polyRes
   val zProdW     = x.getWidth + fracW
@@ -110,8 +132,8 @@ class SinCos2Pi(
                                              Cat(1.U(1.W), zRounded(manW-1, 0)))
   val zexInc     = zMoreThan2 + zMoreThan2AfterRound
 
-  val zex  = Mux(xzero, 0.U, (exBias-1).U(exW.W) - xShift + zexInc)
-  val zman = Mux(xzero, 0.U, zmanW1(manW-1, 0))
+  val zex  = Mux(zone, exBias.U(exW.W), Mux(xzero, 0.U, (exBias-1).U(exW.W) - xShift + zexInc))
+  val zman = Mux(zone || xzero, 0.U, zmanW1(manW-1, 0))
 
   val z = Cat(zsgn, zex, zman)
   assert(z.getWidth == spec.W)
