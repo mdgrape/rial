@@ -107,17 +107,22 @@ object SinCosSim {
 //     println(f"sim:xOverPiAligned = ${xOverPiAligned}")
 
     // than3/2: 11, than1: 10, than1/2: 01, else: 00
-    val yman0 = if(isSin) {
+    val (yex0, yman0) = if(isSin) {
+      // pi/2 < x < pi || 3/2 pi < x < 2pi
       if (xOverPiAlignedMoreThan3over2 || xOverPiAlignedMoreThan1over2) {
-        (SafeLong(1) << (1+xOverPiFracW-1)) - slice(0, 1+xOverPiFracW-1, xOverPiAligned)
+        (exBias, (SafeLong(1) << (1+xOverPiFracW-1)) - slice(0, 1+xOverPiFracW-1, xOverPiAligned))
+      } else if(xOverPiAlignedMoreThan1) { // pi < x < 3/2 pi
+        (exBias, slice(0, 1+xOverPiFracW-1, xOverPiAligned))
       } else {
-        slice(0, 1+xOverPiFracW-1, xOverPiAligned)
+        // 0 < x < pi/2 (0 < y < 1/2). If x is small, it should not be aligned to pi.
+        assert(xOverPiEx < exBias)
+        (xOverPiEx, xOverPi)
       }
     } else {
       if (xOverPiAlignedMoreThan3over2 || xOverPiAlignedMoreThan1over2) {
-        slice(0, 1+xOverPiFracW-2, xOverPiAligned)
+        (exBias, slice(0, 1+xOverPiFracW-2, xOverPiAligned))
       } else {
-        (SafeLong(1) << (1+xOverPiFracW-2)) - slice(0, 1+xOverPiFracW-2, xOverPiAligned)
+        (exBias, (SafeLong(1) << (1+xOverPiFracW-2)) - slice(0, 1+xOverPiFracW-2, xOverPiAligned))
       }
     }
 
@@ -140,7 +145,7 @@ object SinCosSim {
 //       println(f"sim:yman0Shifted = ${yman0Shifted}")
 //       println(f"sim:yman0Rounded = ${yman0Rounded.toLong.toBinaryString}")
 
-      ((exBias-yman0Shift+yman0MoreThan2).toInt, slice(0, manW, yman0Rounded))
+      ((yex0-yman0Shift+yman0MoreThan2).toInt, slice(0, manW, yman0Rounded))
     }
 
     assert(yex  <= exBias-1)
