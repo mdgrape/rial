@@ -44,7 +44,9 @@ object SinCosSim {
     // ------------------------------------------------------------------------
     // calc x/pi
 
-    val oneOverPiPad = manW
+    // 12 is the minimum width for BF16 to keep result within 2bit error from FP64 result
+    val oneOverPiPad = Seq(manW+1, 12).max
+
     // 1/2 > 1/pi > 1/4, (1/pi).exNobias == -2, and 2 extra bits for rounding
 //     val oneOverPi = math.round(1.0 / math.Pi * (1L << (manW+2+oneOverPiPad))).toBigInt
     val oneOverPi = (Real.one / Real.pi)(manW+2+oneOverPiPad)
