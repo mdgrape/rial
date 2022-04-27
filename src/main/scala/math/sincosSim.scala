@@ -108,14 +108,15 @@ object SinCosSim {
 
     // than3/2: 11, than1: 10, than1/2: 01, else: 00
     val (yex0, yman0) = if(isSin) {
-      // pi/2 < x < pi || 3/2 pi < x < 2pi
       if (xOverPiAlignedMoreThan3over2 || xOverPiAlignedMoreThan1over2) {
+        // pi/2 < x < pi || 3/2 pi < x < 2pi
         (exBias, (SafeLong(1) << (1+xOverPiFracW-1)) - slice(0, 1+xOverPiFracW-1, xOverPiAligned))
-      } else if(xOverPiAlignedMoreThan1) { // pi < x < 3/2 pi
+      } else if(xOverPiAlignedMoreThan1 || (exBias <= xOverPiEx && xOverPiAligned2MSBs == 0)) {
+        // pi < x < 3/2 pi, or 2Npi < (2N+1/2)pi, N>1
         (exBias, slice(0, 1+xOverPiFracW-1, xOverPiAligned))
       } else {
         // 0 < x < pi/2 (0 < y < 1/2). If x is small, it should not be aligned to pi.
-        assert(xOverPiEx < exBias)
+        assert(xOverPiEx < exBias, f"xOverPiEx = ${xOverPiEx}, exBias = ${exBias}")
         (xOverPiEx, xOverPi)
       }
     } else {
