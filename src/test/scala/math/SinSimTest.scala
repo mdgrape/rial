@@ -273,13 +273,13 @@ class SinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   sinTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
     "Test sin Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 8)
 
-  val delta = pow(2.0, -28)
+  val delta = pow(2.0, -32)
   sinTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
     "Test sin around 0", generateRealWithin(-delta*Pi, delta*Pi,_,_), 8)
   sinTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
     "Test sin around pi/2", generateRealWithin((0.5-delta)*Pi, (0.5+delta)*Pi,_,_), 8)
-//   sinTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
-//     "Test sin around pi", generateRealWithin((1-delta)*Pi, (1+delta)*Pi,_,_), 8, /*relative tolerance = */true)
+  sinTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+    "Test sin around pi", generateRealWithin((1-delta)*Pi, (1+delta)*Pi,_,_), 8)
   sinTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
     "Test sin around 3pi/2", generateRealWithin((1.5-delta)*Pi, (1.5+delta)*Pi,_,_), 8)
 
