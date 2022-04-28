@@ -166,13 +166,24 @@ class SinCosPreProcess(
   // remove bits that represent larger than 2
   val ymanPos =  xOverPiAligned.tail(2)
   val ymanNeg = ~xOverPiAligned.tail(2) + 1.U
+
+  // sin(x)                 cos(x)
+  // 2MSBs 00 01 10 11      2MSBs 00 01 10 11     MSB(0) | isSin  |   res
+  //      |  :  :  :  :          |  :  :  :  :   --------+--------+--------
+  //      | .-. :  :  :        .-|-.:  :  :.-:      0    | sin(1) | ymanPos
+  // _____|'_:_': _:__:     __.__|__:__:__:__:      1    | sin(1) | ymanNeg
+  //   _.'|  :  :'._.':          |  :'.:.':  :      0    | cos(0) | ymanNeg
+  //      |  :  :  :  :          |  :  :  :  :      1    | cos(0) | ymanPos
+  //         '--'  '--'          '--'  '--'
+  //         pi-x                pi/2-x
+
   val ymanAligned = Mux(xOverPiAligned2MSBs(0) ^ io.isSin, ymanPos, ymanNeg)
 
   // if 0 < x < pi/2, then we use x/pi itself to avoid
   // loss of precision due to alignment to pi.
   val ymanAsIs = xOverPi(xOverPi.getWidth-1, 2)
   val yexAsIs  = xOverPiEx
-  val nonAlign = (!xOverPiExMoreThan1 && xOverPiAligned2MSBs === 0.U)
+  val nonAlign = (!xOverPiExMoreThan1 && xOverPiAligned2MSBs === 0.U && io.isSin)
 
   assert(ymanAsIs.getWidth == ymanPos.getWidth)
   val yman0    = Mux(nonAlign, ymanAsIs, ymanAligned)
