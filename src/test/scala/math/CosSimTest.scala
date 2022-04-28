@@ -34,7 +34,7 @@ class CosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     new RealGeneric(spec, rD)
   }
 
-  def cosTest(ts : Seq[FuncTableInt], taylorOrder: Int, spec : RealSpec, n : Int, r : Random,
+  def cosTest( t: FuncTableInt, spec : RealSpec, n : Int, r : Random,
     generatorStr    : String,
     generator       : ( (RealSpec, Random) => RealGeneric),
     tolerance       : Int ) = {
@@ -57,7 +57,7 @@ class CosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
 //         val z0f  = libc.cosf(x.toFloat)
 //         assert(z0f.toDouble - pow(2.0, -22) < z0 && z0 < z0f.toDouble + pow(2.0, -22))
 
-        val zi   = SinCosSim.sincosSimGeneric(false, ts, x, taylorOrder )
+        val zi   = SinCosSim.sincosSimGeneric(false, t, x )
         val zd   = zi.toDouble
         val erri = errorLSB(zi, z0r).toInt
 
@@ -128,132 +128,97 @@ class CosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     }
   }
 
-  val nOrderFP32 = 2
-  val adrWFP32 = 8
-  val extraBitsFP32 = 3
-  val taylorOrder5th = 5
-  val taylorOrder3rd = 3
+  val nOrderFP32     = 2
+  val adrWFP32       = 8
+  val extraBitsFP32  = 3
 
-  val sinFP32TableItaylor5th = SinCosSim.sincosTableGeneration(
+  val sinFP32TableI = SinCosSim.sincosTableGeneration(
     nOrderFP32, adrWFP32, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBitsFP32,
-    None, None, taylorOrder5th)
+    None, None)
 
-  cosTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
-    "Test FP32 5th-order Within [-10pi, -2pi]", generateRealWithin(-10 * Pi, -2 * Pi,_,_), 3)
-  cosTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
-    "Test FP32 5th-order Within [-2pi, -1.5pi]", generateRealWithin(-2 * Pi, -1.5 * Pi,_,_), 3)
-  cosTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
-    "Test FP32 5th-order Within [-1.5pi, -pi]", generateRealWithin(-1.5 * Pi, -Pi,_,_), 3)
-  cosTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
-    "Test FP32 5th-order Within [-pi, -pi/2]", generateRealWithin(-Pi, -0.5 * Pi,_,_), 3)
-  cosTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
-    "Test FP32 5th-order Within [-pi/2, -2^-12pi]", generateRealWithin(-0.5*Pi, -pow(2.0, -12)*Pi,_,_), 3)
-  cosTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
-    "Test FP32 5th-order Within [-2^-12pi, 0]", generateRealWithin(-pow(2.0, -12)*Pi, 0.0,_,_), 3)
-  cosTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
-    "Test FP32 5th-order Within [0, 2^-12pi]", generateRealWithin(0.0, pow(2.0, -12)*Pi,_,_), 3)
-  cosTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
-    "Test FP32 5th-order Within [2^-12pi, pi/2]", generateRealWithin(pow(2.0, -12)*Pi, 0.5*Pi,_,_), 3)
-  cosTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
-    "Test FP32 5th-order Within [pi/2, pi]", generateRealWithin(0.5*Pi, Pi,_,_), 3)
-  cosTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
-    "Test FP32 5th-order Within [pi, 3/2pi]", generateRealWithin(Pi, 1.5*Pi,_,_), 3)
-  cosTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
-    "Test FP32 5th-order Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 3)
-  cosTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
-    "Test FP32 5th-order Within [2pi, 10pi]", generateRealWithin(2.0 * Pi, 10.0 * Pi,_,_), 3)
+  cosTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+    "Test cos Within [-2pi, -1.5pi]", generateRealWithin(-2 * Pi, -1.5 * Pi,_,_), 3)
+  cosTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+    "Test cos Within [-1.5pi, -pi]", generateRealWithin(-1.5 * Pi, -Pi,_,_), 3)
+  cosTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+    "Test cos Within [-pi, -pi/2]", generateRealWithin(-Pi, -0.5 * Pi,_,_), 3)
+  cosTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+    "Test cos Within [-pi/2, -2^-12pi]", generateRealWithin(-0.5*Pi, -pow(2.0, -12)*Pi,_,_), 3)
+  cosTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+    "Test cos Within [-2^-12pi, 0]", generateRealWithin(-pow(2.0, -12)*Pi, 0.0,_,_), 3)
+  cosTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+    "Test cos Within [0, 2^-12pi]", generateRealWithin(0.0, pow(2.0, -12)*Pi,_,_), 3)
+  cosTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+    "Test cos Within [2^-12pi, pi/2]", generateRealWithin(pow(2.0, -12)*Pi, 0.5*Pi,_,_), 3)
+  cosTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+    "Test cos Within [pi/2, pi]", generateRealWithin(0.5*Pi, Pi,_,_), 3)
+  cosTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+    "Test cos Within [pi, 3/2pi]", generateRealWithin(Pi, 1.5*Pi,_,_), 3)
+  cosTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+    "Test cos Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 3)
 
-  cosTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
-    "Test FP32 5th-order Within [16pi, 32pi]", generateRealWithin(16.0 * Pi, 32.0 * Pi,_,_), 3)
-  cosTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
-    "Test FP32 5th-order Within [32pi, 64pi]", generateRealWithin(32.0 * Pi, 64.0 * Pi,_,_), 3)
+  // over +/- 2pi
 
-  cosTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
-    "Test FP32 5th-order Within [-32pi, -16pi]", generateRealWithin( -32.0 * Pi,-16.0 * Pi, _,_), 3)
-  cosTest(sinFP32TableItaylor5th, taylorOrder5th, RealSpec.Float32Spec, n, r,
-    "Test FP32 5th-order Within [-64pi, -32pi]", generateRealWithin( -64.0 * Pi,-32.0 * Pi, _,_), 3)
+  cosTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+    "Test cos Within [-10pi, -2pi]", generateRealWithin(-10 * Pi, -2 * Pi,_,_), 3)
+  cosTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+    "Test cos Within [2pi, 10pi]", generateRealWithin(2.0 * Pi, 10.0 * Pi,_,_), 3)
 
-  val sinFP32TableItaylor3rd = SinCosSim.sincosTableGeneration(
-    nOrderFP32, adrWFP32, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBitsFP32,
-    None, None, taylorOrder3rd)
+  cosTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+    "Test cos Within [16pi, 32pi]", generateRealWithin(16.0 * Pi, 32.0 * Pi,_,_), 3)
+  cosTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+    "Test cos Within [32pi, 64pi]", generateRealWithin(32.0 * Pi, 64.0 * Pi,_,_), 3)
 
-  cosTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
-    "Test FP32 3rd-order Within [-10pi, -2pi]", generateRealWithin(-10 * Pi, -2 * Pi,_,_), 3)
-  cosTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
-    "Test FP32 3rd-order Within [-2pi, -1.5pi]", generateRealWithin(-2 * Pi, -1.5 * Pi,_,_), 3)
-  cosTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
-    "Test FP32 3rd-order Within [-1.5pi, -pi]", generateRealWithin(-1.5 * Pi, -Pi,_,_), 3)
-  cosTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
-    "Test FP32 3rd-order Within [-pi, -pi/2]", generateRealWithin(-Pi, -0.5 * Pi,_,_), 3)
-  cosTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
-    "Test FP32 3rd-order Within [-pi/2, -2^-12pi]", generateRealWithin(-0.5*Pi, -pow(2.0, -12)*Pi,_,_), 3)
-  cosTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
-    "Test FP32 3rd-order Within [-2^-12pi, 0]", generateRealWithin(-pow(2.0, -12)*Pi, 0.0,_,_), 3)
-  cosTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
-    "Test FP32 3rd-order Within [0, 2^-12pi]", generateRealWithin(0.0, pow(2.0, -12)*Pi,_,_), 3)
-  cosTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
-    "Test FP32 3rd-order Within [2^-12pi, pi/2]", generateRealWithin(pow(2.0, -12)*Pi, 0.5*Pi,_,_), 3)
-  cosTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
-    "Test FP32 3rd-order Within [pi/2, pi]", generateRealWithin(0.5*Pi, Pi,_,_), 3)
-  cosTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
-    "Test FP32 3rd-order Within [pi, 3/2pi]", generateRealWithin(Pi, 1.5*Pi,_,_), 3)
-  cosTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
-    "Test FP32 3rd-order Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 3)
-  cosTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
-    "Test FP32 3rd-order Within [2pi, 10pi]", generateRealWithin(2.0 * Pi, 10.0 * Pi,_,_), 3)
+  cosTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+    "Test cos Within [-32pi, -16pi]", generateRealWithin( -32.0 * Pi,-16.0 * Pi, _,_), 3)
+  cosTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+    "Test cos Within [-64pi, -32pi]", generateRealWithin( -64.0 * Pi,-32.0 * Pi, _,_), 3)
 
-  cosTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
-    "Test FP32 3rd-order Within [16pi, 32pi]", generateRealWithin(16.0 * Pi, 32.0 * Pi,_,_), 3)
-  cosTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
-    "Test FP32 3rd-order Within [32pi, 64pi]", generateRealWithin(32.0 * Pi, 64.0 * Pi,_,_), 3)
+  val nOrderBF16     = 0
+  val adrWBF16       = 7
+  val extraBitsBF16  = 1
 
-  cosTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
-    "Test FP32 3rd-order Within [-32pi, -16pi]", generateRealWithin( -32.0 * Pi,-16.0 * Pi, _,_), 3)
-  cosTest(sinFP32TableItaylor3rd, taylorOrder3rd, RealSpec.Float32Spec, n, r,
-    "Test FP32 3rd-order Within [-64pi, -32pi]", generateRealWithin( -64.0 * Pi,-32.0 * Pi, _,_), 3)
-
-  val nOrderBF16 = 0
-  val adrWBF16 = 7
-  val extraBitsBF16 = 1
-
-  val sinBF16TableItaylor3rd = SinCosSim.sincosTableGeneration(
+  val sinBF16TableI = SinCosSim.sincosTableGeneration(
     nOrderBF16, adrWBF16, RealSpec.BFloat16Spec.manW, RealSpec.BFloat16Spec.manW+extraBitsBF16,
-    None, None, taylorOrder3rd)
+    None, None)
 
-  cosTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
-    "Test BF16 3rd-order Within [-10pi, -2pi]", generateRealWithin(-10 * Pi, -2 * Pi,_,_), 3)
-  cosTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
-    "Test BF16 3rd-order Within [-2pi, -1.5pi]", generateRealWithin(-2 * Pi, -1.5 * Pi,_,_), 3)
-  cosTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
-    "Test BF16 3rd-order Within [-1.5pi, -pi]", generateRealWithin(-1.5 * Pi, -Pi,_,_), 3)
-  cosTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
-    "Test BF16 3rd-order Within [-pi, -pi/2]", generateRealWithin(-Pi, -0.5 * Pi,_,_), 3)
-  cosTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
-    "Test BF16 3rd-order Within [-pi/2, -2^-12pi]", generateRealWithin(-0.5*Pi, -pow(2.0, -12)*Pi,_,_), 3)
-  cosTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
-    "Test BF16 3rd-order Within [-2^-12pi, 0]", generateRealWithin(-pow(2.0, -12)*Pi, 0.0,_,_), 3)
-  cosTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
-    "Test BF16 3rd-order Within [0, 2^-12pi]", generateRealWithin(0.0, pow(2.0, -12)*Pi,_,_), 3)
-  cosTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
-    "Test BF16 3rd-order Within [2^-12pi, pi/2]", generateRealWithin(pow(2.0, -12)*Pi, 0.5*Pi,_,_), 3)
-  cosTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
-    "Test BF16 3rd-order Within [pi/2, pi]", generateRealWithin(0.5*Pi, Pi,_,_), 3)
-  cosTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
-    "Test BF16 3rd-order Within [pi, 3/2pi]", generateRealWithin(Pi, 1.5*Pi,_,_), 3)
-  cosTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
-    "Test BF16 3rd-order Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 3)
-  cosTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
-    "Test BF16 3rd-order Within [2pi, 10pi]", generateRealWithin(2.0 * Pi, 10.0 * Pi,_,_), 3)
+  cosTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test cos Within [-2pi, -1.5pi]", generateRealWithin(-2 * Pi, -1.5 * Pi,_,_), 3)
+  cosTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test cos Within [-1.5pi, -pi]", generateRealWithin(-1.5 * Pi, -Pi,_,_), 3)
+  cosTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test cos Within [-pi, -pi/2]", generateRealWithin(-Pi, -0.5 * Pi,_,_), 3)
+  cosTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test cos Within [-pi/2, -2^-12pi]", generateRealWithin(-0.5*Pi, -pow(2.0, -12)*Pi,_,_), 3)
+  cosTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test cos Within [-2^-12pi, 0]", generateRealWithin(-pow(2.0, -12)*Pi, 0.0,_,_), 3)
+  cosTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test cos Within [0, 2^-12pi]", generateRealWithin(0.0, pow(2.0, -12)*Pi,_,_), 3)
+  cosTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test cos Within [2^-12pi, pi/2]", generateRealWithin(pow(2.0, -12)*Pi, 0.5*Pi,_,_), 3)
+  cosTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test cos Within [pi/2, pi]", generateRealWithin(0.5*Pi, Pi,_,_), 3)
+  cosTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test cos Within [pi, 3/2pi]", generateRealWithin(Pi, 1.5*Pi,_,_), 3)
+  cosTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test cos Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 3)
 
-  cosTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
-    "Test BF16 3rd-order Within [16pi, 32pi]", generateRealWithin(16.0 * Pi, 32.0 * Pi,_,_), 3)
-  cosTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
-    "Test BF16 3rd-order Within [32pi, 64pi]", generateRealWithin(32.0 * Pi, 64.0 * Pi,_,_), 3)
+  // over +/-2pi
 
-  cosTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
-    "Test BF16 3rd-order Within [-32pi, -16pi]", generateRealWithin( -32.0 * Pi,-16.0 * Pi, _,_), 3)
-  cosTest(sinBF16TableItaylor3rd, taylorOrder3rd, RealSpec.BFloat16Spec, n, r,
-    "Test BF16 3rd-order Within [-64pi, -32pi]", generateRealWithin( -64.0 * Pi,-32.0 * Pi, _,_), 3)
+  cosTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test cos Within [-10pi, -2pi]", generateRealWithin(-10 * Pi, -2 * Pi,_,_), 3)
+  cosTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test cos Within [2pi, 10pi]", generateRealWithin(2.0 * Pi, 10.0 * Pi,_,_), 3)
+
+  cosTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test cos Within [16pi, 32pi]", generateRealWithin(16.0 * Pi, 32.0 * Pi,_,_), 3)
+  cosTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test cos Within [32pi, 64pi]", generateRealWithin(32.0 * Pi, 64.0 * Pi,_,_), 3)
+
+  cosTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test cos Within [-32pi, -16pi]", generateRealWithin( -32.0 * Pi,-16.0 * Pi, _,_), 3)
+  cosTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test cos Within [-64pi, -32pi]", generateRealWithin( -64.0 * Pi,-32.0 * Pi, _,_), 3)
 
   val float48Spec = new RealSpec(10, 511, 37)
 
@@ -261,88 +226,79 @@ class CosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val adrWFP48       = 10
   val extraBitsFP48  = 4
 
-  val sinFP48TableItaylor3rd = SinCosSim.sincosTableGeneration(
+  val sinFP48TableI = SinCosSim.sincosTableGeneration(
     nOrderFP48, adrWFP48, float48Spec.manW, float48Spec.manW+extraBitsFP48,
-    None, None, taylorOrder3rd)
+    None, None)
 
-  cosTest(sinFP48TableItaylor3rd, taylorOrder3rd, float48Spec, n, r,
-    "Test 3rd-order Within [-10pi, -2pi]", generateRealWithin(-10 * Pi, -2 * Pi,_,_), 3)
-  cosTest(sinFP48TableItaylor3rd, taylorOrder3rd, float48Spec, n, r,
-    "Test 3rd-order Within [-2pi, -1.5pi]", generateRealWithin(-2 * Pi, -1.5 * Pi,_,_), 3)
-  cosTest(sinFP48TableItaylor3rd, taylorOrder3rd, float48Spec, n, r,
-    "Test 3rd-order Within [-1.5pi, -pi]", generateRealWithin(-1.5 * Pi, -Pi,_,_), 3)
-  cosTest(sinFP48TableItaylor3rd, taylorOrder3rd, float48Spec, n, r,
-    "Test 3rd-order Within [-pi, -pi/2]", generateRealWithin(-Pi, -0.5 * Pi,_,_), 3)
-  cosTest(sinFP48TableItaylor3rd, taylorOrder3rd, float48Spec, n, r,
-    "Test 3rd-order Within [-pi/2, -2^-12pi]", generateRealWithin(-0.5*Pi, -pow(2.0, -12)*Pi,_,_), 3)
-  cosTest(sinFP48TableItaylor3rd, taylorOrder3rd, float48Spec, n, r,
-    "Test 3rd-order Within [-2^-12pi, 0]", generateRealWithin(-pow(2.0, -12)*Pi, 0.0,_,_), 3)
-  cosTest(sinFP48TableItaylor3rd, taylorOrder3rd, float48Spec, n, r,
-    "Test 3rd-order Within [0, 2^-12pi]", generateRealWithin(0.0, pow(2.0, -12)*Pi,_,_), 3)
-  cosTest(sinFP48TableItaylor3rd, taylorOrder3rd, float48Spec, n, r,
-    "Test 3rd-order Within [2^-12pi, pi/2]", generateRealWithin(pow(2.0, -12)*Pi, 0.5*Pi,_,_), 3)
-  cosTest(sinFP48TableItaylor3rd, taylorOrder3rd, float48Spec, n, r,
-    "Test 3rd-order Within [pi/2, pi]", generateRealWithin(0.5*Pi, Pi,_,_), 3)
-  cosTest(sinFP48TableItaylor3rd, taylorOrder3rd, float48Spec, n, r,
-    "Test 3rd-order Within [pi, 3/2pi]", generateRealWithin(Pi, 1.5*Pi,_,_), 3)
-  cosTest(sinFP48TableItaylor3rd, taylorOrder3rd, float48Spec, n, r,
-    "Test 3rd-order Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 3)
-  cosTest(sinFP48TableItaylor3rd, taylorOrder3rd, float48Spec, n, r,
-    "Test 3rd-order Within [2pi, 10pi]", generateRealWithin(2.0 * Pi, 10.0 * Pi,_,_), 3)
+  cosTest(sinFP48TableI, float48Spec, n, r,
+    "Test cos Within [-2pi, -1.5pi]", generateRealWithin(-2 * Pi, -1.5 * Pi,_,_), 4)
+  cosTest(sinFP48TableI, float48Spec, n, r,
+    "Test cos Within [-1.5pi, -pi]", generateRealWithin(-1.5 * Pi, -Pi,_,_), 4)
+  cosTest(sinFP48TableI, float48Spec, n, r,
+    "Test cos Within [-pi, -pi/2]", generateRealWithin(-Pi, -0.5 * Pi,_,_), 4)
+  cosTest(sinFP48TableI, float48Spec, n, r,
+    "Test cos Within [-pi/2, -2^-12pi]", generateRealWithin(-0.5*Pi, -pow(2.0, -12)*Pi,_,_), 4)
+  cosTest(sinFP48TableI, float48Spec, n, r,
+    "Test cos Within [-2^-12pi, 0]", generateRealWithin(-pow(2.0, -12)*Pi, 0.0,_,_), 4)
+  cosTest(sinFP48TableI, float48Spec, n, r,
+    "Test cos Within [0, 2^-12pi]", generateRealWithin(0.0, pow(2.0, -12)*Pi,_,_), 4)
+  cosTest(sinFP48TableI, float48Spec, n, r,
+    "Test cos Within [2^-12pi, pi/2]", generateRealWithin(pow(2.0, -12)*Pi, 0.5*Pi,_,_), 4)
+  cosTest(sinFP48TableI, float48Spec, n, r,
+    "Test cos Within [pi/2, pi]", generateRealWithin(0.5*Pi, Pi,_,_), 4)
+  cosTest(sinFP48TableI, float48Spec, n, r,
+    "Test cos Within [pi, 3/2pi]", generateRealWithin(Pi, 1.5*Pi,_,_), 4)
+  cosTest(sinFP48TableI, float48Spec, n, r,
+    "Test cos Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 4)
 
-//   cosTest(sinFP48TableItaylor3rd, taylorOrder3rd, float48Spec, n, r,
-//     "Test 3rd-order Within [16pi, 32pi]", generateRealWithin(16.0 * Pi, 32.0 * Pi,_,_), 3)
-//   cosTest(sinFP48TableItaylor3rd, taylorOrder3rd, float48Spec, n, r,
-//     "Test 3rd-order Within [32pi, 64pi]", generateRealWithin(32.0 * Pi, 64.0 * Pi,_,_), 3)
-
-//   cosTest(sinFP48TableItaylor3rd, taylorOrder3rd, float48Spec, n, r,
-//     "Test 3rd-order Within [-32pi, -16pi]", generateRealWithin( -32.0 * Pi,-16.0 * Pi, _,_), 3)
-//   cosTest(sinFP48TableItaylor3rd, taylorOrder3rd, float48Spec, n, r,
-//     "Test 3rd-order Within [-64pi, -32pi]", generateRealWithin( -64.0 * Pi,-32.0 * Pi, _,_), 3)
+// over +/- 2pi
+//   cosTest(sinFP48TableI, float48Spec, n, r,
+//     "Test cos Within [-10pi, -2pi]", generateRealWithin(-10 * Pi, -2 * Pi,_,_), 3)
+//   cosTest(sinFP48TableI, float48Spec, n, r,
+//     "Test cos Within [2pi, 10pi]", generateRealWithin(2.0 * Pi, 10.0 * Pi,_,_), 3)
 
   val nOrderFP64     = 3
   val adrWFP64       = 12
   val extraBitsFP64  = 4
 
-  val sinFP64TableItaylor3rd = SinCosSim.sincosTableGeneration(
+  val sinFP64TableI = SinCosSim.sincosTableGeneration(
     nOrderFP64, adrWFP64, RealSpec.Float64Spec.manW, RealSpec.Float64Spec.manW+extraBitsFP64,
-    None, None, taylorOrder3rd)
+    None, None)
 
-  cosTest(sinFP64TableItaylor3rd, taylorOrder3rd, RealSpec.Float64Spec, n, r,
-    "Test 3rd-order Within [-10pi, -2pi]", generateRealWithin(-10 * Pi, -2 * Pi,_,_), 7)
-  cosTest(sinFP64TableItaylor3rd, taylorOrder3rd, RealSpec.Float64Spec, n, r,
-    "Test 3rd-order Within [-2pi, -1.5pi]", generateRealWithin(-2 * Pi, -1.5 * Pi,_,_), 7)
-  cosTest(sinFP64TableItaylor3rd, taylorOrder3rd, RealSpec.Float64Spec, n, r,
-    "Test 3rd-order Within [-1.5pi, -pi]", generateRealWithin(-1.5 * Pi, -Pi,_,_), 7)
-  cosTest(sinFP64TableItaylor3rd, taylorOrder3rd, RealSpec.Float64Spec, n, r,
-    "Test 3rd-order Within [-pi, -pi/2]", generateRealWithin(-Pi, -0.5 * Pi,_,_), 7)
-  cosTest(sinFP64TableItaylor3rd, taylorOrder3rd, RealSpec.Float64Spec, n, r,
-    "Test 3rd-order Within [-pi/2, -2^-12pi]", generateRealWithin(-0.5*Pi, -pow(2.0, -12)*Pi,_,_), 7)
-  cosTest(sinFP64TableItaylor3rd, taylorOrder3rd, RealSpec.Float64Spec, n, r,
-    "Test 3rd-order Within [-2^-12pi, 0]", generateRealWithin(-pow(2.0, -12)*Pi, 0.0,_,_), 7)
-  cosTest(sinFP64TableItaylor3rd, taylorOrder3rd, RealSpec.Float64Spec, n, r,
-    "Test 3rd-order Within [0, 2^-12pi]", generateRealWithin(0.0, pow(2.0, -12)*Pi,_,_), 7)
-  cosTest(sinFP64TableItaylor3rd, taylorOrder3rd, RealSpec.Float64Spec, n, r,
-    "Test 3rd-order Within [2^-12pi, pi/2]", generateRealWithin(pow(2.0, -12)*Pi, 0.5*Pi,_,_), 7)
-  cosTest(sinFP64TableItaylor3rd, taylorOrder3rd, RealSpec.Float64Spec, n, r,
-    "Test 3rd-order Within [pi/2, pi]", generateRealWithin(0.5*Pi, Pi,_,_), 7)
-  cosTest(sinFP64TableItaylor3rd, taylorOrder3rd, RealSpec.Float64Spec, n, r,
-    "Test 3rd-order Within [pi, 3/2pi]", generateRealWithin(Pi, 1.5*Pi,_,_), 7)
-  cosTest(sinFP64TableItaylor3rd, taylorOrder3rd, RealSpec.Float64Spec, n, r,
-    "Test 3rd-order Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 7)
-  cosTest(sinFP64TableItaylor3rd, taylorOrder3rd, RealSpec.Float64Spec, n, r,
-    "Test 3rd-order Within [2pi, 10pi]", generateRealWithin(2.0 * Pi, 10.0 * Pi,_,_), 7)
+  cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+    "Test cos Within [-2pi, -1.5pi]", generateRealWithin(-2 * Pi, -1.5 * Pi,_,_), 7)
+  cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+    "Test cos Within [-1.5pi, -pi]", generateRealWithin(-1.5 * Pi, -Pi,_,_), 7)
+  cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+    "Test cos Within [-pi, -pi/2]", generateRealWithin(-Pi, -0.5 * Pi,_,_), 7)
+  cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+    "Test cos Within [-pi/2, -2^-12pi]", generateRealWithin(-0.5*Pi, -pow(2.0, -12)*Pi,_,_), 7) // XXX!
+  cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+    "Test cos Within [-2^-12pi, 0]", generateRealWithin(-pow(2.0, -12)*Pi, 0.0,_,_), 7)
+  cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+    "Test cos Within [0, 2^-12pi]", generateRealWithin(0.0, pow(2.0, -12)*Pi,_,_), 7)
+  cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+    "Test cos Within [2^-12pi, pi/2]", generateRealWithin(pow(2.0, -12)*Pi, 0.5*Pi,_,_), 7) // XXX!
+  cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+    "Test cos Within [pi/2, pi]", generateRealWithin(0.5*Pi, Pi,_,_), 7)
+  cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+    "Test cos Within [pi, 3/2pi]", generateRealWithin(Pi, 1.5*Pi,_,_), 7)
+  cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+    "Test cos Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 7)
 
-//   cosTest(sinFP64TableItaylor3rd, taylorOrder3rd, RealSpec.Float64Spec, n, r,
-//     "Test 3rd-order Within [16pi, 32pi]", generateRealWithin(16.0 * Pi, 32.0 * Pi,_,_), 7)
-//   cosTest(sinFP64TableItaylor3rd, taylorOrder3rd, RealSpec.Float64Spec, n, r,
-//     "Test 3rd-order Within [32pi, 64pi]", generateRealWithin(32.0 * Pi, 64.0 * Pi,_,_), 7)
-//
-//   cosTest(sinFP64TableItaylor3rd, taylorOrder3rd, RealSpec.Float64Spec, n, r,
-//     "Test 3rd-order Within [-32pi, -16pi]", generateRealWithin( -32.0 * Pi,-16.0 * Pi, _,_), 7)
-//   cosTest(sinFP64TableItaylor3rd, taylorOrder3rd, RealSpec.Float64Spec, n, r,
-//     "Test 3rd-order Within [-64pi, -32pi]", generateRealWithin( -64.0 * Pi,-32.0 * Pi, _,_), 7)
+  val delta = pow(2.0, -32)
+  cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+    "Test sin around 0", generateRealWithin(-delta*Pi, delta*Pi,_,_), 7)
+  cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+    "Test sin around pi/2", generateRealWithin((0.5-delta)*Pi, (0.5+delta)*Pi,_,_), 7)
+  cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+    "Test sin around pi", generateRealWithin((1-delta)*Pi, (1+delta)*Pi,_,_), 7)
+  cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+    "Test sin around 3pi/2", generateRealWithin((1.5-delta)*Pi, (1.5+delta)*Pi,_,_), 7)
 
-
-
+// over +/-2pi
+//   cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+//     "Test cos Within [-10pi, -2pi]", generateRealWithin(-10 * Pi, -2 * Pi,_,_), 8)
+//   cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+//     "Test cos Within [2pi, 10pi]", generateRealWithin(2.0 * Pi, 10.0 * Pi,_,_), 8)
 }
