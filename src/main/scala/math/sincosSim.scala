@@ -205,41 +205,28 @@ object SinCosSim {
     // w = sin(Piy)/y. later we multiply this with w.
 
     val wex = exBias-1 // w is in [0.5, 1).
-    val wmanW1 = if (order == 0) {
+
+    val res0 = if (order == 0) {
       val adr   = yAligned.toInt
-      val res0  = t.interval(adr).eval(0L, 0)
-      val res = if (res0<0) {
-          println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x = ${x.toDouble}, sin(x) = ${sin(x.toDouble)}")
-          SafeLong(0)
-        } else if (res0 >= (SafeLong(1)<<fracW)) {
-          println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x = ${x.toDouble}, sin(x) = ${sin(x.toDouble)}")
-          maskSL(fracW)
-        } else {
-          SafeLong(res0)
-        }
-
-      val wmanW1 = slice(fracW-manW-1, manW+1, res)
-      wmanW1
-
+      t.interval(adr).eval(0L, 0)
     } else {
       val dxbp = manW-adrW-1
       val d    = slice(0, manW-adrW, yAligned) - (SafeLong(1)<<dxbp)
       val adr  = slice(manW-adrW, adrW, yAligned).toInt
 
-      val res0 = t.interval(adr).eval(d.toLong, dxbp)
-      val res = if (res0 < 0) {
-          println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x = ${x.toDouble}, sin(x) = ${sin(x.toDouble)}")
-          SafeLong(0)
-        } else if (res0 >= (SafeLong(1)<<fracW)) {
-          println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x = ${x.toDouble}, sin(x) = ${sin(x.toDouble)}")
-          maskSL(fracW)
-        } else {
-          SafeLong(res0)
-        }
-
-      val wmanW1 = slice(fracW-manW-1, manW+1, res)
-      wmanW1
+      t.interval(adr).eval(d.toLong, dxbp)
     }
+    val res = if (res0 < 0) {
+        println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x = ${x.toDouble}, sin(x) = ${sin(x.toDouble)}")
+        SafeLong(0)
+      } else if (res0 >= (SafeLong(1)<<fracW)) {
+        println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x = ${x.toDouble}, sin(x) = ${sin(x.toDouble)}")
+        maskSL(fracW)
+      } else {
+        SafeLong(res0)
+      }
+    val resW1  = res + (SafeLong(1) << fracW)
+    val wmanW1 = (resW1 >> extraBits) + bit(extraBits-1, resW1)
 
     // restore z = w * y = sin(Pi*y)/y * y = sin(Pi*y) = sin(x)
 
@@ -303,9 +290,9 @@ object SinCosSim {
     ) = {
     val tableD = new FuncTableDouble( x0 => {
       val x = x0 / 2.0 // convert [0, 1) into [0, 1/2)
-      val z = if(x == 0) {Pi/4.0} else {sin(Pi*x)/(4.0*x)}
-      assert(0.5 <= z && z < 1.0, f"x = ${x}, sin(Pi*x) = ${sin(Pi*x)}, z = ${z}")
-      z
+      val z = if(x == 0) {Pi/2.0} else {sin(Pi*x)/(2.0*x)}
+      assert(1.0 <= z && z < 2.0, f"x = ${x}, sin(Pi*x) = ${sin(Pi*x)}, z = ${z}")
+      z - 1.0 // round into 0~1
     }, order )
     tableD.addRange(0.0, 1.0, 1<<adrW)
     new FuncTableInt( tableD, fracW )
