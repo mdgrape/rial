@@ -78,9 +78,9 @@ object SinCosSim {
     } else {
       xOverPi >> (exBias - xOverPiEx)
     }
-//     println(f"xOverPi        = ${xOverPi}, W = ${log2Up(xOverPi)}")
+//     println(f"xOverPi        = ${xOverPi}, W = ${log2UpSL(xOverPi)}")
 //     println(f"xOverPiFracW   = ${xOverPiFracW}")
-//     println(f"xOverPiAligned = ${xOverPiAligned}, W = ${log2Up(xOverPiAligned)}")
+//     println(f"xOverPiAligned = ${xOverPiAligned}, W = ${log2UpSL(xOverPiAligned)}")
 
     val xOverPiAligned2MSBs = slice(1+xOverPiFracW-2, 2, xOverPiAligned)
 //     println(f"xOverPiAligned2MSBs = ${xOverPiAligned2MSBs.toLong.toBinaryString}")
@@ -153,9 +153,10 @@ object SinCosSim {
     assert(yex  != exBias-1 || yman == 0)
     assert(yman < (SafeLong(1)<<manW))
 
-//     println(f"sim:yex  = ${yex}")
-//     println(f"sim:yman = ${yman.toLong.toBinaryString}")
-//     println(f"y        = ${new RealGeneric(x.spec, 0, yex, yman).toDouble}")
+//     println(f"sim:yex0   = ${yex0}")
+//     println(f"sim:yex    = ${yex}")
+//     println(f"sim:ymanW1 = ${yman.toLong.toBinaryString}")
+//     println(f"y        = ${new RealGeneric(x.spec, 0, yex, slice(0, manW, yman)).toDouble}")
 //     println(f"|x|/pi   = ${x.toDouble.abs / Pi}")
 // 
 //     println(f"0.5 - |x|/pi = ${(0.5 - x.toDouble.abs / Pi)}")

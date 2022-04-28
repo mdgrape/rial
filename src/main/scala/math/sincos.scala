@@ -95,7 +95,7 @@ class SinCosPreProcess(
   // --------------------------------------------------------------------------
   // calc x/pi
 
-  val oneOverPiPad = 23
+  val oneOverPiPad = Seq(manW+1, 12).max
   val oneOverPi = (Real.one / Real.pi)(manW+2+oneOverPiPad).toBigInt
   val oneOverPiW = 1 + manW + oneOverPiPad
 
@@ -110,6 +110,7 @@ class SinCosPreProcess(
                                  Cat(xOverPiProd.tail(1), 0.U(1.W)))
   val xOverPiFracW         = (1+manW) + oneOverPiW - 1
   assert(xOverPi.getWidth == xOverPiFracW+1) // fraction bits + 1 integer bit
+  assert(xOverPi(xOverPiFracW) === 1.U) // normalized
 
 //   printf("xOverPi      = %d\n", xOverPi)
 //   printf("xOverPiFracW = %d\n", xOverPiFracW.U)
@@ -121,10 +122,9 @@ class SinCosPreProcess(
   val xOverPiExNobiasPos = (xOverPiEx - exBias.U)(log2Up(xOverPiFracW)-1, 0)
   val xOverPiExNobiasNeg = (exBias.U - xOverPiEx)(log2Up(xOverPiFracW)-1, 0)
 
-  val xOverPiAlignPos = xOverPi << xOverPiExNobiasPos
-  val xOverPiAlignNeg = xOverPi >> xOverPiExNobiasNeg
-  val xOverPiAligned = Mux(xOverPiExMoreThan1, xOverPiAlignPos(xOverPiFracW, 0),
-                                               xOverPiAlignNeg(xOverPiFracW, 0))
+  val xOverPiAlignPos = (xOverPi << xOverPiExNobiasPos)(xOverPiFracW, 0)
+  val xOverPiAlignNeg = (xOverPi >> xOverPiExNobiasNeg)(xOverPiFracW, 0)
+  val xOverPiAligned = Mux(xOverPiExMoreThan1, xOverPiAlignPos, xOverPiAlignNeg)
 //   printf("cir: xOverPiAlignPos = %d\n", xOverPiAlignPos)
 //   printf("cir: xOverPiAlignNeg = %d\n", xOverPiAlignNeg)
 //   printf("cir: xOverPiAligned  = %d\n", xOverPiAligned )
@@ -162,17 +162,27 @@ class SinCosPreProcess(
   // --------------------------------------------------------------------------
   // calculate x/pi in sin/cos [0, 2) into sin [0, 1/2)
 
-  val ymanPos0 =  xOverPiAligned(1+xOverPiFracW-2, 0)
-  val ymanNeg0 = ((BigInt(1)<<(1+xOverPiFracW-1)).U - xOverPiAligned(1+xOverPiFracW-2, 0))(1+xOverPiFracW-2, 0)
-  val ymanPos  = Cat(ymanPos0.head(1) & io.isSin, ymanPos0.tail(1))
-  val ymanNeg  = Cat(ymanNeg0.head(1) & io.isSin, ymanNeg0.tail(1))
-  val yman0    = Mux(xOverPiAligned2MSBs(0) ^ io.isSin, ymanPos, ymanNeg)
+  assert(xOverPiAligned.getWidth == 1 + xOverPiFracW)
+  // remove bits that represent larger than 2
+  val ymanPos =  xOverPiAligned.tail(2)
+  val ymanNeg = ~xOverPiAligned.tail(2) + 1.U
+
+  // if 0 < x < pi/2, then we use x/pi itself to avoid
+  // loss of precision due to alignment to pi.
+  val ymanAsIs = xOverPi(xOverPi.getWidth-1, 2)
+  val yexAsIs  = xOverPiEx
+  val nonAlign = (!xOverPiExMoreThan1 && xOverPiAligned2MSBs === 0.U)
+
+  assert(ymanAsIs.getWidth == ymanPos.getWidth)
+  val yman0    = Mux(nonAlign, ymanAsIs,
+                 Mux(xOverPiAligned2MSBs(0) ^ io.isSin, ymanPos, ymanNeg))
+  val yex0     = Mux(nonAlign, yexAsIs, (exBias-2).U(exW.W))
   val ymanIsNonZero = yman0.orR
 
-//   printf("cir: ymanPos0 = %d\n", ymanPos0)
-//   printf("cir: ymanNeg0 = %d\n", ymanNeg0)
-//   printf("cir: ymanPos  = %d\n", ymanPos )
-//   printf("cir: ymanNeg  = %d\n", ymanNeg )
+//   printf("cir: xOverPi  = %d(%b)\n", xOverPi , xOverPi )
+//   printf("cir: ymanAsIs = %d(%b)\n", ymanAsIs, ymanAsIs)
+//   printf("cir: ymanPos  = %d(%b)\n", ymanPos , ymanPos )
+//   printf("cir: ymanNeg  = %d(%b)\n", ymanNeg , ymanNeg )
 //   printf("cir: yman0    = %d\n", yman0   )
 
   // TODO here we can reduce the area by checking yman0Shift and roundbit
@@ -180,24 +190,26 @@ class SinCosPreProcess(
   // yman0 removes its MSB, so here the width becomes xOverPiFracW,
   // not xOverPiFracW+1. But yman0 should be aligned to xOverPiFracW+1.
   // So here we need to add 1.
-  val yman0Shift0   = PriorityEncoder(Reverse(yman0)) + 1.U
-  val yman0ShiftW   = log2Up(yman0.getWidth)
+  val yman0W        = yman0.getWidth
+  val yman0Shift0   = PriorityEncoder(Reverse(yman0))
+  val yman0ShiftW   = log2Up(yman0W)
   val yman0Shift    = yman0Shift0(yman0ShiftW-1, 0)
-  val yman0Shifted  = (yman0 << yman0Shift)(1+xOverPiFracW-1, 0)
-  val yman0RoundBit = xOverPiFracW - manW
-  val yman0Rounded  = yman0Shifted(1+xOverPiFracW-1, yman0RoundBit) +&
+  val yman0Shifted  = (yman0 << yman0Shift)(yman0W-1, 0)
+  assert(yman0Shifted(yman0W-1) === 1.U)
+  val yman0RoundBit = yman0W - manW - 1
+  val yman0Rounded  = yman0Shifted(yman0W-2, yman0RoundBit) +&
                       yman0Shifted(yman0RoundBit-1)
-  val yman0MoreThan2 = yman0Rounded(manW+1)
+  val yman0MoreThan2 = yman0Rounded(manW)
 
 //   printf("cir:yman0Shift0  = %d\n", yman0Shift0)
 //   printf("cir:yman0.W      = %d\n", yman0.getWidth.U)
 //   printf("cir:yman0ShiftW  = %d\n", yman0ShiftW.U)
 //   printf("cir:yman0Shift   = %d\n", yman0Shift)
-//   printf("cir:yman0Shifted = %d\n", yman0Shifted)
+//   printf("cir:yman0Shifted = %b(%d)\n", yman0Shifted, yman0Shifted)
 //   printf("cir:yman0Rounded = %b\n", yman0Rounded)
 
   val ymanNonZero = yman0Rounded(manW-1, 0)
-  val yexNonZero = exBias.U(exW.W) - yman0Shift + yman0MoreThan2
+  val yexNonZero = yex0 - yman0Shift + yman0MoreThan2
 
   val yex  = Fill(exW,  ymanIsNonZero) & yexNonZero  // if it's zero, return zero.
   val yman = Fill(manW, ymanIsNonZero) & ymanNonZero
