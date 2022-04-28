@@ -245,44 +245,6 @@ object SinCosSim {
     new RealGeneric(x.spec, zSgn, zEx, zMan)
   }
 
-  def calcTaylorThreshold(manW: Int, taylorOrder: Int): Int = {
-    if (taylorOrder <= 2) {
-      // sin(pix) = pix - pi^3x^3 / 6 + ...
-      //          = pix (1 - pi^2x^2/6 + ...)
-      // pi^2x^2/6 < 2^-manW
-      // pi^2x^2/6 < 1.65 x^2 < 2x^2 <= 2^-manW
-      // x <= 2^(-manW+1)/2
-      // x.ex <= (-manW+1)/2-1
-      math.floor((-manW+1)/2 - 1).toInt
-    } else if (taylorOrder <= 4) {
-      // sin(pix) = pix - pi^3x^3 / 6 + pi^5x^5 / 120 - ...
-      //          = pix (1 - pi^2x^2/6 + pi^4x^4 / 120)
-      // pi^4x^4 / 120 < 2^-manW
-      // pi^4x^4 / 120 < 0.812 x^4 <= x^4 <= 2^-manW
-      // 2^xex * 1.xman <= 2^-manW/4
-      // x.ex <= -manW/4 - 1
-      math.floor(-manW/4 - 1).toInt
-    } else {
-      assert(taylorOrder == 5, "taylorOrder should be <= 5")
-      // sin(pix) = pix - pi^3x^3 / 6 + pi^5x^5 / 120 - pi^7x^7/7!
-      //          = pix (1 - pi^2x^2 / 6 + pi^4x^4 / 120 - pi^6x^6/7!)
-      // pi^6x^6 / 5040 < 2^-manW
-      // pi^6x^6 / 5040 < 0.190x^6 < 2^-2 x^6 < 2^-manW
-      // x < 2^(-(manW+2)/6)
-      math.floor(-(manW+2) / 6).toInt
-    }
-  }
-
-  // number of tables depending on the exponent and linearThreshold
-  def calcExAdrW(spec: RealSpec, taylorOrder: Int): Int = {
-    //      .--- table interp --. .-----taylor------.
-    // ex = -2 ~ taylorThreshold, taylorThreshold-1 ~ 0
-
-    val taylorThreshold = calcTaylorThreshold(spec.manW, taylorOrder)
-    val nTables = -2 - taylorThreshold + 1
-    log2Up(nTables)
-  }
-
   def sincosTableGeneration1(
       order : Int, adrW : Int, manW : Int, fracW : Int,
       calcWidthSetting: Option[Seq[Int]] = None,
@@ -296,31 +258,5 @@ object SinCosSim {
     }, order )
     tableD.addRange(0.0, 1.0, 1<<adrW)
     new FuncTableInt( tableD, fracW )
-  }
-
-  def sincosTableGeneration(
-      order : Int, adrW : Int, manW : Int, fracW : Int,
-      calcWidthSetting: Option[Seq[Int]] = None,
-      cbitSetting: Option[Seq[Int]] = None,
-      taylorOrder: Int
-    ) = {
-    val taylorThreshold = calcTaylorThreshold(manW, taylorOrder)
-
-    if(adrW >= manW) {assert(order == 0)}
-
-    val maxCalcWidth = (-2 to taylorThreshold by -1).map(exponent => {
-        val tableD = new FuncTableDouble( x => scalb(sin(Pi * scalb(1.0 + x, exponent)), -exponent-3), order )
-        tableD.addRange(0.0, 1.0, 1<<adrW)
-      val tableI = new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
-        tableI.calcWidth
-      }).reduce( (lhs, rhs) => {
-        lhs.zip(rhs).map( x => max(x._1, x._2))
-      })
-
-    (-2 to taylorThreshold by -1).map( i => {
-      val tableD = new FuncTableDouble( x => scalb(sin(Pi * scalb(1.0+x, i)), -i-3), order )
-      tableD.addRange(0.0, 1.0, 1<<adrW)
-      new FuncTableInt( tableD, fracW, Some(maxCalcWidth), cbitSetting )
-    })
   }
 }
