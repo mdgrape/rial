@@ -245,7 +245,7 @@ object SinCosSim {
     new RealGeneric(x.spec, zSgn, zEx, zMan)
   }
 
-  def sincosTableGeneration1(
+  def sincosTableGeneration(
       order : Int, adrW : Int, manW : Int, fracW : Int,
       calcWidthSetting: Option[Seq[Int]] = None,
       cbitSetting: Option[Seq[Int]] = None

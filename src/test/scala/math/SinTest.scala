@@ -67,7 +67,7 @@ class SinTest extends AnyFlatSpec
           val maxCalcW   = c.getMaxCalcW
           val nstage     = c.getStage
 
-          val sinF32TableI = SinCosSim.sincosTableGeneration1(
+          val sinF32TableI = SinCosSim.sincosTableGeneration(
             nOrder, adrW, spec.manW, spec.manW+extraBits,
             Some(maxCalcW), Some(maxCbit))
           val reference  = SinCosSim.sincosSimGeneric(/*isSin =*/true, sinF32TableI, _ )
@@ -265,7 +265,7 @@ class SinTest extends AnyFlatSpec
 //           val maxCalcW   = c.getCalcW
 //           val nstage     = c.getStage
 // 
-//           val sinF32TableI = SinCosSim.sincosTableGeneration1(
+//           val sinF32TableI = SinCosSim.sincosTableGeneration(
 //             nOrder, adrW, spec.manW, spec.manW+extraBits,
 //             Some(maxCalcW), Some(maxCbit) )
 //           val reference  = SinCosSim.sincosSimGeneric(/*isSin = */true, sinF32TableI, _ )

@@ -119,7 +119,7 @@ class SinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val adrWFP32       = 8
   val extraBitsFP32  = 3
 
-  val sinFP32TableI = SinCosSim.sincosTableGeneration1(
+  val sinFP32TableI = SinCosSim.sincosTableGeneration(
     nOrderFP32, adrWFP32, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBitsFP32,
     None, None)
 
@@ -165,7 +165,7 @@ class SinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val adrWBF16       = 7
   val extraBitsBF16  = 1
 
-  val sinBF16TableI = SinCosSim.sincosTableGeneration1(
+  val sinBF16TableI = SinCosSim.sincosTableGeneration(
     nOrderBF16, adrWBF16, RealSpec.BFloat16Spec.manW, RealSpec.BFloat16Spec.manW+extraBitsBF16,
     None, None)
 
@@ -213,7 +213,7 @@ class SinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val adrWFP48       = 10
   val extraBitsFP48  = 4
 
-  val sinFP48TableI = SinCosSim.sincosTableGeneration1(
+  val sinFP48TableI = SinCosSim.sincosTableGeneration(
     nOrderFP48, adrWFP48, float48Spec.manW, float48Spec.manW+extraBitsFP48,
     None, None)
 
@@ -248,7 +248,7 @@ class SinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val adrWFP64       = 12
   val extraBitsFP64  = 4
 
-  val sinFP64TableI = SinCosSim.sincosTableGeneration1(
+  val sinFP64TableI = SinCosSim.sincosTableGeneration(
     nOrderFP64, adrWFP64, RealSpec.Float64Spec.manW, RealSpec.Float64Spec.manW+extraBitsFP64,
     None, None)
 

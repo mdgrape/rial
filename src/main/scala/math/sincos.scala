@@ -267,7 +267,7 @@ class SinCosTableCoeff(
 
   if(order == 0) {
 
-    val tableI = SinCosSim.sincosTableGeneration1( order, adrW, manW, fracW, None, None )
+    val tableI = SinCosSim.sincosTableGeneration( order, adrW, manW, fracW, None, None )
     val cbit   = tableI.cbit
 
     val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/0)
@@ -280,7 +280,7 @@ class SinCosTableCoeff(
 
   } else {
 
-    val tableI = SinCosSim.sincosTableGeneration1( order, adrW, manW, fracW, None, None )
+    val tableI = SinCosSim.sincosTableGeneration( order, adrW, manW, fracW, None, None )
     val cbit   = tableI.cbit
 
     val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/0)
@@ -318,7 +318,7 @@ object SinCosTableCoeff {
       return Seq(fracW)
     } else {
       return SinCosSim.
-        sincosTableGeneration1( order, adrW, spec.manW, fracW, None, None ).
+        sincosTableGeneration( order, adrW, spec.manW, fracW, None, None ).
           getCBitWidth(/*signmode=*/0)
     }
   }
@@ -336,7 +336,7 @@ object SinCosTableCoeff {
       return Seq(fracW)
     } else {
       return SinCosSim.
-        sincosTableGeneration1( order, adrW, spec.manW, fracW, None, None ).
+        sincosTableGeneration( order, adrW, spec.manW, fracW, None, None ).
           calcWidth
     }
   }
