@@ -117,7 +117,6 @@ class MathFunctions(
   val dxW0 : Option[Int] = None,
   val enableRangeCheck : Boolean = true,
   val enablePolynomialRounding : Boolean = false,
-  val sincosTaylorOrder: Int = 3,
 ) extends Module {
 
   assert(!spec.disableSign) // assuming the float type allows negative values
@@ -150,7 +149,7 @@ class MathFunctions(
     SqrtTableCoeff.getCBits(spec, polySpec),
     InvSqrtTableCoeff.getCBits(spec, polySpec),
     ReciprocalTableCoeff.getCBits(spec, polySpec),
-    SinCosTableCoeff.getCBits(spec, polySpec, sincosTaylorOrder),
+    SinCosTableCoeff.getCBits(spec, polySpec),
     ATan2Stage2TableCoeff.getCBits(spec, polySpec),
     ExpTableCoeff.getCBits(spec, polySpec),
     Log2TableCoeff.getCBits(spec, polySpec)
@@ -161,7 +160,7 @@ class MathFunctions(
     SqrtTableCoeff.getCalcW(spec, polySpec),
     InvSqrtTableCoeff.getCalcW(spec, polySpec),
     ReciprocalTableCoeff.getCalcW(spec, polySpec),
-    SinCosTableCoeff.getCalcW(spec, polySpec, sincosTaylorOrder),
+    SinCosTableCoeff.getCalcW(spec, polySpec),
     ATan2Stage2TableCoeff.getCalcW(spec, polySpec),
     ExpTableCoeff.getCalcW(spec, polySpec),
     Log2TableCoeff.getCalcW(spec, polySpec)
@@ -174,7 +173,7 @@ class MathFunctions(
   println(f"sqrt        cbits = ${SqrtTableCoeff       .getCBits(spec, polySpec)} calcW = ${SqrtTableCoeff       .getCalcW(spec, polySpec)}")
   println(f"invsqrt     cbits = ${InvSqrtTableCoeff    .getCBits(spec, polySpec)} calcW = ${InvSqrtTableCoeff    .getCalcW(spec, polySpec)}")
   println(f"rec         cbits = ${ReciprocalTableCoeff .getCBits(spec, polySpec)} calcW = ${ReciprocalTableCoeff .getCalcW(spec, polySpec)}")
-  println(f"sincos      cbits = ${SinCosTableCoeff     .getCBits(spec, polySpec, sincosTaylorOrder)} calcW = ${SinCosTableCoeff.getCalcW(spec, polySpec, sincosTaylorOrder)}")
+  println(f"sincos      cbits = ${SinCosTableCoeff     .getCBits(spec, polySpec)} calcW = ${SinCosTableCoeff.getCalcW(spec, polySpec)}")
   println(f"atan2Stage2 cbits = ${ATan2Stage2TableCoeff.getCBits(spec, polySpec)} calcW = ${ATan2Stage2TableCoeff.getCalcW(spec, polySpec)}")
   println(f"pow2        cbits = ${ExpTableCoeff       .getCBits(spec, polySpec)} calcW = ${ExpTableCoeff       .getCalcW(spec, polySpec)}")
   println(f"log2        cbits = ${Log2TableCoeff       .getCBits(spec, polySpec)} calcW = ${Log2TableCoeff       .getCalcW(spec, polySpec)}")
@@ -341,9 +340,8 @@ class MathFunctions(
   // --------------------------------------------------------------------------
   // sincos
 
-  val sincosPre   = Module(new SinCosPreProcess (spec, polySpec, stage.preStage, sincosTaylorOrder))
-  val sincosTab   = Module(new SinCosTableCoeff (spec, polySpec, maxCbit, sincosTaylorOrder))
-  val sincosOther = Module(new SinCosOtherPath  (spec, polySpec, stage.calcStage, sincosTaylorOrder))
+  val sincosPre   = Module(new SinCosPreProcess (spec, polySpec, stage.preStage))
+  val sincosTab   = Module(new SinCosTableCoeff (spec, polySpec, maxCbit))
   val sincosPost  = Module(new SinCosPostProcess(spec, polySpec, stage.postStage))
 
   sincosPre.io.en    := (io.sel === SelectFunc.Sin) || (io.sel === SelectFunc.Cos)
@@ -353,9 +351,6 @@ class MathFunctions(
   sincosTab.io.en    := (selPCGapReg === SelectFunc.Sin) ||
                         (selPCGapReg === SelectFunc.Cos)
   sincosTab.io.adr   := ShiftRegister(sincosPre.io.adr, pcGap)
-
-  sincosOther.io.xConverted := ShiftRegister(sincosPre.io.xConverted, pcGap)
-  sincosOther.io.x          := xdecPCGapReg
 
   when(selPCReg =/= SelectFunc.Sin && selPCReg =/= SelectFunc.Cos) {
     assert(sincosPre.io.adr === 0.U)
@@ -546,10 +541,10 @@ class MathFunctions(
   recPost.io.zother := ShiftRegister(recOther.io.zother, cpGap)
   recPost.io.zres   := polynomialResultCPGapReg
 
-  sincosPost.io.en     := (selCPGapReg === SelectFunc.Sin) ||
-                          (selCPGapReg === SelectFunc.Cos)
-  sincosPost.io.zother := ShiftRegister(sincosOther.io.zother, cpGap)
-  sincosPost.io.zres   := polynomialResultCPGapReg
+  sincosPost.io.en   := (selCPGapReg === SelectFunc.Sin) ||
+                        (selCPGapReg === SelectFunc.Cos)
+  sincosPost.io.pre  := ShiftRegister(sincosPre.io.out, pcGap + nCalcStage + cpGap)
+  sincosPost.io.zres := polynomialResultCPGapReg
 
   atan2Stage1Post.io.en     := (selCPGapReg === SelectFunc.ATan2Stage1)
   atan2Stage1Post.io.zother := ShiftRegister(atan2Stage1Other.io.zother, cpGap)
