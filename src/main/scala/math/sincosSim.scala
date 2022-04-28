@@ -225,22 +225,25 @@ object SinCosSim {
       } else {
         SafeLong(res0)
       }
-    val resW1  = res + (SafeLong(1) << fracW)
-    val wmanW1 = (resW1 >> extraBits) + bit(extraBits-1, resW1)
+    val wmanW1 = res + (SafeLong(1) << fracW)
 
     // restore z = w * y = sin(Pi*y)/y * y = sin(Pi*y) = sin(x)
 
     val zProd = wmanW1 * ymanW1
 
-    val zMoreThan2 = bit(((manW+1)*2-1).toInt, zProd)
-    val zRounded   = (zProd >> (manW+zMoreThan2)) +
-                     bit((manW+zMoreThan2-1).toInt, zProd)
-    val zMoreThan2AfterRound = bit(manW+2-1, zRounded)
+    val zMoreThan2 = bit((manW+1)+(fracW+1)-1, zProd)
+    val zRounded   = (zProd >> (fracW+zMoreThan2)) + bit(fracW+zMoreThan2-1, zProd)
+    val zMoreThan2AfterRound = bit(manW+1, zRounded)
     val zExInc     = zMoreThan2 + zMoreThan2AfterRound
     val zManW1     = if(zMoreThan2AfterRound == 1) {SafeLong(1) << manW} else {zRounded}
 
     val zMan = slice(0, manW, zManW1)
     val zEx  = wex - exBias + yex - exBias + zExInc + exBias + 2 // 2 for table
+
+//     println(f"sim: ymanW1 = ${ymanW1.toLong.toBinaryString}")
+//     println(f"sim: wmanW1 = ${wmanW1.toLong.toBinaryString}")
+//     println(f"sim: zprod  = ${zProd .toLong.toBinaryString}")
+//     println(f"sim: zman0  = ${zMan  .toLong.toBinaryString}")
 
     new RealGeneric(x.spec, zSgn, zEx, zMan)
   }
@@ -257,6 +260,6 @@ object SinCosSim {
       z - 1.0 // round into 0~1
     }, order )
     tableD.addRange(0.0, 1.0, 1<<adrW)
-    new FuncTableInt( tableD, fracW )
+    new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
   }
 }

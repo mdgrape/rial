@@ -267,10 +267,11 @@ class SinCosTableCoeff(
 
   if(order == 0) {
 
-    val tableI = SinCosSim.sincosTableGeneration( order, adrW, manW, fracW, None, None )
+    val tableI = SinCosSim.sincosTableGeneration( order, adrW, manW, fracW )
     val cbit   = tableI.cbit
 
-    val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/0)
+    // sign mode 1 = 2's complement and no sign bit
+    val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/1)
     val coeff  = getSlices(coeffTable(io.adr), coeffWidth)
 
     assert(maxCbit(0) == fracW)
@@ -280,7 +281,7 @@ class SinCosTableCoeff(
 
   } else {
 
-    val tableI = SinCosSim.sincosTableGeneration( order, adrW, manW, fracW, None, None )
+    val tableI = SinCosSim.sincosTableGeneration( order, adrW, manW, fracW )
     val cbit   = tableI.cbit
 
     val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/0)
@@ -399,6 +400,9 @@ class SinCosPostProcess(
   val ymanW1 = Cat(1.U(1.W), io.pre.yman)
   val wmanW1 = Cat(1.U(1.W), io.zres)
 
+//   printf("cir: ymanW1 = %b\n", ymanW1)
+//   printf("cir: wmanW1 = %b\n", wmanW1)
+
   val zProd      = ymanW1 * wmanW1
   val zMoreThan2 = zProd((manW+1)+(fracW+1)-1)
   val zShifted   = Mux(zMoreThan2, zProd((manW+1)+(fracW+1)-2, (fracW+1)  ),
@@ -409,6 +413,9 @@ class SinCosPostProcess(
   val zexInc = zMoreThan2 | zMoreThan2AfterRound
   val zman0  = zRounded(manW-1, 0)
   val zex0 = io.pre.yex + 1.U + zexInc
+
+//   printf("cir: zprod  = %b\n", zProd)
+//   printf("cir: zman0  = %b\n", zman0)
 
   val znan = io.pre.znan
   val zone = io.pre.zone
