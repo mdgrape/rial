@@ -266,35 +266,35 @@ class CosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     None, None)
 
   cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
-    "Test cos Within [-2pi, -1.5pi]", generateRealWithin(-2 * Pi, -1.5 * Pi,_,_), 8)
+    "Test cos Within [-2pi, -1.5pi]", generateRealWithin(-2 * Pi, -1.5 * Pi,_,_), 7)
   cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
-    "Test cos Within [-1.5pi, -pi]", generateRealWithin(-1.5 * Pi, -Pi,_,_), 8)
+    "Test cos Within [-1.5pi, -pi]", generateRealWithin(-1.5 * Pi, -Pi,_,_), 7)
   cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
-    "Test cos Within [-pi, -pi/2]", generateRealWithin(-Pi, -0.5 * Pi,_,_), 8)
+    "Test cos Within [-pi, -pi/2]", generateRealWithin(-Pi, -0.5 * Pi,_,_), 7)
   cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
-    "Test cos Within [-pi/2, -2^-12pi]", generateRealWithin(-0.5*Pi, -pow(2.0, -12)*Pi,_,_), 8) // XXX!
+    "Test cos Within [-pi/2, -2^-12pi]", generateRealWithin(-0.5*Pi, -pow(2.0, -12)*Pi,_,_), 7) // XXX!
   cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
-    "Test cos Within [-2^-12pi, 0]", generateRealWithin(-pow(2.0, -12)*Pi, 0.0,_,_), 8)
+    "Test cos Within [-2^-12pi, 0]", generateRealWithin(-pow(2.0, -12)*Pi, 0.0,_,_), 7)
   cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
-    "Test cos Within [0, 2^-12pi]", generateRealWithin(0.0, pow(2.0, -12)*Pi,_,_), 8)
+    "Test cos Within [0, 2^-12pi]", generateRealWithin(0.0, pow(2.0, -12)*Pi,_,_), 7)
   cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
-    "Test cos Within [2^-12pi, pi/2]", generateRealWithin(pow(2.0, -12)*Pi, 0.5*Pi,_,_), 8) // XXX!
+    "Test cos Within [2^-12pi, pi/2]", generateRealWithin(pow(2.0, -12)*Pi, 0.5*Pi,_,_), 7) // XXX!
   cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
-    "Test cos Within [pi/2, pi]", generateRealWithin(0.5*Pi, Pi,_,_), 8)
+    "Test cos Within [pi/2, pi]", generateRealWithin(0.5*Pi, Pi,_,_), 7)
   cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
-    "Test cos Within [pi, 3/2pi]", generateRealWithin(Pi, 1.5*Pi,_,_), 8)
+    "Test cos Within [pi, 3/2pi]", generateRealWithin(Pi, 1.5*Pi,_,_), 7)
   cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
-    "Test cos Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 8)
+    "Test cos Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 7)
 
   val delta = pow(2.0, -32)
   cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
-    "Test sin around 0", generateRealWithin(-delta*Pi, delta*Pi,_,_), 8)
+    "Test sin around 0", generateRealWithin(-delta*Pi, delta*Pi,_,_), 7)
   cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
-    "Test sin around pi/2", generateRealWithin((0.5-delta)*Pi, (0.5+delta)*Pi,_,_), 8)
+    "Test sin around pi/2", generateRealWithin((0.5-delta)*Pi, (0.5+delta)*Pi,_,_), 7)
   cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
-    "Test sin around pi", generateRealWithin((1-delta)*Pi, (1+delta)*Pi,_,_), 8)
+    "Test sin around pi", generateRealWithin((1-delta)*Pi, (1+delta)*Pi,_,_), 7)
   cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
-    "Test sin around 3pi/2", generateRealWithin((1.5-delta)*Pi, (1.5+delta)*Pi,_,_), 8)
+    "Test sin around 3pi/2", generateRealWithin((1.5-delta)*Pi, (1.5+delta)*Pi,_,_), 7)
 
 // over +/-2pi
 //   cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
