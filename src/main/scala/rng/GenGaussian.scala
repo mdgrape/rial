@@ -24,17 +24,171 @@ import rial.util.ScalaUtil._
 // z2 = sqrt(-2log(x)) sin(2pi*y)
 //
 
+// -----------------------------------------------------------------------------
+// Fixed -> FP sin/cos(2pi*y)
 //
-// sin/cos are used to determine the argument, so y can be a fixed point.
+// sin/cos are used to determine the argument (not an absolute value), so y can
+// be a fixed point.
 // By doing this, the resolution (the difference between the current and the
 // next value) around 2piy ~ 0, pi, 2pi will be almost the same. It is not a
 // problem.
 //
-class SinCos2Pi(
-  rndW: Int,      // width of input fixedpoint
-  spec: RealSpec, // output width
-  polySpec: PolynomialSpec,
-  stage: PipelineStageConfig
+
+class BoxMullerSinCos2PiPreProcessOutput(val rndW: Int, val spec: RealSpec) extends Bundle {
+  val zone     = Output(Bool())
+  val zsgn     = Output(UInt(1.W))
+  val xzero    = Output(Bool())
+  val xShift   = Output(UInt(log2Up(rndW-2).W))
+  val xAligned = Output(UInt((rndW-2).W))
+}
+
+object BoxMullerSinCos2PiTableCoeff {
+  def genTable(
+    polySpec: PolynomialSpec
+  ): FuncTableInt = {
+
+    // --------------------------------------------------------------------------
+    // in a range x in [0, 1/4), 4 < sin(2pix)/x <= 2pi.
+    // So 1/2 < sin(2pix)/8x <= pi/4 = 0.78.. < 1.
+    val order  = polySpec.order
+    val fracW  = polySpec.fracW
+    val adrW   = polySpec.adrW
+
+    val tableD = new FuncTableDouble( x0 => {
+      val x = x0 / 4.0 // convert [0, 1) to the input range, [0, 1/4)
+      sin(x * Pi * 2.0) / (8.0*x)
+    }, order )
+    tableD.addRange(0.0, 1.0, 1<<adrW)
+    new FuncTableInt( tableD, fracW )
+  }
+
+  def getCBits(
+    polySpec: PolynomialSpec
+  ): Seq[Int] = {
+
+    // --------------------------------------------------------------------------
+    // in a range x in [0, 1/4), 4 < sin(2pix)/x <= 2pi.
+    // So 1/2 < sin(2pix)/8x <= pi/4 = 0.78.. < 1.
+    val order  = polySpec.order
+    val fracW  = polySpec.fracW
+    val adrW   = polySpec.adrW
+
+    val tableD = new FuncTableDouble( x0 => {
+      val x = x0 / 4.0 // convert [0, 1) to the input range, [0, 1/4)
+      sin(x * Pi * 2.0) / (8.0*x)
+    }, order )
+    tableD.addRange(0.0, 1.0, 1<<adrW)
+    val tableI = new FuncTableInt( tableD, fracW )
+    tableI.cbit
+  }
+}
+
+class BoxMullerSinCos2PiPreProc(
+    rndW: Int,      // width of input fixedpoint
+    spec: RealSpec, // output width
+    polySpec: PolynomialSpec,
+    stage: PipelineStageConfig
+  ) extends Module {
+
+  val nStage = stage.total
+
+  val exW    = spec.exW
+  val manW   = spec.manW
+  val exBias = spec.exBias
+
+  val order  = polySpec.order
+  val fracW  = polySpec.fracW
+  val adrW   = polySpec.adrW
+  val dxW    = polySpec.dxW
+
+  assert(rndW > 2 + adrW + dxW) // manW + 2; satisfied by (i32, f32) or (i64, f64)
+
+  val tableI = BoxMullerSinCos2PiTableCoeff.genTable(polySpec)
+  val cbit = tableI.cbit
+
+  // --------------------------------------------------------------------------
+
+  val io = IO(new Bundle {
+    val isSin = Input(Bool())
+    val rnd   = Input(UInt(rndW.W))
+
+    val cs    = Flipped(new TableCoeffInput(cbit))
+    val dx    = if (order != 0) { Some(Output(UInt(dxW.W))) } else { None }
+    val out   = new BoxMullerSinCos2PiPreProcessOutput(rndW, spec)
+  })
+
+  // detect special values
+  val xExactQuot = io.rnd(rndW-3, 0) === 0.U
+  val xHighIs0   = io.rnd(rndW-1, rndW-2) === 0.U
+  val xHighIs1   = io.rnd(rndW-1, rndW-2) === 1.U
+  val xHighIs2   = io.rnd(rndW-1, rndW-2) === 2.U
+  val xHighIs3   = io.rnd(rndW-1, rndW-2) === 3.U
+
+  // convert x in [0, 1) to [0, 1/4).
+  // Since we convert x range, in case of x is exactly N/4, the resulting x
+  // will become indistinguishable from 0. but sin(0) and sin(2pi/4) completely
+  // differ to each other. We need to check if x is exactly 1/4, 2/4, or 3/4.
+  val zone = Wire(Bool())
+  val zsgn = Wire(UInt(1.W))
+  val x = Wire(UInt((rndW-2).W))
+  when(io.isSin) {
+
+    x := Mux(io.rnd(rndW-2) === 1.U, ~(io.rnd(rndW-3, 0))+1.U, io.rnd(rndW-3, 0))
+
+    // x is exactly 1/4 or 3/4
+    zone := (xHighIs1 || xHighIs3) && xExactQuot
+    // if x is exactly 0 or 1/2, then the result is exactly zero, not -0.
+    zsgn := io.rnd(rndW-1) & ~((xHighIs0 || xHighIs2) && xExactQuot).asUInt
+
+  } otherwise {
+
+    x := Mux(io.rnd(rndW-2) === 0.U, ~(io.rnd(rndW-3, 0))+1.U, io.rnd(rndW-3, 0))
+
+    // x is exactly 0 or 1/2
+    zone := (xHighIs0 || xHighIs2) && xExactQuot
+    // if x is exactly 1/4 or 3/4, then the result is exactly zero, not -0.
+    zsgn := (io.rnd(rndW-1) ^ io.rnd(rndW-2)) &
+           ~((xHighIs1 || xHighIs3) && xExactQuot).asUInt
+  }
+
+  if(order != 0) {
+    val dx = Cat(~x(x.getWidth-adrW-1), x(x.getWidth-adrW-2, x.getWidth-adrW-dxW))
+    io.dx.get := ShiftRegister(dx, nStage)
+  }
+  io.out.zsgn := ShiftRegister(zsgn, nStage)
+  io.out.zone := ShiftRegister(zone, nStage)
+
+  // --------------------------------------------------------------------------
+
+  val adr = x(x.getWidth-1, x.getWidth-adrW)
+
+  val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/0)
+  val coeff = getSlices(coeffTable(adr), coeffWidth)
+
+  val coeffs = Wire(new TableCoeffInput(cbit))
+  for (i <- 0 to order) {
+    coeffs.cs(i) := coeff(i)
+  }
+
+  io.cs := ShiftRegister(coeffs, nStage)
+
+  // --------------------------------------------------------------------------
+
+  val xzero  = x === 0.U
+  val xShift = Mux(xzero, 0.U, PriorityEncoder(Reverse(x)))
+  val xAligned = (x << xShift)(x.getWidth-1, 0)
+  assert(xAligned(x.getWidth-1) === 1.U || xzero)
+
+  io.out.xzero    := ShiftRegister(xzero,    nStage)
+  io.out.xShift   := ShiftRegister(xShift,   nStage)
+  io.out.xAligned := ShiftRegister(xAligned, nStage)
+}
+
+class BoxMullerSinCos2PiPostProc(
+    rndW: Int,      // width of input fixedpoint
+    spec: RealSpec, // output width
+    polySpec: PolynomialSpec,
+    stage: PipelineStageConfig
   ) extends Module {
 
   val nStage = stage.total
@@ -51,85 +205,21 @@ class SinCos2Pi(
   assert(rndW > 2 + adrW + dxW) // manW + 2; satisfied by (i32, f32) or (i64, f64)
 
   val io = IO(new Bundle {
-    val isSin = Input(Bool())
-    val x     = Input(UInt(rndW.W))
-    val z     = Output(UInt(spec.W.W))
+    val pre  = Flipped(new BoxMullerSinCos2PiPreProcessOutput(rndW, spec))
+    val zres = Input(UInt(fracW.W))
+    val z    = Output(UInt(spec.W.W))
   })
 
-  // detect special values
-  val xExactQuot = io.x(rndW-3, 0) === 0.U
-  val xHighIs0   = io.x(rndW-1, rndW-2) === 0.U
-  val xHighIs1   = io.x(rndW-1, rndW-2) === 1.U
-  val xHighIs2   = io.x(rndW-1, rndW-2) === 2.U
-  val xHighIs3   = io.x(rndW-1, rndW-2) === 3.U
+  val zone     = io.pre.zone
+  val zsgn     = io.pre.zsgn
+  val xzero    = io.pre.xzero
+  val xShift   = io.pre.xShift
+  val xAligned = io.pre.xAligned
 
-  // convert x in [0, 1) to [0, 1/4).
-  // Since we convert x range, in case of x is exactly N/4, the resulting x
-  // will become indistinguishable from 0. but sin(0) and sin(2pi/4) completely
-  // differ to each other. We need to check if x is exactly 1/4, 2/4, or 3/4.
-  val zone = Wire(Bool())
-  val zsgn = Wire(UInt(1.W))
-  val x = Wire(UInt((rndW-2).W))
-  when(io.isSin) {
+  val zProd      = xAligned * io.zres
+  val zProdW     = xAligned.getWidth + fracW
 
-    x := Mux(io.x(rndW-2) === 1.U, ~(io.x(rndW-3, 0))+1.U, io.x(rndW-3, 0))
-
-    // x is exactly 1/4 or 3/4
-    zone := (xHighIs1 || xHighIs3) && xExactQuot
-    // if x is exactly 0 or 1/2, then the result is exactly zero, not -0.
-    zsgn := io.x(rndW-1) & ~((xHighIs0 || xHighIs2) && xExactQuot).asUInt
-
-  } otherwise {
-
-    x := Mux(io.x(rndW-2) === 0.U, ~(io.x(rndW-3, 0))+1.U, io.x(rndW-3, 0))
-
-    // x is exactly 0 or 1/2
-    zone := (xHighIs0 || xHighIs2) && xExactQuot
-    // if x is exactly 1/4 or 3/4, then the result is exactly zero, not -0.
-    zsgn := (io.x(rndW-1) ^ io.x(rndW-2)) &
-            ~((xHighIs1 || xHighIs3) && xExactQuot).asUInt
-  }
-  val adr = x(x.getWidth-1, x.getWidth-adrW)
-
-  // in a range x in [0, 1/4), 4 < sin(2pix)/x <= 2pi.
-  // So 1/2 < sin(2pix)/8x <= pi/4 = 0.78.. < 1.
-  val tableD = new FuncTableDouble( x0 => {
-    val x = x0 / 4.0 // convert [0, 1) to the input range, [0, 1/4)
-    sin(x * Pi * 2.0) / (8.0*x)
-  }, order )
-  tableD.addRange(0.0, 1.0, 1<<adrW)
-  val tableI = new FuncTableInt( tableD, fracW )
-  val cbit = tableI.cbit
-
-  val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/0)
-  val coeff = getSlices(coeffTable(adr), coeffWidth)
-
-  val polyEval = Module(new PolynomialEval(spec, polySpec, cbit, stage))
-
-  val coeffs = Wire(new TableCoeffInput(cbit))
-  for (i <- 0 to order) {
-    coeffs.cs(i) := coeff(i)
-  }
-
-  polyEval.io.coeffs := coeffs
-  if(order != 0) {
-    val dx = Cat(~x(x.getWidth-adrW-1), x(x.getWidth-adrW-2, x.getWidth-adrW-dxW))
-    polyEval.io.dx.get := dx
-  }
-
-  val polyRes = polyEval.io.result // sin(2pix)/8x, in [0.5, 1). W = fracW
-
-  // multiply x * sin(2pix)/x
-
-  val xzero  = x === 0.U
-  val xShift = Mux(xzero, 0.U, PriorityEncoder(Reverse(x)))
-  val xAligned = (x << xShift)(x.getWidth-1, 0)
-  assert(xAligned(x.getWidth-1) === 1.U || xzero)
-
-  val zProd      = xAligned * polyRes
-  val zProdW     = x.getWidth + fracW
-
-  val zMoreThan2 = zProd(fracW+x.getWidth - 1)
+  val zMoreThan2 = zProd(fracW+xAligned.getWidth - 1)
   val zShifted   = Mux(zMoreThan2, zProd(zProdW-2, zProdW-manW-1),
                                    zProd(zProdW-3, zProdW-manW-2))
 
@@ -146,7 +236,40 @@ class SinCos2Pi(
   val z = Cat(zsgn, zex, zman)
   assert(z.getWidth == spec.W)
 
-  io.z := z
+  io.z := ShiftRegister(z, nStage)
+}
+
+class SinCos2Pi(
+  rndW: Int,      // width of input fixedpoint
+  spec: RealSpec, // output width
+  polySpec: PolynomialSpec,
+  stage: PipelineStageConfig
+  ) extends Module {
+
+  val io = IO(new Bundle {
+    val isSin = Input(Bool())
+    val x     = Input(UInt(rndW.W))
+    val z     = Output(UInt(spec.W.W))
+  })
+
+  val cbit = BoxMullerSinCos2PiTableCoeff.getCBits(polySpec)
+
+  val preProc  = Module(new BoxMullerSinCos2PiPreProc(rndW, spec, polySpec, stage))
+  val polyEval = Module(new PolynomialEval(spec, polySpec, cbit, stage))
+  val postProc = Module(new BoxMullerSinCos2PiPostProc(rndW, spec, polySpec, stage))
+
+  preProc.io.isSin := io.isSin
+  preProc.io.rnd   := io.x
+
+  polyEval.io.coeffs := preProc.io.cs
+  if(polySpec.order != 0) {
+    polyEval.io.dx.get := preProc.io.dx.get
+  }
+
+  postProc.io.pre  := preProc.io.out
+  postProc.io.zres := polyEval.io.result
+
+  io.z := postProc.io.z
 }
 
 //
