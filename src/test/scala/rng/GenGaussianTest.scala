@@ -226,7 +226,7 @@ class BoxMullerLog(
 class BoxMullerLogTest extends AnyFlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
-  behavior of "Test Fixed -> FP -log(1-x) for BoxMuller"
+  behavior of "Test Fixed -> FP -2log(1-x) for BoxMuller"
 
   var n = 10000
 
@@ -250,7 +250,7 @@ class BoxMullerLogTest extends AnyFlatSpec
   ) = {
     val total = stage.total
     val pipeconfig = stage.getString
-    it should f"-log(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
+    it should f"-2log(1-x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
       test( new BoxMullerLog(rndW, spec, polySpec, stage)).
         withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
         {
@@ -258,7 +258,7 @@ class BoxMullerLogTest extends AnyFlatSpec
 
           val reference = (x: SafeLong) => {
             val xr = ((SafeLong(1) << rndW) - x).toDouble / (SafeLong(1) << rndW).toDouble
-            val z  = -log(xr)
+            val z  = -2 * log(xr)
             new RealGeneric(spec, z)
           }
 
@@ -321,7 +321,7 @@ class BoxMullerLogTest extends AnyFlatSpec
               val xr = ((SafeLong(1) << rndW) - xid).toDouble / (SafeLong(1) << rndW).toDouble
 
               assert((exdiff == 0) && (diff <= tolerance),
-                     f"x = ${xid.toLong.toBinaryString}, z = ${-log(xr)}, "+
+                     f"x = ${xid.toLong.toBinaryString}, z = ${-2*log(xr)}, "+
                      f"test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString})(${new RealGeneric(spec, zisgn, ziexp.toInt, ziman).toDouble}) != " +
                      f"ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})(${new RealGeneric(spec, z0dsgn, z0dexp.toInt, z0dman).toDouble})")
             }
@@ -329,8 +329,8 @@ class BoxMullerLogTest extends AnyFlatSpec
           println(f"${generatorStr} Summary")
           if(maxError != 0.0) {
             println(f"N=$n%d : largest errors ${maxError.toInt}%d where the value is "
-                  + f"${zatMaxError} != ${-log(1.0 - xatMaxError)}, "
-                  + f"diff = ${zatMaxError - (-log(1.0 - xatMaxError))}, x = ${xatMaxError}")
+                  + f"${zatMaxError} != ${-2*log(1.0 - xatMaxError)}, "
+                  + f"diff = ${zatMaxError - (-2*log(1.0 - xatMaxError))}, x = ${xatMaxError}")
           }
           // if the resulting z is small, error becomes too large to print them all.
 //           for(kv <- errs.toSeq.sortBy(_._1)) {
@@ -353,7 +353,7 @@ class BoxMullerLogTest extends AnyFlatSpec
             val diff = (zi - z0d).abs
 
             val xr = ((SafeLong(1) << rndW) - xid).toDouble / (SafeLong(1) << rndW).toDouble
-            val zr = -log(xr)
+            val zr = -2*log(xr)
 
             val xidsgn = bit(spec.W-1, xid).toInt
             val xidexp = slice(spec.manW, spec.exW, xid)

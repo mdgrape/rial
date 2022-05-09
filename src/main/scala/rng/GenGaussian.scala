@@ -334,7 +334,7 @@ class BoxMullerLogPreProc(
   }
 }
 
-// BoxMullerLog calculates -log(1-x).
+// BoxMullerLog calculates -2log(1-x). multiplying 2 is just adding 1 to ex.
 //
 // table calculates log2(1.yman).
 // log2(y) = log2(2^yex * 1.yman) = yex + log2(1.yman). yex < 0.
@@ -403,7 +403,7 @@ class BoxMullerLogPostProc(
                                              Cat(1.U(1.W), zRounded(manW-1, 0)))
   val zexInc     = zMoreThan2 + zMoreThan2AfterRound
 
-  val zex0 = (ln2.ex + xex.getWidth - 1).U(exW.W) - log2xShift
+  val zex0 = (ln2.ex + xex.getWidth).U(exW.W) - log2xShift
 
   val zex  = Mux(zzero, 0.U, zex0 + zexInc)
   val zman = Mux(zzero, 0.U, zmanW1(manW-1, 0))
