@@ -190,11 +190,43 @@ class SinCos2PiTest extends AnyFlatSpec
     n, r, "Test FP32 cos",generateRandomUInt, 3)
 }
 
+// ============================================================================
 
-class Sqrt2LogXTest extends AnyFlatSpec
+class BoxMullerLog(
+  rndW: Int,      // width of input fixedpoint
+  spec: RealSpec, // output width
+  polySpec: PolynomialSpec,
+  stage: PipelineStageConfig
+  ) extends Module {
+
+  val io = IO(new Bundle {
+    val x     = Input(UInt(rndW.W))
+    val z     = Output(UInt(spec.W.W))
+  })
+
+  val cbit = BoxMullerLogTableCoeff.getCBits(polySpec)
+
+  val preProc  = Module(new BoxMullerLogPreProc(rndW, spec, polySpec, stage))
+  val polyEval = Module(new PolynomialEval(spec, polySpec, cbit, stage))
+  val postProc = Module(new BoxMullerLogPostProc(rndW, spec, polySpec, stage))
+
+  preProc.io.x := io.x
+
+  polyEval.io.coeffs := preProc.io.cs
+  if(polySpec.order != 0) {
+    polyEval.io.dx.get := preProc.io.dx.get
+  }
+
+  postProc.io.pre  := preProc.io.out
+  postProc.io.zres := polyEval.io.result
+
+  io.z := postProc.io.z
+}
+
+class BoxMullerLogTest extends AnyFlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
-  behavior of "Test Fixed -> FP sqrt(-2log(x)) for Box-Muller"
+  behavior of "Test Fixed -> FP -log(1-x) for BoxMuller"
 
   var n = 10000
 
@@ -214,27 +246,32 @@ class Sqrt2LogXTest extends AnyFlatSpec
       stage: PipelineStageConfig,
       n : Int, r : Random, generatorStr : String,
       generator : ( (Int, Random) => SafeLong),
-      tolerance : Double
+      tolerance : Int
   ) = {
     val total = stage.total
     val pipeconfig = stage.getString
-    it should f"sqrt(-2log(x)) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
-      test( new Sqrt2LogX(rndW, spec, polySpec, stage)).
+    it should f"-log(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
+      test( new BoxMullerLog(rndW, spec, polySpec, stage)).
         withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
         {
           val nstage = stage.total
 
           val reference = (x: SafeLong) => {
-            val xr = x.toDouble / (SafeLong(1) << rndW).toDouble
-            val z  = sqrt(-2.0 * log(1.0 - xr))
+            val xr = ((SafeLong(1) << rndW) - x).toDouble / (SafeLong(1) << rndW).toDouble
+            val z  = -log(xr)
             new RealGeneric(spec, z)
           }
 
-          val q  = new Queue[(BigInt,RealGeneric)]
+          var maxError    = 0.0
+          var xatMaxError = 0.0
+          var zatMaxError = 0.0
+          val errs = collection.mutable.Map[Int, (Int, Int)]()
+
+          val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
-            val xi  = generator(rndW, r)
-            val z0r = reference(xi)
-            q += ((xi.toBigInt, z0r))
+            val xi = generator(rndW, r)
+            val z0r= reference(xi)
+            q += ((xi.toBigInt, z0r.value.toBigInt))
 
             c.io.x.poke(xi.toBigInt.U(spec.W.W))
             val zi = c.io.z.peek().litValue.toBigInt
@@ -249,32 +286,106 @@ class Sqrt2LogXTest extends AnyFlatSpec
               val zisgn = bit(spec.W-1, zi).toInt
               val ziexp = slice(spec.manW, spec.exW, zi)
               val ziman = zi & maskSL(spec.manW)
-              val zid = new RealGeneric(spec, zisgn, ziexp.toInt, ziman)
 
-              val z0dsgn = z0d.sgn
-              val z0dexp = z0d.ex
-              val z0dman = z0d.man
+              val z0dsgn = bit(spec.W-1, z0d).toInt
+              val z0dexp = slice(spec.manW, spec.exW, z0d)
+              val z0dman = z0d & maskSL(spec.manW)
 
-              val diff = (zid.toDouble - z0d.toDouble).abs
+              // relative tolerance
+              val exBias = spec.exBias
+              val exdiff = (ziexp - z0dexp.toInt).abs.toInt
+              val diff   = if(z0dexp < exBias) {
+                (zi - z0d).abs >> (exBias-z0dexp.toInt)
+              } else {
+                (zi - z0d).abs
+              }
 
-              val xr = xid.toDouble / (SafeLong(1) << rndW).toDouble
+              val erri = (zi - z0d).toLong
+              if(zi - z0d != 0) {
+                val errkey = erri.abs.toInt
+                if( ! errs.contains(errkey)) {
+                  errs(errkey) = (0, 0)
+                }
+                if (erri >= 0) {
+                  errs(errkey) = (errs(errkey)._1 + 1, errs(errkey)._2)
+                } else {
+                  errs(errkey) = (errs(errkey)._1, errs(errkey)._2 + 1)
+                }
+              }
+              if (maxError < erri.abs) {
+                maxError    = erri.abs
+                xatMaxError = xid.toDouble / (SafeLong(1) << rndW).toDouble
+                zatMaxError = new RealGeneric(spec, zisgn.toInt, ziexp.toInt, ziman).toDouble
+              }
 
-              assert(diff <= Seq(tolerance, z0d.toDouble * tolerance).max,
-                     f"x = ${xid.toLong.toBinaryString}(${xr}), z = ${sqrt(-2.0*log(1.0 - xr))}, "+
+              val xr = ((SafeLong(1) << rndW) - xid).toDouble / (SafeLong(1) << rndW).toDouble
+
+              assert((exdiff == 0) && (diff <= tolerance),
+                     f"x = ${xid.toLong.toBinaryString}, z = ${-log(xr)}, "+
                      f"test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString})(${new RealGeneric(spec, zisgn, ziexp.toInt, ziman).toDouble}) != " +
                      f"ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})(${new RealGeneric(spec, z0dsgn, z0dexp.toInt, z0dman).toDouble})")
             }
+          }
+          println(f"${generatorStr} Summary")
+          if(maxError != 0.0) {
+            println(f"N=$n%d : largest errors ${maxError.toInt}%d where the value is "
+                  + f"${zatMaxError} != ${-log(1.0 - xatMaxError)}, "
+                  + f"diff = ${zatMaxError - (-log(1.0 - xatMaxError))}, x = ${xatMaxError}")
+          }
+          // if the resulting z is small, error becomes too large to print them all.
+//           for(kv <- errs.toSeq.sortBy(_._1)) {
+//             val (k, (errPos, errNeg)) = kv
+//             println(f"N=$n%d : +/- $k errors positive $errPos%d / negative $errNeg%d")
+//           }
+          println( "---------------------------------------------------------------")
+
+          // special values: 0, 1-eps
+          for(xid <- Seq(SafeLong(0), maskSL(rndW))) {
+            val z0r = reference(xid)
+            val z0d = z0r.value.toBigInt
+
+            c.io.x.poke(xid.toBigInt.U(spec.W.W))
+            for(j <- 0 until nstage) {
+              c.clock.step(1)
+            }
+            val zi = c.io.z.peek().litValue.toBigInt
+
+            val diff = (zi - z0d).abs
+
+            val xr = ((SafeLong(1) << rndW) - xid).toDouble / (SafeLong(1) << rndW).toDouble
+            val zr = -log(xr)
+
+            val xidsgn = bit(spec.W-1, xid).toInt
+            val xidexp = slice(spec.manW, spec.exW, xid)
+            val xidman = xid & maskSL(spec.manW)
+
+            val zisgn = bit(spec.W-1, zi).toInt
+            val ziexp = slice(spec.manW, spec.exW, zi)
+            val ziman = zi & maskSL(spec.manW)
+
+            val z0dsgn = bit(spec.W-1, z0d).toInt
+            val z0dexp = slice(spec.manW, spec.exW, z0d)
+            val z0dman = z0d & maskSL(spec.manW)
+
+            if(diff > tolerance) {
+              c.clock.step(1) // run printf
+            }
+
+            val x0r = xid.toDouble / (SafeLong(1) << rndW).toDouble
+            assert(diff <= tolerance,
+                   f"x = ${xid.toLong.toBinaryString}(${x0r} -> ${xr}), z(scala.math.FP64) = ${zr}, "+
+                   f"test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString})(${new RealGeneric(spec, zisgn, ziexp.toInt, ziman).toDouble}) != " +
+                   f"ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})(${new RealGeneric(spec, z0dsgn, z0dexp.toInt, z0dman).toDouble})")
           }
         }
       }
     }
   }
-  val rndW = 32
   val nOrderFP32    = 2
   val adrWFP32      = 8
-  val extraBitsFP32 = 3 // should be >= 3
-  val polySpecFP32  = new PolynomialSpec(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, Some(rndW - adrWFP32))
+  val extraBitsFP32 = 3
+  val polySpecFP32  = new PolynomialSpec(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32)
 
-  runtest(rndW, RealSpec.Float32Spec, polySpecFP32, PipelineStageConfig.none,
-    n, r, "Test Fixed sqrt(-2log(x)) to FP32",generateRandomUInt, 15 * pow(2.0, -23))
+  runtest(32, RealSpec.Float32Spec, polySpecFP32, PipelineStageConfig.none,
+    n, r, "Test FP32 log",generateRandomUInt, 3)
 }

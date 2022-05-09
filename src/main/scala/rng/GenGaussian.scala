@@ -227,10 +227,52 @@ class BoxMullerSinCos2PiPostProc(
 }
 
 
+// ===========================================================================
 //
-// z = sqrt(-2log(1-x)) at fixedpoint precision.
+// z = -2log(1-x): Fixed -> FP
 //
-class Sqrt2LogX(
+// x = [0, 1).
+//
+
+object BoxMullerLogTableCoeff {
+  def genTable(
+    polySpec: PolynomialSpec
+  ): FuncTableInt = {
+
+    val log2 = (x:Double) => {log(x) / log(2.0)}
+
+    // --------------------------------------------------------------------------
+    val order  = polySpec.order
+    val fracW  = polySpec.fracW
+    val adrW   = polySpec.adrW
+
+    val tableD = new FuncTableDouble( x0 => {
+      val x = x0 + 1.0
+      log2(x)
+    }, order )
+    tableD.addRange(0.0, 1.0, 1<<adrW)
+    new FuncTableInt( tableD, fracW )
+  }
+
+  def getCBits(
+    polySpec: PolynomialSpec
+  ): Seq[Int] = {
+    val tableI = genTable(polySpec)
+    tableI.cbit
+  }
+}
+
+class BoxMullerLogPreProcessOutput(val rndW: Int, val spec: RealSpec) extends Bundle {
+  val zzero  = Output(Bool())
+  val xShift = Output(UInt(log2Up(rndW-2).W))
+}
+
+//
+// preproc takes FixedPoint x in 0x0000 ~ 0xFFFF and normalize (1 - x).
+// let y = 1-x. y = 2^yex * 1.yman.
+// table calculates log2(1.yman).
+//
+class BoxMullerLogPreProc(
   rndW: Int,      // width of input fixedpoint
   spec: RealSpec, // output width
   polySpec: PolynomialSpec,
@@ -249,73 +291,128 @@ class Sqrt2LogX(
   val adrW   = polySpec.adrW
   val dxW    = polySpec.dxW
 
-  assert(rndW >= adrW + dxW)
+  val tableI = BoxMullerLogTableCoeff.genTable(polySpec)
+  val cbit = tableI.cbit
 
   val io = IO(new Bundle {
-    val x = Input(UInt(rndW.W))
-    val z = Output(UInt(spec.W.W))
+    val x  = Input(UInt(rndW.W))
+    val cs = Flipped(new TableCoeffInput(cbit))
+    val dx = if (order != 0) { Some(Output(UInt(dxW.W))) } else { None }
+    val out = new BoxMullerLogPreProcessOutput(rndW, spec)
   })
 
-  val x = io.x
+  val negx = ~io.x + 1.U  // 1 - x
+  val zzero = negx === 0.U // if 1 - x == 0, then x == 1. log(1) = 0.
 
-  // if rndW=32, xmin = 2^-32. then sqrt(-2 * log(2^-32)) ~ 6.66. intW = 3.
-  val xmin = pow(2.0, -rndW)
-  val zmax = sqrt(-2.0 * log(xmin))
-  val intW = log2UpD(zmax)
-  if(extraBits < intW) {
-    println(f"WARNING: extraBits(${extraBits}) in polynomial is less than "+
-            f"the recommended intW(${intW}).")
-  }
+  val nxShift   = Mux(zzero, 0.U, PriorityEncoder(Reverse(negx)))
+  val nxShifted = (negx << nxShift)(rndW-1, 0)
+  assert(zzero || nxShifted(rndW-1) === 1.U)
 
-  // sqrt(-2log(1-x)); to avoid inf, the x axis is reversed
-  val tableD = new FuncTableDouble( x0 => {
-    val scale = pow(2.0, -intW) // scale to make z < 1
-    if(x0 < xmin) {
-      zmax * scale
-    } else {
-      sqrt(-2*log(1.0-x0)) * scale
-    }
-  }, order )
-  tableD.addRange(0.0, 1.0, 1<<adrW)
-  val tableI = new FuncTableInt( tableD, fracW )
-  val cbit = tableI.cbit
+  // ---------------------------------------------------------------------------
+  // special values
+  io.out.zzero  := ShiftRegister(zzero,   nStage)
+  io.out.xShift := ShiftRegister(nxShift, nStage)
+
+  // ---------------------------------------------------------------------------
+  // table coeffs
+
+  val xman = nxShifted(rndW-2, 0) // remove "hidden" bit to normalize
+  val xmanW = xman.getWidth
+
+  val adr = xman(xmanW-1, xmanW-adrW)
+
   val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/0)
-
-  val polyEval = Module(new PolynomialEval(spec, polySpec, cbit, stage))
-
-  val adr   = x(rndW-1, rndW-adrW)
   val coeff = getSlices(coeffTable(adr), coeffWidth)
 
   val coeffs = Wire(new TableCoeffInput(cbit))
   for (i <- 0 to order) {
     coeffs.cs(i) := coeff(i)
   }
+  io.cs := ShiftRegister(coeffs, nStage)
 
-  polyEval.io.coeffs := coeffs
   if(order != 0) {
-    val dx = Cat(~x(x.getWidth-adrW-1), x(x.getWidth-adrW-2, x.getWidth-adrW-dxW))
-    polyEval.io.dx.get := dx
+    val dx = Cat(~xman(xmanW-adrW-1), xman(xmanW-adrW-2, xmanW-adrW-dxW))
+    io.dx.get := ShiftRegister(dx, nStage)
   }
+}
 
-  val zres = polyEval.io.result // sin(2pix)/8x, in [0.5, 1). W = fracW
+// BoxMullerLog calculates -log(1-x).
+//
+// table calculates log2(1.yman).
+// log2(y) = log2(2^yex * 1.yman) = yex + log2(1.yman). yex < 0.
+// log_e(y) = log_e(2) * log2(y).
+// yex is always negative and log2(1.man) is always positive.
+// log2(1.man) < 1 and yex <= -1. So, it calculates (|yex| - log2(1.yman)) * log_e(2)
+//
+// yex is an integer and 0 <= log2(1.man) < 1. So subtraction requires only a
+// negation and +1.
+// `xShift` represents the shift required to make the MSB of 1-x to 1.
+// `xShift===0` means the MSB was already 1, in other words, 0.5 < 1-x < 1.
+// 0.5 < 1-x < 1 means (1-x).ex = -1. yex = -xShift-1.
+//
+// (|yex| - log2(1.yman)) * log_e(2) = (xShift + 1 - log2(1.yman)) * log_e(2).
+//
+class BoxMullerLogPostProc(
+    rndW: Int,      // width of input fixedpoint
+    spec: RealSpec, // output width
+    polySpec: PolynomialSpec,
+    stage: PipelineStageConfig
+  ) extends Module {
 
-  // shift to normalize z
+  val nStage = stage.total
 
-  val zShift = Mux(zres === 0.U, 0.U, PriorityEncoder(Reverse(zres)))
-  val zAligned = (zres << zShift)(fracW-1, 0)
-  assert(zAligned(fracW-1) === 1.U || zres === 0.U)
+  val exW    = spec.exW
+  val manW   = spec.manW
+  val exBias = spec.exBias
 
-  assert(0 <= fracW-manW-2)
-  val zman0 = zAligned(fracW-2, fracW-manW-1) +& zAligned(fracW-manW-2)
-  val zmanMoreThan2AfterRound = zman0(manW)
-  val zex0 = (exBias + intW - 1).U(exW.W) - zShift + zmanMoreThan2AfterRound
+  val order  = polySpec.order
+  val fracW  = polySpec.fracW
+  val adrW   = polySpec.adrW
+  val dxW    = polySpec.dxW
 
-  val zman = zman0(manW-1, 0)
-  val zex  = Mux(zres === 0.U, 0.U, zex0)
+  assert(rndW > adrW + dxW)
+
+  val io = IO(new Bundle {
+    val pre  = Flipped(new BoxMullerLogPreProcessOutput(rndW, spec))
+    val zres = Input(UInt(fracW.W))
+    val z    = Output(UInt(spec.W.W))
+  })
+
+  val zFrac = ~io.zres + 1.U
+
+  val zzero = io.pre.zzero
+  val xex   = io.pre.xShift +& (zFrac === 0.U).asUInt
+
+  val log2x0     = Cat(xex, zFrac)
+  val log2xShift = PriorityEncoder(Reverse(log2x0)) // xex might be zero
+  val log2x      = (log2x0 << log2xShift)(log2x0.getWidth-1, 0)
+  assert(log2x(log2x0.getWidth-1) === 1.U)
+
+  val ln2 = new RealGeneric(spec, log(2.0))
+  val ln2manW1 = ln2.manW1.toBigInt.U((manW+1).W)
+
+  val zProd = log2x * ln2manW1
+  val zProdW = log2x.getWidth + ln2manW1.getWidth
+
+  val zMoreThan2 = zProd(zProdW - 1)
+  val zShifted   = Mux(zMoreThan2, zProd(zProdW-2, zProdW-manW-1),
+                                   zProd(zProdW-3, zProdW-manW-2))
+
+  val zRounded   = zShifted +& Mux(zMoreThan2, zProd(zProdW-manW-2),
+                                               zProd(zProdW-manW-3))
+  val zMoreThan2AfterRound = zRounded(manW)
+  val zmanW1     = Mux(zMoreThan2AfterRound, Cat(1.U(1.W), 0.U(manW.W)),
+                                             Cat(1.U(1.W), zRounded(manW-1, 0)))
+  val zexInc     = zMoreThan2 + zMoreThan2AfterRound
+
+  val zex0 = (ln2.ex + xex.getWidth - 1).U(exW.W) - log2xShift
+
+  val zex  = Mux(zzero, 0.U, zex0 + zexInc)
+  val zman = Mux(zzero, 0.U, zmanW1(manW-1, 0))
   val zsgn = 0.U(1.W)
 
   val z = Cat(zsgn, zex, zman)
   assert(z.getWidth == spec.W)
 
-  io.z := z
+  io.z := ShiftRegister(z, nStage)
 }
