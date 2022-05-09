@@ -65,20 +65,7 @@ object BoxMullerSinCos2PiTableCoeff {
   def getCBits(
     polySpec: PolynomialSpec
   ): Seq[Int] = {
-
-    // --------------------------------------------------------------------------
-    // in a range x in [0, 1/4), 4 < sin(2pix)/x <= 2pi.
-    // So 1/2 < sin(2pix)/8x <= pi/4 = 0.78.. < 1.
-    val order  = polySpec.order
-    val fracW  = polySpec.fracW
-    val adrW   = polySpec.adrW
-
-    val tableD = new FuncTableDouble( x0 => {
-      val x = x0 / 4.0 // convert [0, 1) to the input range, [0, 1/4)
-      sin(x * Pi * 2.0) / (8.0*x)
-    }, order )
-    tableD.addRange(0.0, 1.0, 1<<adrW)
-    val tableI = new FuncTableInt( tableD, fracW )
+    val tableI = genTable(polySpec)
     tableI.cbit
   }
 }
