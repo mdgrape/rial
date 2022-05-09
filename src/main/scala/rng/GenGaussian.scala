@@ -37,7 +37,7 @@ import rial.util.ScalaUtil._
 class BoxMullerSinCos2PiPreProcessOutput(val rndW: Int, val spec: RealSpec) extends Bundle {
   val zone     = Output(Bool())
   val zsgn     = Output(UInt(1.W))
-  val xzero    = Output(Bool())
+  val zzero    = Output(Bool())
   val xShift   = Output(UInt(log2Up(rndW-2).W))
   val xAligned = Output(UInt((rndW-2).W))
 }
@@ -174,12 +174,12 @@ class BoxMullerSinCos2PiPreProc(
 
   // --------------------------------------------------------------------------
 
-  val xzero  = x === 0.U
-  val xShift = Mux(xzero, 0.U, PriorityEncoder(Reverse(x)))
+  val zzero  = x === 0.U
+  val xShift = Mux(zzero, 0.U, PriorityEncoder(Reverse(x)))
   val xAligned = (x << xShift)(x.getWidth-1, 0)
-  assert(xAligned(x.getWidth-1) === 1.U || xzero)
+  assert(xAligned(x.getWidth-1) === 1.U || zzero)
 
-  io.out.xzero    := ShiftRegister(xzero,    nStage)
+  io.out.zzero    := ShiftRegister(zzero,    nStage)
   io.out.xShift   := ShiftRegister(xShift,   nStage)
   io.out.xAligned := ShiftRegister(xAligned, nStage)
 }
@@ -212,14 +212,14 @@ class BoxMullerSinCos2PiPostProc(
 
   val zone     = io.pre.zone
   val zsgn     = io.pre.zsgn
-  val xzero    = io.pre.xzero
+  val zzero    = io.pre.zzero
   val xShift   = io.pre.xShift
   val xAligned = io.pre.xAligned
 
   val zProd      = xAligned * io.zres
   val zProdW     = xAligned.getWidth + fracW
 
-  val zMoreThan2 = zProd(fracW+xAligned.getWidth - 1)
+  val zMoreThan2 = zProd(zProdW - 1)
   val zShifted   = Mux(zMoreThan2, zProd(zProdW-2, zProdW-manW-1),
                                    zProd(zProdW-3, zProdW-manW-2))
 
@@ -230,8 +230,8 @@ class BoxMullerSinCos2PiPostProc(
                                              Cat(1.U(1.W), zRounded(manW-1, 0)))
   val zexInc     = zMoreThan2 + zMoreThan2AfterRound
 
-  val zex  = Mux(zone, exBias.U(exW.W), Mux(xzero, 0.U, (exBias-1).U(exW.W) - xShift + zexInc))
-  val zman = Mux(zone || xzero, 0.U, zmanW1(manW-1, 0))
+  val zex  = Mux(zone, exBias.U(exW.W), Mux(zzero, 0.U, (exBias-1).U(exW.W) - xShift + zexInc))
+  val zman = Mux(zone || zzero, 0.U, zmanW1(manW-1, 0))
 
   val z = Cat(zsgn, zex, zman)
   assert(z.getWidth == spec.W)
