@@ -226,38 +226,6 @@ class BoxMullerSinCos2PiPostProc(
   io.z := ShiftRegister(z, nStage)
 }
 
-class SinCos2Pi(
-  rndW: Int,      // width of input fixedpoint
-  spec: RealSpec, // output width
-  polySpec: PolynomialSpec,
-  stage: PipelineStageConfig
-  ) extends Module {
-
-  val io = IO(new Bundle {
-    val isSin = Input(Bool())
-    val x     = Input(UInt(rndW.W))
-    val z     = Output(UInt(spec.W.W))
-  })
-
-  val cbit = BoxMullerSinCos2PiTableCoeff.getCBits(polySpec)
-
-  val preProc  = Module(new BoxMullerSinCos2PiPreProc(rndW, spec, polySpec, stage))
-  val polyEval = Module(new PolynomialEval(spec, polySpec, cbit, stage))
-  val postProc = Module(new BoxMullerSinCos2PiPostProc(rndW, spec, polySpec, stage))
-
-  preProc.io.isSin := io.isSin
-  preProc.io.rnd   := io.x
-
-  polyEval.io.coeffs := preProc.io.cs
-  if(polySpec.order != 0) {
-    polyEval.io.dx.get := preProc.io.dx.get
-  }
-
-  postProc.io.pre  := preProc.io.out
-  postProc.io.zres := polyEval.io.result
-
-  io.z := postProc.io.z
-}
 
 //
 // z = sqrt(-2log(1-x)) at fixedpoint precision.

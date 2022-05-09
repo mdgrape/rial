@@ -23,6 +23,39 @@ import scala.math._
 import scala.collection.mutable.Queue
 import scala.language.reflectiveCalls
 
+class SinCos2Pi(
+  rndW: Int,      // width of input fixedpoint
+  spec: RealSpec, // output width
+  polySpec: PolynomialSpec,
+  stage: PipelineStageConfig
+  ) extends Module {
+
+  val io = IO(new Bundle {
+    val isSin = Input(Bool())
+    val x     = Input(UInt(rndW.W))
+    val z     = Output(UInt(spec.W.W))
+  })
+
+  val cbit = BoxMullerSinCos2PiTableCoeff.getCBits(polySpec)
+
+  val preProc  = Module(new BoxMullerSinCos2PiPreProc(rndW, spec, polySpec, stage))
+  val polyEval = Module(new PolynomialEval(spec, polySpec, cbit, stage))
+  val postProc = Module(new BoxMullerSinCos2PiPostProc(rndW, spec, polySpec, stage))
+
+  preProc.io.isSin := io.isSin
+  preProc.io.rnd   := io.x
+
+  polyEval.io.coeffs := preProc.io.cs
+  if(polySpec.order != 0) {
+    polyEval.io.dx.get := preProc.io.dx.get
+  }
+
+  postProc.io.pre  := preProc.io.out
+  postProc.io.zres := polyEval.io.result
+
+  io.z := postProc.io.z
+}
+
 class SinCos2PiTest extends AnyFlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
