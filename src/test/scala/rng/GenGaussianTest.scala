@@ -23,7 +23,7 @@ import scala.math._
 import scala.collection.mutable.Queue
 import scala.language.reflectiveCalls
 
-class SinCos2Pi(
+class BoxMullerSinCos2Pi(
   rndW: Int,      // width of input fixedpoint
   spec: RealSpec, // output width
   polySpec: PolynomialSpec,
@@ -56,7 +56,7 @@ class SinCos2Pi(
   io.z := postProc.io.z
 }
 
-class SinCos2PiTest extends AnyFlatSpec
+class BoxMullerSinCos2PiTest extends AnyFlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
   behavior of "Test Fixed -> FP sin(2Pi*x)/cos(2Pi*x) for BoxMuller"
@@ -84,7 +84,7 @@ class SinCos2PiTest extends AnyFlatSpec
     val total = stage.total
     val pipeconfig = stage.getString
     it should f"sin/cos(2pi*x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
-      test( new SinCos2Pi(rndW, spec, polySpec, stage)).
+      test( new BoxMullerSinCos2Pi(rndW, spec, polySpec, stage)).
         withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
         {
           val nstage = stage.total
