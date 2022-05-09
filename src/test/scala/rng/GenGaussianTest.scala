@@ -38,7 +38,7 @@ class BoxMullerSinCos2Pi(
 
   val cbit = BoxMullerSinCos2PiTableCoeff.getCBits(polySpec)
 
-  val preProc  = Module(new BoxMullerSinCos2PiPreProc(rndW, spec, polySpec, stage))
+  val preProc  = Module(new BoxMullerSinCos2PiPreProc(rndW, spec, polySpec, cbit, stage))
   val polyEval = Module(new PolynomialEval(spec, polySpec, cbit, stage))
   val postProc = Module(new BoxMullerSinCos2PiPostProc(rndW, spec, polySpec, stage))
 
@@ -206,7 +206,7 @@ class BoxMullerLog(
 
   val cbit = BoxMullerLogTableCoeff.getCBits(polySpec)
 
-  val preProc  = Module(new BoxMullerLogPreProc(rndW, spec, polySpec, stage))
+  val preProc  = Module(new BoxMullerLogPreProc(rndW, spec, polySpec, cbit, stage))
   val polyEval = Module(new PolynomialEval(spec, polySpec, cbit, stage))
   val postProc = Module(new BoxMullerLogPostProc(rndW, spec, polySpec, stage))
 

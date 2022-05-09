@@ -74,6 +74,7 @@ class BoxMullerSinCos2PiPreProc(
     rndW: Int,      // width of input fixedpoint
     spec: RealSpec, // output width
     polySpec: PolynomialSpec,
+    cbit: Seq[Int],
     stage: PipelineStageConfig
   ) extends Module {
 
@@ -89,9 +90,6 @@ class BoxMullerSinCos2PiPreProc(
   val dxW    = polySpec.dxW
 
   assert(rndW > 2 + adrW + dxW) // manW + 2; satisfied by (i32, f32) or (i64, f64)
-
-  val tableI = BoxMullerSinCos2PiTableCoeff.genTable(polySpec)
-  val cbit = tableI.cbit
 
   // --------------------------------------------------------------------------
 
@@ -149,6 +147,7 @@ class BoxMullerSinCos2PiPreProc(
 
   val adr = x(x.getWidth-1, x.getWidth-adrW)
 
+  val tableI = BoxMullerSinCos2PiTableCoeff.genTable(polySpec)
   val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/0)
   val coeff = getSlices(coeffTable(adr), coeffWidth)
 
@@ -276,6 +275,7 @@ class BoxMullerLogPreProc(
   rndW: Int,      // width of input fixedpoint
   spec: RealSpec, // output width
   polySpec: PolynomialSpec,
+  cbit: Seq[Int],
   stage: PipelineStageConfig
   ) extends Module {
 
@@ -290,9 +290,6 @@ class BoxMullerLogPreProc(
   val extraBits = fracW - manW
   val adrW   = polySpec.adrW
   val dxW    = polySpec.dxW
-
-  val tableI = BoxMullerLogTableCoeff.genTable(polySpec)
-  val cbit = tableI.cbit
 
   val io = IO(new Bundle {
     val x  = Input(UInt(rndW.W))
@@ -321,6 +318,7 @@ class BoxMullerLogPreProc(
 
   val adr = xman(xmanW-1, xmanW-adrW)
 
+  val tableI = BoxMullerLogTableCoeff.genTable(polySpec)
   val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/0)
   val coeff = getSlices(coeffTable(adr), coeffWidth)
 
