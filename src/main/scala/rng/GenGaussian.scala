@@ -414,3 +414,112 @@ class BoxMullerLogPostProc(
 
   io.z := ShiftRegister(z, nStage)
 }
+
+// ============================================================================
+//
+// calc sqrt: FP -> FP. almost the same as math/sqrt.
+//
+
+class BoxMullerSqrtPreProcessOutput(val rndW: Int, val spec: RealSpec) extends Bundle {
+  val zex = Output(UInt(spec.exW.W)) // if zex == 0, then the result is zero.
+}
+
+class BoxMullerSqrtPreProc(
+    rndW: Int,      // width of input fixedpoint
+    spec: RealSpec, // output width
+    polySpec: PolynomialSpec,
+    cbit: Seq[Int],
+    stage: PipelineStageConfig
+  ) extends Module {
+
+  val nStage = stage.total
+
+  val exW    = spec.exW
+  val manW   = spec.manW
+  val exBias = spec.exBias
+
+  val order  = polySpec.order
+  val fracW  = polySpec.fracW
+  val adrW   = polySpec.adrW
+  val dxW    = Seq(polySpec.dxW, manW-adrW).min // now the input is FP.
+
+  // --------------------------------------------------------------------------
+
+  val io = IO(new Bundle {
+    val x   = Input(UInt(spec.W.W))
+    val cs  = Flipped(new TableCoeffInput(cbit))
+    val dx  = if (order != 0) { Some(Output(UInt(dxW.W))) } else { None }
+    val out = new BoxMullerSqrtPreProcessOutput(rndW, spec)
+  })
+
+  // --------------------------------------------------------------------------
+
+  val xexNobias = io.x(exW+manW-1, manW) - exBias.U
+  val zexNobias = Cat(xexNobias(exW-1), xexNobias(exW-1, 1))
+  val zex = zexNobias + exBias.U
+  io.out.zex := ShiftRegister(zex, nStage)
+
+  // --------------------------------------------------------------------------
+
+  val adr = io.x(manW, manW-adrW)
+
+  val tableI = SqrtSim.sqrtTableGeneration( order, adrW, manW, fracW )
+  val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/0)
+  val coeff  = getSlices(coeffTable(adr), coeffWidth)
+
+  val coeffs = Wire(new TableCoeffInput(cbit))
+  for (i <- 0 to order) {
+    coeffs.cs(i) := coeff(i)
+  }
+  io.cs := ShiftRegister(coeffs, nStage)
+
+  if(order != 0) {
+    val dx = Cat(~io.x(manW-adrW-1), io.x(manW-adrW-2, manW-adrW-dxW))
+    io.dx.get := ShiftRegister(dx, nStage)
+  }
+}
+
+class BoxMullerSqrtPostProc(
+    rndW: Int,      // width of input fixedpoint
+    spec: RealSpec, // output width
+    polySpec: PolynomialSpec,
+    stage: PipelineStageConfig
+  ) extends Module {
+
+  val nStage = stage.total
+
+  val exW    = spec.exW
+  val manW   = spec.manW
+  val exBias = spec.exBias
+
+  val order  = polySpec.order
+  val fracW  = polySpec.fracW
+  val adrW   = polySpec.adrW
+  val dxW    = polySpec.dxW
+
+  val io = IO(new Bundle {
+    val pre  = Flipped(new BoxMullerSqrtPreProcessOutput(rndW, spec))
+    val zres = Input(UInt(fracW.W))
+    val z    = Output(UInt(spec.W.W))
+  })
+
+  val zsgn  = 0.U(1.W)
+  val zex   = io.pre.zex
+  val zzero = zex === 0.U
+
+  val zman = Wire(UInt(manW.W))
+  if(fracW == manW) {
+    zman := io.zres
+  } else {
+    val extraBits = fracW - manW
+    val zman0 = dropLSB(extraBits, io.zres) +& io.zres(extraBits-1)
+    val polynomialOvf = zman0(manW)
+    zman := Mux(polynomialOvf, Fill(manW, 1.U(1.W)), zman0(manW-1,0))
+  }
+
+  val z = Mux(zzero, 0.U(spec.W.W), Cat(zsgn, zex, zman))
+  io.z := ShiftRegister(z, nStage)
+}
+
+
+
