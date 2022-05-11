@@ -31,6 +31,7 @@ class BoxMullerSinCos2Pi(
   ) extends Module {
 
   val io = IO(new Bundle {
+    val en    = Input(Bool())
     val isSin = Input(Bool())
     val x     = Input(UInt(rndW.W))
     val z     = Output(UInt(spec.W.W))
@@ -42,6 +43,7 @@ class BoxMullerSinCos2Pi(
   val polyEval = Module(new PolynomialEval(spec, polySpec, cbit, stage))
   val postProc = Module(new BoxMullerSinCos2PiPostProc(rndW, spec, polySpec, stage))
 
+  preProc.io.en    := io.en
   preProc.io.isSin := io.isSin
   preProc.io.rnd   := io.x
 
@@ -50,6 +52,7 @@ class BoxMullerSinCos2Pi(
     polyEval.io.dx.get := preProc.io.dx.get
   }
 
+  postProc.io.en    := io.en
   postProc.io.pre  := preProc.io.out
   postProc.io.zres := polyEval.io.result
 
@@ -105,6 +108,7 @@ class BoxMullerSinCos2PiTest extends AnyFlatSpec
             val z0r= reference(xi)
             q += ((xi.toBigInt, z0r.value.toBigInt))
 
+            c.io.en.poke(true.B)
             c.io.isSin.poke(isSin.B)
             c.io.x.poke(xi.toBigInt.U(spec.W.W))
             val zi = c.io.z.peek().litValue.toBigInt
@@ -141,6 +145,7 @@ class BoxMullerSinCos2PiTest extends AnyFlatSpec
             val z0r = reference(xid)
             val z0d = z0r.value.toBigInt
 
+            c.io.en.poke(true.B)
             c.io.isSin.poke(isSin.B)
             c.io.x.poke(xid.toBigInt.U(spec.W.W))
             for(j <- 0 until nstage) {
@@ -200,6 +205,7 @@ class BoxMullerLog(
   ) extends Module {
 
   val io = IO(new Bundle {
+    val en    = Input(Bool())
     val x     = Input(UInt(rndW.W))
     val z     = Output(UInt(spec.W.W))
   })
@@ -211,12 +217,14 @@ class BoxMullerLog(
   val postProc = Module(new BoxMullerLogPostProc(rndW, spec, polySpec, stage))
 
   preProc.io.x := io.x
+  preProc.io.en := io.en
 
   polyEval.io.coeffs := preProc.io.cs
   if(polySpec.order != 0) {
     polyEval.io.dx.get := preProc.io.dx.get
   }
 
+  postProc.io.en   := io.en
   postProc.io.pre  := preProc.io.out
   postProc.io.zres := polyEval.io.result
 
@@ -273,6 +281,7 @@ class BoxMullerLogTest extends AnyFlatSpec
             val z0r= reference(xi)
             q += ((xi.toBigInt, z0r.value.toBigInt))
 
+            c.io.en.poke(true.B)
             c.io.x.poke(xi.toBigInt.U(spec.W.W))
             val zi = c.io.z.peek().litValue.toBigInt
             c.clock.step(1)
@@ -344,6 +353,7 @@ class BoxMullerLogTest extends AnyFlatSpec
             val z0r = reference(xid)
             val z0d = z0r.value.toBigInt
 
+            c.io.en.poke(true.B)
             c.io.x.poke(xid.toBigInt.U(spec.W.W))
             for(j <- 0 until nstage) {
               c.clock.step(1)
@@ -400,6 +410,7 @@ class BoxMullerSqrt(
   ) extends Module {
 
   val io = IO(new Bundle {
+    val en    = Input(Bool())
     val x     = Input(UInt(spec.W.W))
     val z     = Output(UInt(spec.W.W))
   })
@@ -410,6 +421,7 @@ class BoxMullerSqrt(
   val polyEval = Module(new PolynomialEval(spec, polySpec, cbit, stage))
   val postProc = Module(new BoxMullerSqrtPostProc(rndW, spec, polySpec, stage))
 
+  preProc.io.en := io.en
   preProc.io.x := io.x
 
   polyEval.io.coeffs := preProc.io.cs
@@ -417,6 +429,7 @@ class BoxMullerSqrt(
     polyEval.io.dx.get := preProc.io.dx.get
   }
 
+  postProc.io.en   := io.en
   postProc.io.pre  := preProc.io.out
   postProc.io.zres := polyEval.io.result
 
@@ -474,6 +487,7 @@ class BoxMullerSqrtTest extends AnyFlatSpec
             val z0r= reference(xi)
             q += ((xi.value.toBigInt, z0r.value.toBigInt))
 
+            c.io.en.poke(true.B)
             c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
             val zi = c.io.z.peek().litValue.toBigInt
             c.clock.step(1)
