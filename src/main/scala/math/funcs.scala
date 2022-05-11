@@ -499,18 +499,18 @@ class MathFunctions(
   }
 
   // table is accessed combinationally. There is no delay.
-  val polynomialCoef = (sqrtTab.io.cs.cs.asUInt |
-                     invsqrtTab.io.cs.cs.asUInt |
-                         recTab.io.cs.cs.asUInt |
-                      sincosTab.io.cs.cs.asUInt |
-                        acosTab.io.cs.cs.asUInt |
-                 atan2Stage2Tab.io.cs.cs.asUInt |
-                         expTab.io.cs.cs.asUInt |
-                         logTab.io.cs.cs.asUInt
-                        ).asTypeOf(new MixedVec(maxCbit.map{w => UInt(w.W)}))
+  val polynomialCoef = (sqrtTab.io.cs.asUInt |
+                     invsqrtTab.io.cs.asUInt |
+                         recTab.io.cs.asUInt |
+                      sincosTab.io.cs.asUInt |
+                        acosTab.io.cs.asUInt |
+                 atan2Stage2Tab.io.cs.asUInt |
+                         expTab.io.cs.asUInt |
+                         logTab.io.cs.asUInt
+                        ).asTypeOf(new TableCoeffInput(maxCbit))
 
 //   printf("polynomialEval.io.coeffs.cs = %b\n", polynomialCoef.asUInt)
-  polynomialEval.io.coeffs.cs := polynomialCoef
+  polynomialEval.io.coeffs := polynomialCoef
 
   val polynomialResultCPGapReg = ShiftRegister(polynomialEval.io.result, cpGap)
 
