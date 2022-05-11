@@ -110,7 +110,7 @@ class SinCosPreProcess(
                                  Cat(xOverPiProd.tail(1), 0.U(1.W)))
   val xOverPiFracW         = (1+manW) + oneOverPiW - 1
   assert(xOverPi.getWidth == xOverPiFracW+1) // fraction bits + 1 integer bit
-  assert(xOverPi(xOverPiFracW) === 1.U) // normalized
+  assert(xOverPi(xOverPiFracW) === 1.U || io.en === 0.U) // normalized
 
 //   printf("xOverPi      = %d\n", xOverPi)
 //   printf("xOverPiFracW = %d\n", xOverPiFracW.U)
@@ -206,7 +206,7 @@ class SinCosPreProcess(
   val yman0ShiftW   = log2Up(yman0W)
   val yman0Shift    = yman0Shift0(yman0ShiftW-1, 0)
   val yman0Shifted  = (yman0 << yman0Shift)(yman0W-1, 0)
-  assert(yman0Shifted(yman0W-1) === 1.U)
+  assert(yman0Shifted(yman0W-1) === 1.U || io.en === 0.U)
   val yman0RoundBit = yman0W - manW - 1
   val yman0Rounded  = yman0Shifted(yman0W-2, yman0RoundBit) +&
                       yman0Shifted(yman0RoundBit-1)
@@ -233,7 +233,7 @@ class SinCosPreProcess(
   val zone = (yex === (exBias-1).U) && yman === 0.U
   io.out.zone := ShiftRegister(io.en & zone, nStage)
 
-  assert(yex =/= (exBias-1).U || yman === 0.U) // if yex == -1, then yman should be 0
+  assert(yex =/= (exBias-1).U || yman === 0.U || io.en === 0.U) // if yex == -1, then yman should be 0
 
   // -------------------------------------------------------------------------
   // determine address and dx from x/pi aligned
@@ -438,7 +438,7 @@ class SinCosPostProcess(
   val z = Cat(zsgn, zex, zman)
   assert(z.getWidth == spec.W)
 
-  io.z := ShiftRegister(z, nStage)
+  io.z := ShiftRegister(enable(io.en, z), nStage)
 }
 
 // -------------------------------------------------------------------------
