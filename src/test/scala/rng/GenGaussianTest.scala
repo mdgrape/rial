@@ -108,6 +108,11 @@ class BoxMullerSinCos2PiTest extends AnyFlatSpec
             new RealGeneric(spec, z)
           }
 
+          var maxError    = 0.0
+          var xatMaxError = 0.0
+          var zatMaxError = 0.0
+          val errs = collection.mutable.Map[Int, (Int, Int)]()
+
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
             val xi = generator(rndW, r)
@@ -139,53 +144,121 @@ class BoxMullerSinCos2PiTest extends AnyFlatSpec
               val xr = xid.toDouble / (SafeLong(1) << rndW).toDouble
               val xc = if(xr < 0.25) {xr} else if(xr < 0.5) {0.5 - xr} else if(xr < 0.75) {xr - 0.5} else {1.0 - xr}
 
+              val erri = (zi - z0d).toLong
+              if(erri.abs != 0) {
+                val errkey = erri.abs.toInt
+                if( ! errs.contains(errkey)) {
+                  errs(errkey) = (0, 0)
+                }
+                if (erri >= 0) {
+                  errs(errkey) = (errs(errkey)._1 + 1, errs(errkey)._2)
+                } else {
+                  errs(errkey) = (errs(errkey)._1, errs(errkey)._2 + 1)
+                }
+              }
+              if (maxError < erri.abs) {
+                maxError    = erri.abs
+                xatMaxError = xr.toDouble
+                zatMaxError = new RealGeneric(spec, zisgn, ziexp.toInt, ziman).toDouble
+              }
+
               assert(diff <= tolerance,
-                     f"x = ${xid.toLong.toBinaryString}(${xr} -> ${xc}), z = ${sin(2 * Pi * xr)}, "+
+                     f"x = ${xid.toLong.toBinaryString}(${xr} -> ${xc}), z = ${if(isSin){sin(2 * Pi * xr)} else {cos(2 * Pi * xr)}}, "+
                      f"test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString})(${new RealGeneric(spec, zisgn, ziexp.toInt, ziman).toDouble}) != " +
                      f"ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})(${new RealGeneric(spec, z0dsgn, z0dexp.toInt, z0dman).toDouble})")
             }
           }
+          println(f"${generatorStr} Summary")
+          if(maxError != 0.0) {
+            println(f"N=$n%d : largest errors ${maxError.toInt}%d where the value is "
+                  + f"${zatMaxError} != ${if(isSin){sin(2*Pi*xatMaxError)}else{cos(2*Pi*xatMaxError)}}, "
+                  + f"diff = ${zatMaxError - (if(isSin){sin(2*Pi*xatMaxError)}else{cos(2*Pi*xatMaxError)})}, x = ${xatMaxError}")
+          }
+          for(kv <- errs.toSeq.sortBy(_._1)) {
+            val (k, (errPos, errNeg)) = kv
+            println(f"N=$n%d : +/- $k errors positive $errPos%d / negative $errNeg%d")
+          }
+          println( "---------------------------------------------------------------")
+
+          maxError    = 0.0
+          xatMaxError = 0.0
+          zatMaxError = 0.0
+          errs.clear()
 
           // special values: 0, 0.25, 0.5, 0.75, 1-eps
-          for(xid <- Seq(SafeLong(0), SafeLong(1)<<(rndW-2), SafeLong(2)<<(rndW-2), SafeLong(3)<<(rndW-2), maskSL(rndW) )) {
-            val z0r = reference(xid)
-            val z0d = z0r.value.toBigInt
+          for(x0 <- Seq(SafeLong(0), SafeLong(1)<<(rndW-2), SafeLong(2)<<(rndW-2), SafeLong(3)<<(rndW-2), maskSL(rndW) )) {
+            for(i <- -255 to 255) {
 
-            c.io.en.poke(true.B)
-            c.io.isSin.poke(isSin.B)
-            c.io.x.poke(xid.toBigInt.U(spec.W.W))
-            for(j <- 0 until nstage) {
-              c.clock.step(1)
+              val xid = if(x0 == maskSL(rndW)) {x0 - i.abs} else {(x0 + i).abs}
+
+              val z0r = reference(xid)
+              val z0d = z0r.value.toBigInt
+
+              c.io.en.poke(true.B)
+              c.io.isSin.poke(isSin.B)
+              c.io.x.poke(xid.toBigInt.U(spec.W.W))
+              for(j <- 0 until nstage) {
+                c.clock.step(1)
+              }
+              val zi = c.io.z.peek().litValue.toBigInt
+
+              val diff = (zi - z0d).abs
+
+              val xr = xid.toDouble / (SafeLong(1) << rndW).toDouble
+              val xc = if(xr < 0.25) {xr} else if(xr < 0.5) {0.5 - xr} else if(xr < 0.75) {xr - 0.5} else {1.0 - xr}
+              val zr = if(isSin) {sin(2 * Pi * xr)} else {cos(2 * Pi * xr)}
+
+              val xidsgn = bit(spec.W-1, xid).toInt
+              val xidexp = slice(spec.manW, spec.exW, xid)
+              val xidman = xid & maskSL(spec.manW)
+
+              val zisgn = bit(spec.W-1, zi).toInt
+              val ziexp = slice(spec.manW, spec.exW, zi)
+              val ziman = zi & maskSL(spec.manW)
+
+              val z0dsgn = bit(spec.W-1, z0d).toInt
+              val z0dexp = slice(spec.manW, spec.exW, z0d)
+              val z0dman = z0d & maskSL(spec.manW)
+
+              if(diff > tolerance) {
+                c.clock.step(1) // run printf
+              }
+
+              val erri = (zi - z0d).toLong
+              if(erri.abs != 0) {
+                val errkey = erri.abs.toInt
+                if( ! errs.contains(errkey)) {
+                  errs(errkey) = (0, 0)
+                }
+                if (erri >= 0) {
+                  errs(errkey) = (errs(errkey)._1 + 1, errs(errkey)._2)
+                } else {
+                  errs(errkey) = (errs(errkey)._1, errs(errkey)._2 + 1)
+                }
+              }
+              if (maxError < erri.abs) {
+                maxError    = erri.abs
+                xatMaxError = xr.toDouble
+                zatMaxError = new RealGeneric(spec, zisgn, ziexp.toInt, ziman).toDouble
+              }
+
+              assert(diff <= tolerance,
+                     f"x = ${xid.toLong.toBinaryString}(${xr} -> ${xc}), z(scala.math.FP64) = ${zr}, "+
+                     f"test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString})(${new RealGeneric(spec, zisgn, ziexp.toInt, ziman).toDouble}) != " +
+                     f"ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})(${new RealGeneric(spec, z0dsgn, z0dexp.toInt, z0dman).toDouble})")
             }
-            val zi = c.io.z.peek().litValue.toBigInt
-
-            val diff = (zi - z0d).abs
-
-            val xr = xid.toDouble / (SafeLong(1) << rndW).toDouble
-            val xc = if(xr < 0.25) {xr} else if(xr < 0.5) {0.5 - xr} else if(xr < 0.75) {xr - 0.5} else {1.0 - xr}
-            val zr = if(isSin) {sin(2 * Pi * xr)} else {cos(2 * Pi * xr)}
-
-            val xidsgn = bit(spec.W-1, xid).toInt
-            val xidexp = slice(spec.manW, spec.exW, xid)
-            val xidman = xid & maskSL(spec.manW)
-
-            val zisgn = bit(spec.W-1, zi).toInt
-            val ziexp = slice(spec.manW, spec.exW, zi)
-            val ziman = zi & maskSL(spec.manW)
-
-            val z0dsgn = bit(spec.W-1, z0d).toInt
-            val z0dexp = slice(spec.manW, spec.exW, z0d)
-            val z0dman = z0d & maskSL(spec.manW)
-
-            if(diff > tolerance) {
-              c.clock.step(1) // run printf
-            }
-
-            assert(diff <= tolerance,
-                   f"x = ${xid.toLong.toBinaryString}(${xr} -> ${xc}), z(scala.math.FP64) = ${zr}, "+
-                   f"test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString})(${new RealGeneric(spec, zisgn, ziexp.toInt, ziman).toDouble}) != " +
-                   f"ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})(${new RealGeneric(spec, z0dsgn, z0dexp.toInt, z0dman).toDouble})")
           }
+          println(f"${generatorStr} Summary")
+          if(maxError != 0.0) {
+            println(f"N=$n%d : largest errors ${maxError.toInt}%d where the value is "
+                  + f"${zatMaxError} != ${if(isSin){sin(2*Pi*xatMaxError)}else{cos(2*Pi*xatMaxError)}}, "
+                  + f"diff = ${zatMaxError - (if(isSin){sin(2*Pi*xatMaxError)}else{cos(2*Pi*xatMaxError)})}, x = ${xatMaxError}")
+          }
+          for(kv <- errs.toSeq.sortBy(_._1)) {
+            val (k, (errPos, errNeg)) = kv
+            println(f"N=$n%d : +/- $k errors positive $errPos%d / negative $errNeg%d")
+          }
+          println( "---------------------------------------------------------------")
         }
       }
     }
@@ -198,7 +271,7 @@ class BoxMullerSinCos2PiTest extends AnyFlatSpec
   runtest(true,  32, RealSpec.Float32Spec, polySpecFP32, PipelineStageConfig.none,
     n, r, "Test FP32 sin",generateRandomUInt, 3)
   runtest(false, 32, RealSpec.Float32Spec, polySpecFP32, PipelineStageConfig.none,
-    n, r, "Test FP32 cos",generateRandomUInt, 3)
+    n, r, "Test FP32 cos",generateRandomUInt, 7)
 }
 
 // ============================================================================
