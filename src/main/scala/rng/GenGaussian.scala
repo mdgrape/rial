@@ -530,5 +530,187 @@ class BoxMullerSqrtPostProc(
   io.z := ShiftRegister(enable(io.en, z), nStage)
 }
 
+// ============================================================================
+//
+// do Box-Muller.
+//
+// If the values are not used, it stops to reduce power consumption.
+// It means that the random number queue should have a buffer having at least
+// the same number of elements as the latency to keep the queue filled.
+//
 
+class BoxMuller(
+    rndW: Int,      // width of input fixedpoint
+    spec: RealSpec, // output width
+    polySpec: PolynomialSpec,
+    roundSpec: RoundSpec,
+  ) extends Module {
 
+  val order  = polySpec.order
+
+  val exW    = spec.exW
+  val manW   = spec.manW
+  val exBias = spec.exBias
+
+  val io = IO(new Bundle {
+    val consume = Output(Bool()) // it consumes the current random number input
+    val valid   = Output(Bool()) // the z is valid gaussian random number output
+
+    val x = Input(UInt(rndW.W))    // uniformly distributed random bits
+    val z = Output(UInt(spec.W.W)) // gaussian-distribution in FP
+  })
+
+  val maxCbit = Seq(
+    BoxMullerSinCos2PiTableCoeff.getCBits(polySpec),
+    BoxMullerLogTableCoeff.getCBits(polySpec),
+    SqrtTableCoeff.getCBits(spec, polySpec)
+    ).reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
+
+  // TODO:
+  // - consider adding stages for each module
+
+  //           pre   poly  post  multiply        | consume valid
+  // --------------+ sqrt  cos                   | -------------
+  // 0. rnd -> log +-----+ sqrt                  |    T      F
+  // 1. rnd -> sin   log +-----+                 |    T      F
+  // 2.     +> cos   sin   log | sqrt * sin -> z |    F      T
+  // 3.        sqrt  cos   sin | sqrt * cos -> z |    F      T
+  // --------------+ sqrt  cos +-----------------|---------------
+  // 4. rnd -> log +-----+ sqrt                  |    T      F
+  // 5. rnd -> sin   log +-----+                 |    T      F
+  // 6.        cos   sin   log | sqrt * sin -> z |    F      T
+  // 7.        sqrt  cos   sin | sqrt * cos -> z |    F      T
+  // 8.              sqrt  cos +-----------------|---------------
+  //
+
+  val pc = RegInit(0.U(2.W)) // [log, sin, cos, sqrt]
+  pc := pc + 1.U
+
+  val rndReg = RegInit(0.U(rndW.W)) // to save the same rnd for sin and cos
+  when(pc === 1.U) {
+    rndReg := io.x
+  }
+
+  io.consume := pc(1) === 0.U
+  io.valid   := pc(1) === 1.U
+
+  // ---------------------------------------------------------------------------
+
+  val sincosPre  = Module(new BoxMullerSinCos2PiPreProc (rndW, spec, polySpec, maxCbit, PipelineStageConfig.none))
+  val sincosPost = Module(new BoxMullerSinCos2PiPostProc(rndW, spec, polySpec,          PipelineStageConfig.none))
+  val logPre     = Module(new BoxMullerLogPreProc       (rndW, spec, polySpec, maxCbit, PipelineStageConfig.none))
+  val logPost    = Module(new BoxMullerLogPostProc      (rndW, spec, polySpec,          PipelineStageConfig.none))
+  val sqrtPre    = Module(new BoxMullerSqrtPreProc      (rndW, spec, polySpec, maxCbit, PipelineStageConfig.none))
+  val sqrtPost   = Module(new BoxMullerSqrtPostProc     (rndW, spec, polySpec,          PipelineStageConfig.none))
+
+  sincosPre.io.en    := (pc(0) ^ pc(1)) // pc == 1 or 2
+  sincosPre.io.isSin := pc === 1.U
+  sincosPre.io.rnd   := Mux(pc === 2.U, rndReg, io.x)
+
+  logPre.io.en := pc === 0.U
+  logPre.io.x  := io.x
+
+  sqrtPre.io.en := pc === 3.U
+  sqrtPre.io.x  := ShiftRegister(logPost.io.z, 1)
+
+  // ---------------------------------------------------------------------------
+
+  val polynomialEval = Module(new PolynomialEval(spec, polySpec, maxCbit, PipelineStageConfig.none))
+
+  if(order != 0) {
+    val polynomialDx = sincosPre.io.dx.get |
+                          logPre.io.dx.get |
+                         sqrtPre.io.dx.get
+    polynomialEval.io.dx.get := ShiftRegister(polynomialDx, 1)
+  }
+
+  // table is accessed combinationally. There is no delay.
+  val polynomialCoef = ShiftRegister(sincosPre.io.cs.asUInt |
+                                       sqrtPre.io.cs.asUInt |
+                                        logPre.io.cs.asUInt, 1)
+
+  polynomialEval.io.coeffs := polynomialCoef.asTypeOf(new TableCoeffInput(maxCbit))
+
+  val polynomialResult = ShiftRegister(polynomialEval.io.result, 1)
+
+  // ---------------------------------------------------------------------------
+
+  val sinResult  = RegInit(0.U(spec.W.W))
+  val cosResult  = RegInit(0.U(spec.W.W))
+  val logResult  = RegInit(0.U(spec.W.W))
+  val sqrtResult = RegInit(0.U(spec.W.W))
+
+  sincosPost.io.en   := ~(pc(0) ^ pc(1)) // pc == 3 or 0
+  sincosPost.io.pre  := ShiftRegister(sincosPre.io.out, 2)
+  sincosPost.io.zres := polynomialResult
+
+  when(pc === 3.U) {
+    sinResult := sincosPost.io.z
+  }.elsewhen(pc === 0.U) {
+    cosResult := sincosPost.io.z
+  }
+
+  logPost.io.en   := pc === 2.U
+  logPost.io.pre  := ShiftRegister(logPre.io.out, 2)
+  logPost.io.zres := polynomialResult
+
+  when(pc === 2.U) {
+    logResult := logPost.io.z
+  }
+
+  sqrtPost.io.en   := pc === 1.U
+  sqrtPost.io.pre  := ShiftRegister(sqrtPre.io.out, 2)
+  sqrtPost.io.zres := polynomialResult
+
+  when(pc === 1.U) {
+    sqrtResult := sqrtPost.io.z
+  }
+
+  // ---------------------------------------------------------------------------
+
+  val a = Mux(pc === 2.U, sinResult,
+          Mux(pc === 3.U, cosResult,
+                          0.U))
+  val b = enable(pc(1), sqrtResult)
+
+  val amanW1 = Cat(1.U(1.W), a(manW-1, 0))
+  val bmanW1 = Cat(1.U(1.W), b(manW-1, 0))
+  val aex    = a(manW+exW-1, manW)
+  val bex    = b(manW+exW-1, manW)
+  val asgn   = a(spec.W-1)
+  val bsgn   = b(spec.W-1)
+
+  val azero = aex === 0.U
+  val bzero = bex === 0.U
+
+  val zProd = amanW1 * bmanW1
+  val zProdW = manW+1 + manW+1
+  assert(zProdW == zProd.getWidth)
+
+  val zMoreThan2 = zProd(zProdW-1)
+  val zShifted = Mux(zMoreThan2, zProd(zProdW-2, zProdW-manW-2),
+                                 zProd(zProdW-3, zProdW-manW-3))
+  val zLsb      = zShifted(1)
+  val zRound    = zShifted(0)
+  val zSticky   = (zProd(zProdW-manW-3) & zMoreThan2) | zProd(zProdW-manW-4, 0).orR
+  val zRoundInc = FloatChiselUtil.roundIncBySpec(roundSpec, zLsb, zRound, zSticky)
+
+  val zRounded = zShifted(manW, 1) +& zRoundInc
+  val zMoreThan2AfterRound = zRounded(manW)
+  val zman0 = Mux(zMoreThan2AfterRound, 0.U(manW.W), zRounded(manW-1, 0))
+
+  val zexInc = zMoreThan2 + zMoreThan2AfterRound
+  val zexSum = aex +& bex + zexInc - exBias.U
+  val zex0   = zexSum(exW-1, 0)
+  val zinf   = zexSum(exW)
+
+  val zzero = azero || bzero
+  val zsgn  = asgn ^ bsgn
+  val zex   = Mux(zzero, 0.U, Mux(zinf, Fill(exW, 1.U(1.W)), zex0))
+  val zman  = Mux(zzero, 0.U, Mux(zinf, 0.U,                 zman0))
+
+  val z = Cat(zsgn, zex, zman)
+  assert(z.getWidth == spec.W)
+
+  io.z := z
+}
