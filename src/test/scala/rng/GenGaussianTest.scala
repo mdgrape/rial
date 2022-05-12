@@ -39,7 +39,11 @@ class BoxMullerSinCos2Pi(
     val z     = Output(UInt(spec.W.W))
   })
 
-  val cbit = BoxMullerSinCos2PiTableCoeff.getCBits(polySpec)
+  val cbit = Seq(
+    BoxMullerSinCos2PiTableCoeff.getCBits(polySpec),
+    BoxMullerLogTableCoeff.getCBits(polySpec),
+    SqrtTableCoeff.getCBits(spec, polySpec)
+    ).reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
 
   val preProc  = Module(new BoxMullerSinCos2PiPreProc(rndW, spec, polySpec, cbit, stage))
   val polyEval = Module(new PolynomialEval(spec, polySpec, cbit, stage))
@@ -212,7 +216,11 @@ class BoxMullerLog(
     val z     = Output(UInt(spec.W.W))
   })
 
-  val cbit = BoxMullerLogTableCoeff.getCBits(polySpec)
+  val cbit = Seq(
+    BoxMullerSinCos2PiTableCoeff.getCBits(polySpec),
+    BoxMullerLogTableCoeff.getCBits(polySpec),
+    SqrtTableCoeff.getCBits(spec, polySpec)
+    ).reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
 
   val preProc  = Module(new BoxMullerLogPreProc(rndW, spec, polySpec, cbit, stage))
   val polyEval = Module(new PolynomialEval(spec, polySpec, cbit, stage))
@@ -417,7 +425,11 @@ class BoxMullerSqrt(
     val z     = Output(UInt(spec.W.W))
   })
 
-  val cbit = SqrtTableCoeff.getCBits(spec, polySpec)
+  val cbit = Seq(
+    BoxMullerSinCos2PiTableCoeff.getCBits(polySpec),
+    BoxMullerLogTableCoeff.getCBits(polySpec),
+    SqrtTableCoeff.getCBits(spec, polySpec)
+    ).reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
 
   val preProc  = Module(new BoxMullerSqrtPreProc(rndW, spec, polySpec, cbit, stage))
   val polyEval = Module(new PolynomialEval(spec, polySpec, cbit, stage))
