@@ -121,21 +121,21 @@ class BoxMullerSinCos2PiPreProc(
   val x = Wire(UInt((rndW-2).W))
   when(io.isSin) {
 
-    x := Mux(io.rnd(rndW-2) === 1.U, ~(io.rnd(rndW-3, 0))+1.U, io.rnd(rndW-3, 0))
+    x := Mux(rnd(rndW-2) === 1.U, ~(rnd(rndW-3, 0))+1.U, rnd(rndW-3, 0))
 
     // x is exactly 1/4 or 3/4
     zone := (xHighIs1 || xHighIs3) && xExactQuot
     // if x is exactly 0 or 1/2, then the result is exactly zero, not -0.
-    zsgn := io.rnd(rndW-1) & ~((xHighIs0 || xHighIs2) && xExactQuot).asUInt
+    zsgn := rnd(rndW-1) & ~((xHighIs0 || xHighIs2) && xExactQuot).asUInt
 
   } otherwise {
 
-    x := Mux(io.rnd(rndW-2) === 0.U, ~(io.rnd(rndW-3, 0))+1.U, io.rnd(rndW-3, 0))
+    x := Mux(rnd(rndW-2) === 0.U, ~(rnd(rndW-3, 0))+1.U, rnd(rndW-3, 0))
 
     // x is exactly 0 or 1/2
     zone := (xHighIs0 || xHighIs2) && xExactQuot
     // if x is exactly 1/4 or 3/4, then the result is exactly zero, not -0.
-    zsgn := (io.rnd(rndW-1) ^ io.rnd(rndW-2)) &
+    zsgn := (rnd(rndW-1) ^ rnd(rndW-2)) &
            ~((xHighIs1 || xHighIs3) && xExactQuot).asUInt
   }
 
