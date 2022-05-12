@@ -74,7 +74,7 @@ class BoxMullerSinCos2PiPreProc(
     rndW: Int,      // width of input fixedpoint
     spec: RealSpec, // output width
     polySpec: PolynomialSpec,
-    cbit: Seq[Int],
+    maxCbit: Seq[Int],
     stage: PipelineStageConfig
   ) extends Module {
 
@@ -98,7 +98,7 @@ class BoxMullerSinCos2PiPreProc(
     val isSin = Input(Bool())
     val rnd   = Input(UInt(rndW.W))
 
-    val cs    = Flipped(new TableCoeffInput(cbit))
+    val cs    = Flipped(new TableCoeffInput(maxCbit))
     val dx    = if (order != 0) { Some(Output(UInt(dxW.W))) } else { None }
     val out   = new BoxMullerSinCos2PiPreProcessOutput(rndW, spec)
   })
@@ -151,12 +151,22 @@ class BoxMullerSinCos2PiPreProc(
   val adr = x(x.getWidth-1, x.getWidth-adrW)
 
   val tableI = BoxMullerSinCos2PiTableCoeff.genTable(polySpec)
+  val cbit = tableI.cbit
   val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/0)
   val coeff = getSlices(coeffTable(adr), coeffWidth)
 
-  val coeffs = Wire(new TableCoeffInput(cbit))
+  val coeffs = Wire(new TableCoeffInput(maxCbit))
   for (i <- 0 to order) {
-    coeffs.cs(i) := coeff(i)
+    val diffWidth = maxCbit(i) - cbit(i)
+    assert(cbit(i) <= maxCbit(i))
+
+    if(0 < diffWidth) {
+      val ci  = coeff(i)
+      val msb = ci(cbit(i)-1)
+      coeffs.cs(i) := Cat(Fill(diffWidth, msb), ci) // sign extension
+    } else {
+      coeffs.cs(i) := coeff(i)
+    }
   }
 
   io.cs := ShiftRegister(enable(io.en, coeffs), nStage)
@@ -280,7 +290,7 @@ class BoxMullerLogPreProc(
   rndW: Int,      // width of input fixedpoint
   spec: RealSpec, // output width
   polySpec: PolynomialSpec,
-  cbit: Seq[Int],
+  maxCbit: Seq[Int],
   stage: PipelineStageConfig
   ) extends Module {
 
@@ -299,7 +309,7 @@ class BoxMullerLogPreProc(
   val io = IO(new Bundle {
     val en = Input(UInt(1.W))
     val x  = Input(UInt(rndW.W))
-    val cs = Flipped(new TableCoeffInput(cbit))
+    val cs = Flipped(new TableCoeffInput(maxCbit))
     val dx = if (order != 0) { Some(Output(UInt(dxW.W))) } else { None }
     val out = new BoxMullerLogPreProcessOutput(rndW, spec)
   })
@@ -325,12 +335,22 @@ class BoxMullerLogPreProc(
   val adr = xman(xmanW-1, xmanW-adrW)
 
   val tableI = BoxMullerLogTableCoeff.genTable(polySpec)
+  val cbit = tableI.cbit
   val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/0)
   val coeff = getSlices(coeffTable(adr), coeffWidth)
 
-  val coeffs = Wire(new TableCoeffInput(cbit))
+  val coeffs = Wire(new TableCoeffInput(maxCbit))
   for (i <- 0 to order) {
-    coeffs.cs(i) := coeff(i)
+    val diffWidth = maxCbit(i) - cbit(i)
+    assert(cbit(i) <= maxCbit(i))
+
+    if(0 < diffWidth) {
+      val ci  = coeff(i)
+      val msb = ci(cbit(i)-1)
+      coeffs.cs(i) := Cat(Fill(diffWidth, msb), ci) // sign extension
+    } else {
+      coeffs.cs(i) := coeff(i)
+    }
   }
   io.cs := ShiftRegister(enable(io.en, coeffs), nStage)
 
@@ -435,7 +455,7 @@ class BoxMullerSqrtPreProc(
     rndW: Int,      // width of input fixedpoint
     spec: RealSpec, // output width
     polySpec: PolynomialSpec,
-    cbit: Seq[Int],
+    maxCbit: Seq[Int],
     stage: PipelineStageConfig
   ) extends Module {
 
@@ -455,7 +475,7 @@ class BoxMullerSqrtPreProc(
   val io = IO(new Bundle {
     val en  = Input(UInt(1.W))
     val x   = Input(UInt(spec.W.W))
-    val cs  = Flipped(new TableCoeffInput(cbit))
+    val cs  = Flipped(new TableCoeffInput(maxCbit))
     val dx  = if (order != 0) { Some(Output(UInt(dxW.W))) } else { None }
     val out = new BoxMullerSqrtPreProcessOutput(rndW, spec)
   })
@@ -472,12 +492,22 @@ class BoxMullerSqrtPreProc(
   val adr = io.x(manW, manW-adrW)
 
   val tableI = SqrtSim.sqrtTableGeneration( order, adrW, manW, fracW )
+  val cbit = tableI.cbit
   val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/0)
   val coeff  = getSlices(coeffTable(adr), coeffWidth)
 
-  val coeffs = Wire(new TableCoeffInput(cbit))
+  val coeffs = Wire(new TableCoeffInput(maxCbit))
   for (i <- 0 to order) {
-    coeffs.cs(i) := coeff(i)
+    val diffWidth = maxCbit(i) - cbit(i)
+    assert(cbit(i) <= maxCbit(i))
+
+    if(0 < diffWidth) {
+      val ci  = coeff(i)
+      val msb = ci(cbit(i)-1)
+      coeffs.cs(i) := Cat(Fill(diffWidth, msb), ci) // sign extension
+    } else {
+      coeffs.cs(i) := coeff(i)
+    }
   }
   io.cs := ShiftRegister(enable(io.en, coeffs), nStage)
 
