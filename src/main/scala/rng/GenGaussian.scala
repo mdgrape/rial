@@ -166,7 +166,7 @@ class BoxMullerSinCos2PiPreProc(
   val zzero  = x === 0.U
   val xShift = Mux(zzero, 0.U, PriorityEncoder(Reverse(x)))
   val xAligned = (x << xShift)(x.getWidth-1, 0)
-  assert(xAligned(x.getWidth-1) === 1.U || zzero)
+  assert(xAligned(x.getWidth-1) === 1.U || zzero || io.en =/= 1.U)
 
   io.out.zzero    := ShiftRegister(zzero,    nStage)
   io.out.xShift   := ShiftRegister(xShift,   nStage)
@@ -309,7 +309,7 @@ class BoxMullerLogPreProc(
 
   val nxShift   = Mux(zzero, 0.U, PriorityEncoder(Reverse(negx)))
   val nxShifted = (negx << nxShift)(rndW-1, 0)
-  assert(zzero || nxShifted(rndW-1) === 1.U)
+  assert(zzero || nxShifted(rndW-1) === 1.U || io.en =/= 1.U)
 
   // ---------------------------------------------------------------------------
   // special values
@@ -391,7 +391,7 @@ class BoxMullerLogPostProc(
   val log2x0     = Cat(xex, zFrac)
   val log2xShift = PriorityEncoder(Reverse(log2x0)) // xex might be zero
   val log2x      = enable(io.en, (log2x0 << log2xShift)(log2x0.getWidth-1, 0))
-  assert(log2x(log2x0.getWidth-1) === 1.U)
+  assert(log2x(log2x0.getWidth-1) === 1.U || io.en =/= 1.U)
 
   val ln2 = new RealGeneric(spec, log(2.0))
   val ln2manW1 = ln2.manW1.toBigInt.U((manW+1).W)
