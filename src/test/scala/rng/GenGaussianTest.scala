@@ -667,8 +667,149 @@ class BoxMullerTest extends AnyFlatSpec
     rnd & maskSL(width)
   }
 
+  private def runTest( spec: RealSpec, polySpec: PolynomialSpec, roundSpec: RoundSpec, tolerance: Int ) = {
+    it should f"BoxMuller(x) spec ${spec.toStringShort} comparison" in {
+      test( new BoxMuller(32, spec, polySpec, roundSpec)).
+        withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
+        {
+          val rndW = 32
+
+          val reference = (xi: SafeLong, yi: SafeLong) => {
+            val x  = ((SafeLong(1) << rndW) - xi).toDouble / (SafeLong(1) << rndW).toDouble
+            val y  = yi.toDouble / (SafeLong(1) << rndW).toDouble
+            val z1 = sqrt(-2.0 * log(x)) * sin(2.0 * Pi * y)
+            val z2 = sqrt(-2.0 * log(x)) * cos(2.0 * Pi * y)
+            val zr1 = new RealGeneric(spec, z1)
+            val zr2 = new RealGeneric(spec, z2)
+            (zr1, zr2)
+          }
+
+          var maxError    = 0.0
+          var xatMaxError = 0.0
+          var yatMaxError = 0.0
+          var zatMaxError = 0.0
+          var satMaxError = false
+          val errs = collection.mutable.Map[Int, (Int, Int)]()
+
+          //           pre   poly  post  multiply        | consume valid
+          // --------------+ sqrt  cos                   | -------------
+          // 0. rnd -> log +-----+ sqrt                  |    T      F
+          // 1. rnd -> sin   log +-----+                 |    T      F
+          // 2.     +> cos   sin   log | sqrt * sin -> z |    F      T
+          // 3.        sqrt  cos   sin | sqrt * cos -> z |    F      T
+          // --------------+ sqrt  cos +-----------------|---------------
+          // 4. rnd -> log +-----+ sqrt                  |    T      F
+          // 5. rnd -> sin   log +-----+                 |    T      F
+          // 6.        cos   sin   log | sqrt * sin -> z |    F      T
+          // 7.        sqrt  cos   sin | sqrt * cos -> z |    F      T
+          // 8.              sqrt  cos +-----------------|---------------
+          //
+
+          for(i <- 1 to n) {
+            val xi = generateRandomUInt(rndW)
+            val yi = generateRandomUInt(rndW)
+            val (z1r, z2r) = reference(xi, yi)
+
+            c.io.x.poke(xi.toBigInt.U(spec.W.W))
+            val v1 = c.io.valid.peek().litValue.toBigInt
+            val c1 = c.io.consume.peek().litValue.toBigInt
+            assert(v1 == 0)
+            assert(c1 == 1)
+            c.clock.step(1)
+
+            c.io.x.poke(yi.toBigInt.U(spec.W.W))
+            val v2 = c.io.valid.peek().litValue.toBigInt
+            val c2 = c.io.consume.peek().litValue.toBigInt
+            assert(v2 == 0)
+            assert(c2 == 1)
+            c.clock.step(1)
+
+            c.io.x.poke(0.toBigInt.U(spec.W.W))
+            val v3 = c.io.valid.peek().litValue.toBigInt
+            val c3 = c.io.consume.peek().litValue.toBigInt
+            assert(v3 == 1)
+            assert(c3 == 0)
+            c.clock.step(1)
+
+            c.io.x.poke(0.toBigInt.U(spec.W.W))
+            val v4 = c.io.valid.peek().litValue.toBigInt
+            val c4 = c.io.consume.peek().litValue.toBigInt
+            assert(v4 == 1)
+            assert(c4 == 0)
+            c.clock.step(1)
+
+            c.clock.step(1)
+            c.clock.step(1)
+
+            val z1 = c.io.z.peek().litValue.toBigInt
+            c.clock.step(1)
+
+            c.io.x.poke(0.toBigInt.U(spec.W.W))
+            val z2 = c.io.z.peek().litValue.toBigInt
+            c.clock.step(1)
+
+            val simx  = ((SafeLong(1) << rndW) - xi).toDouble / (SafeLong(1) << rndW).toDouble
+            val simy  = yi.toDouble / (SafeLong(1) << rndW).toDouble
+
+            val siny = new RealGeneric(spec, sin(2.0 * Pi * simy))
+            val cosy = new RealGeneric(spec, cos(2.0 * Pi * simy))
+            val logx = new RealGeneric(spec, -2.0 * log(simx))
+            val sqrx = new RealGeneric(spec, sqrt(-2.0 * log(simx)))
+
+            println(f"sinSim  = (${siny.sgn}|${siny.exNorm}|${siny.man.toLong.toBinaryString})")
+            println(f"cosSim  = (${cosy.sgn}|${cosy.exNorm}|${cosy.man.toLong.toBinaryString})")
+            println(f"logSim  = (${logx.sgn}|${logx.exNorm}|${logx.man.toLong.toBinaryString})")
+            println(f"sqrtSim = (${sqrx.sgn}|${sqrx.exNorm}|${sqrx.man.toLong.toBinaryString})")
+
+            val z1sgn = bit(spec.W-1, z1).toInt
+            val z1exp = slice(spec.manW, spec.exW, z1)
+            val z1man = z1 & maskSL(spec.manW)
+
+            val z2sgn = bit(spec.W-1, z2).toInt
+            val z2exp = slice(spec.manW, spec.exW, z2)
+            val z2man = z2 & maskSL(spec.manW)
+
+            val z1g = new RealGeneric(spec, z1sgn, z1exp.toInt, z1man)
+            val z2g = new RealGeneric(spec, z2sgn, z2exp.toInt, z2man)
+
+            // TODO: fails when x << 1.
+            // - if x is small, 1 - x is close to 1.
+            // - if 1-x is close to 1, no shift is needed to normalize it.
+            // - the table retuns a small value if 1-x is close to 1.
+            // - after normalizing a small value from a table, it loses its precision.
+
+            assert((z1 - z1r.value).abs <= tolerance,
+                   f"x = ${xi.toDouble / (SafeLong(1) << rndW).toDouble}, y = ${yi.toDouble / (SafeLong(1) << rndW).toDouble}, ztest = ${z1g.toDouble}, zref = ${z1r.toDouble}, " +
+                   f"test(${z1g.sgn}|${z1g.ex}(${z1g.exNorm})|${z1g.man.toLong.toBinaryString})(${z1g.toDouble}) !=" +
+                   f" ref(${z1r.sgn}|${z1r.ex}(${z1r.exNorm})|${z1r.man.toLong.toBinaryString})(${z1r.toDouble})")
+            assert((z2 - z2r.value).abs <= tolerance,
+                   f"x = ${xi.toDouble / (SafeLong(1) << rndW).toDouble}, y = ${yi.toDouble / (SafeLong(1) << rndW).toDouble}, ztest = ${z2g.toDouble}, zref = ${z2r.toDouble}, " +
+                   f"test(${z2g.sgn}|${z2g.ex}(${z2g.exNorm})|${z2g.man.toLong.toBinaryString})(${z2g.toDouble}) !=" +
+                   f" ref(${z2r.sgn}|${z2r.ex}(${z2r.exNorm})|${z2r.man.toLong.toBinaryString})(${z2r.toDouble})")
+          }
+          println(f"Summary")
+          if(maxError != 0.0) {
+            val zexpected = if(satMaxError) {
+              sqrt(-2.0 * log(xatMaxError)) * sin(2*Pi*yatMaxError)
+            } else {
+              sqrt(-2.0 * log(xatMaxError)) * cos(2*Pi*yatMaxError)
+            }
+            println(f"N=$n%d : largest errors ${maxError.toInt}%d where the value is "
+                  + f"${zatMaxError} != ${zexpected}, diff = ${zatMaxError - zexpected}, "
+                  + f"x = ${xatMaxError}, y = ${yatMaxError}")
+          }
+          for(kv <- errs.toSeq.sortBy(_._1)) {
+            val (k, (errPos, errNeg)) = kv
+            println(f"N=$n%d : +/- $k errors positive $errPos%d / negative $errNeg%d")
+          }
+          println( "---------------------------------------------------------------")
+        }
+      }
+    }
+  }
+
   private def runChiSquared( spec: RealSpec, polySpec: PolynomialSpec, roundSpec: RoundSpec ) = {
-    it should f"BoxMuller(x) spec ${spec.toStringShort}" in {
+    it should f"BoxMuller(x) spec ${spec.toStringShort} Chi^2 test" in {
       test( new BoxMuller(32, spec, polySpec, roundSpec)).
         withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
         {
@@ -760,5 +901,6 @@ class BoxMullerTest extends AnyFlatSpec
   val extraBitsFP32 = 3
   val polySpecFP32  = new PolynomialSpec(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32)
 
+  runTest(RealSpec.Float32Spec, polySpecFP32, RoundSpec.roundToEven, 32)
   runChiSquared(RealSpec.Float32Spec, polySpecFP32, RoundSpec.roundToEven)
 }
