@@ -41,7 +41,8 @@ class BoxMullerSinCos2Pi(
 
   val cbit = Seq(
     BoxMullerSinCos2PiTableCoeff.getCBits(polySpec),
-    BoxMullerLogTableCoeff.getCBits(polySpec),
+    BoxMullerLogTableCoeff.getCBitsLog2(polySpec),
+    BoxMullerLogTableCoeff.getCBitsLn(polySpec),
     SqrtTableCoeff.getCBits(spec, polySpec)
     ).reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
 
@@ -291,7 +292,8 @@ class BoxMullerLog(
 
   val cbit = Seq(
     BoxMullerSinCos2PiTableCoeff.getCBits(polySpec),
-    BoxMullerLogTableCoeff.getCBits(polySpec),
+    BoxMullerLogTableCoeff.getCBitsLog2(polySpec),
+    BoxMullerLogTableCoeff.getCBitsLn(polySpec),
     SqrtTableCoeff.getCBits(spec, polySpec)
     ).reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
 
@@ -500,7 +502,8 @@ class BoxMullerSqrt(
 
   val cbit = Seq(
     BoxMullerSinCos2PiTableCoeff.getCBits(polySpec),
-    BoxMullerLogTableCoeff.getCBits(polySpec),
+    BoxMullerLogTableCoeff.getCBitsLog2(polySpec),
+    BoxMullerLogTableCoeff.getCBitsLn(polySpec),
     SqrtTableCoeff.getCBits(spec, polySpec)
     ).reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
 

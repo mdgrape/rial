@@ -25,6 +25,13 @@ import rial.util.ScalaUtil._
 //
 
 // -----------------------------------------------------------------------------
+//      _                      ______        ___  ____
+//  ___(_)_ __   ___ ___  ___ / /___ \ _ __ (_) \/ /\ \
+// / __| | '_ \ / __/ _ \/ __| |  __) | '_ \| |\  /  | |
+// \__ \ | | | | (_| (_) \__ \ | / __/| |_) | |/  \  | |
+// |___/_|_| |_|\___\___/|___/ ||_____| .__/|_/_/\_\ | |
+//                            \_\     |_|           /_/
+//
 // Fixed -> FP sin/cos(2pi*y)
 //
 // sin/cos are used to determine the argument (not an absolute value), so y can
@@ -242,6 +249,12 @@ class BoxMullerSinCos2PiPostProc(
 
 
 // ===========================================================================
+//       ____  _              ___          __
+//      |___ \| | ___   __ _ / / |    __  _\ \
+//  _____ __) | |/ _ \ / _` | || |____\ \/ /| |
+// |_____/ __/| | (_) | (_| | || |_____>  < | |
+//      |_____|_|\___/ \__, | ||_|    /_/\_\| |
+//                     |___/ \_\           /_/
 //
 // z = -2log(1-x): Fixed -> FP
 //
@@ -249,7 +262,10 @@ class BoxMullerSinCos2PiPostProc(
 //
 
 object BoxMullerLogTableCoeff {
-  def genTable(
+
+  // for x in [0.5, 1). 1-x will be in (0, 0.5] and -2log2(1-x) is in [2, inf).
+  // we can gain enough precision.
+  def genTableLog2(
     polySpec: PolynomialSpec
   ): FuncTableInt = {
 
@@ -268,16 +284,57 @@ object BoxMullerLogTableCoeff {
     new FuncTableInt( tableD, fracW )
   }
 
-  def getCBits(
+  // for x in [0.0, 0.5). 1-x will be in (0.5, 1]. log(a) becomes small when a ~ 1.
+  // to gain high precision, we approximate log(1-x)/x and then multiply x.
+  // here we don't need to consider exponent, we directly calculate ln.
+  def genTableLn(
+    polySpec: PolynomialSpec
+  ): FuncTableInt = {
+
+    val order  = polySpec.order
+    val fracW  = polySpec.fracW
+    val adrW   = polySpec.adrW
+
+    // approximate -log(1-x)/x. this takes x, not 1-x.
+    val tableD = new FuncTableDouble( x0 => {
+      // convert 0~1 to 0~0.5
+      val x = x0 * 0.5
+      val z = if(x == 0.0) {
+        // log(1-x) = -x - x^2/2 - x^3/3 - ...
+        //          = -x (1 + x/2 + x^2/3 + ...)
+        // log(1-x)/x = -(1 + x/2 + x^2/3 + ...)
+        //            -> -1 when x -> 0.
+        // since we calculate -log(1-x)/x, the limit is 1.
+        1
+      } else {
+        -log(1.0 - x) / x
+      }
+      // z is in [1, 2log(2)) ~=  [1, 1.4).
+      z - 1.0
+    }, order )
+
+    tableD.addRange(0.0, 1.0, 1<<adrW)
+    new FuncTableInt( tableD, fracW )
+  }
+
+  def getCBitsLog2(
     polySpec: PolynomialSpec
   ): Seq[Int] = {
-    val tableI = genTable(polySpec)
+    val tableI = genTableLog2(polySpec)
+    tableI.cbit
+  }
+  def getCBitsLn(
+    polySpec: PolynomialSpec
+  ): Seq[Int] = {
+    val tableI = genTableLn(polySpec)
     tableI.cbit
   }
 }
 
 class BoxMullerLogPreProcessOutput(val rndW: Int, val spec: RealSpec) extends Bundle {
   val zzero  = Output(Bool())
+  val useLn  = Output(Bool()) // true means ln table is used (x < 0.5).
+  val x      = Output(UInt(rndW.W)) // later we need to multiply this.
   val xShift = Output(UInt(log2Up(rndW-2).W))
 }
 
@@ -314,49 +371,98 @@ class BoxMullerLogPreProc(
     val out = new BoxMullerLogPreProcessOutput(rndW, spec)
   })
 
-  val negx = enable(io.en, ~io.x + 1.U)  // 1 - x
-  val zzero = negx === 0.U // if 1 - x == 0, then x == 1. log(1) = 0.
+  // if x == 0, then 1-x == 1. log(1-x) = 0.
+  val zzero = io.x === 0.U
 
-  val nxShift   = Mux(zzero, 0.U, PriorityEncoder(Reverse(negx)))
-  val nxShifted = (negx << nxShift)(rndW-1, 0)
-  assert(zzero || nxShifted(rndW-1) === 1.U || io.en =/= 1.U)
+  // determine which table to use
+  val useLn = io.x(rndW-1) === 0.U
 
-  // ---------------------------------------------------------------------------
-  // special values
-  io.out.zzero  := ShiftRegister(zzero,   nStage)
-  io.out.xShift := ShiftRegister(nxShift, nStage)
+  io.out.x     := io.x
+  io.out.useLn := useLn
+  io.out.zzero := zzero
 
-  // ---------------------------------------------------------------------------
-  // table coeffs
+  // --------------------------------------------------------------------------
 
-  val xman = nxShifted(rndW-2, 0) // remove "hidden" bit to normalize
-  val xmanW = xman.getWidth
+  when(useLn) { // x < 0.5. so 1-x is close to 1.
 
-  val adr = xman(xmanW-1, xmanW-adrW)
+    // remove first bit, 0, from x because table takes 0~1 value.
+    val x   = io.x(io.x.getWidth-2, 0)
+    val xW  = x.getWidth
+    val adr = x(xW-1, xW-adrW)
 
-  val tableI = BoxMullerLogTableCoeff.genTable(polySpec)
-  val cbit = tableI.cbit
-  val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/0)
-  val coeff = getSlices(coeffTable(adr), coeffWidth)
+    val xShift = PriorityEncoder(Reverse(x))
+    io.out.xShift := ShiftRegister(xShift, nStage)
 
-  val coeffs = Wire(new TableCoeffInput(maxCbit))
-  for (i <- 0 to order) {
-    val diffWidth = maxCbit(i) - cbit(i)
-    assert(cbit(i) <= maxCbit(i))
+    val tableI = BoxMullerLogTableCoeff.genTableLn(polySpec)
+    val cbit = tableI.cbit
+    val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/0)
+    val coeff = getSlices(coeffTable(adr), coeffWidth)
 
-    if(0 < diffWidth) {
-      val ci  = coeff(i)
-      val msb = ci(cbit(i)-1)
-      coeffs.cs(i) := Cat(Fill(diffWidth, msb), ci) // sign extension
-    } else {
-      coeffs.cs(i) := coeff(i)
+    val coeffs = Wire(new TableCoeffInput(maxCbit))
+    for (i <- 0 to order) {
+      val diffWidth = maxCbit(i) - cbit(i)
+      assert(cbit(i) <= maxCbit(i))
+
+      if(0 < diffWidth) {
+        val ci  = coeff(i)
+        val msb = ci(cbit(i)-1)
+        coeffs.cs(i) := Cat(Fill(diffWidth, msb), ci) // sign extension
+      } else {
+        coeffs.cs(i) := coeff(i)
+      }
     }
-  }
-  io.cs := ShiftRegister(enable(io.en, coeffs), nStage)
+    io.cs := ShiftRegister(enable(io.en, coeffs), nStage)
 
-  if(order != 0) {
-    val dx = Cat(~xman(xmanW-adrW-1), xman(xmanW-adrW-2, xmanW-adrW-dxW))
-    io.dx.get := ShiftRegister(enable(io.en, dx), nStage)
+    if(order != 0) {
+      val dx = Cat(~x(xW-adrW-1), x(xW-adrW-2, xW-adrW-dxW))
+      io.dx.get := ShiftRegister(enable(io.en, dx), nStage)
+    }
+
+  }.otherwise {
+    // use shift & log2.
+
+    assert(!zzero) // if zzero, i.e. io.x === 0.U, useLn == true.
+
+    val negx  = enable(io.en, ~io.x + 1.U)  // 1 - x
+
+    val nxShift   = PriorityEncoder(Reverse(negx))
+    val nxShifted = (negx << nxShift)(rndW-1, 0)
+    assert(zzero || nxShifted(rndW-1) === 1.U || io.en =/= 1.U)
+
+    io.out.xShift := ShiftRegister(nxShift, nStage)
+
+    // ---------------------------------------------------------------------------
+    // determine table coeffs
+
+    val xman = nxShifted(rndW-2, 0) // remove "hidden" bit to normalize
+    val xmanW = xman.getWidth
+
+    val adr = xman(xmanW-1, xmanW-adrW)
+
+    val tableI = BoxMullerLogTableCoeff.genTableLog2(polySpec)
+    val cbit = tableI.cbit
+    val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/0)
+    val coeff = getSlices(coeffTable(adr), coeffWidth)
+
+    val coeffs = Wire(new TableCoeffInput(maxCbit))
+    for (i <- 0 to order) {
+      val diffWidth = maxCbit(i) - cbit(i)
+      assert(cbit(i) <= maxCbit(i))
+
+      if(0 < diffWidth) {
+        val ci  = coeff(i)
+        val msb = ci(cbit(i)-1)
+        coeffs.cs(i) := Cat(Fill(diffWidth, msb), ci) // sign extension
+      } else {
+        coeffs.cs(i) := coeff(i)
+      }
+    }
+    io.cs := ShiftRegister(enable(io.en, coeffs), nStage)
+
+    if(order != 0) {
+      val dx = Cat(~xman(xmanW-adrW-1), xman(xmanW-adrW-2, xmanW-adrW-dxW))
+      io.dx.get := ShiftRegister(enable(io.en, dx), nStage)
+    }
   }
 }
 
@@ -403,21 +509,74 @@ class BoxMullerLogPostProc(
     val z    = Output(UInt(spec.W.W))
   })
 
-  val zFrac = ~io.zres + 1.U
-
   val zzero = io.pre.zzero
-  val xex   = io.pre.xShift +& (zFrac === 0.U).asUInt
+  val useLn = io.pre.useLn
+  val x     = io.pre.x
 
-  val log2x0     = Cat(xex, zFrac)
-  val log2xShift = PriorityEncoder(Reverse(log2x0)) // xex might be zero
+  // -------------------------------------------------------------------------
+  // ln path multiplies x * Cat(1, zres).
+
+  val xexLn   = (exBias - 1).U(exW.W) - io.pre.xShift
+  val lnOverX = Cat(1.U(1.W), io.zres)
+
+  // -------------------------------------------------------------------------
+  // log2 path multiplies Cat(xex, zfrac) * ln2.manW1.
+
+  val zFrac   = ~io.zres + 1.U
+  val xexLog2 = io.pre.xShift +& (zFrac === 0.U).asUInt
+
+  val log2x0     = Cat(xexLog2, zFrac)
+  val log2xShift = PriorityEncoder(Reverse(log2x0)) // xex might be zero XXX now this does not hold
   val log2x      = enable(io.en, (log2x0 << log2xShift)(log2x0.getWidth-1, 0))
   assert(log2x(log2x0.getWidth-1) === 1.U || io.en =/= 1.U)
 
   val ln2 = new RealGeneric(spec, log(2.0))
   val ln2manW1 = ln2.manW1.toBigInt.U((manW+1).W)
 
-  val zProd = log2x * ln2manW1
-  val zProdW = log2x.getWidth + ln2manW1.getWidth
+  // --------------------------------------------------------------------------
+  // both path use multiplication. we need only 1 multiply circuit, z = a * b.
+
+  // determine minimum required bit width
+  val amanW1 = Wire(UInt(Seq(log2x.getWidth, x.getWidth).max.W))
+  val bmanW1 = Wire(UInt(Seq(manW+1, fracW+1).max.W))
+
+  // set a and b in log2 path
+  val amanLog2 = if(amanW1.getWidth - log2x.getWidth > 0) {
+    Cat(log2x, Fill(amanW1.getWidth - log2x.getWidth, 0.U(1.W)))
+  } else {
+    log2x
+  }
+  val bmanLog2 = if(bmanW1.getWidth - ln2manW1.getWidth > 0) {
+    Cat(ln2manW1, Fill(bmanW1.getWidth - ln2manW1.getWidth, 0.U(1.W)))
+  } else {
+    ln2manW1
+  }
+  val zex0Log2 = (ln2.ex + xexLog2.getWidth).U(exW.W) - log2xShift
+
+  // a and b in ln path
+  val amanLn = if(amanW1.getWidth - x.getWidth > 0) {
+    Cat(x, Fill(amanW1.getWidth - x.getWidth, 0.U(1.W)))
+  } else {
+    x
+  }
+  val bmanLn = if(bmanW1.getWidth - lnOverX.getWidth > 0) {
+    Cat(lnOverX, Fill(bmanW1.getWidth - lnOverX.getWidth, 0.U(1.W)))
+  } else {
+    lnOverX
+  }
+  val zex0Ln = xexLn
+
+  // select
+  amanW1 := Mux(useLn, amanLn, amanLog2)
+  bmanW1 := Mux(useLn, bmanLn, bmanLog2)
+
+  val zex0 = Mux(useLn, zex0Ln, zex0Log2)
+
+  // --------------------------------------------------------------------------
+  // do multiplication.
+
+  val zProd  = amanW1 * bmanW1
+  val zProdW = amanW1.getWidth + bmanW1.getWidth
 
   val zMoreThan2 = zProd(zProdW - 1)
   val zShifted   = Mux(zMoreThan2, zProd(zProdW-2, zProdW-manW-1),
@@ -430,8 +589,6 @@ class BoxMullerLogPostProc(
                                              Cat(1.U(1.W), zRounded(manW-1, 0)))
   val zexInc     = zMoreThan2 + zMoreThan2AfterRound
 
-  val zex0 = (ln2.ex + xex.getWidth).U(exW.W) - log2xShift
-
   val zex  = Mux(zzero, 0.U, zex0 + zexInc)
   val zman = Mux(zzero, 0.U, zmanW1(manW-1, 0))
   val zsgn = 0.U(1.W)
@@ -443,6 +600,12 @@ class BoxMullerLogPostProc(
 }
 
 // ============================================================================
+//                  _    __    __
+//   ___  __ _ _ __| |_ / /_  _\ \
+//  / __|/ _` | '__| __| |\ \/ /| |
+//  \__ \ (_| | |  | |_| | >  < | |
+//  |___/\__, |_|   \__| |/_/\_\| |
+//          |_|         \_\    /_/
 //
 // calc sqrt: FP -> FP. almost the same as math/sqrt.
 //
@@ -561,14 +724,12 @@ class BoxMullerSqrtPostProc(
 }
 
 // ============================================================================
+//  ____                 __  __       _ _
+// | __ )  _____  __    |  \/  |_   _| | | ___ _ __
+// |  _ \ / _ \ \/ /____| |\/| | | | | | |/ _ \ '__|
+// | |_) | (_) >  <_____| |  | | |_| | | |  __/ |
+// |____/ \___/_/\_\    |_|  |_|\__,_|_|_|\___|_|
 //
-// do Box-Muller.
-//
-// If the values are not used, it stops to reduce power consumption.
-// It means that the random number queue should have a buffer having at least
-// the same number of elements as the latency to keep the queue filled.
-//
-
 class BoxMuller(
     rndW: Int,      // width of input fixedpoint
     spec: RealSpec, // output width
@@ -583,6 +744,7 @@ class BoxMuller(
   val exBias = spec.exBias
 
   val io = IO(new Bundle {
+    // TODO: halt when random number are not needed
     val consume = Output(Bool()) // it consumes the current random number input
     val valid   = Output(Bool()) // the z is valid gaussian random number output
 
@@ -592,7 +754,8 @@ class BoxMuller(
 
   val maxCbit = Seq(
     BoxMullerSinCos2PiTableCoeff.getCBits(polySpec),
-    BoxMullerLogTableCoeff.getCBits(polySpec),
+    BoxMullerLogTableCoeff.getCBitsLog2(polySpec),
+    BoxMullerLogTableCoeff.getCBitsLn(polySpec),
     SqrtTableCoeff.getCBits(spec, polySpec)
     ).reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
 
@@ -695,6 +858,12 @@ class BoxMuller(
   when(pc === 1.U) {
     sqrtResult := sqrtPost.io.z
   }
+
+//   printf("-----------------------------------------------------------\n")
+//   printf("sinResult  = (%b|%d|%b)\n", sinResult(spec.W-1), sinResult(manW+exW-1, manW).zext - exBias.S, sinResult(manW-1, 0))
+//   printf("cosResult  = (%b|%d|%b)\n", cosResult(spec.W-1), cosResult(manW+exW-1, manW).zext - exBias.S, cosResult(manW-1, 0))
+//   printf("logResult  = (%b|%d|%b)\n", logResult(spec.W-1), logResult(manW+exW-1, manW).zext - exBias.S, logResult(manW-1, 0))
+//   printf("sqrtResult = (%b|%d|%b)\n",sqrtResult(spec.W-1),sqrtResult(manW+exW-1, manW).zext - exBias.S,sqrtResult(manW-1, 0))
 
   // ---------------------------------------------------------------------------
 
