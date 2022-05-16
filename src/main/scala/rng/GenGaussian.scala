@@ -334,7 +334,7 @@ object BoxMullerLogTableCoeff {
 class BoxMullerLogPreProcessOutput(val rndW: Int, val spec: RealSpec) extends Bundle {
   val zzero  = Output(Bool())
   val useLn  = Output(Bool()) // true means ln table is used (x < 0.5).
-  val x      = Output(UInt(rndW.W)) // later we need to multiply this.
+  val x      = Output(UInt((rndW-1).W)) // if x < 0.5, ln(1-x)/x is approximated and later we multiply x with this.
   val xShift = Output(UInt(log2Up(rndW-2).W))
 }
 
@@ -377,9 +377,9 @@ class BoxMullerLogPreProc(
   // determine which table to use
   val useLn = io.x(rndW-1) === 0.U
 
-  io.out.x     := io.x
   io.out.useLn := useLn
   io.out.zzero := zzero
+  io.out.x := 0.U
 
   // --------------------------------------------------------------------------
 
@@ -392,6 +392,12 @@ class BoxMullerLogPreProc(
 
     val xShift = PriorityEncoder(Reverse(x))
     io.out.xShift := ShiftRegister(xShift, nStage)
+
+    // later we will multiply table approx result and x. the multiplication
+    // assumes that both operands are normalized. so we normalize io.x here.
+    val xShifted = (x << xShift)(xW-1, 0)
+    io.out.x := xShifted
+    assert(xShifted(xW-1) === 1.U || x === 0.U || io.en =/= 1.U)
 
     val tableI = BoxMullerLogTableCoeff.genTableLn(polySpec)
     val cbit = tableI.cbit
