@@ -759,11 +759,6 @@ class BoxMullerTest extends AnyFlatSpec
             val logx = new RealGeneric(spec, -2.0 * log(simx))
             val sqrx = new RealGeneric(spec, sqrt(-2.0 * log(simx)))
 
-            println(f"sinSim  = (${siny.sgn}|${siny.exNorm}|${siny.man.toLong.toBinaryString})")
-            println(f"cosSim  = (${cosy.sgn}|${cosy.exNorm}|${cosy.man.toLong.toBinaryString})")
-            println(f"logSim  = (${logx.sgn}|${logx.exNorm}|${logx.man.toLong.toBinaryString})")
-            println(f"sqrtSim = (${sqrx.sgn}|${sqrx.exNorm}|${sqrx.man.toLong.toBinaryString})")
-
             val z1sgn = bit(spec.W-1, z1).toInt
             val z1exp = slice(spec.manW, spec.exW, z1)
             val z1man = z1 & maskSL(spec.manW)
