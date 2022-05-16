@@ -770,11 +770,44 @@ class BoxMullerTest extends AnyFlatSpec
             val z1g = new RealGeneric(spec, z1sgn, z1exp.toInt, z1man)
             val z2g = new RealGeneric(spec, z2sgn, z2exp.toInt, z2man)
 
-            // TODO: fails when x << 1.
-            // - if x is small, 1 - x is close to 1.
-            // - if 1-x is close to 1, no shift is needed to normalize it.
-            // - the table retuns a small value if 1-x is close to 1.
-            // - after normalizing a small value from a table, it loses its precision.
+            val erri1 = (z1 - z1r.value).toLong
+            if(erri1.abs != 0) {
+              val errkey = erri1.abs.toInt
+              if( ! errs.contains(errkey)) {
+                errs(errkey) = (0, 0)
+              }
+              if (erri1 >= 0) {
+                errs(errkey) = (errs(errkey)._1 + 1, errs(errkey)._2)
+              } else {
+                errs(errkey) = (errs(errkey)._1, errs(errkey)._2 + 1)
+              }
+            }
+            if (maxError < erri1.abs) {
+              maxError    = erri1.abs
+              xatMaxError = simx
+              yatMaxError = simy
+              zatMaxError = z1g.toDouble
+              satMaxError = true
+            }
+            val erri2 = (z2 - z2r.value).toLong
+            if(erri2.abs != 0) {
+              val errkey = erri2.abs.toInt
+              if( ! errs.contains(errkey)) {
+                errs(errkey) = (0, 0)
+              }
+              if (erri2 >= 0) {
+                errs(errkey) = (errs(errkey)._1 + 1, errs(errkey)._2)
+              } else {
+                errs(errkey) = (errs(errkey)._1, errs(errkey)._2 + 1)
+              }
+            }
+            if (maxError < erri2.abs) {
+              maxError    = erri2.abs
+              xatMaxError = simx
+              yatMaxError = simy
+              zatMaxError = z2g.toDouble
+              satMaxError = false
+            }
 
             assert((z1 - z1r.value).abs <= tolerance,
                    f"x = ${xi.toDouble / (SafeLong(1) << rndW).toDouble}, y = ${yi.toDouble / (SafeLong(1) << rndW).toDouble}, ztest = ${z1g.toDouble}, zref = ${z1r.toDouble}, " +
@@ -899,6 +932,6 @@ class BoxMullerTest extends AnyFlatSpec
   val extraBitsFP32 = 3
   val polySpecFP32  = new PolynomialSpec(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32)
 
-  runTest(RealSpec.Float32Spec, polySpecFP32, RoundSpec.roundToEven, 32)
+  runTest(RealSpec.Float32Spec, polySpecFP32, RoundSpec.roundToEven, 3)
   runChiSquared(RealSpec.Float32Spec, polySpecFP32, RoundSpec.roundToEven)
 }
