@@ -106,7 +106,7 @@ object LogSim {
     val fracW = spec.manW + extraBits
     val f = (x0: Double) => {
       // -log(x)/(1-x) -> 1.0 when x -> 1. without this, it becomes NaN.
-      if(x0 == 0.0) {
+      if(x0 == 1.0) {
         0.0 // -log(x)/(1-x) - 1 -> 0 when x -> 1
       } else {
         val x = (1.0 + x0) * 0.5 // 0~1 -> 0.5~1
@@ -200,12 +200,12 @@ object LogSim {
       val res = tSmallNeg.interval(adr.toInt).eval(d.toLong, dxbp)
       val ymanW1 = if (res<0) {
         println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=${x.value.toLong.toBinaryString}(${x.toDouble})")
-        SafeLong(0)
+        (SafeLong(1) << fracW)
       } else if (res >= (SafeLong(1)<<fracW)) {
         println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=${x.value.toLong.toBinaryString}(${x.toDouble})")
         maskSL(fracW+1)
       } else {
-       (SafeLong(1) << fracW) + SafeLong(res)
+        (SafeLong(1) << fracW) + SafeLong(res)
       }
       // result will be in [ln(2), 1.0). ln(2) > 0.5, so yex == -1.
       val yex0 = -1
