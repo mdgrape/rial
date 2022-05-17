@@ -38,7 +38,7 @@ import rial.arith.FloatChiselUtil
 // It also checks if x.ex == 0 or -1 and add it to MSB side of the address.
 // To distinguish 0, -1, and others, we need 3 states = 2 bits.
 
-class Log2PreProcess(
+class LogPreProcess(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -96,7 +96,7 @@ class Log2PreProcess(
 //  \__\__,_|_.__/|_|\___|  \___\___/ \___|_| |_|
 // -------------------------------------------------------------------------
 
-class Log2TableCoeff(
+class LogTableCoeff(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val maxCbit  : Seq[Int], // max coeff width among all math funcs
@@ -187,7 +187,7 @@ class Log2TableCoeff(
   }
 }
 
-object Log2TableCoeff {
+object LogTableCoeff {
   def getCBits(
     spec:     RealSpec,
     polySpec: PolynomialSpec
@@ -262,7 +262,7 @@ object Log2TableCoeff {
 // This has two taylor pathes.
 //
 
-class Log2NonTableOutput(val spec: RealSpec, val polySpec: PolynomialSpec) extends Bundle {
+class LogNonTableOutput(val spec: RealSpec, val polySpec: PolynomialSpec) extends Bundle {
   // always required
   val zsgn  = Output(UInt(1.W))
   val zIsNonTable = Output(Bool())
@@ -276,7 +276,7 @@ class Log2NonTableOutput(val spec: RealSpec, val polySpec: PolynomialSpec) exten
   val zint  = Output(UInt(spec.exW.W))
 }
 
-class Log2OtherPath(
+class LogOtherPath(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -297,7 +297,7 @@ class Log2OtherPath(
     // exadr = 2: xexNobias ==  0, x in [1, 2)
     // exadr = 0: others
     val exadr  = Input(UInt(2.W))
-    val zother = new Log2NonTableOutput(spec, polySpec)
+    val zother = new LogNonTableOutput(spec, polySpec)
     val xmanbp = Output(UInt(log2Up(manW).W))
   })
 
@@ -487,7 +487,7 @@ class Log2OtherPath(
 // |_|                 |_|
 // -------------------------------------------------------------------------
 
-class Log2PostProcess(
+class LogPostProcess(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -513,7 +513,7 @@ class Log2PostProcess(
     // If log_e, true. else if log2, false.
     val isln   = if(!isAlwaysLn) {Some(Input(Bool()))} else {None}
     val x      = Flipped(new DecomposedRealOutput(spec))
-    val zother = Flipped(new Log2NonTableOutput(spec, polySpec))
+    val zother = Flipped(new LogNonTableOutput(spec, polySpec))
     val exadr  = Input(UInt(2.W))
     val xmanbp = Input(UInt(log2Up(manW).W))
     val zres   = Input(UInt(fracW.W)) // polynomial
@@ -691,8 +691,8 @@ class LogGeneric(
   val manW   = spec.manW
   val exBias = spec.exBias
 
-  val cbits = Log2TableCoeff.getCBits(spec, polySpec)
-  val calcW = Log2TableCoeff.getCalcW(spec, polySpec)
+  val cbits = LogTableCoeff.getCBits(spec, polySpec)
+  val calcW = LogTableCoeff.getCalcW(spec, polySpec)
 
   def getCbit  = cbits
   def getCalcW = calcW
@@ -720,10 +720,10 @@ class LogGeneric(
 
   // --------------------------------------------------------------------------
 
-  val logPre   = Module(new Log2PreProcess (spec, polySpec, stage.preStage))
-  val logTab   = Module(new Log2TableCoeff (spec, polySpec, cbits))
-  val logOther = Module(new Log2OtherPath  (spec, polySpec, stage.calcStage))
-  val logPost  = Module(new Log2PostProcess(spec, polySpec, stage.postStage, false)) // can be both
+  val logPre   = Module(new LogPreProcess (spec, polySpec, stage.preStage))
+  val logTab   = Module(new LogTableCoeff (spec, polySpec, cbits))
+  val logOther = Module(new LogOtherPath  (spec, polySpec, stage.calcStage))
+  val logPost  = Module(new LogPostProcess(spec, polySpec, stage.postStage, false)) // can be both
 
   logPre.io.en  := io.en
   logPre.io.x   := xdecomp.io.decomp

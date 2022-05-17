@@ -152,7 +152,7 @@ class MathFunctions(
     SinCosTableCoeff.getCBits(spec, polySpec),
     ATan2Stage2TableCoeff.getCBits(spec, polySpec),
     ExpTableCoeff.getCBits(spec, polySpec),
-    Log2TableCoeff.getCBits(spec, polySpec)
+    LogTableCoeff.getCBits(spec, polySpec)
     ).reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
 
   val maxCalcW = Seq(
@@ -163,7 +163,7 @@ class MathFunctions(
     SinCosTableCoeff.getCalcW(spec, polySpec),
     ATan2Stage2TableCoeff.getCalcW(spec, polySpec),
     ExpTableCoeff.getCalcW(spec, polySpec),
-    Log2TableCoeff.getCalcW(spec, polySpec)
+    LogTableCoeff.getCalcW(spec, polySpec)
     ).reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
 
   def getMaxCbit  = maxCbit
@@ -176,7 +176,7 @@ class MathFunctions(
   println(f"sincos      cbits = ${SinCosTableCoeff     .getCBits(spec, polySpec)} calcW = ${SinCosTableCoeff.getCalcW(spec, polySpec)}")
   println(f"atan2Stage2 cbits = ${ATan2Stage2TableCoeff.getCBits(spec, polySpec)} calcW = ${ATan2Stage2TableCoeff.getCalcW(spec, polySpec)}")
   println(f"pow2        cbits = ${ExpTableCoeff       .getCBits(spec, polySpec)} calcW = ${ExpTableCoeff       .getCalcW(spec, polySpec)}")
-  println(f"log2        cbits = ${Log2TableCoeff       .getCBits(spec, polySpec)} calcW = ${Log2TableCoeff       .getCalcW(spec, polySpec)}")
+  println(f"log2        cbits = ${LogTableCoeff       .getCBits(spec, polySpec)} calcW = ${LogTableCoeff       .getCalcW(spec, polySpec)}")
   println(f"maximum     cbits = ${maxCbit} calcW = ${maxCalcW}")
 
   val io = IO(new Bundle {
@@ -450,10 +450,10 @@ class MathFunctions(
   // --------------------------------------------------------------------------
   // log2/ln
 
-  val logPre   = Module(new Log2PreProcess (spec, polySpec, stage.preStage))
-  val logTab   = Module(new Log2TableCoeff (spec, polySpec, maxCbit))
-  val logOther = Module(new Log2OtherPath  (spec, polySpec, stage.calcStage))
-  val logPost  = Module(new Log2PostProcess(spec, polySpec, stage.postStage, false)) // can be both log2 and log
+  val logPre   = Module(new LogPreProcess (spec, polySpec, stage.preStage))
+  val logTab   = Module(new LogTableCoeff (spec, polySpec, maxCbit))
+  val logOther = Module(new LogOtherPath  (spec, polySpec, stage.calcStage))
+  val logPost  = Module(new LogPostProcess(spec, polySpec, stage.postStage, false)) // can be both log2 and log
 
   logPre.io.en      := (io.sel === SelectFunc.Log) || (io.sel === SelectFunc.Log2)
   logPre.io.x       := xdecomp.io.decomp
