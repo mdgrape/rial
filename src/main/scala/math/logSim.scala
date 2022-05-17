@@ -324,8 +324,7 @@ object LogSim {
     if(islog2) {
 
       // 1 < log2e < 2. log2e.ex == 0
-      val log2e = (Real.one / Real.log(Real.two))(manW+1)
-      val log2ex0 = lnex
+      val log2e = (Real.one / Real.log(Real.two))(manW)
 
       val log2Prod = ((SafeLong(1) << manW) + lnman) * log2e
       val log2ProdMoreThan2 = bit((manW+1)+(manW+1)-1, log2Prod).toInt
@@ -334,7 +333,7 @@ object LogSim {
       val log2RoundMoreThan2 = bit(manW, log2Round).toInt
 
       val log2man = slice(0, manW, log2Round)
-      val log2ex = log2ex0 + log2ProdMoreThan2 + log2RoundMoreThan2
+      val log2ex = lnex + log2ProdMoreThan2 + log2RoundMoreThan2
 
       return new RealGeneric(x.spec, zsgn, log2ex, log2man)
 

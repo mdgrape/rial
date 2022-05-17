@@ -36,11 +36,10 @@ class Log2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   def log2Test(t : FuncTableInt, tSmallPos : FuncTableInt, tSmallNeg : FuncTableInt, spec : RealSpec, n : Int, r : Random,
     generatorStr    : String,
     generator       : ( (RealSpec, Random) => RealGeneric),
-    toleranceUlps   : Int ) = {
+    tolerance       : Int ) = {
     test(s"log2(x), format ${spec.toStringShort}, ${generatorStr}") {
 
       val log2 = (a:Double) => {log(a) / log(2.0)}
-      val tolerance = pow(2, toleranceUlps) - 1
 
       var maxError    = 0.0
       var xatMaxError = 0.0
@@ -143,14 +142,18 @@ class Log2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val taylorThresholdFP32 = LogSim.calcTaylorThreshold(RealSpec.Float32Spec)
 
   log2Test(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
-    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_), 1)
+    "Test Large More Than 1 [2, inf]",
+    generateRealWithin(2.0, pow(2.0, 128.0),_,_), 3)
   log2Test(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
-    f"Test Small More Than 1 [1+2^-${taylorThresholdFP32}, 2]",   generateRealWithin(1.0+pow(2.0, -taylorThresholdFP32), 2.0,_,_), 2)
+    f"Test Small More Than 1 [1+2^-${taylorThresholdFP32}, 2]",
+    generateRealWithin(1.0+pow(2.0, -taylorThresholdFP32), 2.0,_,_), 3)
 
   log2Test(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
-    f"Test Taylor More Than 1 [1, 1+2^-${taylorThresholdFP32}]",   generateRealWithin(1.0, 1.0+pow(2.0, -taylorThresholdFP32) - pow(2.0,-RealSpec.Float32Spec.manW),_,_), 1)
+    f"Test Taylor More Than 1 [1, 1+2^-${taylorThresholdFP32}]",
+    generateRealWithin(1.0, 1.0+pow(2.0, -taylorThresholdFP32) - pow(2.0,-RealSpec.Float32Spec.manW),_,_), 3)
   log2Test(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
-    f"Test Taylor More Than 1 [1-2^-${taylorThresholdFP32}, 1]",   generateRealWithin(1.0-pow(2.0, -taylorThresholdFP32) + pow(2.0,-RealSpec.Float32Spec.manW), 1.0,_,_), 1)
+    f"Test Taylor More Than 1 [1-2^-${taylorThresholdFP32}, 1]",
+    generateRealWithin(1.0-pow(2.0, -taylorThresholdFP32) + pow(2.0,-RealSpec.Float32Spec.manW), 1.0,_,_), 3)
 
 //   log2Test(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
 //     "Test x = 2.0",   generateRealWithin(2.0, 2.0,_,_), 2)
@@ -174,12 +177,13 @@ class Log2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
 //   })
 
   log2Test(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
-    f"Test Small Less Than 1 [0.5, 1-2^-${taylorThresholdFP32}]", generateRealWithin(0.5,1.0-pow(2.0, -taylorThresholdFP32),_,_), 2)
+    f"Test Small Less Than 1 [0.5, 1-2^-${taylorThresholdFP32}]",
+    generateRealWithin(0.5,1.0-pow(2.0, -taylorThresholdFP32),_,_), 3)
   log2Test(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
-    "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5,_,_), 1)
+    "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5,_,_), 3)
 
   log2Test(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
-    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_), 1)
+    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_), 3)
 
 
   val nOrderBF16    = 0
@@ -192,14 +196,16 @@ class Log2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val taylorThresholdBF16 = LogSim.calcTaylorThreshold(RealSpec.BFloat16Spec)
 
   log2Test(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
-    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_), 1)
+    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_), 3)
   log2Test(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
-    f"Test Small More Than 1 [1+2^-${taylorThresholdBF16}, 2]",   generateRealWithin(1.0+pow(2.0, -taylorThresholdBF16), 2.0,_,_), 2)
+    f"Test Small More Than 1 [1+2^-${taylorThresholdBF16}, 2]",   generateRealWithin(1.0+pow(2.0, -taylorThresholdBF16), 2.0,_,_), 3)
 
   log2Test(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
-    f"Test Taylor More Than 1 [1, 1+2^-${taylorThresholdBF16}]",   generateRealWithin(1.0, 1.0+pow(2.0, -taylorThresholdBF16) - pow(2.0,-RealSpec.BFloat16Spec.manW),_,_), 1)
+    f"Test Taylor More Than 1 [1, 1+2^-${taylorThresholdBF16}]",
+    generateRealWithin(1.0, 1.0+pow(2.0, -taylorThresholdBF16) - pow(2.0,-RealSpec.BFloat16Spec.manW),_,_), 3)
   log2Test(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
-    f"Test Taylor More Than 1 [1-2^-${taylorThresholdBF16}, 1]",   generateRealWithin(1.0-pow(2.0, -taylorThresholdBF16) + pow(2.0,-RealSpec.BFloat16Spec.manW), 1.0,_,_), 2) // XXX if we set extraBits = 2, we can reduce the error
+    f"Test Taylor More Than 1 [1-2^-${taylorThresholdBF16}, 1]",
+    generateRealWithin(1.0-pow(2.0, -taylorThresholdBF16) + pow(2.0,-RealSpec.BFloat16Spec.manW), 1.0,_,_), 3)
 
 //   log2Test(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
 //     "Test x = 2.0",   generateRealWithin(2.0, 2.0,_,_), 2)
@@ -223,11 +229,12 @@ class Log2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
 //   })
 
   log2Test(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
-    f"Test Small Less Than 1 [0.5, 1-2^-${taylorThresholdBF16}]", generateRealWithin(0.5,1.0-pow(2.0, -taylorThresholdBF16),_,_), 2)
+    f"Test Small Less Than 1 [0.5, 1-2^-${taylorThresholdBF16}]",
+    generateRealWithin(0.5,1.0-pow(2.0, -taylorThresholdBF16),_,_), 3)
   log2Test(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
-    "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5,_,_), 1)
+    "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5,_,_), 3)
 
   log2Test(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
-    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_), 1)
+    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_), 3)
 
 }
