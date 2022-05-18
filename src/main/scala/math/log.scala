@@ -542,7 +542,7 @@ class LogPostProcess(
     val log2Prod = Cat(1.U(1.W), lnman) * log2e
     val log2ProdMoreThan2 = log2Prod((manW+1)+(manW+1)-1)
     val log2Shifted = Mux(log2ProdMoreThan2, log2Prod((manW+1)+(manW+1)-2, manW+1),
-                                             log2Prod((manW+1)+(manW+1)-2, manW  ))
+                                             log2Prod((manW+1)+(manW+1)-3, manW  ))
     val log2RoundInc = Mux(log2ProdMoreThan2, log2Prod(manW  ), log2Prod(manW-1))
     val log2Round = log2Shifted +& log2RoundInc
     val log2RoundMoreThan2 = log2Round(manW)
