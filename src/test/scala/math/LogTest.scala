@@ -323,8 +323,6 @@ class LogOnlyTest extends AnyFlatSpec
           val reference  = LogSim.logSimGeneric(/*islog2*/ false,
             log2TableI, log2SmallPositiveTableI, log2SmallNegativeTableI, _ )
 
-          println(f"taylorThreshold = ${LogSim.calcTaylorThreshold(spec)}")
-
           // To avoid timeoutException while testing z == neg.
           // Detailed explanation follows.
           if(disableTimeout) { c.clock.setTimeout(0) }
