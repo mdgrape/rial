@@ -108,6 +108,16 @@ class LogTest extends AnyFlatSpec
 //             println("---------------------------------------------------------")
             val xi = generator(spec,r)
             val z0r= reference(xi)
+
+            // check reference
+            if(!z0r.isNaN && !z0r.isInfinite && !z0r.isZero) {
+              val manW  = spec.manW
+              val dref  = (z0r.toDouble - log(xi.toDouble)).abs
+              val avref = (z0r.toDouble + log(xi.toDouble)).abs * 0.5
+              assert(dref / (avref * pow(2.0, -manW)) < 4 || (z0r.isNaN && xi.toDouble < 0),
+                     f"xi = ${xi.toDouble}, log(xi) = ${log(xi.toDouble)}, ref = ${z0r.toDouble}")
+            }
+
             q += ((xi.value.toBigInt,z0r.value.toBigInt))
             c.io.sel.poke(SelectFunc.Log)
             c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
@@ -132,7 +142,6 @@ class LogTest extends AnyFlatSpec
               assert(zi == z0d, f"x = ${new RealGeneric(spec, xidsgn, xidexp.toInt, xidman).toDouble}(${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman.toLong.toBinaryString}), " +
                                 f"test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString}) != " +
                                 f"ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})")
-              c.io.z.expect(z0d.U(spec.W.W))
             }
             c.clock.step(1)
           }
