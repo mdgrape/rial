@@ -381,17 +381,12 @@ class ATan2Stage2TableCoeff(
 
   if(order == 0) {
 
-    val cbit = ATan2Stage2Sim.atanTableGeneration( order, adrW, manW, fracW )
-      .map( t => {t.getCBitWidth(/*sign mode = */1)} )
-      .reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
+    val tableI = ATan2Stage2Sim.atanTableGeneration( order, adrW, manW, fracW )
+    val cbit   = tableI.cbit
 
-    val tableIs = VecInit(
-      ATan2Stage2Sim.atanTableGeneration( order, adrW, manW, fracW ).map(t => {
-        t.getVectorWithWidth(cbit, /*sign mode = */ 1)
-      })
-    )
-    val tableI = tableIs(exAdr)
-    val coeff = getSlices(tableI(adr), cbit)
+    // sign mode 1: use 2's complement and no sign bit
+    val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode = */1)
+    val coeff = getSlices(coeffTable(adr), cbit)
 
     assert(maxCbit(0) == fracW)
     assert(coeff(0).getWidth == fracW, f"coeff = ${coeff(0).getWidth}, fracW = ${fracW}")
@@ -400,17 +395,12 @@ class ATan2Stage2TableCoeff(
 
   } else {
 
-    val cbit = ATan2Stage2Sim.atanTableGeneration( order, adrW, manW, fracW )
-      .map( t => {t.getCBitWidth(/*sign mode = */0)} )
-      .reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
+    val tableI = ATan2Stage2Sim.atanTableGeneration( order, adrW, manW, fracW )
+    val cbit   = tableI.cbit
 
-    val tableIs = VecInit(
-      ATan2Stage2Sim.atanTableGeneration( order, adrW, manW, fracW ).map(t => {
-        t.getVectorWithWidth(cbit, /*sign mode = */ 0)
-      })
-    )
-    val tableI = tableIs(exAdr)
-    val coeff = getSlices(tableI(adr), cbit)
+    // sign mode 0: always include sign
+    val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode = */0)
+    val coeff = getSlices(coeffTable(adr), cbit)
 
     val coeffs = Wire(new TableCoeffInput(maxCbit))
     for (i <- 0 to order) {
@@ -443,8 +433,7 @@ object ATan2Stage2TableCoeff {
       return Seq(fracW)
     } else {
       return ATan2Stage2Sim.atanTableGeneration( order, adrW, spec.manW, fracW ).
-        map( t => {t.getCBitWidth(/*sign mode = */0)} ).
-        reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
+        getCBitWidth(/*sign mode = */0)
     }
   }
 
@@ -461,9 +450,7 @@ object ATan2Stage2TableCoeff {
     if(order == 0) {
       return Seq(fracW)
     } else {
-      return ATan2Stage2Sim.atanTableGeneration( order, adrW, spec.manW, fracW ).
-        map( t => {t.calcWidth} ).
-        reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
+      return ATan2Stage2Sim.atanTableGeneration( order, adrW, spec.manW, fracW ).calcWidth
     }
   }
 }
