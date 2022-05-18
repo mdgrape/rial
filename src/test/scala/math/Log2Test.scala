@@ -325,8 +325,6 @@ class Log2OnlyTest extends AnyFlatSpec
           val reference  = LogSim.logSimGeneric(/*islog2*/ true,
             log2F32TableI, log2F32SmallPositiveTableI, log2F32SmallNegativeTableI, _ )
 
-          println(f"taylorThreshold = ${LogSim.calcTaylorThreshold(spec)}")
-
           // To avoid timeoutException while testing z == neg.
           // Detailed explanation follows.
           if(disableTimeout) { c.clock.setTimeout(0) }
@@ -459,21 +457,19 @@ class Log2OnlyTest extends AnyFlatSpec
   val adrWBF16 = 7
   val extraBitsBF16 = 1
 
-  val taylorThresholdBF16 = LogSim.calcTaylorThreshold(RealSpec.BFloat16Spec)
-
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
     "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))
 
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
-   f"Test Small Table More Than 1 [1+2^-${taylorThresholdBF16}, 2]",   generateRealWithin(1.0+pow(2.0, -taylorThresholdBF16), 2.0,_,_))
+   f"Test Small Table More Than 1 [1+2^-3, 2]",   generateRealWithin(1.0+pow(2.0, -3), 2.0,_,_))
 
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
-   f"Test Taylor More Than 1 [1, 1+2^-${taylorThresholdBF16}]",   generateRealWithin(1.0, 1.0+pow(2.0, -taylorThresholdBF16),_,_))
+   f"Test Taylor More Than 1 [1, 1+2^-3]",   generateRealWithin(1.0, 1.0+pow(2.0, -3),_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
-   f"Test Taylor Less Than 1 [1-2^-${taylorThresholdBF16}, 1]",   generateRealWithin(1.0-pow(2.0, -taylorThresholdBF16), 1.0,_,_))
+   f"Test Taylor Less Than 1 [1-2^-3, 1]",   generateRealWithin(1.0-pow(2.0, -3), 1.0,_,_))
 
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
-   f"Test Small Table Than 1 [0.5, 1-2^-${taylorThresholdBF16}]", generateRealWithin(0.5,1.0-pow(2.0, -taylorThresholdBF16),_,_))
+   f"Test Small Table Than 1 [0.5, 1-2^-3]", generateRealWithin(0.5,1.0-pow(2.0, -3),_,_))
 
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
     "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5-pow(2.0, -(RealSpec.BFloat16Spec.manW+1)),_,_))
