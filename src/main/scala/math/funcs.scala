@@ -463,7 +463,6 @@ class MathFunctions(
                        (selPCGapReg === SelectFunc.Log2)
   logTab.io.adr     := ShiftRegister(logPre.io.adr, pcGap)
   logOther.io.x     := xdecPCGapReg
-  logOther.io.exadr := ShiftRegister(logPreExAdr,   pcGap)
 
   when(selPCReg =/= SelectFunc.Log && selPCReg =/= SelectFunc.Log2) {
     assert(logPre.io.adr === 0.U)
@@ -568,10 +567,6 @@ class MathFunctions(
   logPost.io.zother := ShiftRegister(logOther.io.zother, cpGap)
   logPost.io.zres   := polynomialResultCPGapReg
   logPost.io.isln.get := selCPGapReg === SelectFunc.Log
-  logPost.io.x      := xdecCPGapReg
-                        // save preprocess result throughout the calc stage
-  logPost.io.exadr  := ShiftRegister(logPreExAdr, pcGap + nCalcStage + cpGap)
-  logPost.io.xmanbp := ShiftRegister(logOther.io.xmanbp, cpGap)
 
   val z0 = sqrtPost.io.z        |
            invsqrtPost.io.z     |
