@@ -40,7 +40,7 @@ class ATan2Stage2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     java.lang.Math.scalb(err, -x.exNorm+x.spec.manW)
   }
 
-  def atan2Test(t_rec : FuncTableInt, ts : Seq[FuncTableInt], spec : RealSpec, n : Int, r : Random,
+  def atan2Test(t_rec : FuncTableInt, t : FuncTableInt, spec : RealSpec, n : Int, r : Random,
     generatorStr    : String,
     generatorX      : ( (RealSpec, Random) => RealGeneric),
     generatorYoverX : ( (RealSpec, Random) => RealGeneric),
@@ -75,7 +75,7 @@ class ATan2Stage2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
           println(f"WARN: ${toleranceAtStage1} < error in Stage1: sim(${s1._1.toDouble}) != ref(${stage1z.toDouble})")
         }
 
-        val zi   = ATan2Stage2Sim.atan2Stage2SimGeneric( ts, s1._1, s1._2, s1._3, s1._4 )
+        val zi   = ATan2Stage2Sim.atan2Stage2SimGeneric( t, s1._1, s1._2, s1._3, s1._4 )
         val zd   = zi.toDouble
         val errf = zd - z0r.toDouble
         val erri = errorLSB(zi, z0r.toDouble).toInt
@@ -222,7 +222,4 @@ class ATan2Stage2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     "Test Within 2^-12 < y/x < 1", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, -12), 1.0,_,_), 7, 3)  // XXX
   atan2Test(atan2FP64ReciprocalTableI, atan2FP64ATanTableI, RealSpec.Float64Spec, n, r,
     "Test Within y/x < 2^-12", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(0.0, pow(2.0, -12),_,_), 7, 3)
-
-
-
 }
