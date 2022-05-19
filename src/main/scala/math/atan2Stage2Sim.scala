@@ -208,8 +208,7 @@ object ATan2Stage2Sim {
 
   // number of tables depending on the exponent and linearThreshold
   def calcExAdrW(spec: RealSpec): Int = {
-    val linearThreshold = calcLinearThreshold(spec.manW)
-    log2Up(abs(linearThreshold)+1)
+    0
   }
 
   def atanTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int,
