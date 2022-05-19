@@ -21,10 +21,10 @@ import rial.arith._
 import rial.table._
 
 class ATan2Stage2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
-  var n = 100000
+  var n = 1000000
 
   override def beforeAll(configMap: ConfigMap) = {
-    n = configMap.getOptional[String]("n").getOrElse("100000").toInt
+    n = configMap.getOptional[String]("n").getOrElse("1000000").toInt
     println(s"ncycle=$n")
   }
 
