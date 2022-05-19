@@ -180,14 +180,14 @@ object ATan2Stage2Sim {
 
     } else                  {//   ysgn * (pi/2+atan(|x|/|y|)) .. x<0, |x|<|y| : 3
       assert(status == 3)
+
       // since atanAligned is in [0, pi/4]  pi/2-atan is in [pi/2, 3pi/4].
       // z is in [1.57, 2.35).
       val zman0 = halfpiManW1 + atanAligned
-
-      val zman0MoreThan2 = bit(manW+1+3-1, zman0)
-      val zmanRound = roundBySpec(RoundSpec.round, 2+zman0MoreThan2, zman0)
-      val zman = zmanRound - (SafeLong(1)<<manW)
-      val zex  = zman0MoreThan2 + exBias
+      val zmanRound = roundBySpec(RoundSpec.round, 2, zman0)
+      val zmanMoreThan2 = bit(manW+1, zmanRound)
+      val zman = slice(zmanMoreThan2, manW, zmanRound)
+      val zex  = zmanMoreThan2 + exBias
 
 //       println(f"atan2Stage2Sim:                 2         1         0")
 //       println(f"atan2Stage2Sim:            54321098765432109876543210")
