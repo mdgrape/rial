@@ -392,26 +392,14 @@ class ATan2Stage2TableCoeff(
 
   if(order == 0) {
 
-    val tbl = VecInit((0L to 1L<<adrW).map(
-      n => {
-        val x = n.toDouble / (1L<<adrW)
-        val res = if(x == 0) {
-          1.0
-        } else {
-          atan(x) / x
-        }
-        val y = round(res * (1L<<fracW))
-        if (y >= (1L<<fracW)) {
-          maskL(fracW).U(fracW.W)
-        } else if (y <= 0.0) {
-          0.U(fracW.W)
-        } else {
-          y.U(fracW.W)
-        }
-      })
-    )
-    val coeff = tbl(adr)
-    io.cs.cs(0) := enable(io.en, coeff)
+    val tableI = ATan2Stage2Sim.atanTableGeneration( order, adrW, manW, fracW )
+    val cbit   = tableI.cbit
+
+    // sign mode 0: always include sign
+    val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode = */1)
+    val coeff = getSlices(coeffTable(adr), coeffWidth)
+
+    io.cs.cs(0) := enable(io.en, coeff(0))
 
   } else {
 
@@ -591,7 +579,7 @@ class ATan2Stage2PostProcess(
   val zSgn = io.zother.zsgn
 
   val zres = Cat(io.zres, 0.U(1.W))
-//   printf("cir: zres  = %b\n", zres)
+//   printf("cir: io.zres = %b\n", io.zres)
 
   // atan2Stage2Sim: atanEx  = 115(-12)
 
