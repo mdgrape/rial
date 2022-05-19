@@ -93,14 +93,10 @@ object ATan2Stage2Sim {
         t.interval(adr).eval(d.toLong, dxbp)
       }
 
-      assert(res0 <= (SafeLong(1) << fracW),
+      assert(res0 < (SafeLong(1) << fracW),
              f"xFixed = ${xFixed}, res0 = ${res0} > (1<<fracW) = ${SafeLong(1)<<fracW}")
 
-      if(res0 == (SafeLong(1) << fracW)) {
-        (SafeLong(1) << fracW, 0)
-      } else {
-        (SafeLong(res0) << 1, -1)
-      }
+      (SafeLong(res0) << 1, -1)
     }
 
     // ------------------------------------------------------------------------
@@ -221,12 +217,13 @@ object ATan2Stage2Sim {
       cbitSetting: Option[Seq[Int]] = None
     ) = {
     val tableD = new FuncTableDouble( x => {
+      val eps = pow(2.0, -manW)
       val res = if(x == 0) {
-        1.0
+        1.0 - eps
       } else {
-        Seq(atan(x) / x, 1.0).min
+        Seq(atan(x) / x, 1.0 - eps).min
       }
-      assert(0.0 < res && res <= 1) // pi/4 ~ 1
+      assert(0.0 < res && res < 1) // [pi/4, 1)
       res
     }, order)
     tableD.addRange(0.0, 1.0, 1<<adrW)
