@@ -505,18 +505,16 @@ class ATan2Stage2OtherPath(
 
   val linearThreshold = (ATan2Stage2Sim.calcLinearThreshold(manW) + exBias)
   val isLinear = io.x.ex <= linearThreshold.U(exW.W)
-
-  val xzero = !io.x.ex.orR
-
-  val defaultEx  = io.x.ex // isLinear includes xzero.
-  val defaultMan = Mux(xzero, 0.U(exW), io.x.man) // we need to re-set man if x is zero
   // non-linear mantissa is calculated by table.
 
   io.zother.zIsNonTable := isLinear || (io.flags.special =/= ATan2SpecialValue.zNormal)
 
+  val defaultEx  = io.x.ex // isLinear includes xzero.
+  val defaultMan = io.x.man
+
   io.zother.zsgn := io.flags.ysgn
   io.zother.zex  := MuxCase(defaultEx, Seq(
-    (io.flags.special === ATan2SpecialValue.zNaN)        -> Fill(exW, 1.U(1.W)),
+    (io.flags.special === ATan2SpecialValue.zNaN)        -> maskL(exW).U(exW.W),
     (io.flags.special === ATan2SpecialValue.zZero)       -> 0.U(exW.W),
     (io.flags.special === ATan2SpecialValue.zPi)         -> pi.ex.U(exW.W),
     (io.flags.special === ATan2SpecialValue.zHalfPi)     -> halfPi.ex.U(exW.W),
@@ -524,7 +522,7 @@ class ATan2Stage2OtherPath(
     (io.flags.special === ATan2SpecialValue.z3QuarterPi) -> quarter3Pi.ex.U(exW.W)
     ))
   io.zother.zman := MuxCase(defaultMan, Seq(
-    (io.flags.special === ATan2SpecialValue.zNaN)        -> Fill(manW, 1.U(1.W)),
+    (io.flags.special === ATan2SpecialValue.zNaN)        -> Cat(1.U(1.W), 0.U((manW-1).W)),
     (io.flags.special === ATan2SpecialValue.zZero)       -> 0.U(manW.W),
     (io.flags.special === ATan2SpecialValue.zPi)         -> pi        .man.toBigInt.U(manW.W),
     (io.flags.special === ATan2SpecialValue.zHalfPi)     -> halfPi    .man.toBigInt.U(manW.W),
