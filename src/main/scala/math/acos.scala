@@ -72,7 +72,7 @@ class ACosPreProcess(
   val fracW     = polySpec.fracW
   val dxW       = polySpec.dxW
   val order     = polySpec.order
-  val exAdrW    = 1
+  val exAdrW    = ACosSim.calcExAdrW(spec)
 
   val io = IO(new Bundle {
     val en  = Input (UInt(1.W))
