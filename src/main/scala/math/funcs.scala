@@ -553,6 +553,7 @@ class MathFunctions(
   atan2Stage2Post.io.en     := (selCPGapReg === SelectFunc.ATan2Stage2)
   atan2Stage2Post.io.zother := ShiftRegister(atan2Stage2Other.io.zother, cpGap)
   atan2Stage2Post.io.zres   := polynomialResultCPGapReg
+  atan2Stage2Post.io.x      := xdecCPGapReg
 
   if(expPre.io.xfracLSBs.isDefined) {
     expPost.io.zCorrCoef.get := ShiftRegister(expOther.io.zCorrCoef.get, cpGap)

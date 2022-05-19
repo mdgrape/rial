@@ -91,8 +91,8 @@ class ATan2Stage1PreProcess(
 
   val io = IO(new Bundle {
     val en      = Input (UInt(1.W))
-    val x       = Input (new DecomposedRealOutput(spec))
-    val y       = Input (new DecomposedRealOutput(spec))
+    val x       = Flipped(new DecomposedRealOutput(spec))
+    val y       = Flipped(new DecomposedRealOutput(spec))
     val special = Output(UInt(ATan2SpecialValue.W.W))
   })
 
@@ -321,27 +321,42 @@ class ATan2Stage2PreProcess(
   val fracW  = polySpec.fracW
   val dxW    = polySpec.dxW
   val order  = polySpec.order
-  val exAdrW = ATan2Stage2Sim.calcExAdrW(spec)
 
   val io = IO(new Bundle {
     val en  = Input (UInt(1.W))
     val x   = Flipped(new DecomposedRealOutput(spec))
-    val adr = Output(UInt((exAdrW+adrW).W))
+    val adr = Output(UInt(adrW.W))
     val dx  = if(order != 0) { Some(Output(UInt(dxW.W))) } else { None }
   })
 
-  val xsgn = enable(io.en, io.x.sgn)
-  val xex  = enable(io.en, io.x.ex )
-  val xman = enable(io.en, io.x.man)
+  // stage1 calculates min(x,y)/max(x,y), so we can assume that x <= 1.
+  // also, if x == 1, stage1 sets special value flag. so we can ignore the case.
 
-  val exAdr0 = (exBias - 1).U(exW.W) - xex
-  val exAdr  = exAdr0(exAdrW-1, 0)
+  val xex    = io.x.ex
+  val xmanW1 = Cat(1.U(1.W), io.x.man)
 
-  val adr  = enable(io.en, Cat(exAdr, xman(manW-1, dxW)))
+  val shiftW    = log2Up(1+manW)
+  val xShift0   = exBias.U(exW.W) - xex
+  val xShiftOut = xShift0(exW-1, shiftW).orR
+  val xShift    = Mux(xShiftOut, maskL(shiftW).U(shiftW.W), xShift0(shiftW-1, 0))
+  val xFixed    = xmanW1 >> xShift
+
+//   printf("cir: x       = %b|%d|%b\n", io.x.sgn, xex, io.x.man)
+//   printf("cir: xShift  = %b\n", xShift)
+//   printf("cir: xFixed  = %b\n", xFixed)
+
+  // xFixed(manW) === 1 if and only if x == 1.0.
+  assert(xFixed(manW) =/= 1.U || xFixed(manW-1, 0) === 0.U || io.en === 0.U,
+         "xFixed = %b", xFixed)
+
+  val adr  = enable(io.en, xFixed(manW-1, dxW))
   io.adr := ShiftRegister(adr, nStage)
 
+//   printf("cir: adr = %b\n", adr)
+
   if(order != 0) {
-    val dx   = enable(io.en, Cat(~xman(manW-adrW-1), xman(manW-adrW-2,0)))
+    val dx   = enable(io.en, Cat(~xFixed(manW-adrW-1), xFixed(manW-adrW-2,0)))
+//     printf("cir: dx  = %b\n", dx)
     io.dx.get := ShiftRegister(dx, nStage)
   }
 }
@@ -366,32 +381,37 @@ class ATan2Stage2TableCoeff(
   val adrW   = polySpec.adrW
   val fracW  = polySpec.fracW
   val order  = polySpec.order
-  val exAdrW = ATan2Stage2Sim.calcExAdrW(spec)
 
   val io = IO(new Bundle {
     val en  = Input(UInt(1.W))
-    val adr = Input  (UInt((exAdrW+adrW).W))
+    val adr = Input  (UInt(adrW.W))
     val cs  = Flipped(new TableCoeffInput(maxCbit))
   })
 
-  val exAdr = io.adr(exAdrW + adrW - 1, adrW)
-  val adr   = io.adr(adrW - 1, 0)
-
-  val linearThreshold = ATan2Stage2Sim.calcLinearThreshold(manW)
+  val adr = io.adr
 
   if(order == 0) {
 
-    val tableI = ATan2Stage2Sim.atanTableGeneration( order, adrW, manW, fracW )
-    val cbit   = tableI.cbit
-
-    // sign mode 1: use 2's complement and no sign bit
-    val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode = */1)
-    val coeff = getSlices(coeffTable(adr), cbit)
-
-    assert(maxCbit(0) == fracW)
-    assert(coeff(0).getWidth == fracW, f"coeff = ${coeff(0).getWidth}, fracW = ${fracW}")
-
-    io.cs.cs(0) := enable(io.en, coeff(0))
+    val tbl = VecInit((0L to 1L<<adrW).map(
+      n => {
+        val x = n.toDouble / (1L<<adrW)
+        val res = if(x == 0) {
+          1.0
+        } else {
+          atan(x) / x
+        }
+        val y = round(res * (1L<<fracW))
+        if (y >= (1L<<fracW)) {
+          maskL(fracW).U(fracW.W)
+        } else if (y <= 0.0) {
+          0.U(fracW.W)
+        } else {
+          y.U(fracW.W)
+        }
+      })
+    )
+    val coeff = tbl(adr)
+    io.cs.cs(0) := enable(io.en, coeff)
 
   } else {
 
@@ -469,6 +489,7 @@ class ATan2Stage2NonTableOutput(val spec: RealSpec) extends Bundle {
   val zsgn        = Output(UInt(1.W))
   val zex         = Output(UInt(spec.exW.W))
   val zman        = Output(UInt(spec.manW.W))
+  val zIsLinear   = Output(Bool())
   val zIsNonTable = Output(Bool())
   val correctionNeeded = Output(Bool())
 }
@@ -497,14 +518,15 @@ class ATan2Stage2OtherPath(
   val quarter3Pi = new RealGeneric(spec, Pi * 0.75)
 
   val linearThreshold = (ATan2Stage2Sim.calcLinearThreshold(manW) + exBias)
-  val isLinear = io.x.ex < linearThreshold.U(exW.W)
+  val isLinear = io.x.ex <= linearThreshold.U(exW.W)
 
   val xzero = !io.x.ex.orR
 
   val defaultEx  = io.x.ex // isLinear includes xzero.
-  val defaultMan = Mux(xzero,    0.U(exW), io.x.man) // we need to re-set man if x is zero
+  val defaultMan = Mux(xzero, 0.U(exW), io.x.man) // we need to re-set man if x is zero
   // non-linear mantissa is calculated by table.
 
+  io.zother.zIsLinear        := isLinear
   io.zother.zIsNonTable      := isLinear || (io.flags.special =/= ATan2SpecialValue.zNormal)
   io.zother.correctionNeeded := isLinear || (io.flags.special === ATan2SpecialValue.zNormal)
 
@@ -559,6 +581,7 @@ class ATan2Stage2PostProcess(
 
   val io = IO(new Bundle {
     val en = Input(UInt(1.W))
+    val x      = Flipped(new DecomposedRealOutput(spec))
     val zother = Flipped(new ATan2Stage2NonTableOutput(spec))
     val zres   = Input(UInt(fracW.W))
     val flags  = Input(new ATan2Flags()) // need status (|x|<|y|, xsgn)
@@ -567,41 +590,37 @@ class ATan2Stage2PostProcess(
 
   val zSgn = io.zother.zsgn
 
-  // atan(x) = x - x^3/3 + x^5/5 + O(x^7)
-  //
-  // If x is in [0, 1],
-  //                  x/2 < atan(x)          < x
-  //         2^ex-1 * 1.m < atan(x)          < 2^ex * 1.m
-  //   1/4 < 2^-2   * 1.m < 2^(-ex-1)atan(x) < 1.m / 2 < 1
-  //        0.01 ==_2 1/4 < 2^(-ex-1)atan(x) < 1
-  //                        ~~~~~~~~~~~~~~~~
-  //                        this is calculated in polynomial
-  //
-  // So the table interpolation result may take 0.010000_(2) ~ 0.111111_(2).
-  // We need to check if the MSB of zres is 0 or 1.
+  val zres = Cat(io.zres, 0.U(1.W))
+//   printf("cir: zres  = %b\n", zres)
 
-  val zres0 = io.zres
-  val zresMoreThanHalf = zres0(fracW-1)
-  val zres  = Mux(zresMoreThanHalf, zres0, Cat(zres0(fracW-2, 0), 0.U(1.W)))
+  // atan2Stage2Sim: atanEx  = 115(-12)
 
-//   printf("        : 5432109876543210987654321\n")
-//   printf("zres0   = %b\n", zres0)
-//   printf("zresMTH = %b\n", zresMoreThanHalf)
-//   printf("zres    = %b\n", zres )
+  // sim: zres  = 11111111111111111111110111
+  // cir: zres  = 11111111111111111111111000
+  // cir: atanEx  = 115
+  // sim: atanMan =  1100100100011111111100(3295228)
+  // cir: atanMan = 01100100100011111111101
 
-  assert(extraBits >= 1)
+//   printf("cir: zres   = %b\n", zres  )
+//   printf("cir: xmanW1 = %b\n", Cat(1.U(1.W), io.x.man))
 
-  val zresRounded = if(extraBits == 1) {Cat(0.U(1.W), zres)} else {
-    zres(fracW-1, extraBits-1) +& zres(extraBits-2)
-  }
-  assert(zresRounded.getWidth == manW+2)
+  val atanProd = zres * Cat(1.U(1.W), io.x.man)
+  val atanProdMoreThan2 = atanProd((fracW+1)+(manW+1)-1)
+  val atanShifted = Mux(atanProdMoreThan2, atanProd((fracW+1)+(manW+1)-2, fracW+1),
+                                           atanProd((fracW+1)+(manW+1)-3, fracW  ))
+  val atanRoundInc = Mux(atanProdMoreThan2, atanProd(fracW), atanProd(fracW-1))
+  val atanRound = atanShifted +& atanRoundInc
+  val atanRoundMoreThan2 = atanRound(manW)
 
-  val zresMoreThan2AfterRound = zresRounded(zresRounded.getWidth-1)
+  val atanMan0 = atanRound(manW-1, 0)
+  val atanEx0  = io.x.ex +& (atanProdMoreThan2 + atanRoundMoreThan2) - 1.U
 
-  val atanEx  = Mux(io.zother.zIsNonTable || zresMoreThanHalf,
-                    io.zother.zex, io.zother.zex - 1.U) + zresMoreThan2AfterRound
-  val atanMan = Mux(io.zother.zIsNonTable, io.zother.zman, zresRounded(manW-1, 0))
-
+  val atanEx  = Mux(io.zother.zIsNonTable, io.zother.zex,  atanEx0)
+  val atanMan = Mux(io.zother.zIsNonTable, io.zother.zman, atanMan0)
+//   printf("cir: isNonTab= %d\n", io.zother.zIsNonTable)
+//   printf("cir: atanEx  = %d\n", atanEx)
+//   printf("cir: atanMan = %b\n", atanMan)
+// 
 //   printf("atan = %d|%b\n", atanEx, atanMan)
 
   // ==========================================================================
@@ -683,15 +702,27 @@ class ATan2Stage2PostProcess(
   //
   // atan(x) is in [0, pi/4)
   // pi/2 + atan(x) is in (pi/2, 3pi/4] ~ (1.57.., 2.35..], ex is 0 or 1
+  //
+  // 01.00000000
+  // ^  '----'^^
+  // |  manW  2
+  // morethan2
 
-  val halfPiPlusATanMan0 = halfPiManW1 + atanAligned
-  val halfPiPlusATanMan0MoreThan2 = halfPiPlusATanMan0((1+manW+3)-1)
+  val halfPiPlusATanMan0         = halfPiManW1 + atanAligned
+  val halfPiPlusATanManRounded   = dropLSB(2, halfPiPlusATanMan0) + halfPiPlusATanMan0(1)
+  val halfPiPlusATanManMoreThan2 = halfPiPlusATanManRounded(manW+1)
 
-  val zExNS  = exBias.U(exW.W) + halfPiPlusATanMan0MoreThan2
-  val zManNS = Mux(halfPiPlusATanMan0MoreThan2,
-      halfPiPlusATanMan0((1+manW+3)-2, 3) + halfPiPlusATanMan0(2),
-      halfPiPlusATanMan0((1+manW+3)-3, 2) + halfPiPlusATanMan0(1)
+  val zExNS  = exBias.U(exW.W) + halfPiPlusATanManMoreThan2
+  val zManNS = Mux(halfPiPlusATanManMoreThan2,
+    halfPiPlusATanManRounded(manW,   1),
+    halfPiPlusATanManRounded(manW-1, 0)
     )
+
+//   printf("cir: pi/2+atan = %b\n", halfPiPlusATanMan0)
+//   printf("cir: rounded   = %b\n", halfPiPlusATanManRounded)
+//   printf("cir: moreThan2 = %b\n", halfPiPlusATanManMoreThan2)
+//   printf("cir: zExNS     = %b\n", zExNS)
+//   printf("cir: zManNS    = %b\n", zManNS)
 
   // -------------------------------------------------------------------
 //   printf("PosLarger  = %d|%b\n", zExPL, zManPL)
@@ -716,6 +747,9 @@ class ATan2Stage2PostProcess(
       (io.flags.status === ATan2Status.xIsPosIsSmaller) -> zManPS(manW-1, 0),
       (io.flags.status === ATan2Status.xIsNegIsSmaller) -> zManNS(manW-1, 0)
     ))
+
+//   printf("cir: zex  = %b\n", zEx)
+//   printf("cir: zman = %b\n", zMan)
 
   val zNormal = Cat(zSgn, zEx, zMan)
 
