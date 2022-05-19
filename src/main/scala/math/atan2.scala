@@ -477,9 +477,7 @@ class ATan2Stage2NonTableOutput(val spec: RealSpec) extends Bundle {
   val zsgn        = Output(UInt(1.W))
   val zex         = Output(UInt(spec.exW.W))
   val zman        = Output(UInt(spec.manW.W))
-  val zIsLinear   = Output(Bool())
   val zIsNonTable = Output(Bool())
-  val correctionNeeded = Output(Bool())
 }
 
 class ATan2Stage2OtherPath(
@@ -514,9 +512,7 @@ class ATan2Stage2OtherPath(
   val defaultMan = Mux(xzero, 0.U(exW), io.x.man) // we need to re-set man if x is zero
   // non-linear mantissa is calculated by table.
 
-  io.zother.zIsLinear        := isLinear
-  io.zother.zIsNonTable      := isLinear || (io.flags.special =/= ATan2SpecialValue.zNormal)
-  io.zother.correctionNeeded := isLinear || (io.flags.special === ATan2SpecialValue.zNormal)
+  io.zother.zIsNonTable := isLinear || (io.flags.special =/= ATan2SpecialValue.zNormal)
 
   io.zother.zsgn := io.flags.ysgn
   io.zother.zex  := MuxCase(defaultEx, Seq(
