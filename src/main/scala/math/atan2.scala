@@ -941,6 +941,7 @@ class ATan2Generic(
   atan2Stage2Post.io.en     := enCP2GapReg
   atan2Stage2Post.io.zother := ShiftRegister(atan2Stage2Other.io.zother, cpGap2)
   atan2Stage2Post.io.zres   := polynomialResult2CPGapReg
+  atan2Stage2Post.io.x      := wdecCPGapReg
 
   io.z := atan2Stage2Post.io.z
 }
