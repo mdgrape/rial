@@ -579,16 +579,6 @@ class ATan2Stage2PostProcess(
   val zSgn = io.zother.zsgn
 
   val zres = Cat(io.zres, 0.U(1.W))
-//   printf("cir: io.zres = %b\n", io.zres)
-
-  // atan2Stage2Sim: atanEx  = 115(-12)
-
-  // sim: zres  = 11111111111111111111110111
-  // cir: zres  = 11111111111111111111111000
-  // cir: atanEx  = 115
-  // sim: atanMan =  1100100100011111111100(3295228)
-  // cir: atanMan = 01100100100011111111101
-
 //   printf("cir: zres   = %b\n", zres  )
 //   printf("cir: xmanW1 = %b\n", Cat(1.U(1.W), io.x.man))
 
@@ -608,8 +598,6 @@ class ATan2Stage2PostProcess(
 //   printf("cir: isNonTab= %d\n", io.zother.zIsNonTable)
 //   printf("cir: atanEx  = %d\n", atanEx)
 //   printf("cir: atanMan = %b\n", atanMan)
-// 
-//   printf("atan = %d|%b\n", atanEx, atanMan)
 
   // ==========================================================================
   // select correction by:
@@ -690,11 +678,6 @@ class ATan2Stage2PostProcess(
   //
   // atan(x) is in [0, pi/4)
   // pi/2 + atan(x) is in (pi/2, 3pi/4] ~ (1.57.., 2.35..], ex is 0 or 1
-  //
-  // 01.00000000
-  // ^  '----'^^
-  // |  manW  2
-  // morethan2
 
   val halfPiPlusATanMan0         = halfPiManW1 + atanAligned
   val halfPiPlusATanManRounded   = dropLSB(2, halfPiPlusATanMan0) + halfPiPlusATanMan0(1)
