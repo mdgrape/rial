@@ -189,8 +189,6 @@ object ATan2Stage2Sim {
       val zman = slice(zmanMoreThan2, manW, zmanRound)
       val zex  = zmanMoreThan2 + exBias
 
-//       println(f"atan2Stage2Sim:                 2         1         0")
-//       println(f"atan2Stage2Sim:            54321098765432109876543210")
 //       println(f"atan2Stage2Sim: pi/2.man = ${halfpiManW1.toLong.toBinaryString}")
 //       println(f"atan2Stage2Sim: atan.man = ${atanAligned.toLong.toBinaryString}")
 //       println(f"atan2Stage2Sim: add .man = ${zman0.toLong.toBinaryString}")
@@ -204,11 +202,6 @@ object ATan2Stage2Sim {
 
   def calcLinearThreshold(manW: Int): Int = {
     -math.ceil(manW / 2.0 + 1.0).toInt
-  }
-
-  // number of tables depending on the exponent and linearThreshold
-  def calcExAdrW(spec: RealSpec): Int = {
-    0
   }
 
   def atanTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int,
