@@ -531,10 +531,12 @@ class BoxMullerLogPostProc(
   val zFrac   = ~io.zres + 1.U
   val xexLog2 = io.pre.xShift +& (zFrac === 0.U).asUInt
 
+  assert(xexLog2 =/= 0.U || useLn) // if log2 path is activated, xex should not be zero
+
   val log2x0     = Cat(xexLog2, zFrac)
-  val log2xShift = PriorityEncoder(Reverse(log2x0)) // xex might be zero XXX now this does not hold
+  val log2xShift = PriorityEncoder(Reverse(xexLog2))
   val log2x      = enable(io.en, (log2x0 << log2xShift)(log2x0.getWidth-1, 0))
-  assert(log2x(log2x0.getWidth-1) === 1.U || io.en =/= 1.U)
+  assert(log2x(log2x0.getWidth-1) === 1.U || useLn || io.en =/= 1.U)
 
   val ln2 = new RealGeneric(spec, log(2.0))
   val ln2manW1 = ln2.manW1.toBigInt.U((manW+1).W)
