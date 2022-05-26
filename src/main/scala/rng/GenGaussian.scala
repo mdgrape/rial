@@ -738,14 +738,47 @@ class BoxMullerSqrtPostProc(
 // | |_) | (_) >  <_____| |  | | |_| | | |  __/ |
 // |____/ \___/_/\_\    |_|  |_|\__,_|_|_|\___|_|
 //
+
+class BoxMullerPipelineConfig(
+  val preStage:    PipelineStageConfig, // clock cycles in preprocess
+  val calcStage:   PipelineStageConfig, // clock cycles in table/polynomial and non-table path
+  val postStage:   PipelineStageConfig, // clock cycles in postprocess
+  ) {
+  def total = {
+    preStage.total +
+    calcStage.total +
+    postStage.total + 2
+  }
+  def getString = {
+    f"pre: ${preStage.getString}, " +
+    f"calc: ${calcStage.getString}, " +
+    f"post: ${postStage.getString}"
+  }
+}
+object BoxMullerPipelineConfig {
+  def none = {
+    new BoxMullerPipelineConfig(
+      PipelineStageConfig.none,
+      PipelineStageConfig.none,
+      PipelineStageConfig.none)
+  }
+}
+
 class BoxMuller(
     rndW: Int,      // width of input fixedpoint
     spec: RealSpec, // output width
     polySpec: PolynomialSpec,
     roundSpec: RoundSpec,
+    stage: BoxMullerPipelineConfig = BoxMullerPipelineConfig.none
   ) extends Module {
 
   val order  = polySpec.order
+
+  val nPreStage  = stage.preStage.total
+  val nCalcStage = stage.calcStage.total
+  val nPostStage = stage.postStage.total
+  val nStage = stage.total
+  def getStage = nStage
 
   val exW    = spec.exW
   val manW   = spec.manW
@@ -797,12 +830,12 @@ class BoxMuller(
 
   // ---------------------------------------------------------------------------
 
-  val sincosPre  = Module(new BoxMullerSinCos2PiPreProc (rndW, spec, polySpec, maxCbit, PipelineStageConfig.none))
-  val sincosPost = Module(new BoxMullerSinCos2PiPostProc(rndW, spec, polySpec,          PipelineStageConfig.none))
-  val logPre     = Module(new BoxMullerLogPreProc       (rndW, spec, polySpec, maxCbit, PipelineStageConfig.none))
-  val logPost    = Module(new BoxMullerLogPostProc      (rndW, spec, polySpec,          PipelineStageConfig.none))
-  val sqrtPre    = Module(new BoxMullerSqrtPreProc      (rndW, spec, polySpec, maxCbit, PipelineStageConfig.none))
-  val sqrtPost   = Module(new BoxMullerSqrtPostProc     (rndW, spec, polySpec,          PipelineStageConfig.none))
+  val sincosPre  = Module(new BoxMullerSinCos2PiPreProc (rndW, spec, polySpec, maxCbit, stage.preStage ))
+  val sincosPost = Module(new BoxMullerSinCos2PiPostProc(rndW, spec, polySpec,          stage.postStage))
+  val logPre     = Module(new BoxMullerLogPreProc       (rndW, spec, polySpec, maxCbit, stage.preStage ))
+  val logPost    = Module(new BoxMullerLogPostProc      (rndW, spec, polySpec,          stage.postStage))
+  val sqrtPre    = Module(new BoxMullerSqrtPreProc      (rndW, spec, polySpec, maxCbit, stage.preStage ))
+  val sqrtPost   = Module(new BoxMullerSqrtPostProc     (rndW, spec, polySpec,          stage.postStage))
 
   sincosPre.io.en    := (pc(0) ^ pc(1)) // pc == 1 or 2
   sincosPre.io.isSin := pc === 1.U
@@ -816,7 +849,7 @@ class BoxMuller(
 
   // ---------------------------------------------------------------------------
 
-  val polynomialEval = Module(new PolynomialEval(spec, polySpec, maxCbit, PipelineStageConfig.none))
+  val polynomialEval = Module(new PolynomialEval(spec, polySpec, maxCbit, stage.calcStage))
 
   if(order != 0) {
     val polynomialDx = sincosPre.io.dx.get |
