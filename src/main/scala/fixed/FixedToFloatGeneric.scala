@@ -17,7 +17,7 @@ import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig._
 
 class FixedToFloatGeneric(
-  xSpec : FixedSpec, zSpec : RealSpec, // Input / Output floating spec
+  xSpec : FixedSpec, yintW : Option[Int], zSpec : RealSpec,
   roundSpec : RoundSpec, // Rounding spec
   stage : PipelineStageConfig
 ) extends Module {
@@ -30,8 +30,11 @@ class FixedToFloatGeneric(
 
   val io = IO(new Bundle{
     val x = Input (UInt(xSpec.W.W))
+    val y = yintW.map(w => Input (UInt(w.W)))
     val z = Output(UInt(zSpec.W.W))
   })
+
+  // extract sign and make x absolute value
 
   val xzero = ~io.x.orR
   val zSgn  = Wire(UInt(1.W))
@@ -87,7 +90,11 @@ class FixedToFloatGeneric(
     zexInc := manRounded(zSpec.manW)
     zman0  := manRounded(zSpec.manW-1, 0)
   }
-  val zex0 = (zSpec.exBias + xSpec.W - 1 - xSpec.fracW).U - xclz + zexInc
+  val zex0 = if (io.y.isEmpty) {
+    (zSpec.exBias + xSpec.W - 1 - xSpec.fracW).U - xclz + zexInc
+  } else {
+    (zSpec.exBias + xSpec.W - 1).U - io.y.get - xclz + zexInc
+  }
 
 //   printf("zman0 = %b\n", zman0)
 //   printf("zex0  = %b\n", zex0 )
@@ -95,13 +102,13 @@ class FixedToFloatGeneric(
   val zEx  = Wire(UInt(zSpec.exW.W))
   val zMan = Wire(UInt(zSpec.manW.W))
 
-  if(zSpec.exMax < xSpec.intW) { // can be inf.
-    val zinf = zSpec.exMax.U < zex0
-    zEx  := Mux(zinf, zSpec.exMax.U(zSpec.exW.W), Mux(xzero, 0.U(zSpec.exW.W),  zex0))
-    zMan := Mux(xzero || zinf, 0.U(zSpec.manW), zman0)
-  } else {
+  if(io.y.isEmpty && xSpec.intW < zSpec.exMax) { // never be inf.
     zEx  := Mux(xzero, 0.U(zSpec.exW.W),  zex0)
     zMan := Mux(xzero, 0.U(zSpec.manW.W), zman0)
+  } else {
+    val zinf = maskI(zSpec.exW).U < zex0 // zex0 is biased, don't use exMax
+    zEx  := Mux(zinf, zSpec.exMax.U(zSpec.exW.W), Mux(xzero, 0.U(zSpec.exW.W),  zex0))
+    zMan := Mux(xzero || zinf, 0.U(zSpec.manW), zman0)
   }
 //   printf("zEx   = %b\n", zEx  )
 //   printf("zMan  = %b\n", zMan )

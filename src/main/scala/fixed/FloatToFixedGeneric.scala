@@ -17,7 +17,7 @@ import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig._
 
 class FloatToFixedGeneric(
-  xSpec : RealSpec, zSpec : FixedSpec, // Input / Output floating spec
+  xSpec : RealSpec, yintW: Option[Int], zSpec : FixedSpec, // Input / Output floating spec
   roundSpec : RoundSpec, // Rounding spec
   stage : PipelineStageConfig
 ) extends Module {
@@ -30,6 +30,7 @@ class FloatToFixedGeneric(
 
   val io = IO(new Bundle{
     val x = Input (UInt(xSpec.W.W))
+    val y = yintW.map(w => Input(UInt(w.W)))
     val z = Output(UInt(zSpec.W.W))
   })
 
@@ -38,11 +39,19 @@ class FloatToFixedGeneric(
 
   val zTmpWidth = xSpec.manW + 1 + zSpec.W
   val zTmp      = Cat(xmanW1, Fill(zSpec.W, 0.U(1.W)))
-  val zTmpEx    = zSpec.intW - 1
+  val zTmpEx    = if(yintW.isEmpty) {
+    zSpec.intW - 1
+  } else {
+    (zSpec.W - 1).U - io.y.get // intW = totalW - fracW
+  }
 
   val zTmpShiftBits = log2Up(zSpec.W)
-  val zTmpShift     = ((zSpec.intW-1 + xSpec.exBias).U - xex)(zTmpShiftBits-1, 0)
-  val zTmpShifted   = zTmp >> zTmpShift
+  val zTmpShift     = if(yintW.isEmpty) {
+    ((zSpec.intW-1 + xSpec.exBias).U - xex)(zTmpShiftBits-1, 0)
+  } else {
+    ((zSpec.W-1 + xSpec.exBias).U - io.y.get - xex)(zTmpShiftBits-1, 0)
+  }
+  val zTmpShifted = zTmp >> zTmpShift
 
   val zTmpLSB    = zTmpShifted(xSpec.manW+1).asBool
   val zTmpRound  = zTmpShifted(xSpec.manW  ).asBool
@@ -65,13 +74,20 @@ class FloatToFixedGeneric(
     0.U(zSpec.W.W)
   }
 
-  val zExMax =   zSpec.intW  - 1
-  val zExMin = -(zSpec.fracW + 1)
-  val zExMaxBiased = xSpec.exBias + zExMax
-  val zExMinBiased = max(0, xSpec.exBias + zExMin)
+  val zExMaxBiased = if(yintW.isEmpty) {
+    (xSpec.exBias + zSpec.intW - 1).U
+  } else {
+    (xSpec.exBias + zSpec.W - 1).U - io.y.get // intW = totalW - fracW
+  }
+  val zExMinBiased = if(io.y.isEmpty) {
+    val zExMin = -(zSpec.fracW + 1)
+    max(0, xSpec.exBias + zExMin).U
+  } else {
+    xSpec.exBias.U - io.y.get - 1.U
+  }
 
-  val isZInf    = xinf  || zExMaxBiased.U < xex
-  val isZZero   = xzero || xex < zExMinBiased.U
+  val isZInf    = xinf  || zExMaxBiased < xex
+  val isZZero   = xzero || xex < zExMinBiased
   val isZPosInf = isZInf && (xsgn === 0.U)
   val isZNegInf = isZInf && (xsgn === 1.U)
 
