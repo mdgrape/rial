@@ -43,12 +43,13 @@ class FixedToFloatTest extends AnyFlatSpec
     new RealGeneric (spec, (x.value & (maskSL(spec.exW+1)<<spec.manW)) + SafeLong(BigInt(spec.manW, r)))
   }
 
-  def convTest(xSpec : FixedSpec, zSpec : RealSpec, roundSpec : RoundSpec,
+  def convTest(xSpec : FixedSpec, bp: Option[(Int, Int)], zSpec : RealSpec, roundSpec : RoundSpec,
     n : Int, stage : PipelineStageConfig, range : Double ) = {
-      test(new FixedToFloatGeneric( xSpec, zSpec, roundSpec, stage )) { c =>
+      test(new FixedToFloatGeneric( xSpec, bp.map(x => x._1), zSpec, roundSpec, stage )) { c =>
         {
           var q  = new Queue[(BigInt,BigInt)]
-          val delta  = pow(2.0, -xSpec.fracW)
+          val fracW  = if(bp.isEmpty) {xSpec.fracW} else {bp.get._2}
+          val delta  = pow(2.0, -fracW)
           val nstage = c.getStage
           val gen = generateRealWithin(range,_,_)
           println(f"Test Within (-${range}, ${range})")
@@ -62,6 +63,11 @@ class FixedToFloatTest extends AnyFlatSpec
             }
             q += ((xi,z.value.toBigInt))
             c.io.x.poke(xi.U(xSpec.W.W))
+            if (bp.isDefined) {
+              val yW   = bp.get._1
+              val yval = bp.get._2
+              c.io.y.get.poke(yval.U(yW.W))
+            }
             val zi = c.io.z.peek().litValue.toBigInt
             c.clock.step(1)
             if (i > nstage) {
@@ -75,19 +81,32 @@ class FixedToFloatTest extends AnyFlatSpec
   }
 
   it should f"Converter signed Q24 to Float with pipereg 0" in {
-    convTest( new FixedSpec(32, 24, true, true), RealSpec.Float32Spec,
+    convTest( new FixedSpec(32, 24, true, true), None, RealSpec.Float32Spec,
       RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-24-1))
   }
+  it should f"Converter signed Qd24 to Float with pipereg 0" in {
+    convTest( new FixedSpec(32, 24, true, true), Some(5, 24), RealSpec.Float32Spec,
+      RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-24-1))
+  }
+  it should f"Converter signed Qd20 to Float with pipereg 0" in {
+    convTest( new FixedSpec(32, 24, true, true), Some(5, 20), RealSpec.Float32Spec,
+      RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-20-1))
+  }
+  it should f"Converter signed Q20 to Float with pipereg 0" in {
+    convTest( new FixedSpec(32, 20, true, true), None, RealSpec.Float32Spec,
+      RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-20-1))
+  }
+
   it should f"Converter signed Q30 to Float with pipereg 0" in {
-    convTest( new FixedSpec(32, 30, true, true), RealSpec.Float32Spec,
+    convTest( new FixedSpec(32, 30, true, true), None, RealSpec.Float32Spec,
       RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-30-1))
   }
   it should f"Converter signed Q16 to Float with pipereg 0" in {
-    convTest( new FixedSpec(32, 16, true, true), RealSpec.Float32Spec,
+    convTest( new FixedSpec(32, 16, true, true), None, RealSpec.Float32Spec,
       RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-16-1))
   }
   it should f"Converter signed int32 to Float with pipereg 0" in {
-    convTest( new FixedSpec(32, 0, true, true), RealSpec.Float32Spec,
+    convTest( new FixedSpec(32, 0, true, true), None, RealSpec.Float32Spec,
       RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-1))
   }
 }
