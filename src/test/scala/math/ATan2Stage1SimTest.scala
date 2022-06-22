@@ -70,10 +70,15 @@ class ATan2Stage1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
 
         val z0   = min(abs(y0), abs(x0)) * (1.0 / max(abs(y0), abs(x0)))
         val z0r  = new RealGeneric(spec, z0)
-        val zi   = ATan2Stage1Sim.atan2Stage1SimGeneric( t_rec, y, x )._1
+        val zres = ATan2Stage1Sim.atan2Stage1SimGeneric( t_rec, y, x )
+        val zi   = zres._1
         val zd   = zi.toDouble
         val errf = zd - z0r.toDouble
         val erri = errorLSB(zi, z0r.toDouble)
+
+        if(zi.value.toBigInt == 0) {
+          assert(zres._3 != 0) // special value!
+        }
 
         if (x0.isInfinity) {
           assert(zi.isNaN)
