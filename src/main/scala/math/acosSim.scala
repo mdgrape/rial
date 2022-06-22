@@ -69,6 +69,7 @@ object ACosSim {
   //
   def acosSimGeneric(
       tACos: Seq[FuncTableInt], tSqrt: FuncTableInt, x: RealGeneric,
+      // if order == 0, exponent will be calculated by a table.
       exTable: Option[Seq[FuncTableInt]] = None
     ) : RealGeneric = {
 
