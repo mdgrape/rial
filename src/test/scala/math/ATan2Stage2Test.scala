@@ -59,6 +59,7 @@ class ATan2Stage2Test extends AnyFlatSpec
   private def runtest ( spec : RealSpec,
       nOrder : Int, adrW : Int, extraBits : Int, stage: MathFuncPipelineConfig,
       n : Int, r : Random, generatorStr : String,
+      generatorX      : ( (RealSpec, Random) => RealGeneric),
       generatorYoverX : ( (RealSpec, Random) => RealGeneric)
   ) = {
     val total = stage.total
@@ -78,8 +79,6 @@ class ATan2Stage2Test extends AnyFlatSpec
 
           val refstage1  = ATan2Stage1Sim.atan2Stage1SimGeneric(recTable, _, _, false)
           val refstage2  = ATan2Stage2Sim.atan2Stage2SimGeneric(atanTable, _, _, _, _)
-
-          val generatorX = generateRealWithin(-1.0, 1.0, _, _)
 
           val q  = new Queue[(BigInt,BigInt,BigInt)]
           for(i <- 1 to n+2*nstage) {
@@ -103,7 +102,19 @@ class ATan2Stage2Test extends AnyFlatSpec
             }
             val z1i = c.io.z.peek().litValue.toBigInt
 
-            assert(z1r._1.value.toBigInt == z1i, f"z1r(${z1r._1.value.toLong.toBinaryString}) != z1i(${z1i.toLong.toBinaryString})");
+            if(z1i == 0) {
+              println(f"x = ${xi.toDouble}")
+              println(f"y = ${yi.toDouble}")
+              println(f"min(x,y)/max(x,y) = ${min(xi.toDouble, yi.toDouble) / max(xi.toDouble, yi.toDouble)}")
+            }
+
+            if(z1r._1.value.toBigInt != z1i) {
+              println(f"x/y = ${min(xi.toDouble, yi.toDouble) / max(xi.toDouble, yi.toDouble)}")
+              println(f"out = ${new RealGeneric(spec, z1i.toSafeLong).toDouble}")
+              println(f"z1r = ${z1r._1.value.toLong.toBinaryString}")
+              println(f"z1i = ${z1i.toLong.toBinaryString}")
+            }
+//             assert(z1r._1.value.toBigInt == z1i, f"z1r(${z1r._1.value.toLong.toBinaryString}) != z1i(${z1i.toLong.toBinaryString})");
 //             println(f"test:z1i = ${z1i.toLong.toBinaryString}")
 
             c.io.sel.poke(SelectFunc.ATan2Stage2)
@@ -170,45 +181,164 @@ class ATan2Stage2Test extends AnyFlatSpec
   val adrWFP32   = 8
   val extraBitsFP32 = 3
 
-  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r, "Test Within 2^24  < y/x < inf",   generateRealWithin(pow(2.0,  24), pow(2.0, 128),_,_))
-  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r, "Test Within 2^12  < y/x < 2^24",  generateRealWithin(pow(2.0,  12), pow(2.0,  24),_,_))
-  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r, "Test Within 1     < y/x < 2^12",  generateRealWithin(pow(2.0,   0), pow(2.0,  12),_,_))
-  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r, "Test Within 2^-12 < y/x < 1",     generateRealWithin(pow(2.0, -12), pow(2.0,   0),_,_))
-  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r, "Test Within 0     < y/x < 2^-12", generateRealWithin(         0.0 , pow(2.0, -12),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r, "Test Within  2^24  < y/x <  inf",               generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin( pow(2.0,  24), pow(2.0, 128),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r, "Test Within -2^24  > y/x > -inf",               generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0, 128),-pow(2.0,  24),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r, "Test Within  2^24  < y/x <  inf with large x",  generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin( pow(2.0,  24), pow(2.0, 128),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r, "Test Within -2^24  > y/x > -inf with large x",  generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0, 128),-pow(2.0,  24),_,_))
 
-  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r, "Test Within 2^24  < y/x < inf",   generateRealWithin(pow(2.0,  24), pow(2.0, 128),_,_))
-  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r, "Test Within 2^12  < y/x < 2^24",  generateRealWithin(pow(2.0,  12), pow(2.0,  24),_,_))
-  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r, "Test Within 1     < y/x < 2^12",  generateRealWithin(pow(2.0,   0), pow(2.0,  12),_,_))
-  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r, "Test Within 2^-12 < y/x < 1",     generateRealWithin(pow(2.0, -12), pow(2.0,   0),_,_))
-  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r, "Test Within 0     < y/x < 2^-12", generateRealWithin(         0.0 , pow(2.0, -12),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r, "Test Within  2^12  < y/x <  2^24",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin( pow(2.0,  12), pow(2.0,  24),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r, "Test Within -2^12  > y/x > -2^24",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0,  24),-pow(2.0,  12),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r, "Test Within  2^12  < y/x <  2^24 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin( pow(2.0,  12), pow(2.0,  24),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r, "Test Within -2^12  > y/x > -2^24 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0,  24),-pow(2.0,  12),_,_))
 
-  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r, "Test Within 2^24  < y/x < inf",   generateRealWithin(pow(2.0,  24), pow(2.0, 128),_,_))
-  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r, "Test Within 2^12  < y/x < 2^24",  generateRealWithin(pow(2.0,  12), pow(2.0,  24),_,_))
-  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r, "Test Within 1     < y/x < 2^12",  generateRealWithin(pow(2.0,   0), pow(2.0,  12),_,_))
-  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r, "Test Within 2^-12 < y/x < 1",     generateRealWithin(pow(2.0, -12), pow(2.0,   0),_,_))
-  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r, "Test Within 0     < y/x < 2^-12", generateRealWithin(         0.0 , pow(2.0, -12),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r, "Test Within  1     < y/x <  2^12",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin( pow(2.0,   0), pow(2.0,  12),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r, "Test Within -1     > y/x > -2^12",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0,  12),-pow(2.0,   0),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r, "Test Within  1     < y/x <  2^12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin( pow(2.0,   0), pow(2.0,  12),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r, "Test Within -1     > y/x > -2^12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0,  12),-pow(2.0,   0),_,_))
 
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r, "Test Within  2^-12 < y/x <  1",                 generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin( pow(2.0, -12), pow(2.0,   0),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r, "Test Within -2^-12 > y/x > -1",                 generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0,   0),-pow(2.0, -12),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r, "Test Within  2^-12 < y/x <  1 with large x",    generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin( pow(2.0, -12), pow(2.0,   0),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r, "Test Within -2^-12 > y/x > -1 with large x",    generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0,   0),-pow(2.0, -12),_,_))
+
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r, "Test Within 0     < y/x <  2^-12",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(           0.0, pow(2.0, -12),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r, "Test Within 0     > y/x > -2^-12",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0, -12),           0.0,_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r, "Test Within 0     < y/x <  2^-12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(           0.0, pow(2.0, -12),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r, "Test Within 0     > y/x > -2^-12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0, -12),           0.0,_,_))
+
+
+
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r, "Test Within  2^24  < y/x <  inf",               generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin( pow(2.0,  24), pow(2.0, 128),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r, "Test Within -2^24  > y/x > -inf",               generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0, 128),-pow(2.0,  24),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r, "Test Within  2^24  < y/x <  inf with large x",  generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin( pow(2.0,  24), pow(2.0, 128),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r, "Test Within -2^24  > y/x > -inf with large x",  generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0, 128),-pow(2.0,  24),_,_))
+
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r, "Test Within  2^12  < y/x <  2^24",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin( pow(2.0,  12), pow(2.0,  24),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r, "Test Within -2^12  > y/x > -2^24",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0,  24),-pow(2.0,  12),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r, "Test Within  2^12  < y/x <  2^24 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin( pow(2.0,  12), pow(2.0,  24),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r, "Test Within -2^12  > y/x > -2^24 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0,  24),-pow(2.0,  12),_,_))
+
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r, "Test Within  1     < y/x <  2^12",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin( pow(2.0,   0), pow(2.0,  12),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r, "Test Within -1     > y/x > -2^12",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0,  12),-pow(2.0,   0),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r, "Test Within  1     < y/x <  2^12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin( pow(2.0,   0), pow(2.0,  12),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r, "Test Within -1     > y/x > -2^12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0,  12),-pow(2.0,   0),_,_))
+
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r, "Test Within  2^-12 < y/x <  1",                 generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin( pow(2.0, -12), pow(2.0,   0),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r, "Test Within -2^-12 > y/x > -1",                 generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0,   0),-pow(2.0, -12),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r, "Test Within  2^-12 < y/x <  1 with large x",    generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin( pow(2.0, -12), pow(2.0,   0),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r, "Test Within -2^-12 > y/x > -1 with large x",    generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0,   0),-pow(2.0, -12),_,_))
+
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r, "Test Within 0     < y/x <  2^-12",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(           0.0, pow(2.0, -12),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r, "Test Within 0     > y/x > -2^-12",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0, -12),           0.0,_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r, "Test Within 0     < y/x <  2^-12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(           0.0, pow(2.0, -12),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r, "Test Within 0     > y/x > -2^-12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0, -12),           0.0,_,_))
+
+
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r, "Test Within  2^24  < y/x <  inf",               generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin( pow(2.0,  24), pow(2.0, 128),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r, "Test Within -2^24  > y/x > -inf",               generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0, 128),-pow(2.0,  24),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r, "Test Within  2^24  < y/x <  inf with large x",  generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin( pow(2.0,  24), pow(2.0, 128),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r, "Test Within -2^24  > y/x > -inf with large x",  generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0, 128),-pow(2.0,  24),_,_))
+
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r, "Test Within  2^12  < y/x <  2^24",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin( pow(2.0,  12), pow(2.0,  24),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r, "Test Within -2^12  > y/x > -2^24",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0,  24),-pow(2.0,  12),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r, "Test Within  2^12  < y/x <  2^24 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin( pow(2.0,  12), pow(2.0,  24),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r, "Test Within -2^12  > y/x > -2^24 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0,  24),-pow(2.0,  12),_,_))
+
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r, "Test Within  1     < y/x <  2^12",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin( pow(2.0,   0), pow(2.0,  12),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r, "Test Within -1     > y/x > -2^12",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0,  12),-pow(2.0,   0),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r, "Test Within  1     < y/x <  2^12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin( pow(2.0,   0), pow(2.0,  12),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r, "Test Within -1     > y/x > -2^12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0,  12),-pow(2.0,   0),_,_))
+
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r, "Test Within  2^-12 < y/x <  1",                 generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin( pow(2.0, -12), pow(2.0,   0),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r, "Test Within -2^-12 > y/x > -1",                 generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0,   0),-pow(2.0, -12),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r, "Test Within  2^-12 < y/x <  1 with large x",    generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin( pow(2.0, -12), pow(2.0,   0),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r, "Test Within -2^-12 > y/x > -1 with large x",    generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0,   0),-pow(2.0, -12),_,_))
+
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r, "Test Within 0     < y/x <  2^-12",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(           0.0, pow(2.0, -12),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r, "Test Within 0     > y/x > -2^-12",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0, -12),           0.0,_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r, "Test Within 0     < y/x <  2^-12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(           0.0, pow(2.0, -12),_,_))
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r, "Test Within 0     > y/x > -2^-12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0, -12),           0.0,_,_))
 
   val nOrderBF16 = 0
   val adrWBF16   = 7
   val extraBitsBF16 = 1
 
-  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r, "Test Within 2^24  < y/x < inf",   generateRealWithin(pow(2.0,  24), pow(2.0, 128),_,_))
-  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r, "Test Within 2^12  < y/x < 2^24",  generateRealWithin(pow(2.0,  12), pow(2.0,  24),_,_))
-  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r, "Test Within 1     < y/x < 2^12",  generateRealWithin(pow(2.0,   0), pow(2.0,  12),_,_))
-  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r, "Test Within 2^-12 < y/x < 1",     generateRealWithin(pow(2.0, -12), pow(2.0,   0),_,_))
-  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r, "Test Within 0     < y/x < 2^-12", generateRealWithin(         0.0 , pow(2.0, -12),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r, "Test Within  2^24  < y/x <  inf",               generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin( pow(2.0,  24), pow(2.0, 128),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r, "Test Within -2^24  > y/x > -inf",               generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0, 128),-pow(2.0,  24),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r, "Test Within  2^24  < y/x <  inf with large x",  generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin( pow(2.0,  24), pow(2.0, 128),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r, "Test Within -2^24  > y/x > -inf with large x",  generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0, 128),-pow(2.0,  24),_,_))
 
-  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r, "Test Within 2^24  < y/x < inf",   generateRealWithin(pow(2.0,  24), pow(2.0, 128),_,_))
-  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r, "Test Within 2^12  < y/x < 2^24",  generateRealWithin(pow(2.0,  12), pow(2.0,  24),_,_))
-  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r, "Test Within 1     < y/x < 2^12",  generateRealWithin(pow(2.0,   0), pow(2.0,  12),_,_))
-  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r, "Test Within 2^-12 < y/x < 1",     generateRealWithin(pow(2.0, -12), pow(2.0,   0),_,_))
-  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r, "Test Within 0     < y/x < 2^-12", generateRealWithin(         0.0 , pow(2.0, -12),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r, "Test Within  2^12  < y/x <  2^24",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin( pow(2.0,  12), pow(2.0,  24),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r, "Test Within -2^12  > y/x > -2^24",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0,  24),-pow(2.0,  12),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r, "Test Within  2^12  < y/x <  2^24 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin( pow(2.0,  12), pow(2.0,  24),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r, "Test Within -2^12  > y/x > -2^24 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0,  24),-pow(2.0,  12),_,_))
 
-  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r, "Test Within 2^24  < y/x < inf",   generateRealWithin(pow(2.0,  24), pow(2.0, 128),_,_))
-  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r, "Test Within 2^12  < y/x < 2^24",  generateRealWithin(pow(2.0,  12), pow(2.0,  24),_,_))
-  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r, "Test Within 1     < y/x < 2^12",  generateRealWithin(pow(2.0,   0), pow(2.0,  12),_,_))
-  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r, "Test Within 2^-12 < y/x < 1",     generateRealWithin(pow(2.0, -12), pow(2.0,   0),_,_))
-  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r, "Test Within 0     < y/x < 2^-12", generateRealWithin(         0.0 , pow(2.0, -12),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r, "Test Within  1     < y/x <  2^12",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin( pow(2.0,   0), pow(2.0,  12),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r, "Test Within -1     > y/x > -2^12",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0,  12),-pow(2.0,   0),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r, "Test Within  1     < y/x <  2^12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin( pow(2.0,   0), pow(2.0,  12),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r, "Test Within -1     > y/x > -2^12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0,  12),-pow(2.0,   0),_,_))
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r, "Test Within  2^-12 < y/x <  1",                 generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin( pow(2.0, -12), pow(2.0,   0),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r, "Test Within -2^-12 > y/x > -1",                 generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0,   0),-pow(2.0, -12),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r, "Test Within  2^-12 < y/x <  1 with large x",    generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin( pow(2.0, -12), pow(2.0,   0),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r, "Test Within -2^-12 > y/x > -1 with large x",    generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0,   0),-pow(2.0, -12),_,_))
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r, "Test Within 0     < y/x <  2^-12",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(           0.0, pow(2.0, -12),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r, "Test Within 0     > y/x > -2^-12",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0, -12),           0.0,_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r, "Test Within 0     < y/x <  2^-12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(           0.0, pow(2.0, -12),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r, "Test Within 0     > y/x > -2^-12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0, -12),           0.0,_,_))
+
+
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r, "Test Within  2^24  < y/x <  inf",               generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin( pow(2.0,  24), pow(2.0, 128),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r, "Test Within -2^24  > y/x > -inf",               generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0, 128),-pow(2.0,  24),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r, "Test Within  2^24  < y/x <  inf with large x",  generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin( pow(2.0,  24), pow(2.0, 128),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r, "Test Within -2^24  > y/x > -inf with large x",  generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0, 128),-pow(2.0,  24),_,_))
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r, "Test Within  2^12  < y/x <  2^24",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin( pow(2.0,  12), pow(2.0,  24),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r, "Test Within -2^12  > y/x > -2^24",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0,  24),-pow(2.0,  12),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r, "Test Within  2^12  < y/x <  2^24 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin( pow(2.0,  12), pow(2.0,  24),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r, "Test Within -2^12  > y/x > -2^24 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0,  24),-pow(2.0,  12),_,_))
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r, "Test Within  1     < y/x <  2^12",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin( pow(2.0,   0), pow(2.0,  12),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r, "Test Within -1     > y/x > -2^12",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0,  12),-pow(2.0,   0),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r, "Test Within  1     < y/x <  2^12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin( pow(2.0,   0), pow(2.0,  12),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r, "Test Within -1     > y/x > -2^12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0,  12),-pow(2.0,   0),_,_))
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r, "Test Within  2^-12 < y/x <  1",                 generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin( pow(2.0, -12), pow(2.0,   0),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r, "Test Within -2^-12 > y/x > -1",                 generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0,   0),-pow(2.0, -12),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r, "Test Within  2^-12 < y/x <  1 with large x",    generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin( pow(2.0, -12), pow(2.0,   0),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r, "Test Within -2^-12 > y/x > -1 with large x",    generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0,   0),-pow(2.0, -12),_,_))
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r, "Test Within 0     < y/x <  2^-12",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(           0.0, pow(2.0, -12),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r, "Test Within 0     > y/x > -2^-12",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0, -12),           0.0,_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r, "Test Within 0     < y/x <  2^-12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(           0.0, pow(2.0, -12),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r, "Test Within 0     > y/x > -2^-12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0, -12),           0.0,_,_))
+
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r, "Test Within  2^24  < y/x <  inf",               generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin( pow(2.0,  24), pow(2.0, 128),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r, "Test Within -2^24  > y/x > -inf",               generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0, 128),-pow(2.0,  24),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r, "Test Within  2^24  < y/x <  inf with large x",  generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin( pow(2.0,  24), pow(2.0, 128),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r, "Test Within -2^24  > y/x > -inf with large x",  generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0, 128),-pow(2.0,  24),_,_))
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r, "Test Within  2^12  < y/x <  2^24",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin( pow(2.0,  12), pow(2.0,  24),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r, "Test Within -2^12  > y/x > -2^24",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0,  24),-pow(2.0,  12),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r, "Test Within  2^12  < y/x <  2^24 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin( pow(2.0,  12), pow(2.0,  24),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r, "Test Within -2^12  > y/x > -2^24 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0,  24),-pow(2.0,  12),_,_))
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r, "Test Within  1     < y/x <  2^12",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin( pow(2.0,   0), pow(2.0,  12),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r, "Test Within -1     > y/x > -2^12",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0,  12),-pow(2.0,   0),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r, "Test Within  1     < y/x <  2^12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin( pow(2.0,   0), pow(2.0,  12),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r, "Test Within -1     > y/x > -2^12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0,  12),-pow(2.0,   0),_,_))
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r, "Test Within  2^-12 < y/x <  1",                 generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin( pow(2.0, -12), pow(2.0,   0),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r, "Test Within -2^-12 > y/x > -1",                 generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0,   0),-pow(2.0, -12),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r, "Test Within  2^-12 < y/x <  1 with large x",    generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin( pow(2.0, -12), pow(2.0,   0),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r, "Test Within -2^-12 > y/x > -1 with large x",    generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0,   0),-pow(2.0, -12),_,_))
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r, "Test Within 0     < y/x <  2^-12",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(           0.0, pow(2.0, -12),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r, "Test Within 0     > y/x > -2^-12",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0, -12),           0.0,_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r, "Test Within 0     < y/x <  2^-12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(           0.0, pow(2.0, -12),_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r, "Test Within 0     > y/x > -2^-12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0, -12),           0.0,_,_))
 }
 
