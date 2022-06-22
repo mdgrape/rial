@@ -83,6 +83,8 @@ class ATan2Stage1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
           if (erri.abs>tolerance || erri.isNaN) {
             println(f"Error more than 2 LSB : x = ${x.toDouble}%14.7e, y = ${y.toDouble}%14.7e : refz = $z0%14.7e simz = ${zi.toDouble}%14.7e $errf%14.7e $erri%f")
 
+            ATan2Stage1Sim.atan2Stage1SimGeneric( t_rec, y, x, true)
+
             val xsgn = bit(spec.W-1, x.value).toInt
             val xexp = slice(spec.manW, spec.exW, x.value)
             val xman = x.value & maskSL(spec.manW)

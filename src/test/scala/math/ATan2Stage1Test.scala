@@ -72,7 +72,7 @@ class ATan2Stage1Test extends AnyFlatSpec
           val nstage     = c.getStage
           val recTable   = ReciprocalSim.reciprocalTableGeneration(
             nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit) )
-          val reference  = ATan2Stage1Sim.atan2Stage1SimGeneric(recTable, _, _)
+          val reference  = ATan2Stage1Sim.atan2Stage1SimGeneric(recTable, _, _, false)
 
           val generatorX = generateRealWithin(-1.0, 1.0, _, _)
 

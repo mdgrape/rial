@@ -80,7 +80,7 @@ class ATan2OnlyTest extends AnyFlatSpec
           val atanTable = ATan2Stage2Sim.atanTableGeneration(
             nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit))
 
-          val refstage1  = ATan2Stage1Sim.atan2Stage1SimGeneric(recTable, _, _)
+          val refstage1  = ATan2Stage1Sim.atan2Stage1SimGeneric(recTable, _, _, false)
           val refstage2  = ATan2Stage2Sim.atan2Stage2SimGeneric(atanTable, _, _, _, _)
 
           val generatorX = generateRealWithin(-1.0, 1.0, _, _)
