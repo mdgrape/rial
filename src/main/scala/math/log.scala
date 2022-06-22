@@ -563,7 +563,7 @@ class LogPostProcess(
   val zex  = Mux(znan || zinf, Fill(exW, 1.U(1.W)),
                                Mux(zzero, 0.U(exW.W), zex0))
 
-  val z0 = Cat(io.zother.zsgn, zex, zman)
+  val z0 = Cat(Mux(znan, 0.U(1.W), io.zother.zsgn), zex, zman)
   assert(z0.getWidth == spec.W)
 
   val z = enable(io.en, z0)
