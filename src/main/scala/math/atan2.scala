@@ -587,7 +587,17 @@ class ATan2Stage2PostProcess(
   val atanMan0 = atanRound(manW-1, 0)
   val atanEx0  = io.x.ex +& (atanProdMoreThan2 + atanRoundMoreThan2) - 1.U
 
-  val atanEx  = Mux(io.zother.zIsNonTable, io.zother.zex,  atanEx0)
+  // XXX there is no overflow.
+  // 1. io.x in atan2stage2 is the result of min(x,y)/max(x,y), so |io.x| <= 1.
+  //   - it means io.x.ex <= 127. Since exW=8, atanEx0 never become larger than 2^exW
+  // 2. we don't use subnormal here.
+  //   - it means that io.x.ex >= 1 or io.x == 0.
+  //   - if io.x is zero, it means the result is one of the special values.
+  //     overflow can happen, but is ignorable.
+  //   - if io.x.ex >= 1, atanEx0 does not overflow.
+  assert(!io.en || io.flags.special =/= 0.U || atanEx0(exW) === 0.U)
+
+  val atanEx  = Mux(io.zother.zIsNonTable, io.zother.zex,  atanEx0(exW-1, 0))
   val atanMan = Mux(io.zother.zIsNonTable, io.zother.zman, atanMan0)
 //   printf("cir: isNonTab= %d\n", io.zother.zIsNonTable)
 //   printf("cir: atanEx  = %d\n", atanEx)
@@ -700,6 +710,10 @@ class ATan2Stage2PostProcess(
 //   assert(!io.enable || zres(fracW-1) === 1.U)
 //   assert(!io.enable || zresRounded(manW) === 1.U)
 
+  assert(zExPL.getWidth == spec.exW)
+  assert(zExNL.getWidth == spec.exW)
+  assert(zExPS.getWidth == spec.exW)
+  assert(zExNS.getWidth == spec.exW)
   val zEx = MuxCase(0.U(exW.W), Seq(
       (io.flags.status === ATan2Status.xIsPosIsLarger ) -> zExPL,
       (io.flags.status === ATan2Status.xIsNegIsLarger ) -> zExNL,
@@ -717,6 +731,10 @@ class ATan2Stage2PostProcess(
 //   printf("cir: zman = %b\n", zMan)
 
   val zNormal = Cat(zSgn, zEx, zMan)
+  assert(zSgn.getWidth == 1)
+  assert(zEx .getWidth == spec.exW)
+  assert(zMan.getWidth == spec.manW)
+  assert(zNormal.getWidth == spec.W)
 
   // -------------------------------------------
   // select special cases
