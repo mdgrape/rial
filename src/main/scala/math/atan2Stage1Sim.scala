@@ -26,7 +26,8 @@ import rial.arith._
 
 object ATan2Stage1Sim {
 
-  def atan2Stage1SimGeneric( t_rec : FuncTableInt, y : RealGeneric, x : RealGeneric ):
+  def atan2Stage1SimGeneric( t_rec : FuncTableInt, y : RealGeneric, x : RealGeneric,
+    printDebug: Boolean = false):
     (RealGeneric, Int, Int, Int) = { // (z, ATan2Status, ATan2SpecialValue, ysgn)
 
 //     println("==================================================")
@@ -42,14 +43,6 @@ object ATan2Stage1Sim {
     val xsgn   = x.sgn
     val ysgn   = y.sgn
 
-//     println(f"x = ${x.sgn}|${x.ex}(${x.ex-exBias})|${x.man.toLong.toBinaryString}")
-//     println(f"y = ${y.sgn}|${y.ex}(${y.ex-exBias})|${y.man.toLong.toBinaryString}")
-//     println(f"ATan2Stage1Sim: x = ${x.toDouble}, y = ${y.toDouble}, atan2(y, x) = ${atan2(y.toDouble, x.toDouble)}")
-
-    val yIsLarger = slice(0, x.spec.W-1, x.value) < slice(0, x.spec.W-1, y.value)
-
-//     println(f"ATan2Stage1Sim: yIsLarger = ${yIsLarger}")
-
     val xnan  = x.isNaN
     val xinf  = x.isInfinite
     val xzero = x.isZero
@@ -58,14 +51,50 @@ object ATan2Stage1Sim {
     val yinf  = y.isInfinite
     val yzero = y.isZero
 
+//     println(f"x = ${x.sgn}|${x.ex}(${x.ex-exBias})|${x.man.toLong.toBinaryString}")
+//     println(f"y = ${y.sgn}|${y.ex}(${y.ex-exBias})|${y.man.toLong.toBinaryString}")
+//     println(f"ATan2Stage1Sim: x = ${x.toDouble}, y = ${y.toDouble}, atan2(y, x) = ${atan2(y.toDouble, x.toDouble)}")
+
+    val yIsLarger = slice(0, x.spec.W-1, x.value) < slice(0, x.spec.W-1, y.value)
+
+    val minex = Seq(x.ex, y.ex).min
+    val maxex = Seq(x.ex, y.ex).max
+    val diffexDec = if(yIsLarger) {
+      if(y.man > x.man){1} else {0}
+    } else {
+      if(x.man > y.man){1} else {0}
+    }
+
+    val zex0 = if (maxex == maskI(exW) && minex == maskI(exW)) {exBias}
+          else if((maxex == maskI(exW) && minex != maskI(exW)) || minex == 0) {0}
+          else {minex - maxex - diffexDec + exBias}
+
+    val zEx  = if(zex0 < 0) {0} else {zex0}
+    val zeroed = (zEx == 0)
+
+    if(printDebug) {
+      println(f"x = ${xsgn}|${x.ex}|${x.man.toLong.toBinaryString}")
+      println(f"y = ${ysgn}|${y.ex}|${y.man.toLong.toBinaryString}")
+      println(f"minex = ${minex}")
+      println(f"minex = ${maxex}")
+      println(f"exdec = ${diffexDec}")
+      println(f"zex0  = ${zex0}")
+      println(f"zex   = ${zEx}")
+    }
+
+    val tooLargeX = (zeroed && !yIsLarger) || ( xinf && !yinf) || (!xzero &&  yzero)
+    val tooLargeY = (zeroed &&  yIsLarger) || (!xinf &&  yinf) || ( xzero && !yzero)
+
+//     println(f"ATan2Stage1Sim: yIsLarger = ${yIsLarger}")
+
     val xpos = x.sgn == 0
     val xneg = x.sgn == 1
-    val znan      =  (xnan ||  ynan) || ( xzero &&  yzero)
-    val zzero     = ((xinf && !yinf) || (!xzero &&  yzero)) && xpos
-    val zpi       = ((xinf && !yinf) || (!xzero &&  yzero)) && xneg
-    val zhalfpi   = (!xinf &&  yinf) || ( xzero && !yzero)
-    val z1piover4 =  (xinf &&  yinf  &&  xpos) || (x.ex == y.ex && x.man == y.man && xpos)
-    val z3piover4 =  (xinf &&  yinf  &&  xneg) || (x.ex == y.ex && x.man == y.man && xneg)
+    val znan      =  (xnan ||  ynan) || (xzero && yzero)
+    val zzero     = tooLargeX && xpos
+    val zpi       = tooLargeX && xneg
+    val zhalfpi   = tooLargeY
+    val z1piover4 =  (xinf && yinf && xpos) || (x.ex == y.ex && x.man == y.man && xpos)
+    val z3piover4 =  (xinf && yinf && xneg) || (x.ex == y.ex && x.man == y.man && xneg)
 
     val atan2Status       = (if(yIsLarger) {2+x.sgn} else {x.sgn})
     val atan2SpecialValue = if (znan)      { 1 }
@@ -88,7 +117,6 @@ object ATan2Stage1Sim {
 
     val recMan = if (t_rec.nOrder==0) {
       val adr = maxxy.man.toInt
-
 //       println(f"sim: atan2-1: rec adr = ${adr.toBinaryString}")
       val res = if (maxxy.man==0) {
         0L
@@ -96,7 +124,6 @@ object ATan2Stage1Sim {
         t_rec.interval(adr).eval(0L, 0).toLong
       }
 //       println(f"sim: atan2-1: rec res = ${res.toBinaryString}")
-
       res
     } else {
       val adrW = t_rec.adrW
@@ -109,8 +136,6 @@ object ATan2Stage1Sim {
         t_rec.interval(adr).eval(d.toLong, dxbp).toLong
       }
     }
-    val zExInc = if(xySameMan || maxxyMan0) {1} else {0}
-    val zEx0 = minxy.ex - maxxy.ex - 1 + zExInc + exBias
 
 //     println(f"sim: zres = ${recMan.toLong.toBinaryString}")
 //     println(f"sim: zEx0 = ${zEx0.toLong.toBinaryString}")
@@ -134,22 +159,6 @@ object ATan2Stage1Sim {
     val zMan0 = zProdRounded >> zProdMoreThan2AfterRound
 
     val zSgn = 0
-    val zExRounded = zEx0 + zProdMoreThan2 + zProdMoreThan2AfterRound
-
-//     println(f"sim: zExRounded = ${zExRounded.toLong.toBinaryString}")
-
-//     val zEx0 = minxy.ex - maxxy.ex - 1 + exBias + zProdMoreThan2 + zProdMoreThan2AfterRound
-    val zEx = if(xySameMan || maxxyMan0) {
-      min(max(0, zEx0), maskI(exW)) // if maxxyMan0, then denomW1 == 1.
-    } else if(zExRounded < 0) {
-      0
-    } else if((1<<exW) <= zExRounded) {
-      maskI(exW)
-    } else {
-      zExRounded
-    }
-//     println(f"sim: zEx        = ${zEx.toLong.toBinaryString}")
-
     val zMan = if(zEx == 0 || xySameMan) {
       SafeLong(0)
     } else if(maxxyMan0) {
