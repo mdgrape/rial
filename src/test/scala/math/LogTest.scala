@@ -165,7 +165,7 @@ class LogTest extends AnyFlatSpec
   val extraBitsFP32 = 3
 
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r,
-    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))
+    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 127.0),_,_))
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r,
     "Test Small More Than 1 [1+2^-8, 2]",   generateRealWithin(1.0 + pow(2.0, -8), 2.0,_,_))
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r,
@@ -177,11 +177,14 @@ class LogTest extends AnyFlatSpec
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r,
     "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5-pow(2.0, -24),_,_))
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r,
-    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_),
+    "Test Small Negative [-1, 0]", generateRealWithin(-1.0, 0.0,_,_),
+    /*disableTimeout = */ true)
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r,
+    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 127), 0.0,_,_),
     /*disableTimeout = */ true)
 
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
-    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))
+    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 127.0),_,_))
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
     "Test Small More Than 1 [1+2^-8, 2]",   generateRealWithin(1.0 + pow(2.0, -8), 2.0,_,_))
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
@@ -193,11 +196,14 @@ class LogTest extends AnyFlatSpec
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
     "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5-pow(2.0, -24),_,_))
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
-    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_),
+    "Test Small Negative [-1, 0]", generateRealWithin(-1.0, 0.0,_,_),
+    /*disableTimeout = */ true)
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
+    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 127), 0.0,_,_),
     /*disableTimeout = */ true)
 
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
-    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))
+    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 127.0),_,_))
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
     "Test Small More Than 1 [1+2^-8, 2]",   generateRealWithin(1.0 + pow(2.0, -8), 2.0,_,_))
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
@@ -209,7 +215,10 @@ class LogTest extends AnyFlatSpec
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
     "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5-pow(2.0, -24),_,_))
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
-    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_),
+    "Test small Negative [-1, 0]", generateRealWithin(-1.0, 0.0,_,_),
+    /*disableTimeout = */ true)
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
+    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 127), 0.0,_,_),
     /*disableTimeout = */ true)
 
 
@@ -218,7 +227,7 @@ class LogTest extends AnyFlatSpec
   val extraBitsBF16 = 1
 
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
-    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))
+    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 127.0),_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
     "Test Small More Than 1 [1+2^-4, 2]",   generateRealWithin(1.0 + pow(2.0, -4), 2.0,_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
@@ -230,11 +239,14 @@ class LogTest extends AnyFlatSpec
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
     "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5-pow(2.0, -24),_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
-    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_),
+    "Test small Negative [-1, 0]", generateRealWithin(-1.0, 0.0,_,_),
+    /*disableTimeout = */ true)
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
+    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 127), 0.0,_,_),
     /*disableTimeout = */ true)
 
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
-    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))
+    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 127.0),_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
     "Test Small More Than 1 [1+2^-4, 2]",   generateRealWithin(1.0 + pow(2.0, -4), 2.0,_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
@@ -246,11 +258,14 @@ class LogTest extends AnyFlatSpec
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
     "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5-pow(2.0, -24),_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
-    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_),
+    "Test small Negative [-1, 0]", generateRealWithin(-1.0, 0.0,_,_),
+    /*disableTimeout = */ true)
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
+    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 127), 0.0,_,_),
     /*disableTimeout = */ true)
 
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
-    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))
+    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 127.0),_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
     "Test Small More Than 1 [1+2^-4, 2]",   generateRealWithin(1.0 + pow(2.0, -4), 2.0,_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
@@ -262,7 +277,10 @@ class LogTest extends AnyFlatSpec
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
     "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5-pow(2.0, -24),_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
-    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_),
+    "Test small Negative [-1, 0]", generateRealWithin(-1.0, 0.0,_,_),
+    /*disableTimeout = */ true)
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
+    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 127), 0.0,_,_),
     /*disableTimeout = */ true)
 }
 
@@ -397,7 +415,7 @@ class LogOnlyTest extends AnyFlatSpec
   val extraBitsFP32 = 3
 
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r,
-    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))
+    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 127.0),_,_))
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r,
     "Test Small More Than 1 [1+2^-8, 2]",   generateRealWithin(1.0 + pow(2.0, -8), 2.0,_,_))
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r,
@@ -411,12 +429,15 @@ class LogOnlyTest extends AnyFlatSpec
     "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5-pow(2.0, -24),_,_))
 
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r,
-    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_),
+    "Test small Negative [-1, 0]", generateRealWithin(-1.0, 0.0,_,_),
+    /*disableTimeout = */ true)
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r,
+    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 127), 0.0,_,_),
     /*disableTimeout = */ true)
 
 
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
-    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))
+    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 127.0),_,_))
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
     "Test Small More Than 1 [1+2^-8, 2]",   generateRealWithin(1.0 + pow(2.0, -8), 2.0,_,_))
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
@@ -430,12 +451,15 @@ class LogOnlyTest extends AnyFlatSpec
     "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5-pow(2.0, -24),_,_))
 
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
-    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_),
+    "Test small Negative [-1, 0]", generateRealWithin(-1.0, 0.0,_,_),
+    /*disableTimeout = */ true)
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
+    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 127), 0.0,_,_),
     /*disableTimeout = */ true)
 
 
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
-    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))
+    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 127.0),_,_))
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
     "Test Small More Than 1 [1+2^-8, 2]",   generateRealWithin(1.0 + pow(2.0, -8), 2.0,_,_))
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
@@ -449,7 +473,10 @@ class LogOnlyTest extends AnyFlatSpec
     "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5-pow(2.0, -24),_,_))
 
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
-    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_),
+    "Test small Negative [-1, 0]", generateRealWithin(-1.0, 0.0,_,_),
+    /*disableTimeout = */ true)
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
+    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 127), 0.0,_,_),
     /*disableTimeout = */ true)
 
   val nOrderBF16 = 0
@@ -457,7 +484,7 @@ class LogOnlyTest extends AnyFlatSpec
   val extraBitsBF16 = 1
 
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
-    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))
+    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 127.0),_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
    f"Test Small Table More Than 1 [1+2^-3, 2]",   generateRealWithin(1.0+pow(2.0, -3), 2.0,_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
@@ -469,11 +496,14 @@ class LogOnlyTest extends AnyFlatSpec
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
     "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5-pow(2.0, -(RealSpec.BFloat16Spec.manW+1)),_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
-    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_),
+    "Test small Negative [-1, 0]", generateRealWithin(-1.0, 0.0,_,_),
+    /*disableTimeout = */ true)
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
+    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 127), 0.0,_,_),
     /*disableTimeout = */ true)
 
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
-    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))
+    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 127.0),_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
     "Test Small More Than 1 [1, 2]",   generateRealWithin(1.0, 2.0,_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
@@ -481,11 +511,14 @@ class LogOnlyTest extends AnyFlatSpec
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
     "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5-pow(2.0, -(RealSpec.BFloat16Spec.manW+1)),_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
-    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_),
+    "Test small Negative [-1, 0]", generateRealWithin(-1.0, 0.0,_,_),
+    /*disableTimeout = */ true)
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
+    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 127), 0.0,_,_),
     /*disableTimeout = */ true)
 
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
-    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))
+    "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 127.0),_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
     "Test Small More Than 1 [1, 2]",   generateRealWithin(1.0, 2.0,_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
@@ -493,7 +526,10 @@ class LogOnlyTest extends AnyFlatSpec
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
     "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5-pow(2.0, -(RealSpec.BFloat16Spec.manW+1)),_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
-    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_),
+    "Test small Negative [-1, 0]", generateRealWithin(-1.0, 0.0,_,_),
+    /*disableTimeout = */ true)
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
+    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 127), 0.0,_,_),
     /*disableTimeout = */ true)
 
   val float48Spec = new RealSpec(10, 511, 37)
@@ -502,27 +538,36 @@ class LogOnlyTest extends AnyFlatSpec
   val extraBitsFP48 = 4
 
   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, MathFuncPipelineConfig.none, n, r,
-    "Test Large More Than 1 [1, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))
+    "Test Large More Than 1 [1, inf]", generateRealWithin(2.0, pow(2.0, 127.0),_,_))
   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, MathFuncPipelineConfig.none, n, r,
     "Test Large Less Than 1 [0, 1]", generateRealWithin(0.0,0.5-pow(2.0, -24),_,_))
   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, MathFuncPipelineConfig.none, n, r,
-    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_),
+    "Test small Negative [-1, 0]", generateRealWithin(-1.0, 0.0,_,_),
+    /*disableTimeout = */ true)
+  runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, MathFuncPipelineConfig.none, n, r,
+    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 127), 0.0,_,_),
     /*disableTimeout = */ true)
 
   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, simplePipeline, n, r,
-    "Test Large More Than 1 [1, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))
+    "Test Large More Than 1 [1, inf]", generateRealWithin(2.0, pow(2.0, 127.0),_,_))
   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, simplePipeline, n, r,
     "Test Large Less Than 1 [0, 1]", generateRealWithin(0.0,0.5-pow(2.0, -24),_,_))
   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, simplePipeline, n, r,
-    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_),
+    "Test small Negative [-1, 0]", generateRealWithin(-1.0, 0.0,_,_),
+    /*disableTimeout = */ true)
+  runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, simplePipeline, n, r,
+    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 127), 0.0,_,_),
     /*disableTimeout = */ true)
 
   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, complexPipeline, n, r,
-    "Test Large More Than 1 [1, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))
+    "Test Large More Than 1 [1, inf]", generateRealWithin(2.0, pow(2.0, 127.0),_,_))
   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, complexPipeline, n, r,
     "Test Large Less Than 1 [0, 1]", generateRealWithin(0.0,0.5-pow(2.0, -24),_,_))
   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, complexPipeline, n, r,
-    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_),
+    "Test small Negative [-1, 0]", generateRealWithin(-1.0, 0.0,_,_),
+    /*disableTimeout = */ true)
+  runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, complexPipeline, n, r,
+    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 127), 0.0,_,_),
     /*disableTimeout = */ true)
 
   val nOrderFP64 = 3
@@ -530,27 +575,36 @@ class LogOnlyTest extends AnyFlatSpec
   val extraBitsFP64 = 4
 
   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, MathFuncPipelineConfig.none, n, r,
-    "Test Large More Than 1 [1, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))
+    "Test Large More Than 1 [1, inf]", generateRealWithin(2.0, pow(2.0, 127.0),_,_))
   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, MathFuncPipelineConfig.none, n, r,
     "Test Large Less Than 1 [0, 1]", generateRealWithin(0.0,0.5-pow(2.0, -24),_,_))
   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, MathFuncPipelineConfig.none, n, r,
-    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_),
+    "Test small Negative [-1, 0]", generateRealWithin(-1.0, 0.0,_,_),
+    /*disableTimeout = */ true)
+  runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, MathFuncPipelineConfig.none, n, r,
+    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 127), 0.0,_,_),
     /*disableTimeout = */ true)
 
   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, simplePipeline, n, r,
-    "Test Large More Than 1 [1, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))
+    "Test Large More Than 1 [1, inf]", generateRealWithin(2.0, pow(2.0, 127.0),_,_))
   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, simplePipeline, n, r,
     "Test Large Less Than 1 [0, 1]", generateRealWithin(0.0,0.5-pow(2.0, -24),_,_))
   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, simplePipeline, n, r,
-    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_),
+    "Test small Negative [-1, 0]", generateRealWithin(-1.0, 0.0,_,_),
+    /*disableTimeout = */ true)
+  runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, simplePipeline, n, r,
+    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 127), 0.0,_,_),
     /*disableTimeout = */ true)
 
   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, complexPipeline, n, r,
-    "Test Large More Than 1 [1, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_))
+    "Test Large More Than 1 [1, inf]", generateRealWithin(2.0, pow(2.0, 127.0),_,_))
   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, complexPipeline, n, r,
     "Test Large Less Than 1 [0, 1]", generateRealWithin(0.0,0.5-pow(2.0, -24),_,_))
   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, complexPipeline, n, r,
-    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_),
+    "Test small Negative [-1, 0]", generateRealWithin(-1.0, 0.0,_,_),
+    /*disableTimeout = */ true)
+  runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, complexPipeline, n, r,
+    "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 127), 0.0,_,_),
     /*disableTimeout = */ true)
 
 
