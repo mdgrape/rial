@@ -90,22 +90,36 @@ class ATan2Stage1PreProcess(
   val order  = polySpec.order
 
   val io = IO(new Bundle {
-    val en      = Input (UInt(1.W))
-    val x       = Flipped(new DecomposedRealOutput(spec))
-    val y       = Flipped(new DecomposedRealOutput(spec))
-    val special = Output(UInt(ATan2SpecialValue.W.W))
+    val en        = Input (UInt(1.W))
+    val x         = Flipped(new DecomposedRealOutput(spec))
+    val y         = Flipped(new DecomposedRealOutput(spec))
+    val yIsLarger = Input(Bool())
+    val special   = Output(UInt(ATan2SpecialValue.W.W))
   })
 
-  val samexy    = io.x.ex === io.y.ex && io.x.man === io.y.man
+  val minex     = Mux(io.yIsLarger, io.x.ex, io.y.ex)
+  val maxex     = Mux(io.yIsLarger, io.y.ex, io.x.ex)
+  val diffexDec = Mux(io.yIsLarger, io.y.man > io.x.man, io.x.man > io.y.man)
+  val zeroed    = minex +& exBias.U(exW.W) <= maxex + diffexDec.asUInt
+  // |min(x,y)| / |max(x,y)| = 0 means atan2(y,x) = (n/2)pi, n=0,1,2,3
+  // case |y| << |x| && 0 < x : z = 0
+  // case |y| << |x| && x < 0 : z = pi
+  // case |x| << |y| && 0 < y : z = pi/2
+  // case |x| << |y| && y < 0 : z = 3pi/2
+
+  val tooLargeX = (zeroed && !io.yIsLarger) || ( io.x.inf && !io.y.inf) || (!io.x.zero &&  io.y.zero)
+  val tooLargeY = (zeroed &&  io.yIsLarger) || (!io.x.inf &&  io.y.inf) || ( io.x.zero && !io.y.zero)
+
+  val samexy    = io.x.ex === io.y.ex && io.x.man === io.y.man && !io.x.nan && !io.y.nan
 
   val xpos      = io.x.sgn === 0.U
   val xneg      = io.x.sgn === 1.U
-  val znan      =  (io.x.nan ||  io.y.nan) || ( io.x.zero &&  io.y.zero)
-  val zzero     = ((io.x.inf && !io.y.inf) || (!io.x.zero &&  io.y.zero)) && xpos
-  val zpi       = ((io.x.inf && !io.y.inf) || (!io.x.zero &&  io.y.zero)) && xneg
-  val zhalfpi   = (!io.x.inf &&  io.y.inf) || ( io.x.zero && !io.y.zero)
-  val z1piover4 = ((io.x.inf &&  io.y.inf) || (samexy && !io.x.nan && !io.y.nan)) && xpos
-  val z3piover4 = ((io.x.inf &&  io.y.inf) || (samexy && !io.x.nan && !io.y.nan)) && xneg
+  val zzero     = tooLargeX && xpos
+  val zpi       = tooLargeX && xneg
+  val zhalfpi   = tooLargeY
+  val z1piover4 = samexy && xpos
+  val z3piover4 = samexy && xneg
+  val znan      = (io.x.nan || io.y.nan) || (io.x.zero && io.y.zero)
 
   val special0 = MuxCase(ATan2SpecialValue.zNormal, Seq(
     znan      -> ATan2SpecialValue.zNaN,
@@ -165,36 +179,19 @@ class ATan2Stage1OtherPath(
   io.zother.maxXYMan0 := ShiftRegister(maxXYMan0, nStage)
   io.zother.xySameMan := ShiftRegister(xySameMan, nStage)
 
-  // --------------------------------------------------------------------------
-  // Here we don't need to check if 1/max(x,y) is a special value because
-  // Stage1PreProcess.io.special covers all the cases.
-
-  // 1/x = 2^(-e-1) * 2/1.m
-  // ex = -(x.ex - exBias) - 1 + exBias
-  //    = -x.ex + exBias - 1 + exBias
-  //    = exBias * 2 - 1 - x.ex
-  //
-  // y/x = 2^(y.e) * y.m * 2^(-x.e-1) * 2/x.m
-  //     = 2^(y.e - x.e - 1) * y.m * (2/x.m)
-  //
-  // y/x.ex = (y.e - exBias - x.e + exBias - 1 + exBias
-  //        = (y.e - x.e - 1 + exBias)
-
-  val xexBiased = Mux(io.yIsLarger, io.y.ex, io.x.ex) // if y>x, swap x and y
-  val yexBiased = Mux(io.yIsLarger, io.x.ex, io.y.ex)
-  val zex0 = Wire(UInt(exW.W))
-
-  // Since y < x, ex is always smaller than exBias. In normal cases, exBias is
-  // around a half of 2^exW-1, so we have almost a half of the space of the
-  // output port, UInt(exW.W). We re-interpret it as a signed integer to keep
-  // information. If we round the negative value to zero, the postprocess
-  // might consider the result is a small but non-zero value, though actually
-  // that is less than the minimum.
-  zex0 := yexBiased - xexBiased + (exBias-1).U(exW.W)
+  val exDec  = Mux(Mux(io.yIsLarger, io.x.man < io.y.man, io.y.man < io.x.man),
+                   1.U(1.W), 0.U(1.W))
+  val maxEx  = Mux(io.yIsLarger, io.y.ex, io.x.ex)
+  val minEx  = Mux(io.yIsLarger, io.x.ex, io.y.ex)
+  val zeroed = minEx +& exBias.U(exW.W) <= maxEx + exDec.asUInt
+  val zex0  = Mux(io.x.inf && io.y.inf, exBias.U(exW),
+              Mux((io.x.inf && !io.y.inf) || (!io.x.inf && io.y.inf), 0.U(exW.W),
+                  ((minEx +& exBias.U) - maxEx) - exDec.asUInt))
+  val zex   = Mux(zeroed, 0.U, zex0)
 
   // exponent of min(x,y)/max(x,y). we will later correct +/- 1 by checking
   // the mantissa of min(x,y) and max(x,y)
-  io.zother.zex := ShiftRegister(zex0, nStage)
+  io.zother.zex := ShiftRegister(zex, nStage)
 }
 
 // -------------------------------------------------------------------------
@@ -235,7 +232,7 @@ class ATan2Stage1PostProcess(
   })
 
   val zsgn      = 0.U(1.W)
-  val zex0      = io.zother.zex
+  val zex       = io.zother.zex
   val maxXYMan0 = io.zother.maxXYMan0
   val xySameMan = io.zother.xySameMan
 
@@ -261,20 +258,6 @@ class ATan2Stage1PostProcess(
     zProdLSB, zProdRound, zProdSticky)
   val zProdRounded   = zProdShifted +& zProdInc
   assert(zProdRounded.getWidth == manW+1)
-  val zProdMoreThan2AfterRound = zProdRounded(manW)
-
-  val zex = Wire(UInt(exW.W))
-
-  // the result of OtherPath might cause underflow.
-  val zex0Inc = Mux(xySameMan || maxXYMan0, zex0 + 1.U,
-    zex0 + zProdMoreThan2 + zProdMoreThan2AfterRound)
-
-  val canUnderflow = (spec.exMin - spec.exMax + exBias < 0)
-  if (canUnderflow) {
-    zex := Mux(zex0Inc(exW-1), 0.U, zex0Inc)
-  } else {
-    zex := zex0Inc
-  }
 
   val zman = Mux(~zex.orR || xySameMan, 0.U(manW.W),
              Mux(maxXYMan0, io.minxy.man, zProdRounded(manW-1, 0)))

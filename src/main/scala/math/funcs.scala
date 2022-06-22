@@ -373,6 +373,7 @@ class MathFunctions(
   atan2Stage1Pre.io.en := (io.sel === SelectFunc.ATan2Stage1)
   atan2Stage1Pre.io.x  := xdecomp.io.decomp
   atan2Stage1Pre.io.y  := ydecomp.io.decomp
+  atan2Stage1Pre.io.yIsLarger := yIsLarger
   // ------ Preprocess-Calculate ------
   atan2Stage1Other.io.x  := xdecPCGapReg
   atan2Stage1Other.io.y  := ydecPCGapReg
