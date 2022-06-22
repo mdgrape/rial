@@ -578,6 +578,7 @@ class ATan2Stage2PostProcess(
   //   - if io.x is zero, it means the result is one of the special values.
   //     overflow can happen, but is ignorable.
   //   - if io.x.ex >= 1, atanEx0 does not overflow.
+  assert(!io.en || io.x.ex =/= 0.U || io.flags.special =/= 0.U)
   assert(!io.en || io.flags.special =/= 0.U || atanEx0(exW) === 0.U)
 
   val atanEx  = Mux(io.zother.zIsNonTable, io.zother.zex,  atanEx0(exW-1, 0))
