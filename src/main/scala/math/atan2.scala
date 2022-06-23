@@ -100,7 +100,8 @@ class ATan2Stage1PreProcess(
   val minex     = Mux(io.yIsLarger, io.x.ex, io.y.ex)
   val maxex     = Mux(io.yIsLarger, io.y.ex, io.x.ex)
   val diffexDec = Mux(io.yIsLarger, io.y.man > io.x.man, io.x.man > io.y.man)
-  val zeroed    = minex +& exBias.U(exW.W) <= maxex + diffexDec.asUInt
+  val zeroed    = minex +& exBias.U(exW.W) <= maxex +& diffexDec.asUInt
+
   // |min(x,y)| / |max(x,y)| = 0 means atan2(y,x) = (n/2)pi, n=0,1,2,3
   // case |y| << |x| && 0 < x : z = 0
   // case |y| << |x| && x < 0 : z = pi
