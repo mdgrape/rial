@@ -132,6 +132,8 @@ class ATan2Stage1PreProcess(
   ))
   val special = enable(io.en, special0)
 
+  assert(!io.en || !zeroed || special0 =/= ATan2SpecialValue.zNormal)
+
   io.special := ShiftRegister(special, nStage)
 }
 
