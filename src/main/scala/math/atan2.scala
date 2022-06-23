@@ -227,7 +227,7 @@ class ATan2Stage1PostProcess(
   val extraBits = polySpec.extraBits
 
   val io = IO(new Bundle {
-    val en = Input(UInt(1.W))
+    val en     = Input(Bool())
     val zother = Flipped(new ATan2Stage1NonTableOutput(spec))
     val zres   = Input(UInt(fracW.W))
     val minxy  = Flipped(new DecomposedRealOutput(spec))
