@@ -82,7 +82,7 @@ class ATan2Stage2Test extends AnyFlatSpec
 
           val q  = new Queue[(BigInt,BigInt,BigInt)]
           for(i <- 1 to n+2*nstage) {
-//             println("test: -----------------------------------------------------")
+//             println("test: stage1 -----------------------------------------------------")
             val xi = generatorX(spec,r)
             val yi = generatorYoverX(spec,r)
             val z1r= refstage1(yi, xi) // XXX order is inverted: atan2(y, x)
@@ -97,15 +97,34 @@ class ATan2Stage2Test extends AnyFlatSpec
             c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
             c.io.y.poke(yi.value.toBigInt.U(spec.W.W))
 
-            for(j <- 0 until max(1, stage.total)) {
+            if(stage.total > 0) {
               c.clock.step(1)
+              c.io.sel.poke(SelectFunc.None)
+              c.io.x.poke(0.U(spec.W.W))
+              c.io.y.poke(0.U(spec.W.W))
+              for(j <- 1 until max(1, stage.total)) {
+//                 println(f"out = ${c.io.z.peek().litValue.toBigInt.toLong.toBinaryString}")
+                c.clock.step(1)
+              }
             }
             val z1i = c.io.z.peek().litValue.toBigInt
+//             println("test: stage2 -----------------------------------------------------")
+
+
+            if(stage.total == 0) {
+              c.clock.step(1)
+            }
 
             if(z1i == 0) {
-              println(f"x = ${xi.toDouble}")
-              println(f"y = ${yi.toDouble}")
-              println(f"min(x,y)/max(x,y) = ${min(xi.toDouble, yi.toDouble) / max(xi.toDouble, yi.toDouble)}")
+              if(min(xi.toDouble.abs, yi.toDouble.abs) / max(xi.toDouble.abs, yi.toDouble.abs) > pow(2.0, -126)) {
+                println(f"z1 is zero. |x|/|y| should be smaller than ${pow(2.0, -126)}. sim out = ${z1r._1.value.toBigInt.toLong.toBinaryString}")
+                println(f"x = ${xi.sgn}|${xi.ex}|${xi.man.toLong.toBinaryString}(${xi.toDouble})")
+                println(f"y = ${yi.sgn}|${yi.ex}|${yi.man.toLong.toBinaryString}(${yi.toDouble})")
+                println(f"min(x,y)/max(x,y) = ${min(xi.toDouble.abs, yi.toDouble.abs) / max(xi.toDouble.abs, yi.toDouble.abs)}")
+                ATan2Stage1Sim.atan2Stage1SimGeneric( recTable, yi, xi, true)
+              }
+              assert(z1r._3 != 0, "if z1 == 0, special value flag should be nonzero")
+              assert(min(xi.toDouble.abs, yi.toDouble.abs) / max(xi.toDouble.abs, yi.toDouble.abs) <= pow(2.0, -126))
             }
 
             if(z1r._1.value.toBigInt != z1i) {
@@ -114,16 +133,28 @@ class ATan2Stage2Test extends AnyFlatSpec
               println(f"z1r = ${z1r._1.value.toLong.toBinaryString}")
               println(f"z1i = ${z1i.toLong.toBinaryString}")
             }
-//             assert(z1r._1.value.toBigInt == z1i, f"z1r(${z1r._1.value.toLong.toBinaryString}) != z1i(${z1i.toLong.toBinaryString})");
+            assert(z1r._1.value.toBigInt == z1i, f"z1r(${z1r._1.value.toLong.toBinaryString}) != z1i(${z1i.toLong.toBinaryString})");
 //             println(f"test:z1i = ${z1i.toLong.toBinaryString}")
+//             println(f"test:z1.special = ${z1r._3}")
 
             c.io.sel.poke(SelectFunc.ATan2Stage2)
             c.io.x.poke(z1i.U(spec.W.W))
             c.io.y.poke(0.U(spec.W.W))
 
-            for(j <- 0 until max(1, stage.total)) {
+            val z1real = new RealGeneric(spec, z1i.toSafeLong)
+//             println(f"z1i = ${z1real.sgn}|${z1real.ex}|${z1real.man.toLong.toBinaryString}(${z1real.toDouble})")
+
+            if(stage.total > 0) {
               c.clock.step(1)
+              c.io.sel.poke(SelectFunc.None)
+              c.io.x.poke(0.U(spec.W.W))
+              c.io.y.poke(0.U(spec.W.W))
+              for(j <- 1 until max(1, stage.total)) {
+//                 println(f"out = ${c.io.z.peek().litValue.toBigInt.toLong.toBinaryString}")
+                c.clock.step(1)
+              }
             }
+
             val z2i = c.io.z.peek().litValue.toBigInt
 
             val (xid, yid, z0d) = q.dequeue()
@@ -153,8 +184,11 @@ class ATan2Stage2Test extends AnyFlatSpec
               println(f"test:y          = ${yid.toLong.toBinaryString}(${y.toDouble})")
               println(f"test:atan2(x,y) = ${atan2(y.toDouble, x.toDouble)}")
               println(f"test:zref       = ${z0d.toLong.toBinaryString}(${z.toDouble})")
-              println(f"test:zsim       = ${z2i.toLong.toBinaryString}(${new RealGeneric(spec, zisgn, ziexp.toInt, ziman).toDouble})")
+              println(f"test:zcir       = ${z2i.toLong.toBinaryString}(${new RealGeneric(spec, zisgn, ziexp.toInt, ziman).toDouble})")
             }
+
+            val ref = new RealGeneric(spec, atan2(y.toDouble, x.toDouble))
+            assert((ref.value.toLong - z0d.toLong).abs < 4)
 
             assert(z2i == z0d, f"x = (${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman.toLong.toBinaryString}), " +
                                f"y = (${yidsgn}|${yidexp}(${yidexp - spec.exBias})|${yidman.toLong.toBinaryString}), " +
