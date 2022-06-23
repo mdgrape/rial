@@ -489,29 +489,35 @@ class ATan2Stage2OtherPath(
   val linearThreshold = (ATan2Stage2Sim.calcLinearThreshold(manW) + exBias)
   val isLinear = io.x.ex <= linearThreshold.U(exW.W)
   // non-linear mantissa is calculated by table.
+//   printf("cir: Stage2OtherPath: linearThr = %b\n", linearThreshold.U)
+//   printf("cir: Stage2OtherPath: isLinear  = %b\n", isLinear)
+//   printf("cir: Stage2OtherPath: isspecial = %b\n", io.flags.special)
 
-  io.zother.zIsNonTable := isLinear || (io.flags.special =/= ATan2SpecialValue.zNormal)
+  io.zother.zIsNonTable := ShiftRegister(
+    isLinear || (io.flags.special =/= ATan2SpecialValue.zNormal), nStage)
 
   val defaultEx  = io.x.ex // isLinear includes xzero.
   val defaultMan = io.x.man
+//   printf("cir: Stage2OtherPath: defaultEx  = %b\n", defaultEx )
+//   printf("cir: Stage2OtherPath: defaultMan = %b\n", defaultMan)
 
-  io.zother.zsgn := io.flags.ysgn
-  io.zother.zex  := MuxCase(defaultEx, Seq(
+  io.zother.zsgn := ShiftRegister(io.flags.ysgn, nStage)
+  io.zother.zex  := ShiftRegister(MuxCase(defaultEx, Seq(
     (io.flags.special === ATan2SpecialValue.zNaN)        -> maskL(exW).U(exW.W),
     (io.flags.special === ATan2SpecialValue.zZero)       -> 0.U(exW.W),
     (io.flags.special === ATan2SpecialValue.zPi)         -> pi.ex.U(exW.W),
     (io.flags.special === ATan2SpecialValue.zHalfPi)     -> halfPi.ex.U(exW.W),
     (io.flags.special === ATan2SpecialValue.zQuarterPi)  -> quarterPi.ex.U(exW.W),
     (io.flags.special === ATan2SpecialValue.z3QuarterPi) -> quarter3Pi.ex.U(exW.W)
-    ))
-  io.zother.zman := MuxCase(defaultMan, Seq(
+    )), nStage)
+  io.zother.zman := ShiftRegister(MuxCase(defaultMan, Seq(
     (io.flags.special === ATan2SpecialValue.zNaN)        -> Cat(1.U(1.W), 0.U((manW-1).W)),
     (io.flags.special === ATan2SpecialValue.zZero)       -> 0.U(manW.W),
     (io.flags.special === ATan2SpecialValue.zPi)         -> pi        .man.toBigInt.U(manW.W),
     (io.flags.special === ATan2SpecialValue.zHalfPi)     -> halfPi    .man.toBigInt.U(manW.W),
     (io.flags.special === ATan2SpecialValue.zQuarterPi)  -> quarterPi .man.toBigInt.U(manW.W),
     (io.flags.special === ATan2SpecialValue.z3QuarterPi) -> quarter3Pi.man.toBigInt.U(manW.W)
-    ))
+    )), nStage)
 }
 
 // -------------------------------------------------------------------------
