@@ -450,30 +450,6 @@ object ACosSim {
     }
   }
 
-  def calcTaylorThreshold(manW: Int, taylorOrder: Int): Int = {
-    // acos(x) = pi/2 - x - x^3/6 - 3x^5/40 - O(x^7)
-    //         = pi/2 - x(1 + x^2/6 + 3x^4/40) + O(x^6))
-    assert(0 < taylorOrder)
-    if(taylorOrder < 3) {
-      // x^2/6 < 2^-manW
-      // x^2/6 < x^2/4 <= 2^-manW
-      // x^2   <= 2^-manW+2
-      // x     <= 2^(-manW+2)/2
-      // 2^xex * 1.man <= 2^(-manW+2)/2
-      // xex   <= 2^(-manW+2)/2-1
-      math.floor((-manW + 2) / 2.0).toInt // use it as xex < threshold w/o `=`
-    } else {
-      assert(taylorOrder < 5)
-      // 3x^4/40 < 2^-manW
-      // 3x^4/40 < x^4/8 <= 2^-manW
-      // x^4     < 2^-manW+3
-      // x       < 2^(-manW+3)/4
-      // 2^xex * 1.man < 2^(-manW+3)/4
-      // xex < (-manW+3)/4 - 1
-      math.floor((-manW + 3) / 4.0).toInt
-    }
-  }
-
   def calcExAdrW(spec: RealSpec): Int = {
     return 1
   }
