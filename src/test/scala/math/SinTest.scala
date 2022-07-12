@@ -112,12 +112,12 @@ class SinTest extends AnyFlatSpec
       PipelineStageConfig.none,
       PipelineStageConfig.none,
       PipelineStageConfig.none,
-      true, true)
+      true, true, true)
   val complexPipeline = new MathFuncPipelineConfig(
       PipelineStageConfig.atOut(1),
       PipelineStageConfig.atOut(3),
       PipelineStageConfig.atOut(2),
-      true, true)
+      true, true, true)
 
   val nOrderFP32 = 2
   val adrWFP32 = 8
@@ -311,13 +311,13 @@ class SinOnlyTest extends AnyFlatSpec
       PipelineStageConfig.none,
       PipelineStageConfig.none,
       PipelineStageConfig.none,
-      true, true)
+      true, true, true)
 
   val complexPipeline = new MathFuncPipelineConfig(
       PipelineStageConfig.atOut(1),
       PipelineStageConfig.atOut(3),
       PipelineStageConfig.atOut(2),
-      true, true)
+      true, true, true)
 
   val nOrderFP32 = 2
   val adrWFP32 = 8
