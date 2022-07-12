@@ -57,32 +57,43 @@ class DecomposeReal(val spec: RealSpec) extends Module {
   io.decomp.nan  := nan
 }
 
-// XXX currently we assume that the table is accessed combinationally.
-//     that means that table access latency == 0.
-// TODO:
-// 1. consider the latency of table access
-// 2. consider setting nStage for each function. (like, sqrt does not need
-//    multiple cycles in its preprocess, but sincos may need.)
+// # Overview
+//
+//             .--preStage    .--tableCalcGap .-- calcPostGap
+//             |      .--preCalcGap   .--calcStage    .--postStage
+//         ____|____  |       |  _____|_____  |  _____|_____
+//        '         ' '       ' '           ' ' '           '
+//       .----.-.----.-.-----.-.-----.-.-----.-.-----.-.-----.
+//       |    |v|    |v|table|v|Calc1|v|Calc2|v|     |v|     |
+// in -> |Pre1| |Pre2| :-----'-'-----'-'-----: |Post1| |Post2| -> out
+//       |    | |    | |      non-table      | |     | |     |
+//       '----'-'----'-'---------------------'-'-----'-'-----'
+//
+// TODO: consider setting nStage for each function. (like, sqrt does not need
+//       multiple cycles in its preprocess, but sincos may need.)
+//
 class MathFuncPipelineConfig(
-  val preStage:    PipelineStageConfig, // clock cycles in preprocess
-  val calcStage:   PipelineStageConfig, // clock cycles in table/polynomial and non-table path
-  val postStage:   PipelineStageConfig, // clock cycles in postprocess
-  val preCalcGap:  Boolean, // if true, add register between preprocess and calculation stage
-  val calcPostGap: Boolean, // if true, add register between calculation and postprocess stage
+  val preStage:     PipelineStageConfig, // clock cycles in preprocess
+  val calcStage:    PipelineStageConfig, // clock cycles in table/polynomial and non-table path
+  val postStage:    PipelineStageConfig, // clock cycles in postprocess
+  val preCalcGap:   Boolean, // if true, add register between preprocess and calculation stage
+  val tableCalcGap: Boolean, // if true, add register between table and calculation stage (+1 to calcStage for OtherPath)
+  val calcPostGap:  Boolean, // if true, add register between calculation and postprocess stage
   ) {
 
   def total = {
     preStage.total +
     calcStage.total +
     postStage.total +
-    (if(preCalcGap)  {1} else {0}) +
-    (if(calcPostGap) {1} else {0})
+    (if(preCalcGap)   {1} else {0}) +
+    (if(tableCalcGap) {1} else {0}) +
+    (if(calcPostGap)  {1} else {0})
   }
   def getString = {
     f"pre: ${preStage.getString}, " +
     f"calc: ${calcStage.getString}, " +
     f"post: ${postStage.getString}, " +
-    f"pre-calc: ${preCalcGap}, calc-post: ${calcPostGap}"
+    f"pre-calc: ${preCalcGap}, table-calc: ${tableCalcGap}, calc-post: ${calcPostGap}"
   }
 }
 
@@ -93,20 +104,23 @@ object MathFuncPipelineConfig {
       PipelineStageConfig.none,
       PipelineStageConfig.none,
       false,
+      false,
       false)
   }
 }
 
 // # Overview
 //
-//                .------.  _  .-----------. .------------.
-// sel -----------|      |-|v|-' .-------. '-| chebyshev  |    _  .-------.
-//    .---------. | pre- |-| |---| table |---| polynomial |---|v|-| post- |-> z
-// x -|decompose|-| proc | | |   '-------'   '------------' .-| |-| proc  |
-// y -|         |-|      |-| |-. .------------------------. | '_' '-------'
-//    '---------' '------' '-' '-| non-table (taylor etc) |-'  .
-//                          .    '------------------------'    |
-//                          |                                  |
+//                                     table/Calc
+//                                          |
+//                .------.  _  .---------.  _  .------------.
+// sel -----------|      |-|v|-'.-------.'-|v|-| chebyshev  |    _  .-------.
+//    .---------. | pre- |-| |--| table |--| |-| polynomial |---|v|-| post- |-> z
+// x -|decompose|-| proc | | |  '-------'  '-' '------------' .-| |-| proc  |
+// y -|         |-|      |-| |-. .--------------------------. | '_' '-------'
+//    '---------' '------' '-' '-|  non-table (taylor etc)  |-'  .
+//                          .    '--------------------------'    |
+//                          |                                    |
 //                   Preproc/Calc                          Calc/Postproc
 //
 
@@ -123,11 +137,15 @@ class MathFunctions(
 
   // later we use this in ShiftRegister
   val pcGap = if(stage.preCalcGap ) {1} else {0}
+  val tcGap = if(stage.tableCalcGap){1} else {0}
   val cpGap = if(stage.calcPostGap) {1} else {0}
 
   val nPreStage  = stage.preStage.total
   val nCalcStage = stage.calcStage.total
   val nPostStage = stage.postStage.total
+
+  val nOtherStage = nCalcStage + tcGap
+  val otherStage = PipelineStageConfig.atOut(nOtherStage)
 
   println(f"nPreStage  = ${nPreStage }")
   println(f"nCalcStage = ${nCalcStage}")
@@ -173,10 +191,10 @@ class MathFunctions(
   println(f"sqrt        cbits = ${SqrtTableCoeff       .getCBits(spec, polySpec)} calcW = ${SqrtTableCoeff       .getCalcW(spec, polySpec)}")
   println(f"invsqrt     cbits = ${InvSqrtTableCoeff    .getCBits(spec, polySpec)} calcW = ${InvSqrtTableCoeff    .getCalcW(spec, polySpec)}")
   println(f"rec         cbits = ${ReciprocalTableCoeff .getCBits(spec, polySpec)} calcW = ${ReciprocalTableCoeff .getCalcW(spec, polySpec)}")
-  println(f"sincos      cbits = ${SinCosTableCoeff     .getCBits(spec, polySpec)} calcW = ${SinCosTableCoeff.getCalcW(spec, polySpec)}")
+  println(f"sincos      cbits = ${SinCosTableCoeff     .getCBits(spec, polySpec)} calcW = ${SinCosTableCoeff     .getCalcW(spec, polySpec)}")
   println(f"atan2Stage2 cbits = ${ATan2Stage2TableCoeff.getCBits(spec, polySpec)} calcW = ${ATan2Stage2TableCoeff.getCalcW(spec, polySpec)}")
-  println(f"pow2        cbits = ${ExpTableCoeff       .getCBits(spec, polySpec)} calcW = ${ExpTableCoeff       .getCalcW(spec, polySpec)}")
-  println(f"log2        cbits = ${LogTableCoeff       .getCBits(spec, polySpec)} calcW = ${LogTableCoeff       .getCalcW(spec, polySpec)}")
+  println(f"pow2        cbits = ${ExpTableCoeff        .getCBits(spec, polySpec)} calcW = ${ExpTableCoeff        .getCalcW(spec, polySpec)}")
+  println(f"log2        cbits = ${LogTableCoeff        .getCBits(spec, polySpec)} calcW = ${LogTableCoeff        .getCalcW(spec, polySpec)}")
   println(f"maximum     cbits = ${maxCbit} calcW = ${maxCalcW}")
 
   val io = IO(new Bundle {
@@ -204,16 +222,16 @@ class MathFunctions(
   val xdecPCGapReg = ShiftRegister(xdecPCReg, pcGap)
   val ydecPCGapReg = ShiftRegister(ydecPCReg, pcGap)
 
-  val selCPReg  = ShiftRegister(selPCGapReg,  nCalcStage)
-  val xdecCPReg = ShiftRegister(xdecPCGapReg, nCalcStage)
-  val ydecCPReg = ShiftRegister(ydecPCGapReg, nCalcStage)
+  val selCPReg  = ShiftRegister(selPCGapReg,  tcGap + nCalcStage)
+  val xdecCPReg = ShiftRegister(xdecPCGapReg, tcGap + nCalcStage)
+  val ydecCPReg = ShiftRegister(ydecPCGapReg, tcGap + nCalcStage)
   val selCPGapReg  = ShiftRegister(selCPReg,  cpGap)
   val xdecCPGapReg = ShiftRegister(xdecCPReg, cpGap)
   val ydecCPGapReg = ShiftRegister(ydecCPReg, cpGap)
 
   val yIsLargerPCReg    = ShiftRegister(yIsLarger, nPreStage)
   val yIsLargerPCGapReg = ShiftRegister(yIsLargerPCReg, pcGap)
-  val yIsLargerCPReg    = ShiftRegister(yIsLargerPCGapReg, nCalcStage)
+  val yIsLargerCPReg    = ShiftRegister(yIsLargerPCGapReg, tcGap + nCalcStage)
   val yIsLargerCPGapReg = ShiftRegister(yIsLargerCPReg, cpGap)
 
   // ==========================================================================
@@ -233,7 +251,7 @@ class MathFunctions(
 
   val acosPre   = Module(new ACosPreProcess (spec, polySpec, stage.preStage))
   val acosTab   = Module(new ACosTableCoeff (spec, polySpec, maxCbit))
-  val acosOther = Module(new ACosOtherPath  (spec, polySpec, stage.calcStage))
+  val acosOther = Module(new ACosOtherPath  (spec, polySpec, otherStage))
   val acosPost  = Module(new ACosPostProcess(spec, polySpec, stage.postStage))
 
   val acosPreUseSqrtPCGapReg = if(order != 0) {
@@ -271,7 +289,7 @@ class MathFunctions(
 
   val sqrtPre   = Module(new SqrtPreProcess (spec, polySpec, stage.preStage))
   val sqrtTab   = Module(new SqrtTableCoeff (spec, polySpec, maxCbit))
-  val sqrtOther = Module(new SqrtOtherPath  (spec, polySpec, stage.calcStage))
+  val sqrtOther = Module(new SqrtOtherPath  (spec, polySpec, otherStage))
   val sqrtPost  = Module(new SqrtPostProcess(spec, polySpec, stage.postStage))
 
   val sqrtPreAdrPCGapReg = ShiftRegister(sqrtPre.io.adr, pcGap)
@@ -297,7 +315,7 @@ class MathFunctions(
   // invsqrt
 
   val invsqrtTab   = Module(new InvSqrtTableCoeff (spec, polySpec, maxCbit))
-  val invsqrtOther = Module(new InvSqrtOtherPath  (spec, polySpec, stage.calcStage))
+  val invsqrtOther = Module(new InvSqrtOtherPath  (spec, polySpec, otherStage))
   val invsqrtPost  = Module(new InvSqrtPostProcess(spec, polySpec, stage.postStage))
 
   // (preprocess is same as sqrt)
@@ -315,7 +333,7 @@ class MathFunctions(
 
   val recPre   = Module(new ReciprocalPreProcess (spec, polySpec, stage.preStage))
   val recTab   = Module(new ReciprocalTableCoeff (spec, polySpec, maxCbit))
-  val recOther = Module(new ReciprocalOtherPath  (spec, polySpec, stage.calcStage))
+  val recOther = Module(new ReciprocalOtherPath  (spec, polySpec, otherStage))
   val recPost  = Module(new ReciprocalPostProcess(spec, polySpec, stage.postStage))
 
   // atan2 uses reciprocal 1/max(x,y) to calculate min(x,y)/max(x,y).
@@ -365,7 +383,7 @@ class MathFunctions(
   // atan2
 
   val atan2Stage1Pre   = Module(new ATan2Stage1PreProcess (spec, polySpec, stage.preStage))
-  val atan2Stage1Other = Module(new ATan2Stage1OtherPath  (spec, polySpec, stage.calcStage))
+  val atan2Stage1Other = Module(new ATan2Stage1OtherPath  (spec, polySpec, otherStage))
   val atan2Stage1Post  = Module(new ATan2Stage1PostProcess(spec, polySpec, stage.postStage))
 
   // atan2Stage1Pre checks if x and y are special values.
@@ -381,7 +399,7 @@ class MathFunctions(
 
   val atan2Stage2Pre   = Module(new ATan2Stage2PreProcess (spec, polySpec, stage.preStage))
   val atan2Stage2Tab   = Module(new ATan2Stage2TableCoeff (spec, polySpec, maxCbit))
-  val atan2Stage2Other = Module(new ATan2Stage2OtherPath  (spec, polySpec, stage.calcStage))
+  val atan2Stage2Other = Module(new ATan2Stage2OtherPath  (spec, polySpec, otherStage))
   val atan2Stage2Post  = Module(new ATan2Stage2PostProcess(spec, polySpec, stage.postStage))
   atan2Stage2Pre.io.en  := (io.sel === SelectFunc.ATan2Stage2)
   atan2Stage2Pre.io.x   := xdecomp.io.decomp
@@ -421,7 +439,7 @@ class MathFunctions(
 
   val expPre   = Module(new ExpPreProcess (spec, polySpec, stage.preStage, false))
   val expTab   = Module(new ExpTableCoeff (spec, polySpec, maxCbit))
-  val expOther = Module(new ExpOtherPath  (spec, polySpec, stage.calcStage))
+  val expOther = Module(new ExpOtherPath  (spec, polySpec, otherStage))
   val expPost  = Module(new ExpPostProcess(spec, polySpec, stage.postStage))
 
   expPre.io.en     := (io.sel === SelectFunc.Exp) || (io.sel === SelectFunc.Pow2)
@@ -453,7 +471,7 @@ class MathFunctions(
 
   val logPre   = Module(new LogPreProcess (spec, polySpec, stage.preStage))
   val logTab   = Module(new LogTableCoeff (spec, polySpec, maxCbit))
-  val logOther = Module(new LogOtherPath  (spec, polySpec, stage.calcStage))
+  val logOther = Module(new LogOtherPath  (spec, polySpec, otherStage))
   val logPost  = Module(new LogPostProcess(spec, polySpec, stage.postStage, false)) // can be both log2 and log
 
   logPre.io.en      := (io.sel === SelectFunc.Log) || (io.sel === SelectFunc.Log2)
@@ -494,26 +512,22 @@ class MathFunctions(
                                       recPre.io.dx.get |
                               atan2Stage2Pre.io.dx.get |
                                       expPre.io.dx.get |
-                                      logPre.io.dx.get, pcGap)
+                                      logPre.io.dx.get, pcGap + tcGap)
 //     printf("polynomialEval.io.dx.get    = %b\n", polynomialDx)
     polynomialEval.io.dx.get := polynomialDx
   }
 
-  // table is accessed combinationally. There is no delay.
-  val polynomialCoef = (sqrtTab.io.cs.asUInt |
+  val polynomialCoef = ShiftRegister(sqrtTab.io.cs.asUInt |
                      invsqrtTab.io.cs.asUInt |
                          recTab.io.cs.asUInt |
                       sincosTab.io.cs.asUInt |
                         acosTab.io.cs.asUInt |
                  atan2Stage2Tab.io.cs.asUInt |
                          expTab.io.cs.asUInt |
-                         logTab.io.cs.asUInt
-                        ).asTypeOf(new TableCoeffInput(maxCbit))
+                         logTab.io.cs.asUInt, tcGap)
 
 //   printf("polynomialEval.io.coeffs.cs = %b\n", polynomialCoef.asUInt)
-  polynomialEval.io.coeffs := polynomialCoef
-
-  val polynomialResultCPGapReg = ShiftRegister(polynomialEval.io.result, cpGap)
+  polynomialEval.io.coeffs := polynomialCoef.asTypeOf(new TableCoeffInput(maxCbit))
 
   // ------------------------------------------------------------------------
   //                                         we are here
@@ -524,6 +538,8 @@ class MathFunctions(
   // '-------' |  .--------------------------------.  I '--------------'
   //           '--| non-table path (e.g. taylor)   |==+
   //              '--------------------------------'
+
+  val polynomialResultCPGapReg = ShiftRegister(polynomialEval.io.result, cpGap)
 
   acosPost.io.en     := (selCPGapReg === SelectFunc.ACos)
   acosPost.io.zother := ShiftRegister(acosOther.io.zother, cpGap)
@@ -543,7 +559,7 @@ class MathFunctions(
 
   sincosPost.io.en   := (selCPGapReg === SelectFunc.Sin) ||
                         (selCPGapReg === SelectFunc.Cos)
-  sincosPost.io.pre  := ShiftRegister(sincosPre.io.out, pcGap + nCalcStage + cpGap)
+  sincosPost.io.pre  := ShiftRegister(sincosPre.io.out, pcGap + tcGap + nCalcStage + cpGap)
   sincosPost.io.zres := polynomialResultCPGapReg
 
   atan2Stage1Post.io.en     := (selCPGapReg === SelectFunc.ATan2Stage1)
