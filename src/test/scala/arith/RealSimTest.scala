@@ -33,7 +33,7 @@ class RealSimTest extends AnyFunSuite with Matchers with BeforeAndAfterAllConfig
       xd should be (x0)
     }
   }
-  
+
   test("Double mul test") {
     for(i <- 1 to n) {
       val x = (r.nextDouble()-0.5)*128.0
@@ -46,7 +46,7 @@ class RealSimTest extends AnyFunSuite with Matchers with BeforeAndAfterAllConfig
       zd should be (z0)
     }
   }
-  
+
   test("Double add test") {
     for(i <- 1 to n) {
       val x = (r.nextDouble()-0.5)*128.0
@@ -55,6 +55,17 @@ class RealSimTest extends AnyFunSuite with Matchers with BeforeAndAfterAllConfig
       val xr = RealGeneric.fromDouble(RealSpec.Float64Spec, x)
       val yr = RealGeneric.fromDouble(RealSpec.Float64Spec, y)
       val zr = xr.add(RealSpec.Float64Spec, RoundSpec.roundToEven,yr)
+      val zd = zr.toDouble
+      zd should be (z0)
+    }
+  }
+
+  test("Double negate test") {
+    for(i <- 1 to n) {
+      val x = (r.nextDouble()-0.5)*128.0
+      val z0 = -x
+      val xr = RealGeneric.fromDouble(RealSpec.Float64Spec, x)
+      val zr = xr.negate()
       val zd = zr.toDouble
       zd should be (z0)
     }
