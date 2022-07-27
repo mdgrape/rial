@@ -613,7 +613,7 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
   }
 
   def negate( ) : RealGeneric = {
-    this.setSign( 1-this.ex )
+    this.setSign( 1-this.sgn )
   }
 
 }
