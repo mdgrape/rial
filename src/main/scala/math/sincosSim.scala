@@ -48,7 +48,6 @@ object SinCosSim {
     val oneOverPiPad = Seq(manW+1, 12).max
 
     // 1/2 > 1/pi > 1/4, (1/pi).exNobias == -2, and 2 extra bits for rounding
-//     val oneOverPi = math.round(1.0 / math.Pi * (1L << (manW+2+oneOverPiPad))).toBigInt
     val oneOverPi = (Real.one / Real.pi)(manW+2+oneOverPiPad)
     assert(bit(manW+oneOverPiPad, oneOverPi) == 1L)
 
@@ -56,7 +55,7 @@ object SinCosSim {
     // To keep precision, we should have enough bits here.
     val xOverPiProd          = x.manW1 * oneOverPi
     val xOverPiProdMoreThan2 = bit((1+manW)+(1+manW+oneOverPiPad)-1, xOverPiProd)
-    val xOverPiEx            = x.ex - 2 + xOverPiProdMoreThan2
+    val xOverPiEx            = if(x.ex == 0) { 0 } else { x.ex - 2 + xOverPiProdMoreThan2 }
 
     // here we extend the fraction part one more bit.
     val xOverPi              = xOverPiProd << (1 - xOverPiProdMoreThan2)
@@ -72,7 +71,9 @@ object SinCosSim {
     // convert full range x/pi into (0, 2)
 
     // now this is in [0, 2)
-    val xOverPiAligned = if(xOverPiEx >= exBias) {
+    val xOverPiAligned = if(xOverPiEx == 0) {
+      SafeLong(0)
+    } else if(xOverPiEx >= exBias) {
       // remove bits that represents larger than 2
       slice(0, 1+xOverPiFracW, xOverPi << (xOverPiEx - exBias))
     } else {
@@ -146,7 +147,12 @@ object SinCosSim {
 //       println(f"sim:yman0Shifted = ${yman0Shifted}")
 //       println(f"sim:yman0Rounded = ${yman0Rounded.toLong.toBinaryString}")
 
-      ((yex0-yman0Shift+yman0MoreThan2).toInt, slice(0, manW, yman0Rounded))
+      val yexRounded = yex0 - yman0Shift + yman0MoreThan2
+      if (yexRounded == 0) {
+        (0, SafeLong(0))
+      } else {
+        (yexRounded.toInt, slice(0, manW, yman0Rounded))
+      }
     }
 
     assert(yex  <= exBias-1)
@@ -181,7 +187,7 @@ object SinCosSim {
       return new RealGeneric(spec, zSgn, exBias, 0)
     }
     if(yex == 0) {
-      assert(yman == 0)
+      assert(yman == SafeLong(0), f"yex == 0, but yman == ${yman}")
       return new RealGeneric(spec, 0, 0, 0)
     }
 
