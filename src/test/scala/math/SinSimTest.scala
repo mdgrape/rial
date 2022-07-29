@@ -29,12 +29,38 @@ class SinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     new RealGeneric(spec, rD)
   }
 
+  var counter = 0
+  val specialValues = Seq(
+      +0.0,                -0.0,
+      math.Pi / 4.0,       -math.Pi / 4.0,
+      math.Pi / 3.0,       -math.Pi / 3.0,
+      math.Pi / 2.0,       -math.Pi / 2.0,
+      math.Pi * 2.0 / 3.0, -math.Pi * 2.0 / 3.0,
+      math.Pi * 3.0 / 4.0, -math.Pi * 3.0 / 4.0,
+      math.Pi,             -math.Pi,
+      math.Pi * 5.0 / 4.0, -math.Pi * 5.0 / 4.0,
+      math.Pi * 4.0 / 3.0, -math.Pi * 4.0 / 3.0,
+      math.Pi * 3.0 / 2.0, -math.Pi * 3.0 / 2.0,
+      math.Pi * 5.0 / 3.0, -math.Pi * 5.0 / 3.0,
+      math.Pi * 7.0 / 4.0, -math.Pi * 7.0 / 4.0,
+      math.Pi * 2.0,       -math.Pi * 2.0
+    )
+  def generateSpecialValues( spec: RealSpec, r: Random ) = {
+    val idx = counter
+    counter += 1
+    if(counter >= specialValues.length) {
+      counter = 0
+    }
+    new RealGeneric(spec, specialValues(idx))
+  }
+
   def sinTest( t: FuncTableInt, spec : RealSpec, n : Int, r : Random,
     generatorStr    : String,
     generator       : ( (RealSpec, Random) => RealGeneric),
     tolerance       : Int
     ) = {
     test(s"sin(x), format ${spec.toStringShort}, ${generatorStr}") {
+      counter = 0;
 
       var maxError    = SafeLong(0)
       var xatMaxError = 0.0
@@ -145,6 +171,9 @@ class SinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   sinTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
     "Test sin Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 3)
 
+  sinTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+    "Test sin with special values", generateSpecialValues(_,_), 1)
+
   // over +/- 2pi
 
   sinTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
@@ -190,6 +219,9 @@ class SinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     "Test sin Within [pi, 3/2pi]", generateRealWithin(Pi, 1.5*Pi,_,_), 3)
   sinTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
     "Test sin Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 3)
+
+  sinTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test sin with special values", generateSpecialValues(_,_), 1)
 
   // over +/-2pi
 
@@ -239,6 +271,9 @@ class SinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   sinTest(sinFP48TableI, float48Spec, n, r,
     "Test sin Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 4)
 
+  sinTest(sinFP48TableI, float48Spec, n, r,
+    "Test sin with special values", generateSpecialValues(_,_), 1)
+
 // over +/- 2pi
 //   sinTest(sinFP48TableI, float48Spec, n, r,
 //     "Test sin Within [-10pi, -2pi]", generateRealWithin(-10 * Pi, -2 * Pi,_,_), 3)
@@ -273,6 +308,9 @@ class SinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     "Test sin Within [pi, 3/2pi]", generateRealWithin(Pi, 1.5*Pi,_,_), 7)
   sinTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
     "Test sin Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 7)
+
+  sinTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+    "Test sin with special values", generateSpecialValues(_,_), 2)
 
   val delta = pow(2.0, -32)
   sinTest(sinFP64TableI, RealSpec.Float64Spec, n, r,

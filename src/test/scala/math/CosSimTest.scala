@@ -34,11 +34,37 @@ class CosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     new RealGeneric(spec, rD)
   }
 
+  var counter = 0
+  val specialValues = Seq(
+      +0.0,                -0.0,
+      math.Pi / 4.0,       -math.Pi / 4.0,
+      math.Pi / 3.0,       -math.Pi / 3.0,
+      math.Pi / 2.0,       -math.Pi / 2.0,
+      math.Pi * 2.0 / 3.0, -math.Pi * 2.0 / 3.0,
+      math.Pi * 3.0 / 4.0, -math.Pi * 3.0 / 4.0,
+      math.Pi,             -math.Pi,
+      math.Pi * 5.0 / 4.0, -math.Pi * 5.0 / 4.0,
+      math.Pi * 4.0 / 3.0, -math.Pi * 4.0 / 3.0,
+      math.Pi * 3.0 / 2.0, -math.Pi * 3.0 / 2.0,
+      math.Pi * 5.0 / 3.0, -math.Pi * 5.0 / 3.0,
+      math.Pi * 7.0 / 4.0, -math.Pi * 7.0 / 4.0,
+      math.Pi * 2.0,       -math.Pi * 2.0
+    )
+  def generateSpecialValues( spec: RealSpec, r: Random ) = {
+    val idx = counter
+    counter += 1
+    if(counter >= specialValues.length) {
+      counter = 0
+    }
+    new RealGeneric(spec, specialValues(idx))
+  }
+
   def cosTest( t: FuncTableInt, spec : RealSpec, n : Int, r : Random,
     generatorStr    : String,
     generator       : ( (RealSpec, Random) => RealGeneric),
     tolerance       : Int ) = {
     test(s"cos(x), format ${spec.toStringShort}, ${generatorStr}") {
+      counter = 0;
 
 //       val libc = Native.loadLibrary("c", classOf[libc]).asInstanceOf[libc]
 
@@ -174,6 +200,10 @@ class CosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   cosTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
     "Test cos Within [-64pi, -32pi]", generateRealWithin( -64.0 * Pi,-32.0 * Pi, _,_), 3)
 
+  // special value
+  cosTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+    "Test cos With special value +/- some epsilon", generateSpecialValues(_,_), 2) // XXX
+
   val nOrderBF16     = 0
   val adrWBF16       = 7
   val extraBitsBF16  = 1
@@ -220,6 +250,11 @@ class CosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   cosTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
     "Test cos Within [-64pi, -32pi]", generateRealWithin( -64.0 * Pi,-32.0 * Pi, _,_), 3)
 
+  // special value
+  cosTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test cos With special value +/- some epsilon", generateSpecialValues(_,_), 1)
+
+
   val float48Spec = new RealSpec(10, 511, 37)
 
   val nOrderFP48     = 3
@@ -250,6 +285,10 @@ class CosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     "Test cos Within [pi, 3/2pi]", generateRealWithin(Pi, 1.5*Pi,_,_), 4)
   cosTest(sinFP48TableI, float48Spec, n, r,
     "Test cos Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 4)
+
+  cosTest(sinFP48TableI, float48Spec, n, r,
+    "Test cos With special value +/- some epsilon", generateSpecialValues(_,_), 1)
+
 
 // over +/- 2pi
 //   cosTest(sinFP48TableI, float48Spec, n, r,
@@ -286,6 +325,9 @@ class CosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
     "Test cos Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 7)
 
+  cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+    "Test cos With special value +/- some epsilon", generateSpecialValues(_,_), 2) // XXX
+
   val delta = pow(2.0, -32)
   cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
     "Test sin around 0", generateRealWithin(-delta*Pi, delta*Pi,_,_), 7)
@@ -296,7 +338,6 @@ class CosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
     "Test sin around 3pi/2", generateRealWithin((1.5-delta)*Pi, (1.5+delta)*Pi,_,_), 7)
 
-// over +/-2pi
 //   cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
 //     "Test cos Within [-10pi, -2pi]", generateRealWithin(-10 * Pi, -2 * Pi,_,_), 8)
 //   cosTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
