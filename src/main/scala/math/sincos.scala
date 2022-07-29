@@ -99,7 +99,7 @@ class SinCosPreProcess(
   val oneOverPi = (Real.one / Real.pi)(manW+2+oneOverPiPad).toBigInt
   val oneOverPiW = 1 + manW + oneOverPiPad
 
-  val xOverPiProd          = Cat(1.U(1.W), xman) * oneOverPi.U(oneOverPiW.W)
+  val xOverPiProd          = Mux(xex === 0.U, 0.U, Cat(1.U(1.W), xman) * oneOverPi.U(oneOverPiW.W))
   val xOverPiProdMoreThan2 = xOverPiProd((1+manW) + oneOverPiW - 1)
   val xOverPiEx            = xex -& 2.U + xOverPiProdMoreThan2
   val xOverPiIsZero        = xOverPiEx(exW)
@@ -110,7 +110,7 @@ class SinCosPreProcess(
                                  Cat(xOverPiProd.tail(1), 0.U(1.W)))
   val xOverPiFracW         = (1+manW) + oneOverPiW - 1
   assert(xOverPi.getWidth == xOverPiFracW+1) // fraction bits + 1 integer bit
-  assert(xOverPi(xOverPiFracW) === 1.U || io.en === 0.U) // normalized
+  assert(xOverPi(xOverPiFracW) === 1.U || xOverPiIsZero || io.en === 0.U) // normalized
 
 //   printf("xOverPi      = %d\n", xOverPi)
 //   printf("xOverPiFracW = %d\n", xOverPiFracW.U)
@@ -156,7 +156,7 @@ class SinCosPreProcess(
   // --------------------------------------------------------------------------
   // special value check: if x is inf or nan, then z is nan.
 
-  val znan = ~(xex.orR) // if xex == 1,
+  val znan = xex.andR
   io.out.znan := ShiftRegister(znan, nStage)
 
   // --------------------------------------------------------------------------
@@ -165,7 +165,7 @@ class SinCosPreProcess(
   assert(xOverPiAligned.getWidth == 1 + xOverPiFracW)
   // remove bits that represent larger than 2
   val ymanPos =  xOverPiAligned.tail(2)
-  val ymanNeg = ~xOverPiAligned.tail(2) + 1.U
+  val ymanNeg = ~xOverPiAligned.tail(2)// + 1.U
 
   // sin(x)                 cos(x)
   // 2MSBs 00 01 10 11      2MSBs 00 01 10 11     MSB(0) | isSin  |   res
@@ -178,6 +178,7 @@ class SinCosPreProcess(
   //         pi-x                pi/2-x
 
   val ymanAligned = Mux(xOverPiAligned2MSBs(0) ^ io.isSin, ymanPos, ymanNeg)
+//   printf("cir: ymanAligned = %d(%b)\n", ymanAligned , ymanAligned )
 
   // if 0 < x < pi/2, then we use x/pi itself to avoid
   // loss of precision due to alignment to pi.
@@ -188,7 +189,7 @@ class SinCosPreProcess(
   assert(ymanAsIs.getWidth == ymanPos.getWidth)
   val yman0    = Mux(nonAlign, ymanAsIs, ymanAligned)
   val yex0     = Mux(nonAlign, yexAsIs, (exBias-2).U(exW.W))
-  val ymanIsNonZero = yman0.orR
+  val ymanIsNonZero = yman0.orR // XXX
 
 //   printf("cir: xOverPi  = %d(%b)\n", xOverPi , xOverPi )
 //   printf("cir: ymanAsIs = %d(%b)\n", ymanAsIs, ymanAsIs)
@@ -206,7 +207,8 @@ class SinCosPreProcess(
   val yman0ShiftW   = log2Up(yman0W)
   val yman0Shift    = yman0Shift0(yman0ShiftW-1, 0)
   val yman0Shifted  = (yman0 << yman0Shift)(yman0W-1, 0)
-  assert(yman0Shifted(yman0W-1) === 1.U || io.en === 0.U)
+  // if x == 0, then postprocess (polynomial * x) makes the result 0.
+  assert(yman0Shifted(yman0W-1) === 1.U || xOverPiIsZero || io.en === 0.U)
   val yman0RoundBit = yman0W - manW - 1
   val yman0Rounded  = yman0Shifted(yman0W-2, yman0RoundBit) +&
                       yman0Shifted(yman0RoundBit-1)
@@ -221,9 +223,9 @@ class SinCosPreProcess(
 
   val ymanNonZero = yman0Rounded(manW-1, 0)
   val yexNonZero = yex0 - yman0Shift + yman0MoreThan2
-
-  val yex  = Fill(exW,  ymanIsNonZero) & yexNonZero  // if it's zero, return zero.
-  val yman = Fill(manW, ymanIsNonZero) & ymanNonZero
+  // if it's zero, return zero.
+  val yex  = Mux(!ymanIsNonZero, 0.U, yexNonZero )
+  val yman = Mux(!ymanIsNonZero, 0.U, ymanNonZero)
 //   printf("cir:yex  = %d\n", yex)
 //   printf("cir:yman = %b\n", yman)
 
@@ -430,10 +432,11 @@ class SinCosPostProcess(
 
   val znan = io.pre.znan
   val zone = io.pre.zone
+  val zzero = io.pre.yex === 0.U
 
   val zsgn = io.pre.zsgn
-  val zex  = Mux(znan, maskI(exW).U(exW.W), Mux(zone, exBias.U(exW.W), zex0))
-  val zman = Mux(znan || zone, Cat(znan, 0.U((manW-1).W)), zman0)
+  val zex  = Mux(zzero, 0.U, Mux(znan, maskI(exW).U(exW.W), Mux(zone, exBias.U(exW.W), zex0)))
+  val zman = Mux(zzero, 0.U, Mux(znan || zone, Cat(znan, 0.U((manW-1).W)), zman0))
 
   val z = Cat(zsgn, zex, zman)
   assert(z.getWidth == spec.W)
