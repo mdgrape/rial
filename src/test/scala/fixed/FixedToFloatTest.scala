@@ -96,6 +96,10 @@ class FixedToFloatTest extends AnyFlatSpec
     convTest( new FixedSpec(32, 20, true, true), None, RealSpec.Float32Spec,
       RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-20-1))
   }
+  it should f"Converter int to Float with pipereg 0" in {
+    convTest( new FixedSpec(32, 24, true, true), Some(5, 0), RealSpec.Float32Spec,
+      RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-1))
+  }
 
   it should f"Converter signed Q30 to Float with pipereg 0" in {
     convTest( new FixedSpec(32, 30, true, true), None, RealSpec.Float32Spec,
