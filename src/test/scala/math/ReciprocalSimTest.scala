@@ -37,6 +37,25 @@ class ReciprocalSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     new RealGeneric (spec, SafeLong(BigInt(spec.W, r)))
   }
 
+  var counter = 0
+  val specialValues = Seq(
+      0.0,
+     -0.0,
+      1.0,
+      2.0,
+      4.0,
+      8.0,
+      16.0,
+    )
+  def generateSpecialValues( spec: RealSpec, r: Random ) = {
+    val idx = counter
+    counter += 1
+    if(counter >= specialValues.length) {
+      counter = 0
+    }
+    new RealGeneric(spec, specialValues(idx))
+  }
+
   def errorLSB( x : RealGeneric, y : Double ) : Double = {
     val err = x.toDouble - y
     java.lang.Math.scalb(err, -x.exNorm+x.spec.manW)
@@ -46,6 +65,7 @@ class ReciprocalSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     generatorStr : String, generator : ( (RealSpec, Random) => RealGeneric),
     tolerance: Int) = {
     test(s"1/x, format ${spec.toStringShort}, ${generatorStr}") {
+      counter = 0
 
       var maxError   = 0.0
       var xatMaxError = 0.0
@@ -115,6 +135,8 @@ class ReciprocalSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     "Test Within (-128,128)",generateRealWithin(128.0,_,_), 1)
   reciprocalTest(reciprocalF32TableI, RealSpec.Float32Spec, n, r,
     "Test All range",generateRealFull(_,_), 1 )
+  reciprocalTest(reciprocalF32TableI, RealSpec.Float32Spec, n, r,
+    "Test Special Values",generateSpecialValues(_,_), 1 )
 
   val reciprocalBF16TableI = ReciprocalSim.reciprocalTableGeneration( 0, 7, 7, 7 )
 
@@ -122,6 +144,8 @@ class ReciprocalSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     "Test Within (-128,128)",generateRealWithin(128.0,_,_), 1)
   reciprocalTest(reciprocalBF16TableI, RealSpec.BFloat16Spec, n, r,
     "Test All range",generateRealFull(_,_), 1 )
+  reciprocalTest(reciprocalBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test Special Values",generateSpecialValues(_,_), 1 )
 
   val float48Spec = new RealSpec(10, 511, 37)
   val reciprocalFP48TableI = ReciprocalSim.reciprocalTableGeneration(3, 10, 37, 37+2 )
@@ -130,6 +154,8 @@ class ReciprocalSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     "Test Within (-128,128)",generateRealWithin(128.0,_,_), 1)
   reciprocalTest(reciprocalFP48TableI, float48Spec, n, r,
     "Test All range",generateRealFull(_,_), 1 )
+  reciprocalTest(reciprocalFP48TableI, float48Spec, n, r,
+    "Test Special Values",generateSpecialValues(_,_), 1 )
 
   val reciprocalFP64TableI = ReciprocalSim.reciprocalTableGeneration(3, 12, 52, 52+2 )
 
@@ -137,4 +163,6 @@ class ReciprocalSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     "Test Within (-128,128)",generateRealWithin(128.0,_,_), 3) // XXX 3!
   reciprocalTest(reciprocalFP64TableI, RealSpec.Float64Spec, n, r,
     "Test All range",generateRealFull(_,_), 3 )
+  reciprocalTest(reciprocalFP64TableI, RealSpec.Float64Spec, n, r,
+    "Test Special Values",generateSpecialValues(_,_), 1 )
 }
