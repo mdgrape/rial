@@ -39,6 +39,24 @@ class SqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     new RealGeneric (spec, SafeLong(BigInt(spec.W, r)))
   }
 
+  var counter = 0
+  val specialValues = Seq(
+      0.0,
+     -0.0,
+      1.0,
+      2.0,
+      4.0,
+    )
+  def generateSpecialValues( spec: RealSpec, r: Random ) = {
+    val idx = counter
+    counter += 1
+    if(counter >= specialValues.length) {
+      counter = 0
+    }
+    new RealGeneric(spec, specialValues(idx))
+  }
+
+
   def errorLSB( x : RealGeneric, y : Double ) : Double = {
     val err = x.toDouble - y
     java.lang.Math.scalb(err, -x.exNorm+x.spec.manW)
@@ -135,6 +153,8 @@ class SqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     "Test Within (-128,128)",generateRealWithin(128.0,_,_), 1)
   sqrtTest(sqrtF32TableI, RealSpec.Float32Spec, n, r,
     "Test All range",generateRealFull(_,_), 1 )
+  sqrtTest(sqrtF32TableI, RealSpec.Float32Spec, n, r,
+    "Test special value",generateSpecialValues(_,_), 1 )
 
   val sqrtBF16TableI = SqrtSim.sqrtTableGeneration(0, 7, 7, 7 ) // [1,2) + [2,4) + 1.0
 
@@ -142,6 +162,8 @@ class SqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     "Test Within (-128,128)",generateRealWithin(128.0,_,_), 1)
   sqrtTest(sqrtBF16TableI, RealSpec.BFloat16Spec, n, r,
     "Test All range",generateRealFull(_,_), 1 )
+  sqrtTest(sqrtBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test special value",generateSpecialValues(_,_), 1 )
 
   val float48Spec = new RealSpec(10, 511, 37)
   val sqrtFP48TableI = SqrtSim.sqrtTableGeneration(3, 10, 37, 37+4 )
@@ -150,6 +172,8 @@ class SqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     "Test Within (-128,128)",generateRealWithin(128.0,_,_), 1)
   sqrtTest(sqrtFP48TableI, float48Spec, n, r,
     "Test All range",generateRealFull(_,_), 1 )
+  sqrtTest(sqrtFP48TableI, float48Spec, n, r,
+    "Test special value",generateSpecialValues(_,_), 1 )
 
   val sqrtFP64TableI = SqrtSim.sqrtTableGeneration(3, 10, 52, 52+1 )
 
@@ -157,4 +181,6 @@ class SqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     "Test Within (-128,128)",generateRealWithin(128.0,_,_), 3) // XXX 3!
   sqrtTest(sqrtFP64TableI, RealSpec.Float64Spec, n, r,
     "Test All range",generateRealFull(_,_), 3 )
+  sqrtTest(sqrtFP64TableI, RealSpec.Float64Spec, n, r,
+    "Test special value",generateSpecialValues(_,_), 3 )
 }

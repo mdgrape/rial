@@ -52,6 +52,23 @@ class SqrtTest extends AnyFlatSpec
     new RealGeneric (spec, SafeLong(BigInt(spec.W, r)))
   }
 
+  var counter = 0
+  val specialValues = Seq(
+      0.0,
+     -0.0,
+      1.0,
+      2.0,
+      4.0,
+    )
+  def generateSpecialValues( spec: RealSpec, r: Random ) = {
+    val idx = counter
+    counter += 1
+    if(counter >= specialValues.length) {
+      counter = 0
+    }
+    new RealGeneric(spec, specialValues(idx))
+  }
+
   def errorLSB( x : RealGeneric, y : Double ) : Double = {
     val err = x.toDouble - y
     java.lang.Math.scalb(err, -x.exNorm+x.spec.manW)
@@ -131,16 +148,22 @@ class SqrtTest extends AnyFlatSpec
     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none,
     n, r, "Test All range",generateRealFull(_,_) )
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none,
+    n, r, "Test Special Values",generateSpecialValues(_,_) )
 
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline,
     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline,
     n, r, "Test All range",generateRealFull(_,_) )
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline,
+    n, r, "Test Special Values",generateSpecialValues(_,_) )
 
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline,
     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline,
     n, r, "Test All range",generateRealFull(_,_) )
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline,
+    n, r, "Test Special Values",generateSpecialValues(_,_) )
 
   val nOrderBF16 = 0
   val adrWBF16 = 7
@@ -150,16 +173,22 @@ class SqrtTest extends AnyFlatSpec
     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none,
     n, r, "Test All range",generateRealFull(_,_) )
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none,
+    n, r, "Test Special Values",generateSpecialValues(_,_) )
 
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline,
     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline,
     n, r, "Test All range",generateRealFull(_,_) )
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline,
+    n, r, "Test Special Values",generateSpecialValues(_,_) )
 
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline,
     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline,
     n, r, "Test All range",generateRealFull(_,_) )
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline,
+    n, r, "Test Special Values",generateSpecialValues(_,_) )
 
 // It takes too long(at least >6min) to compile verilator-generated sources.
 //   val float48Spec = new RealSpec(10, 511, 37)
