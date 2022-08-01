@@ -217,7 +217,9 @@ class ReciprocalOtherPath(
     (io.x.zero, io.x.inf || zex0 === 0.U)
   }
   val znan  = io.x.nan
-  val zIsNonTable = znan || zinf || zzero
+  val zman0 = (io.x.man === 0.U) && (!io.x.zero)
+  // if x.man == 0, that means x = 2^N. then z = 2^-N, so zman = 0.
+  val zIsNonTable = znan || zinf || zzero || zman0
 
   io.zother.znan := ShiftRegister(znan, nStage)
   io.zother.zIsNonTable := ShiftRegister(zIsNonTable, nStage)

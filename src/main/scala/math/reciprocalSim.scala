@@ -54,7 +54,7 @@ object ReciprocalSim {
     val calcW = manW + extraBits
 
     val zman0 = if (order==0) {
-      if (adrW<manW) 
+      if (adrW<manW)
         println("WARNING: table address width < mantissa width, for polynomial order is zero. address width set to mantissa width.")
       val adr = man.toInt
       if (man==0) {0} else {t.interval(adr).eval(0L, 0)}
