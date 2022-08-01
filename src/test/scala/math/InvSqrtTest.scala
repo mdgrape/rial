@@ -87,6 +87,7 @@ class InvSqrtTest extends AnyFlatSpec
       test( new MathFunctions(spec, nOrder, adrW, extraBits, stage, None, false, false)).
         withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
         {
+          counter = 0
           val maxCbit    = c.getMaxCbit
           val maxCalcW   = c.getMaxCalcW
           val nstage     = c.getStage

@@ -66,6 +66,7 @@ class SqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     generatorStr : String, generator : ( (RealSpec, Random) => RealGeneric),
     tolerance: Int) = {
     test(s"sqrt(x), format ${spec.toStringShort}, ${generatorStr}") {
+      counter = 0
 
       var maxError   = 0.0
       var xatMaxError = 0.0

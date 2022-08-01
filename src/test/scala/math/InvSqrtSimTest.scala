@@ -59,6 +59,8 @@ class InvSqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   def invsqrtTest(t : FuncTableInt, spec : RealSpec, n : Int, r : Random,
     generatorStr : String, generator : ( (RealSpec, Random) => RealGeneric), tolerance : Int ) = {
     test(s"invsqrt(x), format ${spec.toStringShort}, ${generatorStr}") {
+      counter = 0
+
       var maxError   = 0.0
       var xatMaxError = 0.0
       var zatMaxError = 0.0

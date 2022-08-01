@@ -56,6 +56,7 @@ class ACosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     generator       : ( (RealSpec, Random) => RealGeneric),
     tolerance       : Int ) = {
     test(s"acos(x), format ${spec.toStringShort}, ${generatorStr}") {
+      counter = 0
 
       var maxError    = 0.0
       var xatMaxError = 0.0
