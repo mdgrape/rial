@@ -55,7 +55,6 @@ object InvSqrtSim {
         nOrder
       }
     val calcW = manW + extraBits
-
     val zman0 = if (order==0) {
       if (adrW<manW) {
         println("WARNING: table address width < mantissa width, for polynomial order is zero. address width set to mantissa width.")
@@ -82,7 +81,7 @@ object InvSqrtSim {
         SafeLong(0)
       } else if(res0 >= (SafeLong(1)<<calcW)) {
         println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=${x.toDouble}")
-        maskSL(calcW)
+        SafeLong(slice(0, calcW, res0)) // in the circuit, msb will be dropped
       } else {
         SafeLong(res0)
       }
@@ -93,9 +92,13 @@ object InvSqrtSim {
       (zman0>>extraBits) + bit(extraBits-1, zman0)
     } else {zman0}
 
-    val zman = if(bit(manW, zmanRounded) == 1) {maskSL(manW)} else {zmanRounded}
+    val (zex, zman) = if(x.ex % 2 == 1 && x.man == SafeLong(0) && !x.isZero) {
+      (zEx+1, SafeLong(0))
+    } else {
+      (zEx, zmanRounded)
+    }
 
-    new RealGeneric(x.spec, zSgn, zEx, zman)
+    new RealGeneric(x.spec, zSgn, zex, zman)
   }
 
   def invsqrtTableGeneration( order : Int, adrW : Int, manW : Int, fracW : Int,
@@ -108,8 +111,13 @@ object InvSqrtSim {
     // XXX: assuming exBias is odd. That means that, in case of exNobias == 0,
     //      the MSB is 1.
 
-    val tableD = new FuncTableDouble(
-      x => if(x<0.5) { (2.0/sqrt(x*4.0+2.0))-1.0 } else { (2.0/sqrt(x*2.0))-1.0 }, order )
+    val tableD = new FuncTableDouble(x => {
+      if(x<0.5) {
+        (2.0/sqrt(x*4.0+2.0)) - 1.0
+      } else {
+        (2.0/sqrt(x*2.0)) - 1.0
+      }
+    }, order )
 
     tableD.addRange(0.0, 1.0, 1<<(adrW+1)) // this makes resulting table adrW+1
     new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )

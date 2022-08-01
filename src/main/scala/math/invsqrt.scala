@@ -173,8 +173,10 @@ class InvSqrtOtherPath(
   val znan  = io.x.nan
   val zinf  = io.x.zero || xneg
   val zzero = io.x.inf
+  val zman0 = (io.x.man === 0.U) && (!io.x.zero) && (io.x.ex(0) === (exBias % 2).U(1.W))
+  // if x.man == 0 && x.ex == 2N, that means x = 2^2N. then z = 2^-N, so zman = 0.
 
-  val zIsNonTable = znan || zinf || zzero
+  val zIsNonTable = znan || zinf || zzero || zman0
   io.zother.zIsNonTable := ShiftRegister(zIsNonTable, nStage)
   io.zother.znan        := ShiftRegister(znan,        nStage)
 
@@ -182,7 +184,8 @@ class InvSqrtOtherPath(
   val xExHalf    = xExNobias(exW-1) ## xExNobias(exW-1, 1) // arith right shift
 
   val zEx0 = ~xExHalf // -(xex>>1)-1 = ~(xex>>1)+1-1 = ~(xex>>1)
-  val zEx  = Mux(zinf || znan, maskU(exW), Mux(zzero, 0.U(exW.W), zEx0 + exBias.U))
+  val zEx  = Mux(zinf || znan, maskU(exW),
+             Mux(zzero, 0.U(exW.W), zEx0 + zman0.asUInt + exBias.U))
   val zSgn = 0.U(1.W) // always positive.
 
   io.zother.zex  := ShiftRegister(zEx , nStage)
