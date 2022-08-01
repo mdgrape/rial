@@ -28,6 +28,23 @@ class ACosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     new RealGeneric(spec, rD)
   }
 
+  var counter = 0
+  val specialValues = Seq(
+      0.0,                -0.0,
+      1.0,                -1.0,
+      1.0 / 2.0,          -1.0 / 2.0,
+      sqrt(2.0) / 2.0,    -sqrt(2.0) / 2.0,
+      sqrt(3.0) / 2.0,    -sqrt(3.0) / 2.0,
+    )
+  def generateSpecialValues( spec: RealSpec, r: Random ) = {
+    val idx = counter
+    counter += 1
+    if(counter >= specialValues.length) {
+      counter = 0
+    }
+    new RealGeneric(spec, specialValues(idx))
+  }
+
   def errorLSB( x : RealGeneric, y : Double ) : Double = {
     val err = x.toDouble - y
     java.lang.Math.scalb(err, -x.exNorm+x.spec.manW)
@@ -152,6 +169,8 @@ class ACosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   acosTest(acosFP32Table, sqrtFP32Table, None, RealSpec.Float32Spec, n, r,
     "Test Puiseux: close to 1.0: [1-2^-4, 1.0]", generateRealWithin(1.0-pow(2.0, smallValueFP32)+pow(2.0, -23), 1.0,_,_), 3) // 2ULPs
 
+  acosTest(acosFP32Table, sqrtFP32Table, None, RealSpec.Float32Spec, n, r,
+    "Test special value", generateSpecialValues(_,_), 1)
 
   val nOrderBF16    = 0
   val adrWBF16      = 7
@@ -186,6 +205,8 @@ class ACosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     f"Test normal table 0.5 < x < 1.0:  [0.5, 1.0]", generateRealWithin(0.5, 1.0,_,_), 1)
   acosTest(acosBF16Table, sqrtBF16Table, Some(acosExBF16Table), RealSpec.BFloat16Spec, n, r,
     f"Test close to 1.0: [1-2^${smallValueBF16}, 1.0]", generateRealWithin(1.0-pow(2.0, smallValueBF16)+pow(2.0, -RealSpec.BFloat16Spec.manW), 1.0,_,_), 1)
+  acosTest(acosBF16Table, sqrtBF16Table, Some(acosExBF16Table), RealSpec.BFloat16Spec, n, r,
+    "Test special value", generateSpecialValues(_,_), 1)
 
 
   val nOrderFP48 = 3
@@ -218,4 +239,7 @@ class ACosSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     "Test normal table x > 0.5:  [0.5, 1-2^-4]", generateRealWithin(0.5+pow(2.0, -35), 1.0-pow(2.0, smallValueFP48)+pow(2.0, -35),_,_), 31) // XXX
   acosTest(acosFP48Table, sqrtFP48Table, None, float48Spec, n, r,
     "Test Puiseux: close to 1.0: [1-2^-4, 1.0]", generateRealWithin(1.0-pow(2.0, smallValueFP48)+pow(2.0, -35), 1.0,_,_), 3) // 2ULPs
+
+  acosTest(acosFP48Table, sqrtFP48Table, None, float48Spec, n, r,
+    "Test special value", generateSpecialValues(_,_), 1)
 }
