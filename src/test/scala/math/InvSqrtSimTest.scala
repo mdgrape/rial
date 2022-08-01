@@ -34,6 +34,23 @@ class InvSqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     new RealGeneric (spec, SafeLong(BigInt(spec.W, r)))
   }
 
+  var counter = 0
+  val specialValues = Seq(
+      0.0,
+     -0.0,
+      1.0,
+      2.0,
+      4.0,
+    )
+  def generateSpecialValues( spec: RealSpec, r: Random ) = {
+    val idx = counter
+    counter += 1
+    if(counter >= specialValues.length) {
+      counter = 0
+    }
+    new RealGeneric(spec, specialValues(idx))
+  }
+
   def errorLSB( x : RealGeneric, y : Double ) : Double = {
     val err = x.toDouble - y
     java.lang.Math.scalb(err, -x.exNorm+x.spec.manW)
@@ -114,6 +131,8 @@ class InvSqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     "Test Within (-128,128)",generateRealWithin(128.0,_,_), 1)
   invsqrtTest(invsqrtF32TableI, RealSpec.Float32Spec, n, r,
     "Test All range",generateRealFull(_,_), 1 )
+  invsqrtTest(invsqrtF32TableI, RealSpec.Float32Spec, n, r,
+    "Test special value",generateSpecialValues(_,_), 1 )
 
   val invsqrtBF16TableI  = InvSqrtSim.invsqrtTableGeneration( 0, 7, 7, 7 )
 
@@ -121,6 +140,8 @@ class InvSqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     "Test Within (-128,128)",generateRealWithin(128.0,_,_), 1)
   invsqrtTest(invsqrtBF16TableI, RealSpec.BFloat16Spec, n, r,
     "Test All range",generateRealFull(_,_), 1 )
+  invsqrtTest(invsqrtBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test special value",generateSpecialValues(_,_), 1 )
 
   val invsqrtBF16ex1TableI  = InvSqrtSim.invsqrtTableGeneration( 0, 7, 7, 7+1 )
 
@@ -128,6 +149,8 @@ class InvSqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     "Test Within (-128,128) BF16 ex=1",generateRealWithin(128.0,_,_), 1)
   invsqrtTest(invsqrtBF16TableI, RealSpec.BFloat16Spec, n, r,
     "Test All range BF16 ex=1",generateRealFull(_,_), 1 )
+  invsqrtTest(invsqrtBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test special value BF16 ex=1",generateSpecialValues(_,_), 1 )
 
   val float48Spec = new RealSpec(10, 511, 37)
   val invsqrtFP48TableI = InvSqrtSim.invsqrtTableGeneration(3, 10, 37, 37+4 )
@@ -136,6 +159,8 @@ class InvSqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     "Test Within (-128,128)",generateRealWithin(128.0,_,_), 1)
   invsqrtTest(invsqrtFP48TableI, float48Spec, n, r,
     "Test All range",generateRealFull(_,_), 1 )
+  invsqrtTest(invsqrtFP48TableI, float48Spec, n, r,
+    "Test special value",generateSpecialValues(_,_), 1 )
 
   val invsqrtFP64TableI = InvSqrtSim.invsqrtTableGeneration(3, 11, 52, 52+2 )
 
@@ -143,4 +168,6 @@ class InvSqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     "Test Within (-128,128)",generateRealWithin(128.0,_,_), 7) // XXX 7!
   invsqrtTest(invsqrtFP64TableI, RealSpec.Float64Spec, n, r,
     "Test All range",generateRealFull(_,_), 7 )
+  invsqrtTest(invsqrtFP64TableI, RealSpec.Float64Spec, n, r,
+    "Test special value",generateSpecialValues(_,_), 3 )
 }
