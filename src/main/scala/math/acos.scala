@@ -149,7 +149,7 @@ class ACosPreProcess(
 //     printf("cir: yex    = %d\n", yex.zext - exBias.S)
 //     printf("cir: ymanW1 = %b\n", ymanW1)
 
-    assert(!io.en || (ymanW1(manW) === 1.U))
+    assert(!io.en || (ymanW1(manW) === 1.U) || xman === 0.U)
 
     // ---------------------------------------------------------------------------
     // calc adr and dx
