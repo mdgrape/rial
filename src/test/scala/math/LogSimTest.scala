@@ -28,6 +28,25 @@ class LogSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     new RealGeneric(spec, rD)
   }
 
+  var counter = 0
+  val specialValues = Seq(
+      1.0,
+      math.E / 2.0,
+      math.E,
+      math.E * 2.0,
+      pow(math.E, 2),
+      pow(math.E, 3),
+      pow(math.E, 4),
+    )
+  def generateSpecialValues( spec: RealSpec, r: Random ) = {
+    val idx = counter
+    counter += 1
+    if(counter >= specialValues.length) {
+      counter = 0
+    }
+    new RealGeneric(spec, specialValues(idx))
+  }
+
   def errorLSB( x : RealGeneric, y : Double ) : Double = {
     val err = x.toDouble - y
     java.lang.Math.scalb(err, -x.exNorm+x.spec.manW)
@@ -38,6 +57,7 @@ class LogSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     generator       : ( (RealSpec, Random) => RealGeneric),
     tolerance       : Int ) = {
     test(s"log(x), format ${spec.toStringShort}, ${generatorStr}") {
+      counter = 0
 
       var maxError    = 0.0
       var xatMaxError = 0.0
@@ -159,6 +179,9 @@ class LogSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   logTest(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
     "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_), 1)
 
+  logTest(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+    "Test Special Values", generateSpecialValues(_,_), 1)
+
   val nOrderBF16    = 0
   val adrWBF16      = 7
   val extraBitsBF16 = 1
@@ -196,5 +219,7 @@ class LogSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
 
   logTest(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
     "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_), 1)
+  logTest(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
+    "Test Special Values", generateSpecialValues(_,_), 1)
 
 }
