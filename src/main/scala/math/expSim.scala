@@ -149,11 +149,19 @@ object ExpSim {
     }
 
     val dxbp = manW-adrW-1
-    val d    = slice(padding, dxbp+1, xfrac) - (SafeLong(1) << dxbp) // DO NOT round here, because we have correction term
+    val d    = slice(padding, dxbp+1, xfrac) - (SafeLong(1) << dxbp)
     val adr  = slice(padding+dxbp+1, adrW, xfrac)
 
-    val zman = t.interval(adr.toInt).eval(d.toLong, dxbp).toSafeLong
-    assert(0 <= zman && zman < (SafeLong(1)<<fracW))
+    val zman = if(x.spec == RealSpec.Float64Spec && xfrac == 0) {
+      // in case of F64 and x << 1, the result of polynomial becomes negative...
+      SafeLong(0)
+    } else {
+      t.interval(adr.toInt).eval(d.toLong, dxbp).toSafeLong
+    }
+    assert(0 <= zman && zman < (SafeLong(1)<<fracW),
+      f"x = ${x.toDouble}, dx = ${d.toLong.toBinaryString}, " +
+      f"zman = ${zman.toLong.toBinaryString} should be in " +
+      f"[0, ${ (SafeLong(1)<<fracW).toLong.toBinaryString})")
 
     val zmanRound = if(extraBits > 0) {
       (zman >> extraBits) + bit(extraBits-1, zman)
