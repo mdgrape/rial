@@ -43,9 +43,10 @@ class AddFPGeneric(
   val (yzero, yinf, ynan) = FloatChiselUtil.checkValue(ySpec, io.y)
   val diffSgn = (xsgn ^ ysgn).asBool
 
-  val xyInf  = xinf || yinf
+  // inf + inf = inf, -inf - inf = -inf, inf - inf = nan
+  val xyNaN  = xnan || ynan || (xinf && yinf && xsgn =/= ysgn)
+  val xyInf  = (xinf || yinf) && !xyNaN
   val xyInfSgn = ! ((xinf && !xsgn) || (yinf && !ysgn))
-  val xyNaN  = xnan || ynan
   val xyBothZero = xzero && yzero
   dbgPrintf("%x %x\n",  io.x, io.y)
   dbgPrintf("%b %b %b\n",  xyInf, xyNaN, xyBothZero)
