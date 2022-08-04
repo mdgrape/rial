@@ -314,10 +314,11 @@ class AddFPGeneric(
     Mux (zero, 0.U(zSpec.exW), zex0(zSpec.exW-1,0)))
   val zman = Mux(infOrNaN || zero, xyNaN ## 0.U((zSpec.manW-1).W), zman0(zSpec.manW-1, 0))
   val zsgn = if(roundSpec == RoundSpec.truncate) {
-    Mux(xyBothZero, xsgn | ysgn, (!xyInf) && Mux(xyInf, xyInfSgn, zsgn0))
+    Mux(xyNaN, 0.U(1.W), Mux(xyBothZero, xsgn | ysgn, Mux(xyInf, xyInfSgn, zsgn0)))
   } else {
-    Mux(xyBothZero, xsgn & ysgn, (!xyInf) && Mux(xyInf, xyInfSgn, zsgn0))
+    Mux(xyNaN, 0.U(1.W), Mux(xyBothZero, xsgn & ysgn, Mux(xyInf, xyInfSgn, zsgn0)))
   }
+  // currently it does not distinguish positive NaN and negative NaN
 
   val z0 = zsgn ## zex ## zman
 
