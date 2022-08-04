@@ -141,7 +141,7 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
       }
     }
     if (this.isInfinite && that.isInfinite) {
-      if (this.sgn == that.sgn) {
+      if (this.sgn != that.sgn) { // inf - inf = nan, inf + inf = inf
         if(resSpec.disableNaN) {
           return inf(resSpec, this.sgn)
         } else {
@@ -151,7 +151,7 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
         return inf(resSpec, this.sgn)
       }
     }
-    if (this.isInfinite) {return inf(resSpec, sgn)}
+    if (this.isInfinite) {return inf(resSpec, this.sgn)}
     if (that.isInfinite) {return inf(resSpec, that.sgn)}
 
     if (this.isZero && that.isZero) {
