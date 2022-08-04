@@ -86,6 +86,11 @@ class AddFPTest extends AnyFlatSpec
 
     (x, y)
   }
+  def generateRealInfPair ( xSpec: RealSpec, ySpec: RealSpec, r : Random ) = {
+    val x = RealGeneric.inf(xSpec, (if(r.nextBoolean()) {0} else {1}))
+    val y = RealGeneric.inf(ySpec, (if(r.nextBoolean()) {0} else {1}))
+    (x, y)
+  }
 
   def addTest(xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, roundSpec : RoundSpec,
     n : Int, stage : PipelineStageConfig ) = {
@@ -102,7 +107,8 @@ class AddFPTest extends AnyFlatSpec
           ("Test zero+y result",generateRealZeroNonZeroPair(true,_,_,_)),
           ("Test x+zero result",generateRealZeroNonZeroPair(false,_,_,_)),
           ("Test x+inf result",generateRealFiniteInfPair(true,128.0,_,_,_)),
-          ("Test x-inf result",generateRealFiniteInfPair(false,128.0,_,_,_))
+          ("Test x-inf result",generateRealFiniteInfPair(false,128.0,_,_,_)),
+          ("Test inf+/-inf result",generateRealInfPair(_,_,_))
         ) ) {
           println(gen._1)
           for(i <- 1 to n+nstage) {
