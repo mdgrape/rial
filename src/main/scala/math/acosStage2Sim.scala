@@ -66,8 +66,6 @@ object ACosStage2Sim {
 //     println(f"x = ${x.sgn}|${x.ex}(${ex})|${man.toLong.toBinaryString}")
 //     println(f"x = ${x.toDouble}, acos(x) = ${acos(x.toDouble)}")
 
-    val zSgn = 0 // returns acos returns z in [0, pi], so always z >= 0.
-
     assert(0.0 <= x.toDouble && x.toDouble <= 1.0, f"0.0 <= x(${x.toDouble}) <= 1.0")
 
     // ------------------------------------------------------------------------
@@ -99,12 +97,25 @@ object ACosStage2Sim {
     val rhsEx = x.ex
     val zEx = lhsEx + rhsEx - exBias + zMoreThan2 + zMoreThan2AfterRound
 
+    if (!xneg) {
+      return new RealGeneric(x.spec, 0, zEx, slice(0, manW, zManW1))
+    }
+
     // ------------------------------------------------------------------------
-    // subtract from pi if x was negative
+    // subtract z from pi if x was negative
 
-    // TODO
+    val pi = new RealGeneric(spec, Pi)
+    val zShift   = Seq(manW+2, pi.ex - zEx).min
+    assert(zShift > 0)
+    val piAligned = pi.manW1 << zShift
+    val negZ  = piAligned - zManW1
 
-    return new RealGeneric(x.spec, zSgn, zEx, slice(0, manW, zManW1))
+    val negZNormalizeShift = binaryWidthSL(negZ) - (manW+1)
+    val negZNormalized     = negZ >> negZNormalizeShift
+    val negZNormalizedEx   = exBias + 1 + negZNormalizeShift - zShift
+    val negZNormalizedMan  = slice(0, manW, negZNormalized)
+
+    return new RealGeneric(x.spec, 0, negZNormalizedEx, negZNormalizedMan)
   }
 
   def calcExAdrW(spec: RealSpec): Int = {
