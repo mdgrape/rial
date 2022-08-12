@@ -162,9 +162,9 @@ class ACosStage2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   acosTest(acosFP32SqrtTableI, acosFP32ACosTableI, RealSpec.Float32Spec, n, r, "Test Within 2^-4   < x <= 1-2^-4", generateRealWithin(pow(2.0, -4),       1.0 - pow(2.0, -4),_,_), 3, 1)
   acosTest(acosFP32SqrtTableI, acosFP32ACosTableI, RealSpec.Float32Spec, n, r, "Test Within 1-2^-4 < x <= 1",      generateRealWithin(1.0 - pow(2.0, -4), 1.0               ,_,_), 3, 1)
 
-//   acosTest(acosFP32SqrtTableI, acosFP32ACosTableI, RealSpec.Float32Spec, n, r, "Test Within  0      >= x > -2^-4",   generateRealWithin(-pow(2.0,-4),     0.0,             _,_), 3)
-//   acosTest(acosFP32SqrtTableI, acosFP32ACosTableI, RealSpec.Float32Spec, n, r, "Test Within -2^-4   >= x > -1-2^-4", generateRealWithin(-1.0+pow(2.0,-4), -pow(2.0,-4),    _,_), 3)
-//   acosTest(acosFP32SqrtTableI, acosFP32ACosTableI, RealSpec.Float32Spec, n, r, "Test Within -1-2^-4 >= x > -1",      generateRealWithin(-1.0,             -1.0+pow(2.0,-4),_,_), 3)
+  acosTest(acosFP32SqrtTableI, acosFP32ACosTableI, RealSpec.Float32Spec, n, r, "Test Within  0      >= x > -2^-4",   generateRealWithin(-pow(2.0,-4),     0.0,             _,_), 3, 1)
+  acosTest(acosFP32SqrtTableI, acosFP32ACosTableI, RealSpec.Float32Spec, n, r, "Test Within -2^-4   >= x > -1-2^-4", generateRealWithin(-1.0+pow(2.0,-4), -pow(2.0,-4),    _,_), 3, 1)
+  acosTest(acosFP32SqrtTableI, acosFP32ACosTableI, RealSpec.Float32Spec, n, r, "Test Within -1-2^-4 >= x > -1",      generateRealWithin(-1.0,             -1.0+pow(2.0,-4),_,_), 3, 1)
 
   acosTest(acosFP32SqrtTableI, acosFP32ACosTableI, RealSpec.Float32Spec, n, r, "Test Special Values", generateSpecialValues(_,_), 1)
 
