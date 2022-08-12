@@ -171,27 +171,27 @@ class ACosStage1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
 
   acosTest(acosFP32SqrtTableI, acosFP32ACosTableI, RealSpec.Float32Spec, n, r, "Test Special Values", generateSpecialValues(_,_), 1)
 
-//   val nOrderBF16 = 0
-//   val adrWBF16 = 7
-//   val extraBitsBF16 = 1
-//   val acosBF16SqrtTableI = ACosStage1Sim.sqrtTableGeneration(
-//         nOrderBF16, adrWBF16, RealSpec.BFloat16Spec.manW, RealSpec.BFloat16Spec.manW+extraBitsBF16)
-//   val acosBF16ACosTableI       = acosStage2Sim.acosTableGeneration(
-//         nOrderBF16, adrWBF16, RealSpec.BFloat16Spec.manW, RealSpec.BFloat16Spec.manW+extraBitsBF16)
-// 
-//   acosTest(acosBF16SqrtTableI, acosBF16ACosTableI, RealSpec.BFloat16Spec, n, r,
-//     "Test Within y/x > 2^24", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, 24), pow(2.0, 128),_,_), 1)
-//   acosTest(acosBF16SqrtTableI, acosBF16ACosTableI, RealSpec.BFloat16Spec, n, r,
-//     "Test Within y/x > 2^12",  generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, 12), pow(2.0, 24),_,_), 1)
-//   acosTest(acosBF16SqrtTableI, acosBF16ACosTableI, RealSpec.BFloat16Spec, n, r,
-//     "Test Within 1 < y/x < 2^12", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(1.0, pow(2.0, 8),_,_), 2)
-//   acosTest(acosBF16SqrtTableI, acosBF16ACosTableI, RealSpec.BFloat16Spec, n, r,
-//     "Test Within 2^-12 < y/x < 1", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, -12), 1.0,_,_), 2)  // XXX
-//   acosTest(acosBF16SqrtTableI, acosBF16ACosTableI, RealSpec.BFloat16Spec, n, r,
-//     "Test Within y/x < 2^-12", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(0.0, pow(2.0, -12),_,_), 2)
-// 
+  val nOrderBF16 = 0
+  val adrWBF16 = 7
+  val extraBitsBF16 = 1
+  val acosBF16SqrtTableI = ACosStage1Sim.sqrtTableGeneration(
+        nOrderBF16, adrWBF16, RealSpec.BFloat16Spec.manW, RealSpec.BFloat16Spec.manW+extraBitsBF16)
+  val acosBF16ACosTableI = ACosStage2Sim.acosTableGeneration(
+        nOrderBF16, adrWBF16, RealSpec.BFloat16Spec.manW, RealSpec.BFloat16Spec.manW+extraBitsBF16)
+
+  acosTest(acosBF16SqrtTableI, acosBF16ACosTableI, RealSpec.BFloat16Spec, n, r, "Test Within 0      < x <= 2^-4",   generateRealWithin(0.0,                pow(2.0, -4)      ,_,_), 1)
+  acosTest(acosBF16SqrtTableI, acosBF16ACosTableI, RealSpec.BFloat16Spec, n, r, "Test Within 2^-4   < x <= 1-2^-4", generateRealWithin(pow(2.0, -4),       1.0 - pow(2.0, -4),_,_), 1)
+  acosTest(acosBF16SqrtTableI, acosBF16ACosTableI, RealSpec.BFloat16Spec, n, r, "Test Within 1-2^-4 < x <= 1",      generateRealWithin(1.0 - pow(2.0, -4), 1.0               ,_,_), 1)
+
+  acosTest(acosBF16SqrtTableI, acosBF16ACosTableI, RealSpec.BFloat16Spec, n, r, "Test Within  0      >= x > -2^-4",   generateRealWithin(-pow(2.0,-4),     0.0,             _,_), 1)
+  acosTest(acosBF16SqrtTableI, acosBF16ACosTableI, RealSpec.BFloat16Spec, n, r, "Test Within -2^-4   >= x > -1-2^-4", generateRealWithin(-1.0+pow(2.0,-4), -pow(2.0,-4),    _,_), 1)
+  acosTest(acosBF16SqrtTableI, acosBF16ACosTableI, RealSpec.BFloat16Spec, n, r, "Test Within -1-2^-4 >= x > -1",      generateRealWithin(-1.0,             -1.0+pow(2.0,-4),_,_), 1)
+
+  acosTest(acosBF16SqrtTableI, acosBF16ACosTableI, RealSpec.BFloat16Spec, n, r, "Test Special Values", generateSpecialValues(_,_), 1)
+
+
 //   val float48Spec = new RealSpec(10, 511, 37)
-// 
+//
 //   val nOrderFP48 = 3
 //   val adrWFP48 = 10
 //   val extraBitsFP48 = 4
@@ -199,7 +199,7 @@ class ACosStage1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
 //         nOrderFP48, adrWFP48, float48Spec.manW, float48Spec.manW+extraBitsFP48)
 //   val acosFP48ACosTableI       = acosStage2Sim.acosTableGeneration(
 //         nOrderFP48, adrWFP48, float48Spec.manW, float48Spec.manW+extraBitsFP48)
-// 
+//
 //   acosTest(acosFP48SqrtTableI, acosFP48ACosTableI, float48Spec, n, r,
 //     "Test Within y/x > 2^24", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, 24), pow(2.0, 128),_,_), 3)
 //   acosTest(acosFP48SqrtTableI, acosFP48ACosTableI, float48Spec, n, r,
@@ -210,7 +210,7 @@ class ACosStage1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
 //     "Test Within 2^-12 < y/x < 1", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, -12), 1.0,_,_), 3)  // XXX
 //   acosTest(acosFP48SqrtTableI, acosFP48ACosTableI, float48Spec, n, r,
 //     "Test Within y/x < 2^-12", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(0.0, pow(2.0, -12),_,_), 3)
-// 
+//
 //   val nOrderFP64 = 3
 //   val adrWFP64 = 12
 //   val extraBitsFP64 = 4
@@ -218,7 +218,7 @@ class ACosStage1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
 //         nOrderFP64, adrWFP64, RealSpec.Float64Spec.manW, RealSpec.Float64Spec.manW+extraBitsFP64)
 //   val acosFP64ACosTableI       = acosStage2Sim.acosTableGeneration(
 //         nOrderFP64, adrWFP64, RealSpec.Float64Spec.manW, RealSpec.Float64Spec.manW+extraBitsFP64)
-// 
+//
 //   acosTest(acosFP64SqrtTableI, acosFP64ACosTableI, RealSpec.Float64Spec, n, r,
 //     "Test Within y/x > 2^24", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, 24), pow(2.0, 128),_,_), 7, 3)
 //   acosTest(acosFP64SqrtTableI, acosFP64ACosTableI, RealSpec.Float64Spec, n, r,
