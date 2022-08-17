@@ -25,13 +25,14 @@ object SelectFunc {
   val Reciprocal  =  3.U(W.W)
   val Sin         =  4.U(W.W)
   val Cos         =  5.U(W.W)
-  val ACos        =  6.U(W.W)
-  val ATan2Stage1 =  7.U(W.W)
-  val ATan2Stage2 =  8.U(W.W)
-  val Pow2        =  9.U(W.W)
-  val Exp         = 10.U(W.W)
-  val Log2        = 11.U(W.W)
-  val Log         = 12.U(W.W)
+  val ACos1       =  6.U(W.W)
+  val ACos2       =  7.U(W.W)
+  val ATan2Stage1 =  8.U(W.W)
+  val ATan2Stage2 =  9.U(W.W)
+  val Pow2        = 10.U(W.W)
+  val Exp         = 11.U(W.W)
+  val Log2        = 12.U(W.W)
+  val Log         = 13.U(W.W)
 }
 
 class DecomposedRealOutput(val spec: RealSpec) extends Bundle {
@@ -249,38 +250,39 @@ class MathFunctions(
   // --------------------------------------------------------------------------
   // acos
 
-  val acosPre   = Module(new ACosPreProcess (spec, polySpec, stage.preStage))
+  val acosFlagReg = Reg(new ACosFlags())
+
+  val acos1Pre  = Module(new ACosStage1PreProcess(spec, polySpec, stage.preStage))
+  val acos2Pre  = Module(new ACosStage2PreProcess(spec, polySpec, stage.preStage))
   val acosTab   = Module(new ACosTableCoeff (spec, polySpec, maxCbit))
-  val acosOther = Module(new ACosOtherPath  (spec, polySpec, otherStage))
   val acosPost  = Module(new ACosPostProcess(spec, polySpec, stage.postStage))
 
-  val acosPreUseSqrtPCGapReg = if(order != 0) {
-    Some(ShiftRegister(acosPre.io.useSqrt.get, pcGap))
-  } else {None}
+  val acos1PreAdrPCGapReg = ShiftRegister(acos1Pre.io.adr, pcGap)
 
-  val acosPreAdrPCGapReg = ShiftRegister(acosPre.io.adr, pcGap)
-
-  acosPre.io.en        := (io.sel === SelectFunc.ACos)
-  acosPre.io.x         := xdecomp.io.decomp
+  acos1Pre.io.en        := (io.sel === SelectFunc.ACos1)
+  acos1Pre.io.x         := xdecomp.io.decomp
+  acos2Pre.io.en        := (io.sel === SelectFunc.ACos2)
+  acos2Pre.io.x         := xdecomp.io.decomp
   // ------ Preprocess-Calculate ------
-  acosTab.io.en        := (selPCGapReg === SelectFunc.ACos) &&
-                          (!acosPreUseSqrtPCGapReg.getOrElse(false.B))
-  acosTab.io.adr       := acosPreAdrPCGapReg
-  acosOther.io.x       := xdecPCGapReg
-  if(order != 0) {
-    acosOther.io.useSqrt.get := acosPreUseSqrtPCGapReg.get
-    acosOther.io.yex.get     := ShiftRegister(acosPre.io.yex.get,  pcGap)
-    acosOther.io.yman.get    := ShiftRegister(acosPre.io.yman.get, pcGap)
+  acosTab.io.en         := selPCGapReg === SelectFunc.ACos2
+  acosTab.io.adr        := ShiftRegister(acos2Pre.io.adr, pcGap)
+
+  when(selPCReg === SelectFunc.ACos1) {
+    acosFlagReg := acos1Pre.io.special
   }
 
   // after preprocess
   // XXX Since `PCReg`s are delayed by nPreStage, the timing is the same as acosPre output.
-  when(selPCReg =/= SelectFunc.ACos) {
-    assert(acosPre.io.adr === 0.U)
-    assert(acosPre.io.dx.getOrElse(0.U) === 0.U)
+  when(selPCReg =/= SelectFunc.ACos1) {
+    assert(acos1Pre.io.adr === 0.U)
+    assert(acos1Pre.io.dx.getOrElse(0.U) === 0.U)
   }
-  // table takes input from preprocess, so table output is delayed compared to acos input.
-  when(selPCGapReg =/= SelectFunc.ACos || acosPreUseSqrtPCGapReg.getOrElse(false.B)) {
+  when(selPCReg =/= SelectFunc.ACos2) {
+    assert(acos2Pre.io.adr === 0.U)
+    assert(acos2Pre.io.dx.getOrElse(0.U) === 0.U)
+  }
+
+  when(selPCGapReg =/= SelectFunc.ACos2) {
     assert(acosTab.io.cs.asUInt === 0.U)
   }
 
@@ -297,9 +299,9 @@ class MathFunctions(
   sqrtPre.io.en  := (io.sel === SelectFunc.Sqrt || io.sel === SelectFunc.InvSqrt)
   sqrtPre.io.x   := xdecomp.io.decomp
   // ------ Preprocess-Calculate ------
-  sqrtTab.io.en  := (selPCGapReg === SelectFunc.Sqrt || acosPreUseSqrtPCGapReg.getOrElse(false.B))
-  sqrtTab.io.adr := sqrtPreAdrPCGapReg | acosPreAdrPCGapReg
-  sqrtOther.io.x := xdecPCGapReg
+  sqrtTab.io.en  := (selPCGapReg === SelectFunc.Sqrt || selPCGapReg === SelectFunc.ACos1)
+  sqrtTab.io.adr := sqrtPreAdrPCGapReg | acos1PreAdrPCGapReg
+  sqrtOther.io.x := Mux(io.sel === SelectFunc.Sqrt, xdecPCGapReg, ShiftRegister(acos1Pre.io.y, pcGap))
 
   // after preprocess
   when(selPCReg =/= SelectFunc.Sqrt && selPCReg =/= SelectFunc.InvSqrt) {
@@ -307,8 +309,7 @@ class MathFunctions(
     assert(sqrtPre.io.dx.getOrElse(0.U) === 0.U)
   }
   when(selPCGapReg =/= SelectFunc.Sqrt) {
-    assert(sqrtTab.io.cs.asUInt === 0.U ||
-           (selPCGapReg === SelectFunc.ACos && acosPreUseSqrtPCGapReg.getOrElse(false.B)))
+    assert(sqrtTab.io.cs.asUInt === 0.U || selPCGapReg === SelectFunc.ACos1)
   }
 
   // --------------------------------------------------------------------------
@@ -508,7 +509,8 @@ class MathFunctions(
     val polynomialDx = ShiftRegister(sqrtPre.io.dx.get |
                                       recPre.io.dx.get |
                                    sincosPre.io.dx.get |
-                                     acosPre.io.dx.get |
+                                    acos1Pre.io.dx.get |
+                                    acos2Pre.io.dx.get |
                                       recPre.io.dx.get |
                               atan2Stage2Pre.io.dx.get |
                                       expPre.io.dx.get |
@@ -541,11 +543,12 @@ class MathFunctions(
 
   val polynomialResultCPGapReg = ShiftRegister(polynomialEval.io.result, cpGap)
 
-  acosPost.io.en     := (selCPGapReg === SelectFunc.ACos)
-  acosPost.io.zother := ShiftRegister(acosOther.io.zother, cpGap)
+  acosPost.io.en     := (selCPGapReg === SelectFunc.ACos2)
+  acosPost.io.x      := xdecCPGapReg
+  acosPost.io.flags  := acosFlagReg
   acosPost.io.zres   := polynomialResultCPGapReg
 
-  sqrtPost.io.en     := (selCPGapReg === SelectFunc.Sqrt)
+  sqrtPost.io.en     := (selCPGapReg === SelectFunc.Sqrt || selCPGapReg === SelectFunc.ACos1)
   sqrtPost.io.zother := ShiftRegister(sqrtOther.io.zother, cpGap)
   sqrtPost.io.zres   := polynomialResultCPGapReg
 
