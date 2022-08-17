@@ -115,6 +115,8 @@ object ACosStage1Sim {
 
     val y = new RealGeneric(x.spec, 0, xNormalizedEx, xNormalizedMan)
 
+//     println(f"sim: xNormalizedEx  = ${xNormalizedEx}")
+//     println(f"sim: xNormalizedMan = ${xNormalizedMan.toLong.toBinaryString}")
 //     println(f"y = 1 - |x| = ${y.toDouble} should be ${1.0 - abs(x.toDouble)}")
 
     // use the same calc/postproc phase as sqrt.
