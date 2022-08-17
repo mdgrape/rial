@@ -118,10 +118,6 @@ object ACosStage2Sim {
     return new RealGeneric(x.spec, 0, negZNormalizedEx, negZNormalizedMan)
   }
 
-  def calcExAdrW(spec: RealSpec): Int = {
-    return 1
-  }
-
   def acosTableGeneration( order: Int, adrW: Int, manW: Int, fracW: Int,
       calcWidthSetting: Option[Seq[Int]] = None,
       cbitSetting: Option[Seq[Int]] = None
