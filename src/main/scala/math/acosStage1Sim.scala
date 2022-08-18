@@ -101,8 +101,9 @@ object ACosStage1Sim {
     // 1 - |x| is in (0, 1].
 
     if (xConvertedEx == exBias) {
+      // 1 - |x| == 1.
       assert(xConvertedMan == 0, f"xConvertedMan = ${xConvertedMan.toLong.toBinaryString}")
-      return (new RealGeneric(spec, 1.0), negFlag, specialFlag)
+      return (new RealGeneric(spec, 1.0), negFlag, /* 1 - |x| == 1 means x ~ 0*/ 0)
     }
 
     val y = new RealGeneric(x.spec, 0, xConvertedEx, xConvertedMan)
