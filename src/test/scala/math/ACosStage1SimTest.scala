@@ -85,7 +85,7 @@ class ACosStage1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
           assert(!zs._2, f"x(${x.toDouble}) >= 0, z.2 should be false")
         }
 
-        if(x.ex == 0) {
+        if(x.ex == 0 || zi.ex == spec.exBias) {
           assert(zs._3 == 0)
         } else if(x.ex == spec.exBias && x.man == 0) {
           assert(zs._3 == 1)
