@@ -91,50 +91,56 @@ class ACosStage1PreProcess(
   val xman = enable(io.en, io.x.man)
 
   val xLargerThan1 = xex >= exBias.U
+  val xZero = io.x.zero || (exBias - (1+manW+2)).U > xex
 
   // -------------------------------------------------------------------------
   // calc 1 - |x|
 
-  val xShiftMax = log2Up(manW+2)
-  val xShift0   = exBias.U - xex
-  val xShift    = Mux(xShift0.head(1) === 1.U, xShiftMax.U, xShift0.tail(1))
+  val xShiftMax = (1+manW+2).U
+  val xShift0   = exBias.U(exW.W) - xex
+  val xShift    = Mux(xShiftMax < xShift0, xShiftMax, xShift0)
 
-  val xShifted = (Cat(1.U(1.W), xman, 0.U(2.W)) >> xShift)(manW+2-1, 0)
-  val xSubtracted = Mux(xLargerThan1, 0.U, ~xShifted + 1.U)
+  val xShifted = (Cat(1.U(1.W), xman, 0.U(2.W)) >> xShift)
+  val xSubtracted = Mux(xLargerThan1, 0.U, ~(xShifted(manW+2-1, 0)) +& 1.U)
 
   val xNormalizeShift = PriorityEncoder(Reverse(xSubtracted))
-  val xNormalized     = (xSubtracted << xNormalizeShift)(manW+1, 1)
-  val xNormalizedEx0  = exBias.U(exW.W) - xNormalizeShift - xShift
-  val xNormalizedMan0 = xNormalized(manW-1, 0)
-  assert(xNormalized(manW) === 1.U || xNormalized === 0.U) // normalized or zero
-
-  val xNormalizedEx  = Mux(xLargerThan1, 0.U, xNormalizedEx0)
-  val xNormalizedMan = Mux(xLargerThan1, 0.U, xNormalizedMan0)
-
-  // -------------------------------------------------------------------------
-  // do the same thing as sqrt
-
-  val adr = enable(io.en, Cat(xNormalizedEx(0), xNormalizedMan(manW-1, dxW)))
-  io.adr := ShiftRegister(adr, nStage)
-
-  if(order != 0) {
-    val dx = enable(io.en, Cat(~xNormalizedMan(dxW-1), xNormalizedMan(dxW-2, 0)))
-    io.dx.get := ShiftRegister(dx, nStage)
-  }
+  val xNormalized     = (xSubtracted << xNormalizeShift)(1+manW+2-1, 0)
 
 //   printf("cir: xex            = %d\n", xex)
 //   printf("cir: xman           = %b\n", xman)
 //   printf("cir: xShift         = %d\n", xShift)
 //   printf("cir: xShifted       = %b\n", xShifted)
-//   printf("cir: 1              = %b\n", Cat(1.U(1.W), Fill(manW, 0.U(1.W))))
-//   printf("cir: xSub           = %b\n", xSubtracted)
-//   printf("cir: xNormalizedEx  = %d\n", xNormalizedEx )
-//   printf("cir: xNormalizedMan = %b\n", xNormalizedMan)
+//   printf("cir: xSub           = %b(W=%d)\n", xSubtracted, xSubtracted.getWidth.U)
+//   printf("cir: xNormalizeShift= %d\n", xNormalizeShift)
+//   printf("cir: xNormalized    = %b\n", xNormalized)
+  assert(xNormalized(1+manW+2-1) === 1.U || xNormalized === 0.U) // normalized or zero
+
+  val xRounded          = xNormalized(manW+1, 2) +& xNormalized(1)
+  val xRoundedMoreThan2 = xRounded(manW)
+  val xConvertedEx0  = exBias.U(exW.W) - xNormalizeShift + xRoundedMoreThan2
+  val xConvertedMan0 = xRounded(manW-1, 0)
+
+  val xConvertedEx  = Mux(xZero || xConvertedEx0 === exBias.U, exBias.U(exW.W), Mux(xLargerThan1, 0.U, xConvertedEx0))
+  val xConvertedMan = Mux(xZero || xConvertedEx0 === exBias.U, 0.U(manW.W),     Mux(xLargerThan1, 0.U, xConvertedMan0))
+
+  // -------------------------------------------------------------------------
+  // do the same thing as sqrt
+
+  val adr = enable(io.en, Cat(xConvertedEx(0), xConvertedMan(manW-1, dxW)))
+  io.adr := ShiftRegister(adr, nStage)
+
+  if(order != 0) {
+    val dx = enable(io.en, Cat(~xConvertedMan(dxW-1), xConvertedMan(dxW-2, 0)))
+    io.dx.get := ShiftRegister(dx, nStage)
+  }
+
+//   printf("cir: xConvertedEx  = %d\n", xConvertedEx )
+//   printf("cir: xConvertedMan = %b\n", xConvertedMan)
 
   // pass 1-|x| to sqrtOtherPath
   io.y.sgn  := ShiftRegister(enable(io.en, 0.U(1.W)),       nStage)
-  io.y.ex   := ShiftRegister(enable(io.en, xNormalizedEx),  nStage)
-  io.y.man  := ShiftRegister(enable(io.en, xNormalizedMan), nStage)
+  io.y.ex   := ShiftRegister(enable(io.en, xConvertedEx),  nStage)
+  io.y.man  := ShiftRegister(enable(io.en, xConvertedMan), nStage)
   io.y.zero := ShiftRegister(enable(io.en, xLargerThan1),   nStage)
   io.y.inf  := ShiftRegister(enable(io.en, io.x.inf),       nStage)
   io.y.nan  := ShiftRegister(enable(io.en, io.x.nan),       nStage)
