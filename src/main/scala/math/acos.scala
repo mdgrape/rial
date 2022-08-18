@@ -91,7 +91,6 @@ class ACosStage1PreProcess(
   val xman = enable(io.en, io.x.man)
 
   val xLargerThan1 = xex >= exBias.U
-  val xZero = io.x.zero || (exBias - (1+manW+2)).U > xex
 
   // -------------------------------------------------------------------------
   // calc 1 - |x|
@@ -120,8 +119,8 @@ class ACosStage1PreProcess(
   val xConvertedEx0  = exBias.U(exW.W) - xNormalizeShift + xRoundedMoreThan2
   val xConvertedMan0 = xRounded(manW-1, 0)
 
-  val xConvertedEx  = Mux(xZero || xConvertedEx0 === exBias.U, exBias.U(exW.W), Mux(xLargerThan1, 0.U, xConvertedEx0))
-  val xConvertedMan = Mux(xZero || xConvertedEx0 === exBias.U, 0.U(manW.W),     Mux(xLargerThan1, 0.U, xConvertedMan0))
+  val xConvertedEx  = Mux(io.x.zero || xConvertedEx0 === exBias.U, exBias.U(exW.W), Mux(xLargerThan1, 0.U, xConvertedEx0))
+  val xConvertedMan = Mux(io.x.zero || xConvertedEx0 === exBias.U, 0.U(manW.W),     Mux(xLargerThan1, 0.U, xConvertedMan0))
 
   // -------------------------------------------------------------------------
   // do the same thing as sqrt
@@ -148,10 +147,12 @@ class ACosStage1PreProcess(
   // -------------------------------------------------------------------------
   // check if special value
 
-  val specialFlag = Mux(io.x.inf || io.x.nan, ACosSpecialValue.xNaNInf,
-                    Mux(io.x.zero,            ACosSpecialValue.xZero,
-                    Mux(xLargerThan1,         ACosSpecialValue.xOne,
-                                              ACosSpecialValue.xNormal)))
+  val xNaNInf = io.x.inf || io.x.nan
+  val xZero   = io.x.zero || xConvertedEx0 === exBias.U
+  val specialFlag = Mux(xNaNInf,      ACosSpecialValue.xNaNInf,
+                    Mux(xZero,        ACosSpecialValue.xZero,
+                    Mux(xLargerThan1, ACosSpecialValue.xOne,
+                                      ACosSpecialValue.xNormal)))
   io.special.special := ShiftRegister(enable(io.en, specialFlag), nStage)
   io.special.xsgn := ShiftRegister(enable(io.en, xsgn), nStage)
 }
