@@ -349,20 +349,18 @@ class ACosPostProcess(
   val zMan0  = Mux(zMoreThan2AfterRound, zRounded(manW, 1), zRounded(manW-1, 0))
   val zEx0   = io.x.ex + zExInc // table result has ex == exBias
 
-  assert(!io.en || zRounded(manW) === 1.U || zRounded(manW-1) === 1.U)
-
   // -----------------------------------------------------------------------
   // calc pi - z in case of x < 0
 
   val piW = 2+manW+2 // 2 for int part, manW+2 after the decimal point
-  val pi  = Real.pi(manW+2/*after the decimal point*/).toBigInt.U(piW.W)
+  val pi = (realPi.manW1 << 3).toBigInt.U(piW.W)
 
-  val zAligend = zRounded >> (exBias.U - zEx0)
-  val zNeg     = pi - zRounded
+  val zAligned = Cat(1.U(2.W), zMan0, 0.U(2.W)) >> (exBias.U - zEx0)
+  val zNeg     = pi - zAligned
   val zNegMoreThan2 = zNeg(piW-1)
   val zNegShifted   = Mux(zNegMoreThan2 === 1.U, zNeg(piW-1, 3), zNeg(piW-2, 2))
   val zNegRounded   = zNegShifted + Mux(zNegMoreThan2 === 1.U, zNeg(2), zNeg(1))
-  val zNegEx0  = zEx0 + zNegMoreThan2
+  val zNegEx0  = exBias.U(exW.W) + zNegMoreThan2
   val zNegMan0 = zNegRounded(manW-1, 0)
 
   // -----------------------------------------------------------------------
