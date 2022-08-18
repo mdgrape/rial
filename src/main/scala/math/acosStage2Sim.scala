@@ -125,7 +125,7 @@ object ACosStage2Sim {
     val f = (x: Double) => {
       if (x == 0.0) {
         // acos(1 - |x|^2) / x -> sqrt(2) when x -> 0
-        sqrt(2.0)
+        sqrt(2.0) - 1.0
       } else {
         acos(1.0 - x * x) / x - 1.0
       }
