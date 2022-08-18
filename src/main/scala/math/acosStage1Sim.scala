@@ -46,8 +46,8 @@ object ACosStage1Sim {
     val specialFlag =
       if (x.ex == 0) {0} else if(x.ex == exBias && x.man == 0) { 1 } else { 2 }
 
-//     println(f"x = ${x.sgn}|${x.ex}(${ex})|${man.toLong.toBinaryString}")
-//     println(f"x = ${x.toDouble}, acos(x) = ${acos(x.toDouble)}")
+//     println(f"x = ${x.sgn}|${x.ex}(${x.ex - exBias})|${x.man.toLong.toBinaryString}")
+//     println(f"x = ${x.toDouble}, sqrt(1-|x|) = ${scala.math.sqrt(1.0 - scala.math.abs(x.toDouble)) }")
 
     // ------------------------------------------------------------------------
     // special value handling
@@ -68,27 +68,20 @@ object ACosStage1Sim {
     // ------------------------------------------------------------------------
     // calc 1 - |x|
     //
-    //           +1
-    //      manW |+1  manW
-    //    .-----.|| .-----.
-    //  1.00....000 00....0
-    // -)         1.00....0
-    // --------------------
-    //  0.11....111 00....0
-    //  1.11....110 00....0 x2^-1 : normalize
-    //  1.00....0 x 2^0           : rounding
-    //
 
-    val xShift   = Seq(manW+2, exBias - x.ex).min // > 0 always
-    val xSubtracted = (SafeLong(1) << (manW + xShift)) - x.manW1
+    val xShift = exBias - x.ex
 
-    val xSubLargerThan1 = xSubtracted > (SafeLong(1) << manW)
+    val xShifted = if (xShift > 1+manW+2) {SafeLong(0)} else {(x.manW1 << 2) >> xShift}
+    val xSubtracted = (SafeLong(1) << (manW+2)) - xShifted
 
-    // normalize
-    val xNormalizeShift = if(xSubLargerThan1) { binaryWidthSL(xSubtracted) - (manW+1) } else { (manW+1) - binaryWidthSL(xSubtracted) }
-    val xNormalized     = if(xSubLargerThan1) { xSubtracted >> xNormalizeShift        } else { xSubtracted << xNormalizeShift        }
-    val xNormalizedEx   = if(xSubLargerThan1) { exBias + xNormalizeShift - xShift     } else { exBias - xNormalizeShift - xShift     }
-    val xNormalizedMan  = slice(0, manW, xNormalized)
+    val xNormalizeShift = (1+manW+2) - binaryWidthSL(xSubtracted)
+    val xNormalized = (xSubtracted << xNormalizeShift)
+    assert(bit(manW+2, xNormalized) == 1 && xNormalized < (SafeLong(1) << (manW+3)))
+
+    val xRounded = (xNormalized >> 2) + bit(1, xNormalized)
+    val xRoundedMoreThan2 = bit(manW+1, xRounded)
+    val xConvertedEx = exBias - xNormalizeShift + xRoundedMoreThan2
+    val xConvertedMan = slice(0, manW, xRounded)
 
 //     println(f"x      = 1.${x.man.toLong.toBinaryString} x 2^${x.ex-exBias}")
 //     println(f"xShift = ${xShift}")
@@ -96,27 +89,26 @@ object ACosStage1Sim {
 //     println(f"     x = ${x.manW1.toLong.toBinaryString}%50s")
 //     println(f"xSub   = ${xSubtracted.toLong.toBinaryString}%50s")
 //     println(f"xNrmSft= ${xNormalizeShift}")
-//     println(f"xNrmEx = ${xNormalizedEx-exBias}")
+//     println(f"xNrmEx = ${xConvertedEx-exBias}")
 //     println(f"xNrm   = ${xNormalized.toLong.toBinaryString}%50s")
-//     println(f"xNrmMan= ${xNormalizedMan.toLong.toBinaryString}%50s")
+//     println(f"xNrmMan= ${xConvertedMan.toLong.toBinaryString}%50s")
 
-    // xNormalized never be zero because if 1 <= |x| we already returned. |x|<1
-    assert(bit(manW, xNormalized) == 1 && xNormalized < (SafeLong(1) << (manW+1)))
+    // xNormalized never be zero because if 1 <= |x| we already returned.
 
     // ------------------------------------------------------------------------
     // calc sqrt(1-|x|)
     //
     // 1 - |x| is in (0, 1].
 
-    if (xNormalizedEx == exBias) {
-      assert(xNormalizedMan == 0)
+    if (xConvertedEx == exBias) {
+      assert(xConvertedMan == 0, f"xConvertedMan = ${xConvertedMan.toLong.toBinaryString}")
       return (new RealGeneric(spec, 1.0), negFlag, specialFlag)
     }
 
-    val y = new RealGeneric(x.spec, 0, xNormalizedEx, xNormalizedMan)
+    val y = new RealGeneric(x.spec, 0, xConvertedEx, xConvertedMan)
 
-//     println(f"sim: xNormalizedEx  = ${xNormalizedEx}")
-//     println(f"sim: xNormalizedMan = ${xNormalizedMan.toLong.toBinaryString}")
+//     println(f"sim: xConvertedEx  = ${xConvertedEx}")
+//     println(f"sim: xConvertedMan = ${xConvertedMan.toLong.toBinaryString}")
 //     println(f"y = 1 - |x| = ${y.toDouble} should be ${1.0 - abs(x.toDouble)}")
 
     // use the same calc/postproc phase as sqrt.
