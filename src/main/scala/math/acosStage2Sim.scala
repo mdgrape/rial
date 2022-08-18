@@ -105,15 +105,20 @@ object ACosStage2Sim {
     // subtract z from pi if x was negative
 
     val pi = new RealGeneric(spec, Pi)
-    val zShift   = Seq(manW+2, pi.ex - zEx).min
-    assert(zShift > 0)
-    val piAligned = pi.manW1 << zShift
-    val negZ  = piAligned - zManW1
+    val zShift   = Seq(1+manW+2, exBias - zEx).min
+    assert(zShift >= 0)
+    val piAligned = (pi.manW1 << 3)
+    val zAligned  = (zManW1 << 2) >> zShift
+    val negZ  = piAligned - zAligned
 
-    val negZNormalizeShift = binaryWidthSL(negZ) - (manW+1)
-    val negZNormalized     = negZ >> negZNormalizeShift
-    val negZNormalizedEx   = exBias + 1 + negZNormalizeShift - zShift
-    val negZNormalizedMan  = slice(0, manW, negZNormalized)
+    val negZNormalizeShift = (1+manW+3) - binaryWidthSL(negZ)
+    val negZNormalized     = (negZ << negZNormalizeShift)
+    assert(bit(manW+3, negZNormalized) == 1)
+
+    val negZRounded          = slice(3, manW, negZNormalized) + bit(2, negZNormalized)
+    val negZRoundedMoreThan2 = bit(manW, negZRounded)
+    val negZNormalizedEx   = (exBias+1 - negZNormalizeShift) + negZRoundedMoreThan2
+    val negZNormalizedMan  = slice(0, manW, negZRounded)
 
     return new RealGeneric(x.spec, 0, negZNormalizedEx, negZNormalizedMan)
   }
