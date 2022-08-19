@@ -346,7 +346,7 @@ class ACosPostProcess(
   val zRounded   = zShifted +& Mux(zMoreThan2, zProd((fracW+1)-1), zProd((fracW+1)-2))
   val zMoreThan2AfterRound = zRounded(manW)
   val zExInc = zMoreThan2 | zMoreThan2AfterRound
-  val zMan0  = Mux(zMoreThan2AfterRound, zRounded(manW, 1), zRounded(manW-1, 0))
+  val zMan0  = zRounded(manW-1, 0)
   val zEx0   = io.x.ex + zExInc // table result has ex == exBias
 
   // -----------------------------------------------------------------------
