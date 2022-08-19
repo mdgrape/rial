@@ -65,7 +65,7 @@ class ExpPreProcess(
     // LSB of fractional part of x, for zman correction
     val xfracLSBs = if(padding != 0) {Some(Output(UInt(padding.W)))} else {None}
 
-    // if pow2, always zero. if exp, 1 if (x * log2e).ex is larger than x.ex.
+    // 1 if (x * log2e).ex is larger than x.ex.
     val xexd = Output(UInt(1.W))
   })
 
@@ -86,11 +86,8 @@ class ExpPreProcess(
   // ------------------------------------------------------------------------
   // for exponential, multiply x by log2e.
 
-  // XXX the width (37) is determined empirically
-//   val log2eSpec = new RealSpec(8, 0x7F, 37, false, false, true)
-//   val log2e = new RealGeneric(log2eSpec, log2(E)) // ~ 1.4427
-
-  val log2eManW  = spec.manW + 14 // determined empirically
+  // XXX the width is determined empirically
+  val log2eManW  = spec.manW + 14
   val log2eFixed = (Real.one / Real.log2)(log2eManW).toBigInt.U((log2eManW+1).W)
 
   val xprod = Cat(1.U(1.W), xman0) * log2eFixed //.manW1.toBigInt.U((log2eSpec.manW+1).W)
@@ -308,7 +305,7 @@ class ExpOtherPath(
   val extraBits = polySpec.extraBits
   val padding = extraBits
 
-  val zCorrTmpW = min(10, 1+manW+padding) // XXX see pow2Sim
+  val zCorrTmpW = min(10, 1+manW+padding) // XXX see expSim
 
   val io = IO(new Bundle {
     val x         = Flipped(new DecomposedRealOutput(spec))
@@ -405,7 +402,7 @@ class ExpPostProcess(
 
   val padding = extraBits
 
-  val zCorrTmpW = min(10, 1+manW+padding) // XXX see pow2Sim
+  val zCorrTmpW = min(10, 1+manW+padding) // XXX see expSim
 
   val io = IO(new Bundle {
     val en = Input(UInt(1.W))
