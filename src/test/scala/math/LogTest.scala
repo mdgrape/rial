@@ -101,7 +101,7 @@ class LogTest extends AnyFlatSpec
           val log2SmallNegativeTableI = LogSim.logSmallNegativeTableGeneration(
             spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
 
-          val reference  = LogSim.logSimGeneric(/*islog2*/ false,
+          val reference  = LogSim.logSimGeneric(
             log2TableI, log2SmallPositiveTableI, log2SmallNegativeTableI, _ )
 
           // To avoid timeoutException while testing z == neg.
@@ -354,7 +354,7 @@ class LogOnlyTest extends AnyFlatSpec
     val total = stage.total
     val pipeconfig = stage.getString
     it should f"log(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
-      test( new LogGeneric(true, spec, nOrder, adrW, extraBits, stage, None, false, false)).
+      test( new LogGeneric(spec, nOrder, adrW, extraBits, stage, None, false, false)).
         withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
         {
           // since table result depends on these values, it is unavoidable to
@@ -369,7 +369,7 @@ class LogOnlyTest extends AnyFlatSpec
           val log2SmallNegativeTableI = LogSim.logSmallNegativeTableGeneration(
             spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
 
-          val reference  = LogSim.logSimGeneric(/*islog2*/ false,
+          val reference  = LogSim.logSimGeneric(
             log2TableI, log2SmallPositiveTableI, log2SmallNegativeTableI, _ )
 
           // To avoid timeoutException while testing z == neg.

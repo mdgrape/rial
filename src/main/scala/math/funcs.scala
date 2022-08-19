@@ -30,8 +30,7 @@ object SelectFunc {
   val ATan2Stage1 =  8.U(W.W)
   val ATan2Stage2 =  9.U(W.W)
   val Exp         = 10.U(W.W)
-  val Log2        = 11.U(W.W)
-  val Log         = 12.U(W.W)
+  val Log         = 11.U(W.W)
 }
 
 class DecomposedRealOutput(val spec: RealSpec) extends Bundle {
@@ -470,22 +469,21 @@ class MathFunctions(
   val logPre   = Module(new LogPreProcess (spec, polySpec, stage.preStage))
   val logTab   = Module(new LogTableCoeff (spec, polySpec, maxCbit))
   val logOther = Module(new LogOtherPath  (spec, polySpec, otherStage))
-  val logPost  = Module(new LogPostProcess(spec, polySpec, stage.postStage, false)) // can be both log2 and log
+  val logPost  = Module(new LogPostProcess(spec, polySpec, stage.postStage))
 
-  logPre.io.en      := (io.sel === SelectFunc.Log) || (io.sel === SelectFunc.Log2)
+  logPre.io.en      := (io.sel === SelectFunc.Log)
   logPre.io.x       := xdecomp.io.decomp
   // ------ Preprocess-Calculate ------
   val logPreExAdr = logPre.io.adr(logPre.io.adr.getWidth-1, logPre.io.adr.getWidth-2)
-  logTab.io.en      := (selPCGapReg === SelectFunc.Log) ||
-                       (selPCGapReg === SelectFunc.Log2)
+  logTab.io.en      := (selPCGapReg === SelectFunc.Log)
   logTab.io.adr     := ShiftRegister(logPre.io.adr, pcGap)
   logOther.io.x     := xdecPCGapReg
 
-  when(selPCReg =/= SelectFunc.Log && selPCReg =/= SelectFunc.Log2) {
+  when(selPCReg =/= SelectFunc.Log) {
     assert(logPre.io.adr === 0.U)
     assert(logPre.io.dx.getOrElse(0.U) === 0.U)
   }
-  when(selPCGapReg =/= SelectFunc.Log && selPCGapReg =/= SelectFunc.Log2) {
+  when(selPCGapReg =/= SelectFunc.Log) {
     assert(logTab.io.cs.asUInt === 0.U)
   }
 
@@ -579,11 +577,9 @@ class MathFunctions(
   expPost.io.zother := ShiftRegister(expOther.io.zother, cpGap)
   expPost.io.zres   := polynomialResultCPGapReg
 
-  logPost.io.en     := selCPGapReg === SelectFunc.Log ||
-                       selCPGapReg === SelectFunc.Log2
+  logPost.io.en     := selCPGapReg === SelectFunc.Log
   logPost.io.zother := ShiftRegister(logOther.io.zother, cpGap)
   logPost.io.zres   := polynomialResultCPGapReg
-  logPost.io.isln.get := selCPGapReg === SelectFunc.Log
 
   val z0 = sqrtPost.io.z        |
            invsqrtPost.io.z     |

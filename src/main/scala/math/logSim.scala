@@ -1,6 +1,6 @@
 //% @file logSim.scala
 //
-// Simulators for log2 and log(x)
+// Simulators for log(x)
 // Copyright (C) Toru Niina RIKEN BDR 2022
 //
 package rial.math
@@ -109,7 +109,7 @@ object LogSim {
   // log(2^ex * 1.man) = log(2^ex) + log(1.man)
   //                   = ex + log(1.man)
   //
-  def logSimGeneric( islog2: Boolean,
+  def logSimGeneric(
     t : FuncTableInt, tSmallPos : FuncTableInt, tSmallNeg : FuncTableInt,
     x : RealGeneric ): RealGeneric = {
 
@@ -306,24 +306,6 @@ object LogSim {
     val lnman = slice(0, manW, zmanRound)
     val lnex = zex0 + zmanProdMoreThan2 + zmanRoundMoreThan2
 
-    if(islog2) {
-
-      // 1 < log2e < 2. log2e.ex == 0
-      val log2e = (Real.one / Real.log(Real.two))(manW)
-
-      val log2Prod = ((SafeLong(1) << manW) + lnman) * log2e
-      val log2ProdMoreThan2 = bit((manW+1)+(manW+1)-1, log2Prod).toInt
-      val log2Round = slice(manW + log2ProdMoreThan2, manW, log2Prod) +
-                      bit(manW + log2ProdMoreThan2 - 1, log2Prod)
-      val log2RoundMoreThan2 = bit(manW, log2Round).toInt
-
-      val log2man = slice(0, manW, log2Round)
-      val log2ex = lnex + log2ProdMoreThan2 + log2RoundMoreThan2
-
-      return new RealGeneric(x.spec, zsgn, log2ex, log2man)
-
-    } else {
-      return new RealGeneric(x.spec, zsgn, lnex, lnman)
-    }
+    return new RealGeneric(x.spec, zsgn, lnex, lnman)
   }
 }

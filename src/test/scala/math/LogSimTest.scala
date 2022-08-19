@@ -72,7 +72,7 @@ class LogSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         val z0   = log(x0)
         val z0r  = new RealGeneric(spec, z0)
 
-        val zi   = LogSim.logSimGeneric( /*islog2*/false, t, tSmallPos, tSmallNeg, x )
+        val zi   = LogSim.logSimGeneric( t, tSmallPos, tSmallNeg, x )
         val zd   = zi.toDouble
         val erri = errorLSB(zi, z0r.toDouble).toInt
         val errf = zi.toDouble - z0r.toDouble

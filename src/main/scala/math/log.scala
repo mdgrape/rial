@@ -445,7 +445,6 @@ class LogPostProcess(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
-  val isAlwaysLn : Boolean = false
 ) extends Module {
 
   val exW    = spec.exW
@@ -464,7 +463,6 @@ class LogPostProcess(
 
   val io = IO(new Bundle {
     val en     = Input(UInt(1.W))
-    val isln   = if(!isAlwaysLn) {Some(Input(Bool()))} else {None}
     val zother = Flipped(new LogNonTableOutput(spec, polySpec))
     val zres   = Input(UInt(fracW.W)) // polynomial
     val z      = Output(UInt(spec.W.W))
@@ -524,36 +522,8 @@ class LogPostProcess(
   val zman0 = Wire(UInt(manW.W))
   val zex0  = Wire(UInt(exW.W))
 
-  if(isAlwaysLn) {
-    // we don't need to multiply log2(e).
-    zman0 := lnman
-    zex0  := lnex
-  } else {
-    assert(io.isln.isDefined)
-
-    // -------------------------------------------------------------------------
-    // multiply log2(e); XXX this part can be simplified because when
-    // x < 0.5 || 2.0 <= x the polynomial result is already log2. Or, we can
-    // just drop log2 functionality because it is not used so frequently.
-
-    // 1 < log2e < 2. log2e.ex == 0
-    val log2e = (Real.one / Real.log(Real.two))(manW).toBigInt.U((manW+1).W)
-
-    val log2Prod = Cat(1.U(1.W), lnman) * log2e
-    val log2ProdMoreThan2 = log2Prod((manW+1)+(manW+1)-1)
-    val log2Shifted = Mux(log2ProdMoreThan2, log2Prod((manW+1)+(manW+1)-2, manW+1),
-                                             log2Prod((manW+1)+(manW+1)-3, manW  ))
-    val log2RoundInc = Mux(log2ProdMoreThan2, log2Prod(manW  ), log2Prod(manW-1))
-    val log2Round = log2Shifted +& log2RoundInc
-    val log2RoundMoreThan2 = log2Round(manW)
-
-    val log2man = log2Round(manW-1, 0)
-    val log2ex0 = lnex +& (log2ProdMoreThan2 + log2RoundMoreThan2)
-    val log2ex  = Mux(log2ex0(exW) === 1.U, Fill(exW, 1.U(1.W)), log2ex0(exW-1, 0))
-
-    zman0 := Mux(io.isln.get, lnman, log2man)
-    zex0  := Mux(io.isln.get, lnex,  log2ex)
-  }
+  zman0 := lnman
+  zex0  := lnex
 
   val znan  = io.zother.znan
   val zinf  = io.zother.zinf
@@ -579,7 +549,6 @@ class LogPostProcess(
 // -------------------------------------------------------------------------
 
 class LogGeneric(
-  val isln: Boolean,
   val spec: RealSpec,
   val nOrder: Int, val adrW : Int, val extraBits : Int, // Polynomial spec
   val stage: MathFuncPipelineConfig,
@@ -638,7 +607,7 @@ class LogGeneric(
   val logPre   = Module(new LogPreProcess (spec, polySpec, stage.preStage))
   val logTab   = Module(new LogTableCoeff (spec, polySpec, cbits))
   val logOther = Module(new LogOtherPath  (spec, polySpec, stage.calcStage))
-  val logPost  = Module(new LogPostProcess(spec, polySpec, stage.postStage, false)) // can be both
+  val logPost  = Module(new LogPostProcess(spec, polySpec, stage.postStage))
 
   logPre.io.en  := io.en
   logPre.io.x   := xdecomp.io.decomp
@@ -667,7 +636,6 @@ class LogGeneric(
   logPost.io.en     := enCPGapReg
   logPost.io.zother := ShiftRegister(logOther.io.zother, cpGap)
   logPost.io.zres   := polynomialResultCPGapReg
-  logPost.io.isln.get := isln.B
 
   io.z := logPost.io.z
 }
