@@ -58,8 +58,8 @@ object ACosStage1Sim {
     if(x.isInfinite) {
       return (RealGeneric.nan(spec), negFlag, specialFlag)
     }
-    if(exBias <= x.ex) { // 1 <= |x|
-      return (new RealGeneric(spec, 0.0), negFlag, specialFlag)
+    if(exBias <= x.ex) { // 1 <= |x|. round to x == 1
+      return (new RealGeneric(spec, 0.0), negFlag, 1)
     }
 
     assert(x.ex < exBias)
