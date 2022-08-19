@@ -70,31 +70,31 @@ object ExpSim {
     val padding  = extraBits
     val extraMan = padding + xIntW
 
-      // --------------------------------------------------------------------------
-      // x = x * log2e
+    // --------------------------------------------------------------------------
+    // x = x * log2e
 
-//       val log2eSpec = new RealSpec(8, 0x7F, 37, false, false, true) // determined empirically
-//       val log2e     = new RealGeneric(log2eSpec, log2(E)) // ~ 1.4427
+//     val log2eSpec = new RealSpec(8, 0x7F, 37, false, false, true) // determined empirically
+//     val log2e     = new RealGeneric(log2eSpec, log2(E)) // ~ 1.4427
 
-      val log2eManW  = x.spec.manW + 14 // determined empirically
-      val log2eFixed = (Real.one / Real.log2)(log2eManW)
+    val log2eManW  = x.spec.manW + 14 // determined empirically
+    val log2eFixed = (Real.one / Real.log2)(log2eManW)
 
-      val xprod = x.manW1 * log2eFixed
-      val xprodW = (1+manW) + (1+log2eManW)
-      val xprodMoreThan2 = bit(xprodW-1, xprod)
+    val xprod = x.manW1 * log2eFixed
+    val xprodW = (1+manW) + (1+log2eManW)
+    val xprodMoreThan2 = bit(xprodW-1, xprod)
 
-      assert(log2eManW + xprodMoreThan2 - extraMan > 0)
-      val xprodRoundedW1 = Rounding.roundToEven(
-        log2eManW + xprodMoreThan2 - extraMan, xprod)
+    assert(log2eManW + xprodMoreThan2 - extraMan > 0)
+    val xprodRoundedW1 = Rounding.roundToEven(
+      log2eManW + xprodMoreThan2 - extraMan, xprod)
 
-      assert(bit(manW+1+extraMan, xprodRoundedW1) == 1 ||
-             bit(manW+  extraMan, xprodRoundedW1) == 1)
-      val xprodMoreThan2AfterRounded = bit(manW+1+extraMan, xprodRoundedW1)
+    assert(bit(manW+1+extraMan, xprodRoundedW1) == 1 ||
+           bit(manW+  extraMan, xprodRoundedW1) == 1)
+    val xprodMoreThan2AfterRounded = bit(manW+1+extraMan, xprodRoundedW1)
 
-      val xman = slice(0, manW+extraMan, xprodRoundedW1)
-      val xex  = x.ex + xprodMoreThan2AfterRounded + xprodMoreThan2
+    val xman = slice(0, manW+extraMan, xprodRoundedW1)
+    val xex  = x.ex + xprodMoreThan2AfterRounded + xprodMoreThan2
 
-//     println(f"xlog2e = ${scalb(1.0 + (xman.toDouble / (1L<<(manW+extraMan))), xex-exBias)} should be ${log2e.toDouble * x.toDouble}")
+//   println(f"xlog2e = ${scalb(1.0 + (xman.toDouble / (1L<<(manW+extraMan))), xex-exBias)} should be ${log2e.toDouble * x.toDouble}")
 
     // --------------------------------------------------------------------------
     // do pow2
