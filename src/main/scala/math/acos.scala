@@ -69,11 +69,11 @@ class ACosStage1PreProcess(
   val manW   = spec.manW
   val exBias = spec.exBias
 
-  val adrW      = polySpec.adrW
-  val fracW     = polySpec.fracW
-  val dxW       = polySpec.dxW
-  val order     = polySpec.order
-  val exAdrW    = ACosSim.calcExAdrW(spec)
+  val adrW   = polySpec.adrW
+  val fracW  = polySpec.fracW
+  val dxW    = polySpec.dxW
+  val order  = polySpec.order
+  val exAdrW = 1 // sqrt extra table address
 
   val io = IO(new Bundle {
     val en  = Input (UInt(1.W))
@@ -175,7 +175,6 @@ class ACosStage2PreProcess(
   val fracW     = polySpec.fracW
   val dxW       = polySpec.dxW
   val order     = polySpec.order
-  val exAdrW    = ACosSim.calcExAdrW(spec)
 
   val io = IO(new Bundle {
     val en  = Input (UInt(1.W))
