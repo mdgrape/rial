@@ -301,7 +301,7 @@ class MathFunctions(
   // ------ Preprocess-Calculate ------
   sqrtTab.io.en  := (selPCGapReg === SelectFunc.Sqrt || selPCGapReg === SelectFunc.ACos1)
   sqrtTab.io.adr := sqrtPreAdrPCGapReg | acos1PreAdrPCGapReg
-  sqrtOther.io.x := Mux(io.sel === SelectFunc.Sqrt, xdecPCGapReg, ShiftRegister(acos1Pre.io.y, pcGap))
+  sqrtOther.io.x := Mux(selPCGapReg === SelectFunc.Sqrt, xdecPCGapReg, ShiftRegister(acos1Pre.io.y, pcGap))
 
   // after preprocess
   when(selPCReg =/= SelectFunc.Sqrt && selPCReg =/= SelectFunc.InvSqrt) {
