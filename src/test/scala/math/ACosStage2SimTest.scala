@@ -36,6 +36,8 @@ class ACosStage2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
       -0.0,
        1.0,
       -1.0,
+       1.1, // should be acos(1.0)
+      -1.1, // should be acos(-1.0)
       Double.PositiveInfinity,
       Double.NegativeInfinity,
     )

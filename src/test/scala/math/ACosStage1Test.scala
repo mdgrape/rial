@@ -56,6 +56,7 @@ class ACosStage1Test extends AnyFlatSpec
       0.0,                -0.0,
       1.0,                -1.0,
       1.0 / 2.0,          -1.0 / 2.0,
+      1.1,                -1.1, // should be acos(+/-1.0)
     )
   def generateSpecialValues( spec: RealSpec, r: Random ) = {
     val idx = counter
