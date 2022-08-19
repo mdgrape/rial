@@ -70,12 +70,6 @@ object ExpSim {
     val padding  = extraBits
     val extraMan = padding + xIntW
 
-    val (xex, xman) = if(isPow2) {
-      val xex0  = x.ex
-      val xman0 = x.man << extraMan
-
-      (xex0, xman0)
-    } else {
       // --------------------------------------------------------------------------
       // x = x * log2e
 
@@ -97,13 +91,10 @@ object ExpSim {
              bit(manW+  extraMan, xprodRoundedW1) == 1)
       val xprodMoreThan2AfterRounded = bit(manW+1+extraMan, xprodRoundedW1)
 
-      val xman0 = slice(0, manW+extraMan, xprodRoundedW1)
-      val xex0  = x.ex + xprodMoreThan2AfterRounded + xprodMoreThan2
+      val xman = slice(0, manW+extraMan, xprodRoundedW1)
+      val xex  = x.ex + xprodMoreThan2AfterRounded + xprodMoreThan2
 
 //     println(f"xlog2e = ${scalb(1.0 + (xman.toDouble / (1L<<(manW+extraMan))), xex-exBias)} should be ${log2e.toDouble * x.toDouble}")
-
-      (xex0, xman0)
-    }
 
     // --------------------------------------------------------------------------
     // do pow2
