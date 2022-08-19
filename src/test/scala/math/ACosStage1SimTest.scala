@@ -72,7 +72,8 @@ class ACosStage1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         val x  = generator(spec,r)
         val x0 = x.toDouble
 
-        val z0  = sqrt(1.0 - abs(x.toDouble))
+        val xref = if (x.toDouble > 1.0) { 1.0 } else if (x.toDouble < -1.0) { -1.0 } else { x.toDouble }
+        val z0  = sqrt(1.0 - abs(xref))
         val z0r = new RealGeneric(spec, z0)
 
         val zs   = ACosStage1Sim.acosStage1SimGeneric( tSqrt, x )
@@ -88,11 +89,11 @@ class ACosStage1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         }
 
         if(x.ex == 0 || zi.ex == spec.exBias) {
-          assert(zs._3 == 0)
-        } else if(x.ex == spec.exBias && x.man == 0) {
-          assert(zs._3 == 1)
+          assert(zs._3 == 0, f"x = ${x.toDouble}")
+        } else if(x.ex >= spec.exBias && !x.isNaN && !x.isInfinite) {
+          assert(zs._3 == 1, f"x = ${x.toDouble}")
         } else {
-          assert(zs._3 == 2)
+          assert(zs._3 == 2, f"x = ${x.toDouble}")
         }
 
         if (z0r.isNaN) {
