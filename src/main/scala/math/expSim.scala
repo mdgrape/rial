@@ -27,7 +27,7 @@ import rial.arith._
 
 object ExpSim {
 
-  def expSimGeneric( isPow2: Boolean, t: FuncTableInt, x: RealGeneric ): RealGeneric = {
+  def expSimGeneric( t: FuncTableInt, x: RealGeneric ): RealGeneric = {
 
 //     println("==================================================")
     val exW    = x.spec.exW

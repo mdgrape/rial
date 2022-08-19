@@ -110,7 +110,7 @@ class ExpTest extends AnyFlatSpec
           val nstage     = c.getStage
           val reftable   = ExpSim.pow2TableGeneration(
             nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit) )
-          val reference  = ExpSim.expSimGeneric(false, reftable, _ )
+          val reference  = ExpSim.expSimGeneric( reftable, _ )
 
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
@@ -379,7 +379,7 @@ class ExpOnlyTest extends AnyFlatSpec
           val nstage     = c.getStage
           val reftable   = ExpSim.pow2TableGeneration(
             nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbits) )
-          val reference  = ExpSim.expSimGeneric(false, reftable, _ )
+          val reference  = ExpSim.expSimGeneric( reftable, _ )
 
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
