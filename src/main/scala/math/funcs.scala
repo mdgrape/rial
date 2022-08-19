@@ -29,10 +29,9 @@ object SelectFunc {
   val ACos2       =  7.U(W.W)
   val ATan2Stage1 =  8.U(W.W)
   val ATan2Stage2 =  9.U(W.W)
-  val Pow2        = 10.U(W.W)
-  val Exp         = 11.U(W.W)
-  val Log2        = 12.U(W.W)
-  val Log         = 13.U(W.W)
+  val Exp         = 10.U(W.W)
+  val Log2        = 11.U(W.W)
+  val Log         = 12.U(W.W)
 }
 
 class DecomposedRealOutput(val spec: RealSpec) extends Bundle {
@@ -194,7 +193,7 @@ class MathFunctions(
   println(f"rec         cbits = ${ReciprocalTableCoeff .getCBits(spec, polySpec)} calcW = ${ReciprocalTableCoeff .getCalcW(spec, polySpec)}")
   println(f"sincos      cbits = ${SinCosTableCoeff     .getCBits(spec, polySpec)} calcW = ${SinCosTableCoeff     .getCalcW(spec, polySpec)}")
   println(f"atan2Stage2 cbits = ${ATan2Stage2TableCoeff.getCBits(spec, polySpec)} calcW = ${ATan2Stage2TableCoeff.getCalcW(spec, polySpec)}")
-  println(f"pow2        cbits = ${ExpTableCoeff        .getCBits(spec, polySpec)} calcW = ${ExpTableCoeff        .getCalcW(spec, polySpec)}")
+  println(f"exp         cbits = ${ExpTableCoeff        .getCBits(spec, polySpec)} calcW = ${ExpTableCoeff        .getCalcW(spec, polySpec)}")
   println(f"log2        cbits = ${LogTableCoeff        .getCBits(spec, polySpec)} calcW = ${LogTableCoeff        .getCalcW(spec, polySpec)}")
   println(f"maximum     cbits = ${maxCbit} calcW = ${maxCalcW}")
 
@@ -436,19 +435,17 @@ class MathFunctions(
   atan2Stage2Post.io.flags  := atan2FlagReg
 
   // --------------------------------------------------------------------------
-  // pow2/exp
+  // exp
 
-  val expPre   = Module(new ExpPreProcess (spec, polySpec, stage.preStage, false))
+  val expPre   = Module(new ExpPreProcess (spec, polySpec, stage.preStage))
   val expTab   = Module(new ExpTableCoeff (spec, polySpec, maxCbit))
   val expOther = Module(new ExpOtherPath  (spec, polySpec, otherStage))
   val expPost  = Module(new ExpPostProcess(spec, polySpec, stage.postStage))
 
-  expPre.io.en     := (io.sel === SelectFunc.Exp) || (io.sel === SelectFunc.Pow2)
-  expPre.io.isexp.get := (io.sel === SelectFunc.Exp)
+  expPre.io.en     := (io.sel === SelectFunc.Exp)
   expPre.io.x      := xdecomp.io.decomp
   // ------ Preprocess-Calculate ------
-  expTab.io.en     := (selPCGapReg === SelectFunc.Exp) ||
-                      (selPCGapReg === SelectFunc.Pow2)
+  expTab.io.en     := (selPCGapReg === SelectFunc.Exp)
   expTab.io.adr    := ShiftRegister(expPre.io.adr, pcGap)
   expOther.io.x    := xdecPCGapReg
   expOther.io.xint := ShiftRegister(expPre.io.xint, pcGap)
@@ -458,12 +455,12 @@ class MathFunctions(
     expOther.io.xfracLSBs.get := ShiftRegister(expPre.io.xfracLSBs.get, pcGap)
   }
 
-  when(selPCReg =/= SelectFunc.Exp && selPCReg =/= SelectFunc.Pow2) {
+  when(selPCReg =/= SelectFunc.Exp) {
     assert(expPre.io.adr === 0.U)
     assert(expPre.io.dx.getOrElse(0.U) === 0.U)
   }
 
-  when(selPCGapReg =/= SelectFunc.Exp && selPCGapReg =/= SelectFunc.Pow2) {
+  when(selPCGapReg =/= SelectFunc.Exp) {
     assert(expTab.io.cs.asUInt === 0.U)
   }
 
@@ -578,8 +575,7 @@ class MathFunctions(
   if(expPre.io.xfracLSBs.isDefined) {
     expPost.io.zCorrCoef.get := ShiftRegister(expOther.io.zCorrCoef.get, cpGap)
   }
-  expPost.io.en     := selCPGapReg === SelectFunc.Pow2 ||
-                       selCPGapReg === SelectFunc.Exp
+  expPost.io.en     := selCPGapReg === SelectFunc.Exp
   expPost.io.zother := ShiftRegister(expOther.io.zother, cpGap)
   expPost.io.zres   := polynomialResultCPGapReg
 

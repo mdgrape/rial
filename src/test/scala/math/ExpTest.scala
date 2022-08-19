@@ -354,7 +354,7 @@ class ExpOnlyTest extends AnyFlatSpec
     val total = stage.total
     val pipeconfig = stage.getString
     it should f"exp(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
-      test( new ExpGeneric(false, spec, nOrder, adrW, extraBits, stage, None, false, false)).
+      test( new ExpGeneric( spec, nOrder, adrW, extraBits, stage, None, false, false)).
         withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
         {
           // To avoid timeoutException while testing z == neg.
