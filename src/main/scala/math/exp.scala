@@ -418,7 +418,11 @@ class ExpPostProcess(
   })
 
   val zex0  = io.zother.zex
-  val zman0 = dropLSB(extraBits, io.zres) + io.zres(extraBits-1)
+  val zman0 = if(extraBits > 0) {
+    dropLSB(extraBits, io.zres) + io.zres(extraBits-1)
+  } else {
+    io.zres
+  }
 
   // --------------------------------------------------------------------------
   // calc zman correction coeff
