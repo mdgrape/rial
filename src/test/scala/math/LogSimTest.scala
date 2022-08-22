@@ -144,82 +144,82 @@ class LogSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val nOrderFP32    = 2
   val adrWFP32      = 8
   val extraBitsFP32 = 3
-  val log2FP32TableI              = LogSim.logNormalTableGeneration       (RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32)
-  val log2FP32SmallPositiveTableI = LogSim.logSmallPositiveTableGeneration(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32)
-  val log2FP32SmallNegativeTableI = LogSim.logSmallNegativeTableGeneration(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32)
+  val logFP32TableI              = LogSim.logNormalTableGeneration       (RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32)
+  val logFP32SmallPositiveTableI = LogSim.logSmallPositiveTableGeneration(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32)
+  val logFP32SmallNegativeTableI = LogSim.logSmallNegativeTableGeneration(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32)
 
-  logTest(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+  logTest(logFP32TableI, logFP32SmallPositiveTableI, logFP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
     "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_), 3)
-  logTest(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+  logTest(logFP32TableI, logFP32SmallPositiveTableI, logFP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
     "Test Small More Than 1 [1, 1+2^-8]",   generateRealWithin(1.0, 1.0+pow(2.0, -8) - pow(2.0,-23),_,_), 3)
-  logTest(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+  logTest(logFP32TableI, logFP32SmallPositiveTableI, logFP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
     "Test Small More Than 1 [1-2^-8, 1]",   generateRealWithin(1.0-pow(2.0, -8) + pow(2.0,-23), 1.0,_,_), 3)
-  logTest(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+  logTest(logFP32TableI, logFP32SmallPositiveTableI, logFP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
     "Test Small More Than 1 [1, 2]",   generateRealWithin(1.0+pow(2.0, -8), 2.0,_,_), 4) // XXX not in 2 ULPs
 
 //   val smallPositive = (-1 until -23 by -1).map( ex => {
 //     val xmax = 1.0 + pow(2.0, ex)
 //     val xmin = 1.0 + pow(2.0, ex-1)
-//     logTest(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+//     logTest(logFP32TableI, logFP32SmallPositiveTableI, logFP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
 //       f"Test Small More Than 1 [1+2^${ex-1}%3d, 1+2^${ex}%3d]", generateRealWithin(xmin, xmax,_,_), 2)
 //   })
 //
 //   val smallNegative = (-1 until -23 by -1).map( ex => {
 //     val xmax = 1.0 - pow(2.0, ex-1)
 //     val xmin = 1.0 - pow(2.0, ex)
-//     logTest(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+//     logTest(logFP32TableI, logFP32SmallPositiveTableI, logFP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
 //       f"Test Small More Than 1 [1-2^${ex}%3d, 1-2^${ex-1}%3d]", generateRealWithin(xmin, xmax,_,_), 2)
 //   })
 
-  logTest(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+  logTest(logFP32TableI, logFP32SmallPositiveTableI, logFP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
     "Test Large Less Than 1 [0.5, 1]", generateRealWithin(0.5,1.0,_,_), 3)
-  logTest(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+  logTest(logFP32TableI, logFP32SmallPositiveTableI, logFP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
     "Test Small Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5,_,_), 3)
 
-  logTest(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+  logTest(logFP32TableI, logFP32SmallPositiveTableI, logFP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
     "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_), 1)
 
-  logTest(log2FP32TableI, log2FP32SmallPositiveTableI, log2FP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
+  logTest(logFP32TableI, logFP32SmallPositiveTableI, logFP32SmallNegativeTableI, RealSpec.Float32Spec, n, r,
     "Test Special Values", generateSpecialValues(_,_), 1)
 
   val nOrderBF16    = 0
   val adrWBF16      = 7
   val extraBitsBF16 = 1
-  val log2BF16TableI              = LogSim.logNormalTableGeneration       (RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16)
-  val log2BF16SmallPositiveTableI = LogSim.logSmallPositiveTableGeneration(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16)
-  val log2BF16SmallNegativeTableI = LogSim.logSmallNegativeTableGeneration(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16)
+  val logBF16TableI              = LogSim.logNormalTableGeneration       (RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16)
+  val logBF16SmallPositiveTableI = LogSim.logSmallPositiveTableGeneration(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16)
+  val logBF16SmallNegativeTableI = LogSim.logSmallNegativeTableGeneration(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16)
 
-  logTest(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
+  logTest(logBF16TableI, logBF16SmallPositiveTableI, logBF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
     "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 128.0),_,_), 1)
-  logTest(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
+  logTest(logBF16TableI, logBF16SmallPositiveTableI, logBF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
     "Test Small More Than 1 [1, 1+2^-8]",   generateRealWithin(1.0, 1.0+pow(2.0, -8) - pow(2.0,-23),_,_), 1)
-  logTest(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
+  logTest(logBF16TableI, logBF16SmallPositiveTableI, logBF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
     "Test Small More Than 1 [1-2^-8, 1]",   generateRealWithin(1.0-pow(2.0, -8) + pow(2.0,-23), 1.0,_,_), 1)
-  logTest(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
+  logTest(logBF16TableI, logBF16SmallPositiveTableI, logBF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
     "Test Small More Than 1 [1, 2]",   generateRealWithin(1.0+pow(2.0, -8), 2.0,_,_), 3)
 
 //   val smallPositive = (-1 until -23 by -1).map( ex => {
 //     val xmax = 1.0 + pow(2.0, ex)
 //     val xmin = 1.0 + pow(2.0, ex-1)
-//     logTest(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
+//     logTest(logBF16TableI, logBF16SmallPositiveTableI, logBF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
 //       f"Test Small More Than 1 [1+2^${ex-1}%3d, 1+2^${ex}%3d]", generateRealWithin(xmin, xmax,_,_), 2)
 //   })
 //
 //   val smallNegative = (-1 until -23 by -1).map( ex => {
 //     val xmax = 1.0 - pow(2.0, ex-1)
 //     val xmin = 1.0 - pow(2.0, ex)
-//     logTest(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
+//     logTest(logBF16TableI, logBF16SmallPositiveTableI, logBF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
 //       f"Test Small More Than 1 [1-2^${ex}%3d, 1-2^${ex-1}%3d]", generateRealWithin(xmin, xmax,_,_), 2)
 //   })
 
-  logTest(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
+  logTest(logBF16TableI, logBF16SmallPositiveTableI, logBF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
     "Test Large Less Than 1 [0.5, 1]", generateRealWithin(0.5,1.0,_,_), 3)
-  logTest(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
+  logTest(logBF16TableI, logBF16SmallPositiveTableI, logBF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
     "Test Small Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5,_,_), 1)
 
-  logTest(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
+  logTest(logBF16TableI, logBF16SmallPositiveTableI, logBF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
     "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 128), 0.0,_,_), 1)
-  logTest(log2BF16TableI, log2BF16SmallPositiveTableI, log2BF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
+  logTest(logBF16TableI, logBF16SmallPositiveTableI, logBF16SmallNegativeTableI, RealSpec.BFloat16Spec, n, r,
     "Test Special Values", generateSpecialValues(_,_), 1)
 
 }

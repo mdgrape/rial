@@ -94,15 +94,15 @@ class LogTest extends AnyFlatSpec
           val maxCbits   = c.getMaxCbit
           val maxCalcW   = c.getMaxCalcW
 
-          val log2TableI = LogSim.logNormalTableGeneration(
+          val logTableI = LogSim.logNormalTableGeneration(
             spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
-          val log2SmallPositiveTableI = LogSim.logSmallPositiveTableGeneration(
+          val logSmallPositiveTableI = LogSim.logSmallPositiveTableGeneration(
             spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
-          val log2SmallNegativeTableI = LogSim.logSmallNegativeTableGeneration(
+          val logSmallNegativeTableI = LogSim.logSmallNegativeTableGeneration(
             spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
 
           val reference  = LogSim.logSimGeneric(
-            log2TableI, log2SmallPositiveTableI, log2SmallNegativeTableI, _ )
+            logTableI, logSmallPositiveTableI, logSmallNegativeTableI, _ )
 
           // To avoid timeoutException while testing z == neg.
           // Detailed explanation follows.
@@ -362,15 +362,15 @@ class LogOnlyTest extends AnyFlatSpec
           val maxCbits   = c.getCbit
           val maxCalcW   = c.getCalcW
 
-          val log2TableI = LogSim.logNormalTableGeneration(
+          val logTableI = LogSim.logNormalTableGeneration(
             spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
-          val log2SmallPositiveTableI = LogSim.logSmallPositiveTableGeneration(
+          val logSmallPositiveTableI = LogSim.logSmallPositiveTableGeneration(
             spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
-          val log2SmallNegativeTableI = LogSim.logSmallNegativeTableGeneration(
+          val logSmallNegativeTableI = LogSim.logSmallNegativeTableGeneration(
             spec, nOrder, adrW, extraBits, Some(maxCalcW), Some(maxCbits))
 
           val reference  = LogSim.logSimGeneric(
-            log2TableI, log2SmallPositiveTableI, log2SmallNegativeTableI, _ )
+            logTableI, logSmallPositiveTableI, logSmallNegativeTableI, _ )
 
           // To avoid timeoutException while testing z == neg.
           // Detailed explanation follows.
