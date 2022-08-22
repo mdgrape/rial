@@ -121,6 +121,7 @@ class ExpTest extends AnyFlatSpec
             c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
             c.io.y.poke(0.U(spec.W.W))
             val zi = c.io.z.peek().litValue.toBigInt
+            c.clock.step(1)
             if (i > nstage) {
 
               val (xid,z0d) = q.dequeue()
@@ -137,12 +138,14 @@ class ExpTest extends AnyFlatSpec
               val z0dexp = slice(spec.manW, spec.exW, z0d)
               val z0dman = z0d & maskSL(spec.manW)
 
+              val expx = new RealGeneric(spec, exp(new RealGeneric(spec, xid).toDouble))
+
               c.io.z.expect(z0d.U(spec.W.W))
               assert(zi == z0d, f"x = ${new RealGeneric(spec, xid).toDouble}(${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman.toLong.toBinaryString}), " +
+                                f"exp(x) = ${expx.toDouble}(${expx.sgn}|${expx.ex}(${expx.ex - spec.exBias})|${expx.man.toLong.toBinaryString}) " +
                                 f"test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString}) != " +
                                 f"ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})")
             }
-            c.clock.step(1)
           }
         }
       }
