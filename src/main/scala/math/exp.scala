@@ -184,32 +184,23 @@ class ExpTableCoeff(
   })
 
   if(order == 0) {
-    val tbl = VecInit( (0L to (1L<<adrW)-1L).map(
-      n => {
-        val x = n.toDouble/(1L<<adrW)
-        val y = round((pow(2.0,x)-1.0)*(1L<<fracW))
-        assert(y >= 0)
-        if (y>=(1L<<fracW)) {
-          println("WARNING: mantissa reaches to 2")
-          maskL(fracW).U(fracW.W)
-        } else {
-          y.U(fracW.W)
-        }
-      }
-    ) )
+
+    val tableI = ExpSim.pow2TableGeneration( order, adrW, manW, fracW )
+    val cbit   = tableI.cbit
+    val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/1)
+    val coeff  = getSlices(coeffTable(io.adr), coeffWidth)
 
     assert(maxCbit(0) == fracW)
+    assert(coeff(0).getWidth == fracW)
 
-    io.cs.cs(0) := enable(io.en, tbl(io.adr(adrW, 0)))
+    io.cs.cs(0) := enable(io.en, coeff(0))
 
   } else {
     // x -> xInt + xFrac
     // pow2(x) -> 2^xInt * 2^xFrac
     // Since xFrac is in [0, 1), 2^xFrac is in [1, 2)
-    val tableD = new FuncTableDouble( x => pow(2.0,x)-1.0, order )
-    tableD.addRange(0.0, 1.0, 1<<adrW)
 
-    val tableI = new FuncTableInt(tableD, fracW)
+    val tableI = ExpSim.pow2TableGeneration( order, adrW, manW, fracW )
     val cbit   = tableI.cbit
 
     // both 1st and 2nd derivative of 2^x is larger than 0
@@ -246,9 +237,7 @@ object ExpTableCoeff {
     if(order == 0) {
       return Seq(fracW)
     } else {
-      val tableD = new FuncTableDouble( x => pow(2.0,x)-1.0, order )
-      tableD.addRange(0.0, 1.0, 1<<adrW)
-      return new FuncTableInt(tableD, fracW).cbit
+      return ExpSim.pow2TableGeneration( order, adrW, spec.manW, fracW ).cbit
     }
   }
   def getCalcW(
@@ -264,9 +253,7 @@ object ExpTableCoeff {
     if(order == 0) {
       return Seq(fracW)
     } else {
-      val tableD = new FuncTableDouble( x => pow(2.0,x)-1.0, order )
-      tableD.addRange(0.0, 1.0, 1<<adrW)
-      return new FuncTableInt(tableD, fracW).calcWidth
+      return ExpSim.pow2TableGeneration( order, adrW, spec.manW, fracW ).calcWidth
     }
   }
 }
