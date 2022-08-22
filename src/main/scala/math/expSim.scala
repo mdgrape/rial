@@ -188,7 +188,7 @@ object ExpSim {
     new RealGeneric(x.spec, 0, zex.toInt, z)
   }
 
-  def pow2TableGeneration(order: Int, adrW: Int, manW: Int, fracW: Int,
+  def expTableGeneration(order: Int, adrW: Int, manW: Int, fracW: Int,
       calcWidthSetting: Option[Seq[Int]] = None,
       cbitSetting: Option[Seq[Int]] = None
     ) = {

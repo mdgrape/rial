@@ -185,7 +185,7 @@ class ExpTableCoeff(
 
   if(order == 0) {
 
-    val tableI = ExpSim.pow2TableGeneration( order, adrW, manW, fracW )
+    val tableI = ExpSim.expTableGeneration( order, adrW, manW, fracW )
     val cbit   = tableI.cbit
     val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/1)
     val coeff  = getSlices(coeffTable(io.adr), coeffWidth)
@@ -200,7 +200,7 @@ class ExpTableCoeff(
     // pow2(x) -> 2^xInt * 2^xFrac
     // Since xFrac is in [0, 1), 2^xFrac is in [1, 2)
 
-    val tableI = ExpSim.pow2TableGeneration( order, adrW, manW, fracW )
+    val tableI = ExpSim.expTableGeneration( order, adrW, manW, fracW )
     val cbit   = tableI.cbit
 
     // both 1st and 2nd derivative of 2^x is larger than 0
@@ -237,7 +237,7 @@ object ExpTableCoeff {
     if(order == 0) {
       return Seq(fracW)
     } else {
-      return ExpSim.pow2TableGeneration( order, adrW, spec.manW, fracW ).cbit
+      return ExpSim.expTableGeneration( order, adrW, spec.manW, fracW ).cbit
     }
   }
   def getCalcW(
@@ -253,7 +253,7 @@ object ExpTableCoeff {
     if(order == 0) {
       return Seq(fracW)
     } else {
-      return ExpSim.pow2TableGeneration( order, adrW, spec.manW, fracW ).calcWidth
+      return ExpSim.expTableGeneration( order, adrW, spec.manW, fracW ).calcWidth
     }
   }
 }

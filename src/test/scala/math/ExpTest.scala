@@ -108,7 +108,7 @@ class ExpTest extends AnyFlatSpec
           val maxCbit    = c.getMaxCbit
           val maxCalcW   = c.getMaxCalcW
           val nstage     = c.getStage
-          val reftable   = ExpSim.pow2TableGeneration(
+          val reftable   = ExpSim.expTableGeneration(
             nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit) )
           val reference  = ExpSim.expSimGeneric( reftable, _ )
 
@@ -380,7 +380,7 @@ class ExpOnlyTest extends AnyFlatSpec
           val maxCbits   = c.getCbit
           val maxCalcW   = c.getCalcW
           val nstage     = c.getStage
-          val reftable   = ExpSim.pow2TableGeneration(
+          val reftable   = ExpSim.expTableGeneration(
             nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbits) )
           val reference  = ExpSim.expSimGeneric( reftable, _ )
 
