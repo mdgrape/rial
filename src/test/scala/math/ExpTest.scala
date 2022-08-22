@@ -121,7 +121,6 @@ class ExpTest extends AnyFlatSpec
             c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
             c.io.y.poke(0.U(spec.W.W))
             val zi = c.io.z.peek().litValue.toBigInt
-            c.clock.step(1)
             if (i > nstage) {
 
               val (xid,z0d) = q.dequeue()
@@ -146,6 +145,7 @@ class ExpTest extends AnyFlatSpec
                                 f"test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString}) != " +
                                 f"ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})")
             }
+            c.clock.step(1)
           }
         }
       }
