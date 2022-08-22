@@ -130,7 +130,7 @@ class ExpPreProcess(
 
   val xshift0 = (xIntW + exBias).U(exW.W) - xex
   val xshift  = xshift0(xIntW-1, 0)
-  val xValShifted = Mux(xshift > xValW.U, 0.U, xVal >> (xshift-1.U(1.W)))
+  val xValShifted = Mux(xshift0 >= (xValW+1).U, 0.U, xVal >> (xshift-1.U(1.W)))
   val xValRounded = (xValShifted >> 1) + xValShifted(0)
 
   val xint0  = xValRounded(xIntW+xFracW-1, xFracW)
