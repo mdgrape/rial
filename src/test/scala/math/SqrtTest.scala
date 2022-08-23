@@ -77,14 +77,17 @@ class SqrtTest extends AnyFlatSpec
   private def runtest ( spec : RealSpec,
       nOrder : Int, adrW : Int, extraBits : Int, stage: MathFuncPipelineConfig,
       n : Int, r : Random, generatorStr : String,
-      generator : ( (RealSpec, Random) => RealGeneric)
+      generator : ( (RealSpec, Random) => RealGeneric),
+      fncfg: MathFuncConfig = MathFuncConfig.all
   ) = {
     val total = stage.total
     val pipeconfig = stage.getString
     it should f"sqrt(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
-      test( new MathFunctions(spec, nOrder, adrW, extraBits, stage, None, false, false)).
+      test( new MathFunctions(fncfg, spec, nOrder, adrW, extraBits, stage, None, false, false)).
         withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
         {
+          import FuncKind._
+
           counter = 0
           val maxCbit    = c.getMaxCbit
           val maxCalcW   = c.getMaxCalcW
@@ -97,7 +100,7 @@ class SqrtTest extends AnyFlatSpec
             val xi = generator(spec,r)
             val z0r= reference(xi)
             q += ((xi.value.toBigInt,z0r.value.toBigInt))
-            c.io.sel.poke(SelectFunc.Sqrt)
+            c.io.sel.poke(fncfg.signal(Sqrt))
             c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
             c.io.y.poke(0.U(spec.W.W))
             val zi = c.io.z.peek().litValue.toBigInt

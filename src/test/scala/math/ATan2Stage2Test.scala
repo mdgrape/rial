@@ -107,14 +107,17 @@ class ATan2Stage2Test extends AnyFlatSpec
       nOrder : Int, adrW : Int, extraBits : Int, stage: MathFuncPipelineConfig,
       n : Int, r : Random, generatorStr : String,
       generatorX : ( (RealSpec, Random) => RealGeneric),
-      generatorY : ( (RealSpec, Random) => RealGeneric)
+      generatorY : ( (RealSpec, Random) => RealGeneric),
+      fncfg: MathFuncConfig = MathFuncConfig.all
   ) = {
     val total = stage.total
     val pipeconfig = stage.getString
     it should f"atan2Stage2(x, y) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
-      test( new MathFunctions(spec, nOrder, adrW, extraBits, stage, None, false, false)).
+      test( new MathFunctions(fncfg, spec, nOrder, adrW, extraBits, stage, None, false, false)).
         withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
         {
+          import FuncKind._
+
           val maxCbit    = c.getMaxCbit
           val maxCalcW   = c.getMaxCalcW
           val nstage     = c.getStage
@@ -140,13 +143,13 @@ class ATan2Stage2Test extends AnyFlatSpec
 
             q += ((xi.value.toBigInt, yi.value.toBigInt, z2r.value.toBigInt))
 
-            c.io.sel.poke(SelectFunc.ATan2Stage1)
+            c.io.sel.poke(fncfg.signal(ATan2Phase1))
             c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
             c.io.y.poke(yi.value.toBigInt.U(spec.W.W))
 
             if(stage.total > 0) {
               c.clock.step(1)
-              c.io.sel.poke(SelectFunc.None)
+              c.io.sel.poke(fncfg.signalNone())
               c.io.x.poke(0.U(spec.W.W))
               c.io.y.poke(0.U(spec.W.W))
               for(j <- 1 until max(1, stage.total)) {
@@ -191,7 +194,7 @@ class ATan2Stage2Test extends AnyFlatSpec
 //             println(f"test:z1i = ${z1i.toLong.toBinaryString}")
 //             println(f"test:z1.special = ${z1r._3}")
 
-            c.io.sel.poke(SelectFunc.ATan2Stage2)
+            c.io.sel.poke(fncfg.signal(ATan2Phase2))
             c.io.x.poke(z1i.U(spec.W.W))
             c.io.y.poke(0.U(spec.W.W))
 
@@ -200,7 +203,7 @@ class ATan2Stage2Test extends AnyFlatSpec
 
             if(stage.total > 0) {
               c.clock.step(1)
-              c.io.sel.poke(SelectFunc.None)
+              c.io.sel.poke(fncfg.signalNone())
               c.io.x.poke(0.U(spec.W.W))
               c.io.y.poke(0.U(spec.W.W))
               for(j <- 1 until max(1, stage.total)) {

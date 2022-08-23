@@ -75,14 +75,17 @@ class ACosStage1Test extends AnyFlatSpec
   private def runtest ( spec : RealSpec,
       nOrder : Int, adrW : Int, extraBits : Int, stage: MathFuncPipelineConfig,
       n : Int, r : Random, generatorStr : String,
-      generator : ( (RealSpec, Random) => RealGeneric)
+      generator : ( (RealSpec, Random) => RealGeneric),
+      fncfg: MathFuncConfig = MathFuncConfig.all
   ) = {
     val total = stage.total
     val pipeconfig = stage.getString
     it should f"acos(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
-      test( new MathFunctions(spec, nOrder, adrW, extraBits, stage, None, false, false)).
+      test( new MathFunctions(fncfg, spec, nOrder, adrW, extraBits, stage, None, false, false)).
         withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
         {
+          import FuncKind._
+
           counter = 0
           val maxCbit    = c.getMaxCbit
           val maxCalcW   = c.getMaxCalcW
@@ -102,7 +105,7 @@ class ACosStage1Test extends AnyFlatSpec
             else if(xi.toDouble == -1.0) {assert(special == 1)}
 
             q += ((xi.value.toBigInt,z0r.value.toBigInt))
-            c.io.sel.poke(SelectFunc.ACos1)
+            c.io.sel.poke(fncfg.signal(ACosPhase1))
             c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
             c.io.y.poke(0.U(spec.W.W))
             val zi = c.io.z.peek().litValue.toBigInt

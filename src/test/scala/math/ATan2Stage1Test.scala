@@ -60,14 +60,17 @@ class ATan2Stage1Test extends AnyFlatSpec
       nOrder : Int, adrW : Int, extraBits : Int, stage: MathFuncPipelineConfig,
       n : Int, r : Random, generatorStr : String,
       generatorX      : ( (RealSpec, Random) => RealGeneric),
-      generatorYoverX : ( (RealSpec, Random) => RealGeneric)
+      generatorYoverX : ( (RealSpec, Random) => RealGeneric),
+      fncfg: MathFuncConfig = MathFuncConfig.all
   ) = {
     val total = stage.total
     val pipeconfig = stage.getString
     it should f"atan2Stage1(x, y) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
-      test( new MathFunctions(spec, nOrder, adrW, extraBits, stage, None, false, false)).
+      test( new MathFunctions(fncfg, spec, nOrder, adrW, extraBits, stage, None, false, false)).
         withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
         {
+          import FuncKind._
+
           val maxCbit    = c.getMaxCbit
           val maxCalcW   = c.getMaxCalcW
           val nstage     = c.getStage
@@ -82,7 +85,7 @@ class ATan2Stage1Test extends AnyFlatSpec
             val yi = generatorYoverX(spec,r)
             val z0r= reference(xi, yi)._1
             q += ((xi.value.toBigInt, yi.value.toBigInt, z0r.value.toBigInt))
-            c.io.sel.poke(SelectFunc.ATan2Stage1)
+            c.io.sel.poke(fncfg.signal(ATan2Phase1))
             c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
             c.io.y.poke(yi.value.toBigInt.U(spec.W.W))
             val zi = c.io.z.peek().litValue.toBigInt

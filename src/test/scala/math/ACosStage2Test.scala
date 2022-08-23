@@ -75,14 +75,17 @@ class ACosStage2Test extends AnyFlatSpec
   private def runtest ( spec : RealSpec,
       nOrder : Int, adrW : Int, extraBits : Int, stage: MathFuncPipelineConfig,
       n : Int, r : Random, generatorStr : String,
-      generator : ( (RealSpec, Random) => RealGeneric)
+      generator : ( (RealSpec, Random) => RealGeneric),
+      fncfg: MathFuncConfig = MathFuncConfig.all
   ) = {
     val total = stage.total
     val pipeconfig = stage.getString
     it should f"acos(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
-      test( new MathFunctions(spec, nOrder, adrW, extraBits, stage, None, false, false)).
+      test( new MathFunctions(fncfg, spec, nOrder, adrW, extraBits, stage, None, false, false)).
         withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
         {
+          import FuncKind._
+
           counter = 0
           val maxCbit    = c.getMaxCbit
           val maxCalcW   = c.getMaxCalcW
@@ -100,13 +103,13 @@ class ACosStage2Test extends AnyFlatSpec
             val (z0r, xneg, special) = refacos1(xi)
             val z1r = refacos2(z0r, xneg, special)
 
-            c.io.sel.poke(SelectFunc.ACos1)
+            c.io.sel.poke(fncfg.signal(ACosPhase1))
             c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
             c.io.y.poke(0.U(spec.W.W))
 
             if(stage.total > 0) {
               c.clock.step(1)
-              c.io.sel.poke(SelectFunc.None)
+              c.io.sel.poke(fncfg.signalNone())
               c.io.x.poke(0.U(spec.W.W))
               c.io.y.poke(0.U(spec.W.W))
               for(j <- 1 until max(1, stage.total)) {
@@ -125,13 +128,13 @@ class ACosStage2Test extends AnyFlatSpec
               c.clock.step(1)
             }
 
-            c.io.sel.poke(SelectFunc.ACos2)
+            c.io.sel.poke(fncfg.signal(ACosPhase2))
             c.io.x.poke(z0i.value.toBigInt.U(spec.W.W))
             c.io.y.poke(0.U(spec.W.W))
 
             if(stage.total > 0) {
               c.clock.step(1)
-              c.io.sel.poke(SelectFunc.None)
+              c.io.sel.poke(fncfg.signalNone())
               c.io.x.poke(0.U(spec.W.W))
               c.io.y.poke(0.U(spec.W.W))
               for(j <- 1 until max(1, stage.total)) {

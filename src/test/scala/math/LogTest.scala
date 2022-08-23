@@ -80,14 +80,17 @@ class LogTest extends AnyFlatSpec
       nOrder : Int, adrW : Int, extraBits : Int, stage: MathFuncPipelineConfig,
       n : Int, r : Random, generatorStr : String,
       generator : ( (RealSpec, Random) => RealGeneric),
-      disableTimeout : Boolean = false
+      disableTimeout : Boolean = false,
+      fncfg: MathFuncConfig = MathFuncConfig.all
   ) = {
     val total = stage.total
     val pipeconfig = stage.getString
     it should f"log(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
-      test( new MathFunctions(spec, nOrder, adrW, extraBits, stage, None, false, false)).
+      test( new MathFunctions(fncfg, spec, nOrder, adrW, extraBits, stage, None, false, false)).
         withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
         {
+          import FuncKind._
+
           counter = 0
           // since table result depends on these values, it is unavoidable to
           // construct tables multiple times.
@@ -139,7 +142,7 @@ class LogTest extends AnyFlatSpec
             }
 
             q += ((xi.value.toBigInt,z0r.value.toBigInt))
-            c.io.sel.poke(SelectFunc.Log)
+            c.io.sel.poke(fncfg.signal(Log))
             c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
             c.io.y.poke(0.U(spec.W.W))
             val zi = c.io.z.peek().litValue.toBigInt
