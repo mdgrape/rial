@@ -179,40 +179,54 @@ class MathFunctions(
   val manW   = spec.manW
   val exBias = spec.exBias
 
-  val maxCbit  = Seq(
-    ACosTableCoeff.getCBits(spec, polySpec),
-    SqrtTableCoeff.getCBits(spec, polySpec),
-    InvSqrtTableCoeff.getCBits(spec, polySpec),
-    ReciprocalTableCoeff.getCBits(spec, polySpec),
-    SinCosTableCoeff.getCBits(spec, polySpec),
-    ATan2Stage2TableCoeff.getCBits(spec, polySpec),
-    ExpTableCoeff.getCBits(spec, polySpec),
-    LogTableCoeff.getCBits(spec, polySpec)
-    ).reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
+  def getCBit(fn: FuncKind.FuncKind): Seq[Int] = {
+    fn match {
+      case Sqrt        => SqrtTableCoeff.getCBits(spec, polySpec)
+      case InvSqrt     => InvSqrtTableCoeff.getCBits(spec, polySpec)
+      case Reciprocal  => ReciprocalTableCoeff.getCBits(spec, polySpec)
+      case Sin         => SinCosTableCoeff.getCBits(spec, polySpec)
+      case Cos         => SinCosTableCoeff.getCBits(spec, polySpec)
+      case ACosPhase1  => SqrtTableCoeff.getCBits(spec, polySpec)
+      case ACosPhase2  => ACosTableCoeff.getCBits(spec, polySpec)
+      case ATan2Phase1 => ReciprocalTableCoeff.getCBits(spec, polySpec)
+      case ATan2Phase2 => ATan2Stage2TableCoeff.getCBits(spec, polySpec)
+      case Exp         => ExpTableCoeff.getCBits(spec, polySpec)
+      case Log         => LogTableCoeff.getCBits(spec, polySpec)
+    }
+  }
+  def getCalcW(fn: FuncKind.FuncKind): Seq[Int] = {
+    fn match {
+      case Sqrt        => SqrtTableCoeff.getCalcW(spec, polySpec)
+      case InvSqrt     => InvSqrtTableCoeff.getCalcW(spec, polySpec)
+      case Reciprocal  => ReciprocalTableCoeff.getCalcW(spec, polySpec)
+      case Sin         => SinCosTableCoeff.getCalcW(spec, polySpec)
+      case Cos         => SinCosTableCoeff.getCalcW(spec, polySpec)
+      case ACosPhase1  => SqrtTableCoeff.getCalcW(spec, polySpec)
+      case ACosPhase2  => ACosTableCoeff.getCalcW(spec, polySpec)
+      case ATan2Phase1 => ReciprocalTableCoeff.getCalcW(spec, polySpec)
+      case ATan2Phase2 => ATan2Stage2TableCoeff.getCalcW(spec, polySpec)
+      case Exp         => ExpTableCoeff.getCalcW(spec, polySpec)
+      case Log         => LogTableCoeff.getCalcW(spec, polySpec)
+    }
+  }
 
-  val maxCalcW = Seq(
-    ACosTableCoeff.getCalcW(spec, polySpec),
-    SqrtTableCoeff.getCalcW(spec, polySpec),
-    InvSqrtTableCoeff.getCalcW(spec, polySpec),
-    ReciprocalTableCoeff.getCalcW(spec, polySpec),
-    SinCosTableCoeff.getCalcW(spec, polySpec),
-    ATan2Stage2TableCoeff.getCalcW(spec, polySpec),
-    ExpTableCoeff.getCalcW(spec, polySpec),
-    LogTableCoeff.getCalcW(spec, polySpec)
-    ).reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
+  val maxCbit  = fncfg.funcs.map(f => getCBit(f)).
+    reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
+  val maxCalcW = fncfg.funcs.map(f => getCalcW(f)).
+    reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
 
   def getMaxCbit  = maxCbit
   def getMaxCalcW = maxCalcW
 
-  println(f"acos        cbits = ${ACosTableCoeff       .getCBits(spec, polySpec)} calcW = ${ACosTableCoeff       .getCalcW(spec, polySpec)}")
-  println(f"sqrt        cbits = ${SqrtTableCoeff       .getCBits(spec, polySpec)} calcW = ${SqrtTableCoeff       .getCalcW(spec, polySpec)}")
-  println(f"invsqrt     cbits = ${InvSqrtTableCoeff    .getCBits(spec, polySpec)} calcW = ${InvSqrtTableCoeff    .getCalcW(spec, polySpec)}")
-  println(f"rec         cbits = ${ReciprocalTableCoeff .getCBits(spec, polySpec)} calcW = ${ReciprocalTableCoeff .getCalcW(spec, polySpec)}")
-  println(f"sincos      cbits = ${SinCosTableCoeff     .getCBits(spec, polySpec)} calcW = ${SinCosTableCoeff     .getCalcW(spec, polySpec)}")
-  println(f"atan2Stage2 cbits = ${ATan2Stage2TableCoeff.getCBits(spec, polySpec)} calcW = ${ATan2Stage2TableCoeff.getCalcW(spec, polySpec)}")
-  println(f"exp         cbits = ${ExpTableCoeff        .getCBits(spec, polySpec)} calcW = ${ExpTableCoeff        .getCalcW(spec, polySpec)}")
-  println(f"log2        cbits = ${LogTableCoeff        .getCBits(spec, polySpec)} calcW = ${LogTableCoeff        .getCalcW(spec, polySpec)}")
-  println(f"maximum     cbits = ${maxCbit} calcW = ${maxCalcW}")
+  println(f"[${if(fncfg.has(ACosPhase2         )){"x"}else{" "}}] acos    cbits = ${ACosTableCoeff       .getCBits(spec, polySpec)} calcW = ${ACosTableCoeff       .getCalcW(spec, polySpec)}")
+  println(f"[${if(fncfg.has(Sqrt               )){"x"}else{" "}}] sqrt    cbits = ${SqrtTableCoeff       .getCBits(spec, polySpec)} calcW = ${SqrtTableCoeff       .getCalcW(spec, polySpec)}")
+  println(f"[${if(fncfg.has(InvSqrt            )){"x"}else{" "}}] invsqrt cbits = ${InvSqrtTableCoeff    .getCBits(spec, polySpec)} calcW = ${InvSqrtTableCoeff    .getCalcW(spec, polySpec)}")
+  println(f"[${if(fncfg.has(Reciprocal         )){"x"}else{" "}}] rec     cbits = ${ReciprocalTableCoeff .getCBits(spec, polySpec)} calcW = ${ReciprocalTableCoeff .getCalcW(spec, polySpec)}")
+  println(f"[${if(fncfg.has(Sin)||fncfg.has(Cos)){"x"}else{" "}}] sincos  cbits = ${SinCosTableCoeff     .getCBits(spec, polySpec)} calcW = ${SinCosTableCoeff     .getCalcW(spec, polySpec)}")
+  println(f"[${if(fncfg.has(ATan2Phase2        )){"x"}else{" "}}] atan2   cbits = ${ATan2Stage2TableCoeff.getCBits(spec, polySpec)} calcW = ${ATan2Stage2TableCoeff.getCalcW(spec, polySpec)}")
+  println(f"[${if(fncfg.has(Exp                )){"x"}else{" "}}] exp     cbits = ${ExpTableCoeff        .getCBits(spec, polySpec)} calcW = ${ExpTableCoeff        .getCalcW(spec, polySpec)}")
+  println(f"[${if(fncfg.has(Log                )){"x"}else{" "}}] log     cbits = ${LogTableCoeff        .getCBits(spec, polySpec)} calcW = ${LogTableCoeff        .getCalcW(spec, polySpec)}")
+  println(f"maximum cbits = ${maxCbit} calcW = ${maxCalcW}")
 
   val io = IO(new Bundle {
     val sel = Input(UInt(fncfg.signalW.W))
