@@ -391,19 +391,56 @@ class MathFunctions(
   val yIsLargerCPGapReg = ShiftRegister(yIsLargerCPReg, cpGap)
 
   // ==========================================================================
+  // Output float.
   //
+  // later we will insert a value to the map.
+
+  val zs = fncfg.funcs.map( fn => { fn -> Wire(UInt(spec.W.W)) }).toMap
+  zs.values.foreach(_ := 0.U) // init
+  val z0 = zs.values.reduce(_|_)
+  io.z := z0
+
+  // ==========================================================================
+  //                                      .-- this one
+  //                                      v
   // .-------.  _  .----------------.   .-------------.
   // |       |-|v|-' .------------. '---| polynomial  |    _  .---------.
-  // |pre-   |=| |===|(adr) table |-----| interpolate |---|v|-| post-   |
-  // |process|=| |=+ '------------'     '-------------' .-| |-| process |
-  // '-------' '-' I .--------------------------------. | '_' '---------'
-  //               +=|(x) non-table path (e.g. taylor)|-'
-  //               ^ '--------------------------------'
-  //               |
-  // now we are here
+  // |pre-   |=| |---|(adr) table |-----| interpolate |---|v|-| post-   |
+  // |process|=| |-' '------------'     '-------------' .-| |-| process |
+  // '-------' '-' | .--------------------------------. | '_' '---------'
+  //               '-|(x) non-table path (e.g. taylor)|-'
+  //                 '--------------------------------'
 
-  // --------------------------------------------------------------------------
-  // acos
+  val polynomialEval = Module(new PolynomialEval(spec, polySpec, maxCbit, stage.calcStage))
+
+  val tableCoeffWidth = maxCbit.reduce(_+_)
+  val polynomialCoefs = fncfg.funcs.map( fn => {
+    fn -> Wire(UInt(tableCoeffWidth.W))
+  }).toMap
+  polynomialCoefs.values.foreach(_:=0.U)
+
+  val polynomialCoef = ShiftRegister(polynomialCoefs.values.reduce(_|_), tcGap)
+  polynomialEval.io.coeffs := polynomialCoef.asTypeOf(new TableCoeffInput(maxCbit))
+
+  val polynomialDxs = if (order == 0) { None } else { Some(fncfg.funcs.map(fn => {
+      fn -> Wire(UInt(polySpec.dxW.W))
+    }).toMap)
+  }
+  if(order != 0) {
+    polynomialCoefs.values.foreach(_:=0.U) // init
+
+    val polynomialDx = ShiftRegister(polynomialDxs.get.values.reduce(_|_), pcGap + tcGap)
+//     printf("polynomialEval.io.dx.get    = %b\n", polynomialDx)
+    polynomialEval.io.dx.get := polynomialDx
+  }
+
+  val polynomialResultCPGapReg = ShiftRegister(polynomialEval.io.result, cpGap)
+
+  // ==========================================================================
+  // ACos
+
+  assert(fncfg.signal(ACosPhase1) =/= 0.U)
+  assert(fncfg.signal(ACosPhase2) =/= 0.U)
 
   val acosFlagReg = Reg(new ACosFlags())
 
@@ -414,13 +451,13 @@ class MathFunctions(
 
   val acos1PreAdrPCGapReg = ShiftRegister(acos1Pre.io.adr, pcGap)
 
-  acos1Pre.io.en        := io.sel === fncfg.signal(ACosPhase1)
-  acos1Pre.io.x         := xdecomp.io.decomp
-  acos2Pre.io.en        := io.sel === fncfg.signal(ACosPhase2)
-  acos2Pre.io.x         := xdecomp.io.decomp
+  acos1Pre.io.en := io.sel === fncfg.signal(ACosPhase1)
+  acos1Pre.io.x  := xdecomp.io.decomp
+  acos2Pre.io.en := io.sel === fncfg.signal(ACosPhase2)
+  acos2Pre.io.x  := xdecomp.io.decomp
   // ------ Preprocess-Calculate ------
-  acosTab.io.en         := selPCGapReg === fncfg.signal(ACosPhase2)
-  acosTab.io.adr        := ShiftRegister(acos2Pre.io.adr, pcGap)
+  acosTab.io.en  := selPCGapReg === fncfg.signal(ACosPhase2)
+  acosTab.io.adr := ShiftRegister(acos2Pre.io.adr, pcGap)
 
   when(selPCReg === fncfg.signal(ACosPhase1)) {
     acosFlagReg := acos1Pre.io.special
@@ -441,7 +478,7 @@ class MathFunctions(
     assert(acosTab.io.cs.asUInt === 0.U)
   }
 
-  // --------------------------------------------------------------------------
+  // ==========================================================================
   // sqrt
 
   val sqrtPre   = Module(new SqrtPreProcess (spec, polySpec, stage.preStage))
@@ -451,10 +488,12 @@ class MathFunctions(
 
   val sqrtPreAdrPCGapReg = ShiftRegister(sqrtPre.io.adr, pcGap)
 
-  sqrtPre.io.en  := (io.sel === fncfg.signal(Sqrt) || io.sel === fncfg.signal(InvSqrt))
+  sqrtPre.io.en  := io.sel === fncfg.signal(Sqrt) || io.sel === fncfg.signal(InvSqrt)
   sqrtPre.io.x   := xdecomp.io.decomp
+
   // ------ Preprocess-Calculate ------
-  sqrtTab.io.en  := (selPCGapReg === fncfg.signal(Sqrt) || selPCGapReg === fncfg.signal(ACosPhase1))
+
+  sqrtTab.io.en  := selPCGapReg === fncfg.signal(Sqrt) || selPCGapReg === fncfg.signal(ACosPhase1)
   sqrtTab.io.adr := sqrtPreAdrPCGapReg | acos1PreAdrPCGapReg
   sqrtOther.io.x := Mux(selPCGapReg === fncfg.signal(Sqrt), xdecPCGapReg, ShiftRegister(acos1Pre.io.y, pcGap))
 
@@ -467,9 +506,8 @@ class MathFunctions(
     assert(sqrtTab.io.cs.asUInt === 0.U || selPCGapReg === fncfg.signal(ACosPhase1))
   }
 
-  // --------------------------------------------------------------------------
+  // ==========================================================================
   // invsqrt
-
   val invsqrtTab   = Module(new InvSqrtTableCoeff (spec, polySpec, maxCbit))
   val invsqrtOther = Module(new InvSqrtOtherPath  (spec, polySpec, otherStage))
   val invsqrtPost  = Module(new InvSqrtPostProcess(spec, polySpec, stage.postStage))
@@ -484,7 +522,7 @@ class MathFunctions(
     assert(invsqrtTab.io.cs.asUInt === 0.U)
   }
 
-  // --------------------------------------------------------------------------
+  // ==========================================================================
   // reciprocal
 
   val recPre   = Module(new ReciprocalPreProcess (spec, polySpec, stage.preStage))
@@ -644,56 +682,33 @@ class MathFunctions(
     assert(logTab.io.cs.asUInt === 0.U)
   }
 
-  // ------------------------------------------------------------------------
-  //                  now we are here
-  //                               |
-  // .-------. +=================+ v .-------------.
-  // |       |=+  .------------. +===|(dx) poly    |   .---------.
-  // |pre-   |----| tableCoeff |=====|(cs) interp  |---| post-   |
-  // |process|-.  '------------'     '-------------' .-| process |
-  // '-------' |  .--------------------------------. | '---------'
-  //           '--| non-table path (e.g. taylor)   |-'
-  //              '--------------------------------'
-
-  val polynomialEval = Module(new PolynomialEval(spec, polySpec, maxCbit, stage.calcStage))
-
   if(order != 0) {
-    val polynomialDx = ShiftRegister(sqrtPre.io.dx.get |
-                                      recPre.io.dx.get |
-                                   sincosPre.io.dx.get |
-                                    acos1Pre.io.dx.get |
-                                    acos2Pre.io.dx.get |
-                                      recPre.io.dx.get |
-                              atan2Stage2Pre.io.dx.get |
-                                      expPre.io.dx.get |
-                                      logPre.io.dx.get, pcGap + tcGap)
-//     printf("polynomialEval.io.dx.get    = %b\n", polynomialDx)
-    polynomialEval.io.dx.get := polynomialDx
+    polynomialDxs.get(Sqrt)        := sqrtPre.io.dx.get
+    polynomialDxs.get(InvSqrt)     := sqrtPre.io.dx.get
+    polynomialDxs.get(Reciprocal)  := recPre.io.dx.get
+    polynomialDxs.get(Sin)         := sincosPre.io.dx.get
+    polynomialDxs.get(Cos)         := sincosPre.io.dx.get
+    polynomialDxs.get(ACosPhase1)  := acos1Pre.io.dx.get
+    polynomialDxs.get(ACosPhase2)  := acos2Pre.io.dx.get
+    polynomialDxs.get(ATan2Phase1) := recPre.io.dx.get
+    polynomialDxs.get(ATan2Phase2) := atan2Stage2Pre.io.dx.get
+    polynomialDxs.get(Exp)         := expPre.io.dx.get
+    polynomialDxs.get(Log)         := logPre.io.dx.get
   }
+  polynomialCoefs(Sqrt)        := sqrtTab.io.cs.asUInt
+  polynomialCoefs(InvSqrt)     := invsqrtTab.io.cs.asUInt
+  polynomialCoefs(Reciprocal)  := recTab.io.cs.asUInt
+  polynomialCoefs(Sin)         := sincosTab.io.cs.asUInt
+  polynomialCoefs(Cos)         := sincosTab.io.cs.asUInt
+  polynomialCoefs(ACosPhase1)  := sqrtTab.io.cs.asUInt
+  polynomialCoefs(ACosPhase2)  := acosTab.io.cs.asUInt
+  polynomialCoefs(ATan2Phase1) := recTab.io.cs.asUInt
+  polynomialCoefs(ATan2Phase2) := atan2Stage2Tab.io.cs.asUInt
+  polynomialCoefs(Exp)         := expTab.io.cs.asUInt
+  polynomialCoefs(Log)         := logTab.io.cs.asUInt
 
-  val polynomialCoef = ShiftRegister(sqrtTab.io.cs.asUInt |
-                     invsqrtTab.io.cs.asUInt |
-                         recTab.io.cs.asUInt |
-                      sincosTab.io.cs.asUInt |
-                        acosTab.io.cs.asUInt |
-                 atan2Stage2Tab.io.cs.asUInt |
-                         expTab.io.cs.asUInt |
-                         logTab.io.cs.asUInt, tcGap)
-
-//   printf("polynomialEval.io.coeffs.cs = %b\n", polynomialCoef.asUInt)
-  polynomialEval.io.coeffs := polynomialCoef.asTypeOf(new TableCoeffInput(maxCbit))
-
-  // ------------------------------------------------------------------------
-  //                                         we are here
-  // .-------. .-----------------.   .-------------.  |
-  // |       |-'  .------------. '---| polynomial  |  v .--------------.
-  // |pre-   |----| tableCoeff |-----| interpolate |====|(zres)   post |
-  // |process|-.  '------------'     '-------------'  +=|(zother) proc |
-  // '-------' |  .--------------------------------.  I '--------------'
-  //           '--| non-table path (e.g. taylor)   |==+
-  //              '--------------------------------'
-
-  val polynomialResultCPGapReg = ShiftRegister(polynomialEval.io.result, cpGap)
+  // ==========================================================================
+  // postprocess
 
   acosPost.io.en     := (selCPGapReg === fncfg.signal(ACosPhase2))
   acosPost.io.x      := xdecCPGapReg
@@ -738,17 +753,18 @@ class MathFunctions(
   logPost.io.zother := ShiftRegister(logOther.io.zother, cpGap)
   logPost.io.zres   := polynomialResultCPGapReg
 
-  val z0 = sqrtPost.io.z        |
-           invsqrtPost.io.z     |
-           recPost.io.z         |
-           sincosPost.io.z      |
-           acosPost.io.z        |
-           atan2Stage1Post.io.z |
-           atan2Stage2Post.io.z |
-           expPost.io.z         |
-           logPost.io.z
-
-  io.z := z0
+  // redundant...
+  zs(Sqrt)        := sqrtPost.io.z
+  zs(InvSqrt)     := invsqrtPost.io.z
+  zs(Reciprocal)  := recPost.io.z
+  zs(Sin)         := sincosPost.io.z
+  zs(Cos)         := sincosPost.io.z
+  zs(ACosPhase1)  := sqrtPost.io.z
+  zs(ACosPhase2)  := acosPost.io.z
+  zs(ATan2Phase1) := atan2Stage1Post.io.z
+  zs(ATan2Phase2) := atan2Stage2Post.io.z
+  zs(Exp)         := expPost.io.z
+  zs(Log)         := logPost.io.z
 }
 
 class MathFuncUnitFP32( stage : MathFuncPipelineConfig )
