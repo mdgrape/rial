@@ -24,53 +24,6 @@ object FuncKind extends Enumeration {
   val Sqrt, InvSqrt, Reciprocal, Sin, Cos, ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Exp, Log = Value
 }
 
-/** Returns the bit width of the coefficients of polynomial used by the function
- *  under the conditions passed.
- *  Used to determine maximum bit width of [[rial.math.PolynomialEval]] module
- *  embedded in a [[rial.math.MathFunctions]]
- *
- *  @return bit width of coefficients used in the polynomial of the function.
- */
-def getCBit(fn: FuncKind.FuncKind, spec: RealSpec, polySpec: PolynomialSpec): Seq[Int] = {
-  import FuncKind._
-  fn match {
-    case Sqrt        => SqrtTableCoeff.getCBits(spec, polySpec)
-    case InvSqrt     => InvSqrtTableCoeff.getCBits(spec, polySpec)
-    case Reciprocal  => ReciprocalTableCoeff.getCBits(spec, polySpec)
-    case Sin         => SinCosTableCoeff.getCBits(spec, polySpec)
-    case Cos         => SinCosTableCoeff.getCBits(spec, polySpec)
-    case ACosPhase1  => SqrtTableCoeff.getCBits(spec, polySpec)
-    case ACosPhase2  => ACosTableCoeff.getCBits(spec, polySpec)
-    case ATan2Phase1 => ReciprocalTableCoeff.getCBits(spec, polySpec)
-    case ATan2Phase2 => ATan2Stage2TableCoeff.getCBits(spec, polySpec)
-    case Exp         => ExpTableCoeff.getCBits(spec, polySpec)
-    case Log         => LogTableCoeff.getCBits(spec, polySpec)
-  }
-}
-
-/** Returns the bit width of the temporary of polynomial used by the function
- *  under the conditions passed.
- *  Used to determine maximum bit width of [[rial.math.PolynomialEval]] module
- *  embedded in a [[rial.math.MathFunctions]]
- *
- *  @return bit width of temporary used in the polynomial of the function.
- */
-def getCalcW(fn: FuncKind.FuncKind, spec: RealSpec, polySpec: PolynomialSpec): Seq[Int] = {
-  import FuncKind._
-  fn match {
-    case Sqrt        => SqrtTableCoeff.getCalcW(spec, polySpec)
-    case InvSqrt     => InvSqrtTableCoeff.getCalcW(spec, polySpec)
-    case Reciprocal  => ReciprocalTableCoeff.getCalcW(spec, polySpec)
-    case Sin         => SinCosTableCoeff.getCalcW(spec, polySpec)
-    case Cos         => SinCosTableCoeff.getCalcW(spec, polySpec)
-    case ACosPhase1  => SqrtTableCoeff.getCalcW(spec, polySpec)
-    case ACosPhase2  => ACosTableCoeff.getCalcW(spec, polySpec)
-    case ATan2Phase1 => ReciprocalTableCoeff.getCalcW(spec, polySpec)
-    case ATan2Phase2 => ATan2Stage2TableCoeff.getCalcW(spec, polySpec)
-    case Exp         => ExpTableCoeff.getCalcW(spec, polySpec)
-    case Log         => LogTableCoeff.getCalcW(spec, polySpec)
-  }
-}
 
 /** A Config class for [[rial.math.MathFunctions]] Module.
  *
@@ -335,6 +288,52 @@ class MathFunctions(
   val exW    = spec.exW
   val manW   = spec.manW
   val exBias = spec.exBias
+
+  /** Returns the bit width of the coefficients of polynomial used by the function.
+   *  Used to determine maximum bit width of [[rial.math.PolynomialEval]] module
+   *  embedded in a [[rial.math.MathFunctions]]
+   *
+   *  @return bit width of coefficients used in the polynomial of the function.
+   */
+  def getCBit(fn: FuncKind.FuncKind): Seq[Int] = {
+    import FuncKind._
+    fn match {
+      case Sqrt        => SqrtTableCoeff.getCBits(spec, polySpec)
+      case InvSqrt     => InvSqrtTableCoeff.getCBits(spec, polySpec)
+      case Reciprocal  => ReciprocalTableCoeff.getCBits(spec, polySpec)
+      case Sin         => SinCosTableCoeff.getCBits(spec, polySpec)
+      case Cos         => SinCosTableCoeff.getCBits(spec, polySpec)
+      case ACosPhase1  => SqrtTableCoeff.getCBits(spec, polySpec)
+      case ACosPhase2  => ACosTableCoeff.getCBits(spec, polySpec)
+      case ATan2Phase1 => ReciprocalTableCoeff.getCBits(spec, polySpec)
+      case ATan2Phase2 => ATan2Stage2TableCoeff.getCBits(spec, polySpec)
+      case Exp         => ExpTableCoeff.getCBits(spec, polySpec)
+      case Log         => LogTableCoeff.getCBits(spec, polySpec)
+    }
+  }
+
+  /** Returns the bit width of the temporary of polynomial used by the function.
+   *  Used to determine maximum bit width of [[rial.math.PolynomialEval]] module
+   *  embedded in a [[rial.math.MathFunctions]]
+   *
+   *  @return bit width of temporary used in the polynomial of the function.
+   */
+  def getCalcW(fn: FuncKind.FuncKind): Seq[Int] = {
+    import FuncKind._
+    fn match {
+      case Sqrt        => SqrtTableCoeff.getCalcW(spec, polySpec)
+      case InvSqrt     => InvSqrtTableCoeff.getCalcW(spec, polySpec)
+      case Reciprocal  => ReciprocalTableCoeff.getCalcW(spec, polySpec)
+      case Sin         => SinCosTableCoeff.getCalcW(spec, polySpec)
+      case Cos         => SinCosTableCoeff.getCalcW(spec, polySpec)
+      case ACosPhase1  => SqrtTableCoeff.getCalcW(spec, polySpec)
+      case ACosPhase2  => ACosTableCoeff.getCalcW(spec, polySpec)
+      case ATan2Phase1 => ReciprocalTableCoeff.getCalcW(spec, polySpec)
+      case ATan2Phase2 => ATan2Stage2TableCoeff.getCalcW(spec, polySpec)
+      case Exp         => ExpTableCoeff.getCalcW(spec, polySpec)
+      case Log         => LogTableCoeff.getCalcW(spec, polySpec)
+    }
+  }
 
   val maxCbit  = fncfg.funcs.map(f => getCBit(f)).
     reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
