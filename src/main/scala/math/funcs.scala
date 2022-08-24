@@ -455,9 +455,16 @@ class MathFunctions(
   acos1Pre.io.x  := xdecomp.io.decomp
   acos2Pre.io.en := io.sel === fncfg.signal(ACosPhase2)
   acos2Pre.io.x  := xdecomp.io.decomp
+
   // ------ Preprocess-Calculate ------
+
   acosTab.io.en  := selPCGapReg === fncfg.signal(ACosPhase2)
   acosTab.io.adr := ShiftRegister(acos2Pre.io.adr, pcGap)
+
+  acosPost.io.en     := (selCPGapReg === fncfg.signal(ACosPhase2))
+  acosPost.io.x      := xdecCPGapReg
+  acosPost.io.flags  := acosFlagReg
+  acosPost.io.zres   := polynomialResultCPGapReg
 
   when(selPCReg === fncfg.signal(ACosPhase1)) {
     acosFlagReg := acos1Pre.io.special
@@ -495,7 +502,12 @@ class MathFunctions(
 
   sqrtTab.io.en  := selPCGapReg === fncfg.signal(Sqrt) || selPCGapReg === fncfg.signal(ACosPhase1)
   sqrtTab.io.adr := sqrtPreAdrPCGapReg | acos1PreAdrPCGapReg
+
   sqrtOther.io.x := Mux(selPCGapReg === fncfg.signal(Sqrt), xdecPCGapReg, ShiftRegister(acos1Pre.io.y, pcGap))
+
+  sqrtPost.io.en     := (selCPGapReg === fncfg.signal(Sqrt) || selCPGapReg === fncfg.signal(ACosPhase1))
+  sqrtPost.io.zother := ShiftRegister(sqrtOther.io.zother, cpGap)
+  sqrtPost.io.zres   := polynomialResultCPGapReg
 
   // after preprocess
   when(selPCReg =/= fncfg.signal(Sqrt) && selPCReg =/= fncfg.signal(InvSqrt)) {
@@ -513,10 +525,15 @@ class MathFunctions(
   val invsqrtPost  = Module(new InvSqrtPostProcess(spec, polySpec, stage.postStage))
 
   // (preprocess is same as sqrt)
-  // ------ Preprocess-Calculate ------
+
   invsqrtTab.io.en  := selPCGapReg === fncfg.signal(InvSqrt)
   invsqrtTab.io.adr := sqrtPreAdrPCGapReg
+
   invsqrtOther.io.x := xdecPCGapReg
+
+  invsqrtPost.io.en     := (selCPGapReg === fncfg.signal(InvSqrt))
+  invsqrtPost.io.zother := ShiftRegister(invsqrtOther.io.zother, cpGap)
+  invsqrtPost.io.zres   := polynomialResultCPGapReg
 
   when(selPCGapReg =/= fncfg.signal(InvSqrt)) {
     assert(invsqrtTab.io.cs.asUInt === 0.U)
@@ -539,7 +556,12 @@ class MathFunctions(
   recTab.io.en  := (selPCGapReg === fncfg.signal(Reciprocal)) ||
                    (selPCGapReg === fncfg.signal(ATan2Phase1))
   recTab.io.adr := ShiftRegister(recPre.io.adr, pcGap)
+
   recOther.io.x := xdecPCGapReg
+
+  recPost.io.en     := selCPGapReg === fncfg.signal(Reciprocal)
+  recPost.io.zother := ShiftRegister(recOther.io.zother, cpGap)
+  recPost.io.zres   := polynomialResultCPGapReg
 
   when(selPCReg =/= fncfg.signal(Reciprocal) && selPCReg =/= fncfg.signal(ATan2Phase1)) {
     assert(recPre.io.adr === 0.U)
@@ -573,6 +595,11 @@ class MathFunctions(
     assert(sincosTab.io.cs.asUInt === 0.U)
   }
 
+  sincosPost.io.en   := (selCPGapReg === fncfg.signal(Sin)) ||
+                        (selCPGapReg === fncfg.signal(Cos))
+  sincosPost.io.pre  := ShiftRegister(sincosPre.io.out, pcGap + tcGap + nCalcStage + cpGap)
+  sincosPost.io.zres := polynomialResultCPGapReg
+
   // --------------------------------------------------------------------------
   // atan2
 
@@ -591,6 +618,11 @@ class MathFunctions(
   atan2Stage1Other.io.y  := ydecPCGapReg
   atan2Stage1Other.io.yIsLarger := yIsLargerPCGapReg
 
+  atan2Stage1Post.io.en     := (selCPGapReg === fncfg.signal(ATan2Phase1))
+  atan2Stage1Post.io.zother := ShiftRegister(atan2Stage1Other.io.zother, cpGap)
+  atan2Stage1Post.io.zres   := polynomialResultCPGapReg
+  atan2Stage1Post.io.minxy  := Mux(yIsLargerCPGapReg, xdecCPGapReg, ydecCPGapReg)
+
   val atan2Stage2Pre   = Module(new ATan2Stage2PreProcess (spec, polySpec, stage.preStage))
   val atan2Stage2Tab   = Module(new ATan2Stage2TableCoeff (spec, polySpec, maxCbit))
   val atan2Stage2Other = Module(new ATan2Stage2OtherPath  (spec, polySpec, otherStage))
@@ -601,6 +633,11 @@ class MathFunctions(
   atan2Stage2Tab.io.en  := (selPCGapReg === fncfg.signal(ATan2Phase2))
   atan2Stage2Tab.io.adr := ShiftRegister(atan2Stage2Pre.io.adr, pcGap)
   atan2Stage2Other.io.x := xdecPCGapReg
+
+  atan2Stage2Post.io.en     := (selCPGapReg === fncfg.signal(ATan2Phase2))
+  atan2Stage2Post.io.zother := ShiftRegister(atan2Stage2Other.io.zother, cpGap)
+  atan2Stage2Post.io.zres   := polynomialResultCPGapReg
+  atan2Stage2Post.io.x      := xdecCPGapReg
 
   when(selPCReg =/= fncfg.signal(ATan2Phase2)) {
     assert(atan2Stage2Pre.io.adr === 0.U)
@@ -647,7 +684,11 @@ class MathFunctions(
 
   if(expPre.io.xfracLSBs.isDefined) {
     expOther.io.xfracLSBs.get := ShiftRegister(expPre.io.xfracLSBs.get, pcGap)
+    expPost.io.zCorrCoef.get  := ShiftRegister(expOther.io.zCorrCoef.get, cpGap)
   }
+  expPost.io.en     := selCPGapReg === fncfg.signal(Exp)
+  expPost.io.zother := ShiftRegister(expOther.io.zother, cpGap)
+  expPost.io.zres   := polynomialResultCPGapReg
 
   when(selPCReg =/= fncfg.signal(Exp)) {
     assert(expPre.io.adr === 0.U)
@@ -673,6 +714,10 @@ class MathFunctions(
   logTab.io.en      := (selPCGapReg === fncfg.signal(Log))
   logTab.io.adr     := ShiftRegister(logPre.io.adr, pcGap)
   logOther.io.x     := xdecPCGapReg
+
+  logPost.io.en     := selCPGapReg === fncfg.signal(Log)
+  logPost.io.zother := ShiftRegister(logOther.io.zother, cpGap)
+  logPost.io.zres   := polynomialResultCPGapReg
 
   when(selPCReg =/= fncfg.signal(Log)) {
     assert(logPre.io.adr === 0.U)
@@ -707,51 +752,6 @@ class MathFunctions(
   polynomialCoefs(Exp)         := expTab.io.cs.asUInt
   polynomialCoefs(Log)         := logTab.io.cs.asUInt
 
-  // ==========================================================================
-  // postprocess
-
-  acosPost.io.en     := (selCPGapReg === fncfg.signal(ACosPhase2))
-  acosPost.io.x      := xdecCPGapReg
-  acosPost.io.flags  := acosFlagReg
-  acosPost.io.zres   := polynomialResultCPGapReg
-
-  sqrtPost.io.en     := (selCPGapReg === fncfg.signal(Sqrt) || selCPGapReg === fncfg.signal(ACosPhase1))
-  sqrtPost.io.zother := ShiftRegister(sqrtOther.io.zother, cpGap)
-  sqrtPost.io.zres   := polynomialResultCPGapReg
-
-  invsqrtPost.io.en     := (selCPGapReg === fncfg.signal(InvSqrt))
-  invsqrtPost.io.zother := ShiftRegister(invsqrtOther.io.zother, cpGap)
-  invsqrtPost.io.zres   := polynomialResultCPGapReg
-
-  recPost.io.en     := selCPGapReg === fncfg.signal(Reciprocal)
-  recPost.io.zother := ShiftRegister(recOther.io.zother, cpGap)
-  recPost.io.zres   := polynomialResultCPGapReg
-
-  sincosPost.io.en   := (selCPGapReg === fncfg.signal(Sin)) ||
-                        (selCPGapReg === fncfg.signal(Cos))
-  sincosPost.io.pre  := ShiftRegister(sincosPre.io.out, pcGap + tcGap + nCalcStage + cpGap)
-  sincosPost.io.zres := polynomialResultCPGapReg
-
-  atan2Stage1Post.io.en     := (selCPGapReg === fncfg.signal(ATan2Phase1))
-  atan2Stage1Post.io.zother := ShiftRegister(atan2Stage1Other.io.zother, cpGap)
-  atan2Stage1Post.io.zres   := polynomialResultCPGapReg
-  atan2Stage1Post.io.minxy  := Mux(yIsLargerCPGapReg, xdecCPGapReg, ydecCPGapReg)
-
-  atan2Stage2Post.io.en     := (selCPGapReg === fncfg.signal(ATan2Phase2))
-  atan2Stage2Post.io.zother := ShiftRegister(atan2Stage2Other.io.zother, cpGap)
-  atan2Stage2Post.io.zres   := polynomialResultCPGapReg
-  atan2Stage2Post.io.x      := xdecCPGapReg
-
-  if(expPre.io.xfracLSBs.isDefined) {
-    expPost.io.zCorrCoef.get := ShiftRegister(expOther.io.zCorrCoef.get, cpGap)
-  }
-  expPost.io.en     := selCPGapReg === fncfg.signal(Exp)
-  expPost.io.zother := ShiftRegister(expOther.io.zother, cpGap)
-  expPost.io.zres   := polynomialResultCPGapReg
-
-  logPost.io.en     := selCPGapReg === fncfg.signal(Log)
-  logPost.io.zother := ShiftRegister(logOther.io.zother, cpGap)
-  logPost.io.zres   := polynomialResultCPGapReg
 
   // redundant...
   zs(Sqrt)        := sqrtPost.io.z
