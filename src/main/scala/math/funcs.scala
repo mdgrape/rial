@@ -603,49 +603,6 @@ class MathFunctions(
   }
 
   // ==========================================================================
-  // sincos
-
-  val sincosPre   = Module(new SinCosPreProcess (spec, polySpec, stage.preStage))
-  val sincosTab   = Module(new SinCosTableCoeff (spec, polySpec, maxCbit))
-  val sincosPost  = Module(new SinCosPostProcess(spec, polySpec, stage.postStage))
-
-  sincosPre.io.en    := (io.sel === fncfg.signal(Sin)) || (io.sel === fncfg.signal(Cos))
-  sincosPre.io.isSin := (io.sel === fncfg.signal(Sin))
-  sincosPre.io.x     := xdecomp.io.decomp
-
-  if(order != 0) {
-    // redundant...
-    polynomialDxs.get(Sin) := sincosPre.io.dx.get
-    polynomialDxs.get(Cos) := sincosPre.io.dx.get
-  }
-
-  // ------ Preprocess-Calculate ------
-  sincosTab.io.en    := (selPCGapReg === fncfg.signal(Sin)) ||
-                        (selPCGapReg === fncfg.signal(Cos))
-  sincosTab.io.adr   := ShiftRegister(sincosPre.io.adr, pcGap)
-
-  polynomialCoefs(Sin) := sincosTab.io.cs.asUInt
-  polynomialCoefs(Cos) := sincosTab.io.cs.asUInt
-
-  when(selPCReg =/= fncfg.signal(Sin) && selPCReg =/= fncfg.signal(Cos)) {
-    assert(sincosPre.io.adr === 0.U)
-    assert(sincosPre.io.dx.getOrElse(0.U) === 0.U)
-  }
-
-  when(selPCGapReg =/= fncfg.signal(Sin) && selPCGapReg =/= fncfg.signal(Cos)) {
-    assert(sincosTab.io.cs.asUInt === 0.U)
-  }
-
-  sincosPost.io.en   := (selCPGapReg === fncfg.signal(Sin)) ||
-                        (selCPGapReg === fncfg.signal(Cos))
-  sincosPost.io.pre  := ShiftRegister(sincosPre.io.out, pcGap + tcGap + nCalcStage + cpGap)
-  sincosPost.io.zres := polynomialResultCPGapReg
-
-  // redundant...
-  zs(Sin) := sincosPost.io.z
-  zs(Cos) := sincosPost.io.z
-
-  // ==========================================================================
   // atan2
 
   val atan2Stage1Pre   = Module(new ATan2Stage1PreProcess (spec, polySpec, stage.preStage))
@@ -727,6 +684,49 @@ class MathFunctions(
   // executed after the Stage1 because it uses the result of stage1 as its input.
   atan2Stage2Other.io.flags := atan2FlagReg
   atan2Stage2Post.io.flags  := atan2FlagReg
+
+  // ==========================================================================
+  // sincos
+
+  val sincosPre   = Module(new SinCosPreProcess (spec, polySpec, stage.preStage))
+  val sincosTab   = Module(new SinCosTableCoeff (spec, polySpec, maxCbit))
+  val sincosPost  = Module(new SinCosPostProcess(spec, polySpec, stage.postStage))
+
+  sincosPre.io.en    := (io.sel === fncfg.signal(Sin)) || (io.sel === fncfg.signal(Cos))
+  sincosPre.io.isSin := (io.sel === fncfg.signal(Sin))
+  sincosPre.io.x     := xdecomp.io.decomp
+
+  if(order != 0) {
+    // redundant...
+    polynomialDxs.get(Sin) := sincosPre.io.dx.get
+    polynomialDxs.get(Cos) := sincosPre.io.dx.get
+  }
+
+  // ------ Preprocess-Calculate ------
+  sincosTab.io.en    := (selPCGapReg === fncfg.signal(Sin)) ||
+                        (selPCGapReg === fncfg.signal(Cos))
+  sincosTab.io.adr   := ShiftRegister(sincosPre.io.adr, pcGap)
+
+  polynomialCoefs(Sin) := sincosTab.io.cs.asUInt
+  polynomialCoefs(Cos) := sincosTab.io.cs.asUInt
+
+  when(selPCReg =/= fncfg.signal(Sin) && selPCReg =/= fncfg.signal(Cos)) {
+    assert(sincosPre.io.adr === 0.U)
+    assert(sincosPre.io.dx.getOrElse(0.U) === 0.U)
+  }
+
+  when(selPCGapReg =/= fncfg.signal(Sin) && selPCGapReg =/= fncfg.signal(Cos)) {
+    assert(sincosTab.io.cs.asUInt === 0.U)
+  }
+
+  sincosPost.io.en   := (selCPGapReg === fncfg.signal(Sin)) ||
+                        (selCPGapReg === fncfg.signal(Cos))
+  sincosPost.io.pre  := ShiftRegister(sincosPre.io.out, pcGap + tcGap + nCalcStage + cpGap)
+  sincosPost.io.zres := polynomialResultCPGapReg
+
+  // redundant...
+  zs(Sin) := sincosPost.io.z
+  zs(Cos) := sincosPost.io.z
 
 
   // ==========================================================================
