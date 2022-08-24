@@ -562,47 +562,6 @@ class MathFunctions(
   }
 
   // ==========================================================================
-  // reciprocal
-
-  val recPre   = Module(new ReciprocalPreProcess (spec, polySpec, stage.preStage))
-  val recTab   = Module(new ReciprocalTableCoeff (spec, polySpec, maxCbit))
-  val recOther = Module(new ReciprocalOtherPath  (spec, polySpec, otherStage))
-  val recPost  = Module(new ReciprocalPostProcess(spec, polySpec, stage.postStage))
-
-  // atan2 uses reciprocal 1/max(x,y) to calculate min(x,y)/max(x,y).
-  val recUseY = (io.sel === fncfg.signal(ATan2Phase1)) && yIsLarger
-
-  recPre.io.en  := (io.sel === fncfg.signal(Reciprocal)) || (io.sel === fncfg.signal(ATan2Phase1))
-  recPre.io.x   := Mux(recUseY, ydecomp.io.decomp, xdecomp.io.decomp)
-
-  if(order != 0) {
-    polynomialDxs.get(Reciprocal)  := recPre.io.dx.get
-  }
-
-  // ------ Preprocess-Calculate ------
-  recTab.io.en  := (selPCGapReg === fncfg.signal(Reciprocal)) ||
-                   (selPCGapReg === fncfg.signal(ATan2Phase1))
-  recTab.io.adr := ShiftRegister(recPre.io.adr, pcGap)
-
-  polynomialCoefs(Reciprocal) := recTab.io.cs.asUInt
-
-  recOther.io.x := xdecPCGapReg
-
-  recPost.io.en     := selCPGapReg === fncfg.signal(Reciprocal)
-  recPost.io.zother := ShiftRegister(recOther.io.zother, cpGap)
-  recPost.io.zres   := polynomialResultCPGapReg
-
-  zs(Reciprocal) := recPost.io.z
-
-  when(selPCReg =/= fncfg.signal(Reciprocal) && selPCReg =/= fncfg.signal(ATan2Phase1)) {
-    assert(recPre.io.adr === 0.U)
-    assert(recPre.io.dx.getOrElse(0.U) === 0.U)
-  }
-  when(selPCGapReg =/= fncfg.signal(Reciprocal) && selPCGapReg =/= fncfg.signal(ATan2Phase1)) {
-    assert(recTab.io.cs.asUInt === 0.U)
-  }
-
-  // ==========================================================================
   // atan2
 
   val atan2Stage1Pre   = Module(new ATan2Stage1PreProcess (spec, polySpec, stage.preStage))
@@ -684,6 +643,48 @@ class MathFunctions(
   // executed after the Stage1 because it uses the result of stage1 as its input.
   atan2Stage2Other.io.flags := atan2FlagReg
   atan2Stage2Post.io.flags  := atan2FlagReg
+
+  // ==========================================================================
+  // reciprocal
+
+  val recPre   = Module(new ReciprocalPreProcess (spec, polySpec, stage.preStage))
+  val recTab   = Module(new ReciprocalTableCoeff (spec, polySpec, maxCbit))
+  val recOther = Module(new ReciprocalOtherPath  (spec, polySpec, otherStage))
+  val recPost  = Module(new ReciprocalPostProcess(spec, polySpec, stage.postStage))
+
+  // atan2 uses reciprocal 1/max(x,y) to calculate min(x,y)/max(x,y).
+  val recUseY = (io.sel === fncfg.signal(ATan2Phase1)) && yIsLarger
+
+  recPre.io.en  := (io.sel === fncfg.signal(Reciprocal)) || (io.sel === fncfg.signal(ATan2Phase1))
+  recPre.io.x   := Mux(recUseY, ydecomp.io.decomp, xdecomp.io.decomp)
+
+  if(order != 0) {
+    polynomialDxs.get(Reciprocal)  := recPre.io.dx.get
+  }
+
+  // ------ Preprocess-Calculate ------
+  recTab.io.en  := (selPCGapReg === fncfg.signal(Reciprocal)) ||
+                   (selPCGapReg === fncfg.signal(ATan2Phase1))
+  recTab.io.adr := ShiftRegister(recPre.io.adr, pcGap)
+
+  polynomialCoefs(Reciprocal) := recTab.io.cs.asUInt
+
+  recOther.io.x := xdecPCGapReg
+
+  recPost.io.en     := selCPGapReg === fncfg.signal(Reciprocal)
+  recPost.io.zother := ShiftRegister(recOther.io.zother, cpGap)
+  recPost.io.zres   := polynomialResultCPGapReg
+
+  zs(Reciprocal) := recPost.io.z
+
+  when(selPCReg =/= fncfg.signal(Reciprocal) && selPCReg =/= fncfg.signal(ATan2Phase1)) {
+    assert(recPre.io.adr === 0.U)
+    assert(recPre.io.dx.getOrElse(0.U) === 0.U)
+  }
+  when(selPCGapReg =/= fncfg.signal(Reciprocal) && selPCGapReg =/= fncfg.signal(ATan2Phase1)) {
+    assert(recTab.io.cs.asUInt === 0.U)
+  }
+
 
   // ==========================================================================
   // sincos
