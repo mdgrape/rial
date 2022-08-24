@@ -696,52 +696,26 @@ class MathFunctions(
     if(fncfg.has(Sin) && fncfg.has(Cos)) {
       sincosPre.io.en    := (io.sel === fncfg.signal(Sin)) || (io.sel === fncfg.signal(Cos))
       sincosPre.io.isSin := (io.sel === fncfg.signal(Sin))
-    } else if (fncfg.has(Sin)) {
-      sincosPre.io.en    := io.sel === fncfg.signal(Sin)
-      sincosPre.io.isSin := true.B
-    } else {
-      sincosPre.io.en    := io.sel === fncfg.signal(Cos)
-      sincosPre.io.isSin := false.B
-    }
+      sincosPre.io.x     := xdecomp.io.decomp
 
-    sincosPre.io.x := xdecomp.io.decomp
+      sincosTab.io.en  := (selPCGapReg === fncfg.signal(Sin)) ||
+                          (selPCGapReg === fncfg.signal(Cos))
+      sincosTab.io.adr := ShiftRegister(sincosPre.io.adr, pcGap)
 
-    if(order != 0) {
-      if(fncfg.has(Sin)) {polynomialDxs.get(Sin) := sincosPre.io.dx.get}
-      if(fncfg.has(Cos)) {polynomialDxs.get(Cos) := sincosPre.io.dx.get}
-    }
+      sincosPost.io.en   := (selCPGapReg === fncfg.signal(Sin)) ||
+                            (selCPGapReg === fncfg.signal(Cos))
+      sincosPost.io.pre  := ShiftRegister(sincosPre.io.out, pcGap + tcGap + nCalcStage + cpGap)
+      sincosPost.io.zres := polynomialResultCPGapReg
 
-    // ------ Preprocess-Calculate ------
+      if(order != 0) {
+        polynomialDxs.get(Sin) := sincosPre.io.dx.get
+        polynomialDxs.get(Cos) := sincosPre.io.dx.get
+      }
+      polynomialCoefs(Sin) := sincosTab.io.cs.asUInt
+      polynomialCoefs(Cos) := sincosTab.io.cs.asUInt
+      zs(Sin) := sincosPost.io.z
+      zs(Cos) := sincosPost.io.z
 
-    if(fncfg.has(Sin) && fncfg.has(Cos)) {
-      sincosTab.io.en := (selPCGapReg === fncfg.signal(Sin)) ||
-                         (selPCGapReg === fncfg.signal(Cos))
-    } else if (fncfg.has(Sin)) {
-      sincosTab.io.en := selPCGapReg === fncfg.signal(Sin)
-    } else {
-      sincosTab.io.en := selPCGapReg === fncfg.signal(Cos)
-    }
-    sincosTab.io.adr := ShiftRegister(sincosPre.io.adr, pcGap)
-
-    if(fncfg.has(Sin)) {polynomialCoefs(Sin) := sincosTab.io.cs.asUInt}
-    if(fncfg.has(Cos)) {polynomialCoefs(Cos) := sincosTab.io.cs.asUInt}
-
-    if(fncfg.has(Sin) && fncfg.has(Cos)) {
-      sincosPost.io.en := (selCPGapReg === fncfg.signal(Sin)) ||
-                          (selCPGapReg === fncfg.signal(Cos))
-    } else if(fncfg.has(Sin)) {
-      sincosPost.io.en := (selCPGapReg === fncfg.signal(Sin))
-    } else {
-      sincosPost.io.en := (selCPGapReg === fncfg.signal(Cos))
-    }
-
-    sincosPost.io.pre  := ShiftRegister(sincosPre.io.out, pcGap + tcGap + nCalcStage + cpGap)
-    sincosPost.io.zres := polynomialResultCPGapReg
-
-    if(fncfg.has(Sin)) {zs(Sin) := sincosPost.io.z}
-    if(fncfg.has(Cos)) {zs(Cos) := sincosPost.io.z}
-
-    if(fncfg.has(Sin) && fncfg.has(Cos)) {
       when(selPCReg =/= fncfg.signal(Sin) && selPCReg =/= fncfg.signal(Cos)) {
         assert(sincosPre.io.adr === 0.U)
         assert(sincosPre.io.dx.getOrElse(0.U) === 0.U)
@@ -749,7 +723,26 @@ class MathFunctions(
       when(selPCGapReg =/= fncfg.signal(Sin) && selPCGapReg =/= fncfg.signal(Cos)) {
         assert(sincosTab.io.cs.asUInt === 0.U)
       }
-    } else if(fncfg.has(Sin)) {
+
+    } else if (fncfg.has(Sin)) {
+
+      sincosPre.io.en    := io.sel === fncfg.signal(Sin)
+      sincosPre.io.isSin := true.B
+      sincosPre.io.x     := xdecomp.io.decomp
+
+      sincosTab.io.en  := selPCGapReg === fncfg.signal(Sin)
+      sincosTab.io.adr := ShiftRegister(sincosPre.io.adr, pcGap)
+
+      sincosPost.io.en   := selCPGapReg === fncfg.signal(Sin)
+      sincosPost.io.pre  := ShiftRegister(sincosPre.io.out, pcGap + tcGap + nCalcStage + cpGap)
+      sincosPost.io.zres := polynomialResultCPGapReg
+
+      if(order != 0) {
+        polynomialDxs.get(Sin) := sincosPre.io.dx.get
+      }
+      polynomialCoefs(Sin) := sincosTab.io.cs.asUInt
+      zs(Sin) := sincosPost.io.z
+
       when(selPCReg =/= fncfg.signal(Sin)) {
         assert(sincosPre.io.adr === 0.U)
         assert(sincosPre.io.dx.getOrElse(0.U) === 0.U)
@@ -757,7 +750,26 @@ class MathFunctions(
       when(selPCGapReg =/= fncfg.signal(Sin)) {
         assert(sincosTab.io.cs.asUInt === 0.U)
       }
+
     } else {
+
+      sincosPre.io.en    := io.sel === fncfg.signal(Cos)
+      sincosPre.io.isSin := false.B
+      sincosPre.io.x     := xdecomp.io.decomp
+
+      sincosTab.io.en  := selPCGapReg === fncfg.signal(Cos)
+      sincosTab.io.adr := ShiftRegister(sincosPre.io.adr, pcGap)
+
+      sincosPost.io.en   := selCPGapReg === fncfg.signal(Cos)
+      sincosPost.io.pre  := ShiftRegister(sincosPre.io.out, pcGap + tcGap + nCalcStage + cpGap)
+      sincosPost.io.zres := polynomialResultCPGapReg
+
+      if(order != 0) {
+        polynomialDxs.get(Cos) := sincosPre.io.dx.get
+      }
+      polynomialCoefs(Cos) := sincosTab.io.cs.asUInt
+      zs(Cos) := sincosPost.io.z
+
       when(selPCReg =/= fncfg.signal(Cos)) {
         assert(sincosPre.io.adr === 0.U)
         assert(sincosPre.io.dx.getOrElse(0.U) === 0.U)
