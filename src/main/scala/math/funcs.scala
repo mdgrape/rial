@@ -17,37 +17,146 @@ import rial.arith.RealSpec
 import rial.arith.FloatChiselUtil
 import rial.math._
 
+
+/* Enumerator to represent which function is used in [[rial.math.MathFunctions]]. */
 object FuncKind extends Enumeration {
   type FuncKind = Value
   val Sqrt, InvSqrt, Reciprocal, Sin, Cos, ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Exp, Log = Value
 }
 
+/** Returns the bit width of the coefficients of polynomial used by the function
+ *  under the conditions passed.
+ *  Used to determine maximum bit width of [[rial.math.PolynomialEval]] module
+ *  embedded in a [[rial.math.MathFunctions]]
+ *
+ *  @return bit width of coefficients used in the polynomial of the function.
+ */
+def getCBit(fn: FuncKind.FuncKind, spec: RealSpec, polySpec: PolynomialSpec): Seq[Int] = {
+  import FuncKind._
+  fn match {
+    case Sqrt        => SqrtTableCoeff.getCBits(spec, polySpec)
+    case InvSqrt     => InvSqrtTableCoeff.getCBits(spec, polySpec)
+    case Reciprocal  => ReciprocalTableCoeff.getCBits(spec, polySpec)
+    case Sin         => SinCosTableCoeff.getCBits(spec, polySpec)
+    case Cos         => SinCosTableCoeff.getCBits(spec, polySpec)
+    case ACosPhase1  => SqrtTableCoeff.getCBits(spec, polySpec)
+    case ACosPhase2  => ACosTableCoeff.getCBits(spec, polySpec)
+    case ATan2Phase1 => ReciprocalTableCoeff.getCBits(spec, polySpec)
+    case ATan2Phase2 => ATan2Stage2TableCoeff.getCBits(spec, polySpec)
+    case Exp         => ExpTableCoeff.getCBits(spec, polySpec)
+    case Log         => LogTableCoeff.getCBits(spec, polySpec)
+  }
+}
+
+/** Returns the bit width of the temporary of polynomial used by the function
+ *  under the conditions passed.
+ *  Used to determine maximum bit width of [[rial.math.PolynomialEval]] module
+ *  embedded in a [[rial.math.MathFunctions]]
+ *
+ *  @return bit width of temporary used in the polynomial of the function.
+ */
+def getCalcW(fn: FuncKind.FuncKind, spec: RealSpec, polySpec: PolynomialSpec): Seq[Int] = {
+  import FuncKind._
+  fn match {
+    case Sqrt        => SqrtTableCoeff.getCalcW(spec, polySpec)
+    case InvSqrt     => InvSqrtTableCoeff.getCalcW(spec, polySpec)
+    case Reciprocal  => ReciprocalTableCoeff.getCalcW(spec, polySpec)
+    case Sin         => SinCosTableCoeff.getCalcW(spec, polySpec)
+    case Cos         => SinCosTableCoeff.getCalcW(spec, polySpec)
+    case ACosPhase1  => SqrtTableCoeff.getCalcW(spec, polySpec)
+    case ACosPhase2  => ACosTableCoeff.getCalcW(spec, polySpec)
+    case ATan2Phase1 => ReciprocalTableCoeff.getCalcW(spec, polySpec)
+    case ATan2Phase2 => ATan2Stage2TableCoeff.getCalcW(spec, polySpec)
+    case Exp         => ExpTableCoeff.getCalcW(spec, polySpec)
+    case Log         => LogTableCoeff.getCalcW(spec, polySpec)
+  }
+}
+
+/** A Config class for [[rial.math.MathFunctions]] Module.
+ *
+ *  @constructor create a new MathFuncConfig.
+ *  @param funcs the list of functions that should be supported.
+ */
 class MathFuncConfig(
   val funcs: Seq[FuncKind.FuncKind]
 ) {
   assert(funcs.length > 0, "At least one function should be supported")
   import FuncKind._
 
+  /** Checks if a function is supported.
+   *
+   *  @param fn An enumerator of the function.
+   *  @return true if the function is supported. false if not.
+   */
   def has(fn: FuncKind): Boolean = {
     funcs.exists(_==fn)
   }
 
-  // signal starts from 1. If 0 is returned, the func does not exists.
+  if(has(ACosPhase1) || has(ACosPhase2)) {
+    assert(has(ACosPhase1) && has(ACosPhase2), "ACos requires both phase 1 and 2.")
+
+    // since acosPhase1 uses sqrt table, we auto-generate sqrt.
+    // and invsqrt shares the preproc with sqrt, it also auto-generate invsqrt.
+    // we can remove this assumption in principle, but the implementation will
+    // be painful and redundant.
+    assert(has(Sqrt) && has(InvSqrt), """TODO: remove this assumption later.
+      | Since acosPhase1 uses sqrt table, we auto-generate sqrt.
+      | And invsqrt shares the preproc with sqrt, it also auto-generate invsqrt.
+      | In principle, we can remove this assumption, but the implementation will
+      | be painful and redundant.
+      """.stripMargin)
+  }
+  if(has(ATan2Phase1) || has(ATan2Phase2)) {
+    assert(has(ATan2Phase1) && has(ATan2Phase2), "ATan2 requires both phase 1 and 2.")
+
+    assert(has(Reciprocal), """TODO: remove this assumption later.
+      | Since atan2Phase1 uses reciprocal table, we auto-generate reciprocal.
+      | In principle, we can remove this assumption, but the implementation will
+      | be painful and redundant.
+      """.stripMargin)
+  }
+
+  /** The width of UInt to represent function select signal.
+   */
   val signalW = log2Up(funcs.length)
+
+  /** Returns function select signal. It starts from 1.
+   *  If the passed function is not supported, returns 0.
+   *
+   *  @param fn An enumerator of the function
+   *  @return the signal that corresponds to the function
+   */
   def signal(fn: FuncKind): UInt = {
     (funcs.indexWhere(_==fn) + 1).U(signalW.W)
   }
+
+  /** Returns function select signal that runs no function.
+   *
+   *  @return the signal that corresponds to no function.
+   */
   def signalNone(): UInt = {
     0.U(signalW.W)
   }
 }
 
+/** Factory for [[rial.math.MathFuncConfig]].
+ */
 object MathFuncConfig {
   import FuncKind._
+
+  /* All functions are supported.
+   */
   val all = new MathFuncConfig(Seq(Sqrt, InvSqrt, Reciprocal, Sin, Cos,
     ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Exp, Log))
 }
 
+/** A Bundle that is returned from [[rial.math.DecomposeReal]].
+ *
+ * It decomposes a UInt that represents real value using [[rial.arith.RealSpec]]
+ * and check if the value is zero, inf, or nan.
+ *
+ * @param spec A [[rial.arith.RealSpec]] corresponding to the input floating point number.
+ */
 class DecomposedRealOutput(val spec: RealSpec) extends Bundle {
   val sgn  = Output(UInt(1.W))
   val ex   = Output(UInt(spec.exW.W))
@@ -56,6 +165,10 @@ class DecomposedRealOutput(val spec: RealSpec) extends Bundle {
   val inf  = Output(Bool())
   val nan  = Output(Bool())
 }
+/** A Module that decomposes a UInt that represents Real.
+ *
+ * @param spec A [[rial.arith.RealSpec]] corresponding to the input floating point number.
+ */
 class DecomposeReal(val spec: RealSpec) extends Module {
   val io = IO(new Bundle {
     val real   = Input(UInt(spec.W.W))
@@ -71,30 +184,45 @@ class DecomposeReal(val spec: RealSpec) extends Module {
   io.decomp.nan  := nan
 }
 
-// # Overview
-//
-//             .--preStage    .--tableCalcGap .-- calcPostGap
-//             |      .--preCalcGap   .--calcStage    .--postStage
-//         ____|____  |       |  _____|_____  |  _____|_____
-//        '         ' '       ' '           ' ' '           '
-//       .----.-.----.-.-----.-.-----.-.-----.-.-----.-.-----.
-//       |    |v|    |v|table|v|Calc1|v|Calc2|v|     |v|     |
-// in -> |Pre1| |Pre2| :-----'-'-----'-'-----: |Post1| |Post2| -> out
-//       |    | |    | |      non-table      | |     | |     |
-//       '----'-'----'-'---------------------'-'-----'-'-----'
-//
-// TODO: consider setting nStage for each function. (like, sqrt does not need
-//       multiple cycles in its preprocess, but sincos may need.)
-//
+/** Config class to set pipeline stages in a [[rial.math.MathFunctions]] module.
+ *
+ * Overview:
+ *
+ * {{{
+ * //             .--preStage    .--tableCalcGap .-- calcPostGap
+ * //             |      .--preCalcGap   .--calcStage    .--postStage
+ * //         ____|____  |       |  _____|_____  |  _____|_____
+ * //        '         ' '       ' '           ' ' '           '
+ * //       .----.-.----.-.-----.-.-----.-.-----.-.-----.-.-----.
+ * //       |    |v|    |v|table|v|Calc1|v|Calc2|v|     |v|     |
+ * // in -> |Pre1| |Pre2| :-----'-'-----'-'-----: |Post1| |Post2| -> out
+ * //       |    | |    | |      non-table      | |     | |     |
+ * //       '----'-'----'-'---------------------'-'-----'-'-----'
+ * }}}
+ *
+ * TODO: consider setting nStage for each function. (like, sqrt does not need
+ *       multiple cycles in its preprocess, but sincos may need.)
+ *
+ * @constructor create a new MathFuncConfig.
+ * @param preStage     clock cycles in preprocess.
+ * @param calcStage    clock cycles in table/polynomial and non-table path.
+ * @param postStage    clock cycles in postprocess.
+ * @param preCalcGap   if true, add register between preprocess and calculation stage
+ * @param tableCalcGap if true, add register between table and calculation stage (+1 to calcStage for OtherPath)
+ * @param calcPostGap  if true, add register between calculation and postprocess stage
+ *
+ */
 class MathFuncPipelineConfig(
-  val preStage:     PipelineStageConfig, // clock cycles in preprocess
-  val calcStage:    PipelineStageConfig, // clock cycles in table/polynomial and non-table path
-  val postStage:    PipelineStageConfig, // clock cycles in postprocess
-  val preCalcGap:   Boolean, // if true, add register between preprocess and calculation stage
-  val tableCalcGap: Boolean, // if true, add register between table and calculation stage (+1 to calcStage for OtherPath)
-  val calcPostGap:  Boolean, // if true, add register between calculation and postprocess stage
+  val preStage:     PipelineStageConfig,
+  val calcStage:    PipelineStageConfig,
+  val postStage:    PipelineStageConfig,
+  val preCalcGap:   Boolean,
+  val tableCalcGap: Boolean,
+  val calcPostGap:  Boolean,
   ) {
 
+  /** Calculates the total latency in clock cycles.
+   */
   def total = {
     preStage.total +
     calcStage.total +
@@ -103,6 +231,8 @@ class MathFuncPipelineConfig(
     (if(tableCalcGap) {1} else {0}) +
     (if(calcPostGap)  {1} else {0})
   }
+  /** Generates a string that represents the current config.
+   */
   def getString = {
     f"pre: ${preStage.getString}, " +
     f"calc: ${calcStage.getString}, " +
@@ -111,7 +241,12 @@ class MathFuncPipelineConfig(
   }
 }
 
+/** Factory for [[rial.math.MathFuncPipelineConfig]].
+ */
 object MathFuncPipelineConfig {
+
+  /** constructs a config corresponding to the single cycle mathfunc.
+   */
   def none = {
     new MathFuncPipelineConfig(
       PipelineStageConfig.none,
@@ -123,25 +258,47 @@ object MathFuncPipelineConfig {
   }
 }
 
-// # Overview
-//
-//                                     table/Calc
-//                                          |
-//                .------.  _  .---------.  _  .------------.
-// sel -----------|      |-|v|-'.-------.'-|v|-| chebyshev  |    _  .-------.
-//    .---------. | pre- |-| |--| table |--| |-| polynomial |---|v|-| post- |-> z
-// x -|decompose|-| proc | | |  '-------'  '-' '------------' .-| |-| proc  |
-// y -|         |-|      |-| |-. .--------------------------. | '_' '-------'
-//    '---------' '------' '-' '-|  non-table (taylor etc)  |-'  .
-//                          .    '--------------------------'    |
-//                          |                                    |
-//                   Preproc/Calc                          Calc/Postproc
-//
-
+/** A module that calculates math functions.
+ *
+ * # Overview
+ *
+ * It takes two floating point numbers, x and y, and returns one floating point
+ * number, z. Only ATan2 uses both x and y. Others just ignores y.
+ *
+ * TODO: make io.y optional and disable when ATan2 is not required.
+ *
+ * {{{
+ * //                                     table/Calc
+ * //                                          |
+ * //                .------.  _  .---------.  _  .------------.
+ * // sel -----------|      |-|v|-'.-------.'-|v|-| chebyshev  |    _  .-------.
+ * //    .---------. | pre- |-| |--| table |--| |-| polynomial |---|v|-| post- |-> z
+ * // x -|decompose|-| proc | | |  '-------'  '-' '------------' .-| |-| proc  |
+ * // y -|         |-|      |-| |-. .--------------------------. | '_' '-------'
+ * //    '---------' '------' '-' '-|  non-table (taylor etc)  |-'  .
+ * //                          .    '--------------------------'    |
+ * //                          |                                    |
+ * //                   Preproc/Calc                          Calc/Postproc
+ * }}}
+ *
+ *
+ * @constructor     Constructs a new MathFunctions module.
+ * @param fncfg     determines which functions are supported.
+ * @param spec      determines the spec of input/output floating point number.
+ * @param nOrder    determines the order of polynomial.
+ * @param adrW      determines the default bit width of the tables.
+ * @param extraBits determines the extra bits of polynomial results.
+ * @param stage     determines the pipeline stages of this module.
+ * @param dxW0      determines the default bit width of the polynomial input.
+ *
+ * table address and input bit width of polynomial depend on a function.
+ * For detail, see the corresponding math function module.
+ *
+ */
 class MathFunctions(
-  val fncfg: MathFuncConfig, // which function is supported?
-  val spec : RealSpec, // Input / Output floating spec
-  val nOrder: Int, val adrW : Int, val extraBits : Int, // Polynomial spec
+  val fncfg: MathFuncConfig,
+  val spec : RealSpec,
+  val nOrder: Int, val adrW : Int, val extraBits : Int,
   val stage : MathFuncPipelineConfig,
   val dxW0 : Option[Int] = None,
   val enableRangeCheck : Boolean = true,
@@ -178,37 +335,6 @@ class MathFunctions(
   val exW    = spec.exW
   val manW   = spec.manW
   val exBias = spec.exBias
-
-  def getCBit(fn: FuncKind.FuncKind): Seq[Int] = {
-    fn match {
-      case Sqrt        => SqrtTableCoeff.getCBits(spec, polySpec)
-      case InvSqrt     => InvSqrtTableCoeff.getCBits(spec, polySpec)
-      case Reciprocal  => ReciprocalTableCoeff.getCBits(spec, polySpec)
-      case Sin         => SinCosTableCoeff.getCBits(spec, polySpec)
-      case Cos         => SinCosTableCoeff.getCBits(spec, polySpec)
-      case ACosPhase1  => SqrtTableCoeff.getCBits(spec, polySpec)
-      case ACosPhase2  => ACosTableCoeff.getCBits(spec, polySpec)
-      case ATan2Phase1 => ReciprocalTableCoeff.getCBits(spec, polySpec)
-      case ATan2Phase2 => ATan2Stage2TableCoeff.getCBits(spec, polySpec)
-      case Exp         => ExpTableCoeff.getCBits(spec, polySpec)
-      case Log         => LogTableCoeff.getCBits(spec, polySpec)
-    }
-  }
-  def getCalcW(fn: FuncKind.FuncKind): Seq[Int] = {
-    fn match {
-      case Sqrt        => SqrtTableCoeff.getCalcW(spec, polySpec)
-      case InvSqrt     => InvSqrtTableCoeff.getCalcW(spec, polySpec)
-      case Reciprocal  => ReciprocalTableCoeff.getCalcW(spec, polySpec)
-      case Sin         => SinCosTableCoeff.getCalcW(spec, polySpec)
-      case Cos         => SinCosTableCoeff.getCalcW(spec, polySpec)
-      case ACosPhase1  => SqrtTableCoeff.getCalcW(spec, polySpec)
-      case ACosPhase2  => ACosTableCoeff.getCalcW(spec, polySpec)
-      case ATan2Phase1 => ReciprocalTableCoeff.getCalcW(spec, polySpec)
-      case ATan2Phase2 => ATan2Stage2TableCoeff.getCalcW(spec, polySpec)
-      case Exp         => ExpTableCoeff.getCalcW(spec, polySpec)
-      case Log         => LogTableCoeff.getCalcW(spec, polySpec)
-    }
-  }
 
   val maxCbit  = fncfg.funcs.map(f => getCBit(f)).
     reduce( (lhs, rhs) => { lhs.zip(rhs).map( x => max(x._1, x._2) ) } )
