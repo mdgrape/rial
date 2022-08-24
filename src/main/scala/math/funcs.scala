@@ -732,81 +732,85 @@ class MathFunctions(
   // ==========================================================================
   // exp
 
-  val expPre   = Module(new ExpPreProcess (spec, polySpec, stage.preStage))
-  val expTab   = Module(new ExpTableCoeff (spec, polySpec, maxCbit))
-  val expOther = Module(new ExpOtherPath  (spec, polySpec, otherStage))
-  val expPost  = Module(new ExpPostProcess(spec, polySpec, stage.postStage))
+  if(fncfg.has(Exp)) {
+    val expPre   = Module(new ExpPreProcess (spec, polySpec, stage.preStage))
+    val expTab   = Module(new ExpTableCoeff (spec, polySpec, maxCbit))
+    val expOther = Module(new ExpOtherPath  (spec, polySpec, otherStage))
+    val expPost  = Module(new ExpPostProcess(spec, polySpec, stage.postStage))
 
-  expPre.io.en     := (io.sel === fncfg.signal(Exp))
-  expPre.io.x      := xdecomp.io.decomp
+    expPre.io.en     := (io.sel === fncfg.signal(Exp))
+    expPre.io.x      := xdecomp.io.decomp
 
-  if(order != 0) {
-    polynomialDxs.get(Exp) := expPre.io.dx.get
-  }
+    if(order != 0) {
+      polynomialDxs.get(Exp) := expPre.io.dx.get
+    }
 
-  // ------ Preprocess-Calculate ------
-  expTab.io.en     := (selPCGapReg === fncfg.signal(Exp))
-  expTab.io.adr    := ShiftRegister(expPre.io.adr, pcGap)
+    // ------ Preprocess-Calculate ------
+    expTab.io.en     := (selPCGapReg === fncfg.signal(Exp))
+    expTab.io.adr    := ShiftRegister(expPre.io.adr, pcGap)
 
-  polynomialCoefs(Exp) := expTab.io.cs.asUInt
+    polynomialCoefs(Exp) := expTab.io.cs.asUInt
 
-  expOther.io.x    := xdecPCGapReg
-  expOther.io.xint := ShiftRegister(expPre.io.xint, pcGap)
-  expOther.io.xexd := ShiftRegister(expPre.io.xexd, pcGap)
+    expOther.io.x    := xdecPCGapReg
+    expOther.io.xint := ShiftRegister(expPre.io.xint, pcGap)
+    expOther.io.xexd := ShiftRegister(expPre.io.xexd, pcGap)
 
-  if(expPre.io.xfracLSBs.isDefined) {
-    expOther.io.xfracLSBs.get := ShiftRegister(expPre.io.xfracLSBs.get, pcGap)
-    expPost.io.zCorrCoef.get  := ShiftRegister(expOther.io.zCorrCoef.get, cpGap)
-  }
-  expPost.io.en     := selCPGapReg === fncfg.signal(Exp)
-  expPost.io.zother := ShiftRegister(expOther.io.zother, cpGap)
-  expPost.io.zres   := polynomialResultCPGapReg
+    if(expPre.io.xfracLSBs.isDefined) {
+      expOther.io.xfracLSBs.get := ShiftRegister(expPre.io.xfracLSBs.get, pcGap)
+      expPost.io.zCorrCoef.get  := ShiftRegister(expOther.io.zCorrCoef.get, cpGap)
+    }
+    expPost.io.en     := selCPGapReg === fncfg.signal(Exp)
+    expPost.io.zother := ShiftRegister(expOther.io.zother, cpGap)
+    expPost.io.zres   := polynomialResultCPGapReg
 
-  zs(Exp) := expPost.io.z
+    zs(Exp) := expPost.io.z
 
-  when(selPCReg =/= fncfg.signal(Exp)) {
-    assert(expPre.io.adr === 0.U)
-    assert(expPre.io.dx.getOrElse(0.U) === 0.U)
-  }
+    when(selPCReg =/= fncfg.signal(Exp)) {
+      assert(expPre.io.adr === 0.U)
+      assert(expPre.io.dx.getOrElse(0.U) === 0.U)
+    }
 
-  when(selPCGapReg =/= fncfg.signal(Exp)) {
-    assert(expTab.io.cs.asUInt === 0.U)
+    when(selPCGapReg =/= fncfg.signal(Exp)) {
+      assert(expTab.io.cs.asUInt === 0.U)
+    }
   }
 
   // ==========================================================================
   // log2/ln
 
-  val logPre   = Module(new LogPreProcess (spec, polySpec, stage.preStage))
-  val logTab   = Module(new LogTableCoeff (spec, polySpec, maxCbit))
-  val logOther = Module(new LogOtherPath  (spec, polySpec, otherStage))
-  val logPost  = Module(new LogPostProcess(spec, polySpec, stage.postStage))
+  if(fncfg.has(Log)) {
+    val logPre   = Module(new LogPreProcess (spec, polySpec, stage.preStage))
+    val logTab   = Module(new LogTableCoeff (spec, polySpec, maxCbit))
+    val logOther = Module(new LogOtherPath  (spec, polySpec, otherStage))
+    val logPost  = Module(new LogPostProcess(spec, polySpec, stage.postStage))
 
-  logPre.io.en      := (io.sel === fncfg.signal(Log))
-  logPre.io.x       := xdecomp.io.decomp
-  if(order != 0) {
-    polynomialDxs.get(Log) := logPre.io.dx.get
-  }
-  // ------ Preprocess-Calculate ------
-  val logPreExAdr = logPre.io.adr(logPre.io.adr.getWidth-1, logPre.io.adr.getWidth-2)
-  logTab.io.en      := (selPCGapReg === fncfg.signal(Log))
-  logTab.io.adr     := ShiftRegister(logPre.io.adr, pcGap)
+    logPre.io.en      := (io.sel === fncfg.signal(Log))
+    logPre.io.x       := xdecomp.io.decomp
+    if(order != 0) {
+      polynomialDxs.get(Log) := logPre.io.dx.get
+    }
+    // ------ Preprocess-Calculate ------
+    val logPreExAdr = logPre.io.adr(logPre.io.adr.getWidth-1, logPre.io.adr.getWidth-2)
+    logTab.io.en      := (selPCGapReg === fncfg.signal(Log))
+    logTab.io.adr     := ShiftRegister(logPre.io.adr, pcGap)
 
-  polynomialCoefs(Log) := logTab.io.cs.asUInt
+    polynomialCoefs(Log) := logTab.io.cs.asUInt
 
-  logOther.io.x     := xdecPCGapReg
+    logOther.io.x     := xdecPCGapReg
 
-  logPost.io.en     := selCPGapReg === fncfg.signal(Log)
-  logPost.io.zother := ShiftRegister(logOther.io.zother, cpGap)
-  logPost.io.zres   := polynomialResultCPGapReg
+    logPost.io.en     := selCPGapReg === fncfg.signal(Log)
+    logPost.io.zother := ShiftRegister(logOther.io.zother, cpGap)
+    logPost.io.zres   := polynomialResultCPGapReg
 
-  zs(Log) := logPost.io.z
+    zs(Log) := logPost.io.z
 
-  when(selPCReg =/= fncfg.signal(Log)) {
-    assert(logPre.io.adr === 0.U)
-    assert(logPre.io.dx.getOrElse(0.U) === 0.U)
-  }
-  when(selPCGapReg =/= fncfg.signal(Log)) {
-    assert(logTab.io.cs.asUInt === 0.U)
+    when(selPCReg =/= fncfg.signal(Log)) {
+      assert(logPre.io.adr === 0.U)
+      assert(logPre.io.dx.getOrElse(0.U) === 0.U)
+    }
+    when(selPCGapReg =/= fncfg.signal(Log)) {
+      assert(logTab.io.cs.asUInt === 0.U)
+    }
   }
 }
 
