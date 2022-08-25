@@ -25,8 +25,8 @@ import rial.arith._
 
 import rial.math._
 
-// ATan2 Stage1 calculates min(x,y)/max(x,y).
-//       Stage2 calculates atan(min(x,y)/max(x,y)) +/- constant.
+// ATan2 Phase1 calculates min(x,y)/max(x,y).
+//       Phase2 calculates atan(min(x,y)/max(x,y)) +/- constant.
 // Some flags are needed to be saved.
 
 object ATan2Status {
@@ -69,10 +69,10 @@ class ATan2Flags extends Bundle {
 // |_|            |_|
 // -------------------------------------------------------------------------
 //
-// Stage1 preprocess only checks the special cases.
-// Stage1 calculates min(x,y)/max(x,y), so ReciprocalPreProcess is re-used.
+// Phase1 preprocess only checks the special cases.
+// Phase1 calculates min(x,y)/max(x,y), so ReciprocalPreProcess is re-used.
 //
-class ATan2Stage1PreProcess(
+class ATan2Phase1PreProcess(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig
@@ -146,13 +146,13 @@ class ATan2Stage1PreProcess(
 //                                               |_|
 // -------------------------------------------------------------------------
 
-class ATan2Stage1NonTableOutput(val spec: RealSpec) extends Bundle {
+class ATan2Phase1NonTableOutput(val spec: RealSpec) extends Bundle {
   val zex       = Output(UInt(spec.exW.W)) // sign of min(x,y)/max(x,y)
   val maxXYMan0 = Output(Bool())           // max(x,y).man === 0.U
   val xySameMan = Output(Bool())
 }
 
-class ATan2Stage1OtherPath(
+class ATan2Phase1OtherPath(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -169,7 +169,7 @@ class ATan2Stage1OtherPath(
     val x       = Flipped(new DecomposedRealOutput(spec))
     val y       = Flipped(new DecomposedRealOutput(spec))
 
-    val zother  = new ATan2Stage1NonTableOutput(spec)
+    val zother  = new ATan2Phase1NonTableOutput(spec)
   })
 
   val maxXYMan0 = Mux(io.yIsLarger, (!io.y.man.orR.asBool), (!io.x.man.orR.asBool))
@@ -206,9 +206,9 @@ class ATan2Stage1OtherPath(
 // |_|                 |_|
 // -------------------------------------------------------------------------
 
-// Stage1: takes 1/max(x, y) and min(x, y), returns min(x, y) / max(x, y)
+// Phase1: takes 1/max(x, y) and min(x, y), returns min(x, y) / max(x, y)
 
-class ATan2Stage1PostProcess(
+class ATan2Phase1PostProcess(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -228,7 +228,7 @@ class ATan2Stage1PostProcess(
 
   val io = IO(new Bundle {
     val en     = Input(Bool())
-    val zother = Flipped(new ATan2Stage1NonTableOutput(spec))
+    val zother = Flipped(new ATan2Phase1NonTableOutput(spec))
     val zres   = Input(UInt(fracW.W))
     val minxy  = Flipped(new DecomposedRealOutput(spec))
     val z      = Output(UInt(spec.W.W))
@@ -289,9 +289,9 @@ class ATan2Stage1PostProcess(
 // |_|            |_|
 // -------------------------------------------------------------------------
 //
-// Stage2 calculates atan(x), so we need to extract the address value
+// Phase2 calculates atan(x), so we need to extract the address value
 
-class ATan2Stage2PreProcess(
+class ATan2Phase2PreProcess(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig
@@ -355,9 +355,9 @@ class ATan2Stage2PreProcess(
 //  \__\__,_|_.__/|_|\___|  \___\___/ \___|_| |_|   |_____|
 // -------------------------------------------------------------------------
 //
-// Stage1 re-use the reciprocal table. we don't need to implement it for atan2.
+// Phase1 re-use the reciprocal table. we don't need to implement it for atan2.
 //
-class ATan2Stage2TableCoeff(
+class ATan2Phase2TableCoeff(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val maxCbit  : Seq[Int], // max coeff width among all math funcs
@@ -378,7 +378,7 @@ class ATan2Stage2TableCoeff(
 
   if(order == 0) {
 
-    val tableI = ATan2Stage2Sim.atanTableGeneration( order, adrW, manW, fracW )
+    val tableI = ATan2Phase2Sim.atanTableGeneration( order, adrW, manW, fracW )
     val cbit   = tableI.cbit
 
     // sign mode 0: always include sign
@@ -389,7 +389,7 @@ class ATan2Stage2TableCoeff(
 
   } else {
 
-    val tableI = ATan2Stage2Sim.atanTableGeneration( order, adrW, manW, fracW )
+    val tableI = ATan2Phase2Sim.atanTableGeneration( order, adrW, manW, fracW )
     val cbit   = tableI.cbit
 
     // sign mode 0: always include sign
@@ -412,7 +412,7 @@ class ATan2Stage2TableCoeff(
   }
 }
 
-object ATan2Stage2TableCoeff {
+object ATan2Phase2TableCoeff {
   def getCBits(
     spec:     RealSpec,
     polySpec: PolynomialSpec
@@ -426,7 +426,7 @@ object ATan2Stage2TableCoeff {
     if(order == 0) {
       return Seq(fracW)
     } else {
-      return ATan2Stage2Sim.atanTableGeneration( order, adrW, spec.manW, fracW ).
+      return ATan2Phase2Sim.atanTableGeneration( order, adrW, spec.manW, fracW ).
         getCBitWidth(/*sign mode = */0)
     }
   }
@@ -444,7 +444,7 @@ object ATan2Stage2TableCoeff {
     if(order == 0) {
       return Seq(fracW)
     } else {
-      return ATan2Stage2Sim.atanTableGeneration( order, adrW, spec.manW, fracW ).calcWidth
+      return ATan2Phase2Sim.atanTableGeneration( order, adrW, spec.manW, fracW ).calcWidth
     }
   }
 }
@@ -459,14 +459,14 @@ object ATan2Stage2TableCoeff {
 //                                               |_|
 // -----------------------------------------------------------------------------
 
-class ATan2Stage2NonTableOutput(val spec: RealSpec) extends Bundle {
+class ATan2Phase2NonTableOutput(val spec: RealSpec) extends Bundle {
   val zsgn        = Output(UInt(1.W))
   val zex         = Output(UInt(spec.exW.W))
   val zman        = Output(UInt(spec.manW.W))
   val zIsNonTable = Output(Bool())
 }
 
-class ATan2Stage2OtherPath(
+class ATan2Phase2OtherPath(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -481,7 +481,7 @@ class ATan2Stage2OtherPath(
   val io = IO(new Bundle {
     val flags   = Input(new ATan2Flags())
     val x       = Flipped(new DecomposedRealOutput(spec))
-    val zother  = new ATan2Stage2NonTableOutput(spec)
+    val zother  = new ATan2Phase2NonTableOutput(spec)
   })
 
   val pi         = new RealGeneric(spec, Pi)
@@ -489,20 +489,20 @@ class ATan2Stage2OtherPath(
   val quarterPi  = new RealGeneric(spec, Pi * 0.25)
   val quarter3Pi = new RealGeneric(spec, Pi * 0.75)
 
-  val linearThreshold = (ATan2Stage2Sim.calcLinearThreshold(manW) + exBias)
+  val linearThreshold = (ATan2Phase2Sim.calcLinearThreshold(manW) + exBias)
   val isLinear = io.x.ex <= linearThreshold.U(exW.W)
   // non-linear mantissa is calculated by table.
-//   printf("cir: Stage2OtherPath: linearThr = %b\n", linearThreshold.U)
-//   printf("cir: Stage2OtherPath: isLinear  = %b\n", isLinear)
-//   printf("cir: Stage2OtherPath: isspecial = %b\n", io.flags.special)
+//   printf("cir: Phase2OtherPath: linearThr = %b\n", linearThreshold.U)
+//   printf("cir: Phase2OtherPath: isLinear  = %b\n", isLinear)
+//   printf("cir: Phase2OtherPath: isspecial = %b\n", io.flags.special)
 
   io.zother.zIsNonTable := ShiftRegister(
     isLinear || (io.flags.special =/= ATan2SpecialValue.zNormal), nStage)
 
   val defaultEx  = io.x.ex // isLinear includes xzero.
   val defaultMan = io.x.man
-//   printf("cir: Stage2OtherPath: defaultEx  = %b\n", defaultEx )
-//   printf("cir: Stage2OtherPath: defaultMan = %b\n", defaultMan)
+//   printf("cir: Phase2OtherPath: defaultEx  = %b\n", defaultEx )
+//   printf("cir: Phase2OtherPath: defaultMan = %b\n", defaultMan)
 
   io.zother.zsgn := ShiftRegister(io.flags.ysgn, nStage)
   io.zother.zex  := ShiftRegister(MuxCase(defaultEx, Seq(
@@ -532,10 +532,10 @@ class ATan2Stage2OtherPath(
 // |_|                 |_|
 // -------------------------------------------------------------------------
 //
-// Stage2: takes status flags, returns corrected result
+// Phase2: takes status flags, returns corrected result
 //
 
-class ATan2Stage2PostProcess(
+class ATan2Phase2PostProcess(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -556,7 +556,7 @@ class ATan2Stage2PostProcess(
   val io = IO(new Bundle {
     val en = Input(UInt(1.W))
     val x      = Flipped(new DecomposedRealOutput(spec))
-    val zother = Flipped(new ATan2Stage2NonTableOutput(spec))
+    val zother = Flipped(new ATan2Phase2NonTableOutput(spec))
     val zres   = Input(UInt(fracW.W))
     val flags  = Input(new ATan2Flags()) // need status (|x|<|y|, xsgn)
     val z      = Output(UInt(spec.W.W))

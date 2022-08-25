@@ -1,4 +1,4 @@
-//% @file atan2Stage2Sim.scala
+//% @file atan2Phase2Sim.scala
 //
 // Simulators for atan2(y, x) stage 2, calculating atan2 from min(x,y)/max(x,y)
 // Copyright (C) Toru Niina RIKEN BDR 2021
@@ -25,10 +25,10 @@ import rial.arith.RealGeneric
 import rial.arith.Rounding._
 import rial.arith._
 
-object ATan2Stage2Sim {
+object ATan2Phase2Sim {
 
   // Since atan2-stage1 calculates min(x,y)/max(x,y), so it assumes x <= 1.
-  def atan2Stage2SimGeneric(
+  def atan2Phase2SimGeneric(
     t : FuncTableInt, x : RealGeneric, status: Int, special: Int, ysgn: Int
     ): RealGeneric = {
 
@@ -111,10 +111,10 @@ object ATan2Stage2Sim {
     val atanMan = slice(0, manW, atanRound)
     val atanEx  = x.ex + resEx + atanProdMoreThan2 + atanRoundMoreThan2
 
-//     println(f"atan2Stage2Sim: atanEx  = ${atanEx }(${atanEx - exBias})")
-//     println(f"atan2Stage2Sim: atanMan = ${atanMan.toLong.toBinaryString}(${atanMan})")
-//     println(f"atan2Stage2Sim: atan(x) = sim(${new RealGeneric(x.spec, ysgn, atanEx, atanMan).toDouble}) == ref(${atan(x.toDouble)})")
-//     println(f"atan2Stage2Sim: status  = ${status}")
+//     println(f"atan2Phase2Sim: atanEx  = ${atanEx }(${atanEx - exBias})")
+//     println(f"atan2Phase2Sim: atanMan = ${atanMan.toLong.toBinaryString}(${atanMan})")
+//     println(f"atan2Phase2Sim: atan(x) = sim(${new RealGeneric(x.spec, ysgn, atanEx, atanMan).toDouble}) == ref(${atan(x.toDouble)})")
+//     println(f"atan2Phase2Sim: status  = ${status}")
 
     // ========================================================================
     // z correction by:
@@ -134,11 +134,11 @@ object ATan2Stage2Sim {
     val atanShift   = exBias - atanEx
     val atanAligned = atanManW1 >> atanShift
 
-//     println(f"atan2Stage2Sim: piManW1     = ${piManW1    .toLong.toBinaryString}")
-//     println(f"atan2Stage2Sim: halfpiManW1 =  ${halfpiManW1.toLong.toBinaryString}")
-//     println(f"atan2Stage2Sim: atanManW1   =  ${atanManW1  .toLong.toBinaryString}")
-//     println(f"atan2Stage2Sim: atanShift   = ${atanShift  }")
-//     println(f"atan2Stage2Sim: atanAligned = ${atanAligned.toLong.toBinaryString}")
+//     println(f"atan2Phase2Sim: piManW1     = ${piManW1    .toLong.toBinaryString}")
+//     println(f"atan2Phase2Sim: halfpiManW1 =  ${halfpiManW1.toLong.toBinaryString}")
+//     println(f"atan2Phase2Sim: atanManW1   =  ${atanManW1  .toLong.toBinaryString}")
+//     println(f"atan2Phase2Sim: atanShift   = ${atanShift  }")
+//     println(f"atan2Phase2Sim: atanAligned = ${atanAligned.toLong.toBinaryString}")
 
 //     println(f"atanShift = ${atanShift}")
 
@@ -153,10 +153,10 @@ object ATan2Stage2Sim {
       val zman0 = piManW1 - atanAligned
       val zman = roundBySpec(RoundSpec.round, 3, zman0)
 
-//       println(f"atan2Stage2Sim: pi  .man = ${piManW1.toLong.toBinaryString}")
-//       println(f"atan2Stage2Sim: atan.man = ${atanAligned.toLong.toBinaryString}")
-//       println(f"atan2Stage2Sim: sub .man = ${zman0.toLong.toBinaryString}")
-//       println(f"atan2Stage2Sim: z   .man = ${zman.toLong.toBinaryString}")
+//       println(f"atan2Phase2Sim: pi  .man = ${piManW1.toLong.toBinaryString}")
+//       println(f"atan2Phase2Sim: atan.man = ${atanAligned.toLong.toBinaryString}")
+//       println(f"atan2Phase2Sim: sub .man = ${zman0.toLong.toBinaryString}")
+//       println(f"atan2Phase2Sim: z   .man = ${zman.toLong.toBinaryString}")
 
       return new RealGeneric(x.spec, zsgn, 1 + exBias, zman - (SafeLong(1)<<manW))
 
@@ -171,10 +171,10 @@ object ATan2Stage2Sim {
       val zman = zmanRound - (SafeLong(1)<<manW)
       val zex  = exBias - zman0LessThan1
 
-//       println(f"atan2Stage2Sim: pi/2.man = ${halfpiManW1.toLong.toBinaryString}")
-//       println(f"atan2Stage2Sim: atan.man = ${atanAligned.toLong.toBinaryString}")
-//       println(f"atan2Stage2Sim: sub .man = ${zman0.toLong.toBinaryString}")
-//       println(f"atan2Stage2Sim: z   .man = ${zman.toLong.toBinaryString}")
+//       println(f"atan2Phase2Sim: pi/2.man = ${halfpiManW1.toLong.toBinaryString}")
+//       println(f"atan2Phase2Sim: atan.man = ${atanAligned.toLong.toBinaryString}")
+//       println(f"atan2Phase2Sim: sub .man = ${zman0.toLong.toBinaryString}")
+//       println(f"atan2Phase2Sim: z   .man = ${zman.toLong.toBinaryString}")
 
       return new RealGeneric(x.spec, zsgn, zex, zman)
 
@@ -189,12 +189,12 @@ object ATan2Stage2Sim {
       val zman = slice(zmanMoreThan2, manW, zmanRound)
       val zex  = zmanMoreThan2 + exBias
 
-//       println(f"atan2Stage2Sim: pi/2.man = ${halfpiManW1.toLong.toBinaryString}")
-//       println(f"atan2Stage2Sim: atan.man = ${atanAligned.toLong.toBinaryString}")
-//       println(f"atan2Stage2Sim: add .man = ${zman0.toLong.toBinaryString}")
-//       println(f"atan2Stage2Sim: rounded  = ${zmanRound.toLong.toBinaryString}")
-//       println(f"atan2Stage2Sim: 1<<manW  = ${(1<<manW).toLong.toBinaryString}")
-//       println(f"atan2Stage2Sim: z   .man = ${zman.toLong.toBinaryString}") // ?
+//       println(f"atan2Phase2Sim: pi/2.man = ${halfpiManW1.toLong.toBinaryString}")
+//       println(f"atan2Phase2Sim: atan.man = ${atanAligned.toLong.toBinaryString}")
+//       println(f"atan2Phase2Sim: add .man = ${zman0.toLong.toBinaryString}")
+//       println(f"atan2Phase2Sim: rounded  = ${zmanRound.toLong.toBinaryString}")
+//       println(f"atan2Phase2Sim: 1<<manW  = ${(1<<manW).toLong.toBinaryString}")
+//       println(f"atan2Phase2Sim: z   .man = ${zman.toLong.toBinaryString}") // ?
 
       return new RealGeneric(x.spec, zsgn, zex, zman)
     }

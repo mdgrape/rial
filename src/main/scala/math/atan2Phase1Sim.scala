@@ -24,9 +24,9 @@ import rial.arith.RealGeneric
 import rial.arith.Rounding._
 import rial.arith._
 
-object ATan2Stage1Sim {
+object ATan2Phase1Sim {
 
-  def atan2Stage1SimGeneric( t_rec : FuncTableInt, y : RealGeneric, x : RealGeneric,
+  def atan2Phase1SimGeneric( t_rec : FuncTableInt, y : RealGeneric, x : RealGeneric,
     printDebug: Boolean = false):
     (RealGeneric, Int, Int, Int) = { // (z, ATan2Status, ATan2SpecialValue, ysgn)
 
@@ -53,7 +53,7 @@ object ATan2Stage1Sim {
 
 //     println(f"x = ${x.sgn}|${x.ex}(${x.ex-exBias})|${x.man.toLong.toBinaryString}")
 //     println(f"y = ${y.sgn}|${y.ex}(${y.ex-exBias})|${y.man.toLong.toBinaryString}")
-//     println(f"ATan2Stage1Sim: x = ${x.toDouble}, y = ${y.toDouble}, atan2(y, x) = ${atan2(y.toDouble, x.toDouble)}")
+//     println(f"ATan2Phase1Sim: x = ${x.toDouble}, y = ${y.toDouble}, atan2(y, x) = ${atan2(y.toDouble, x.toDouble)}")
 
     val yIsLarger = slice(0, x.spec.W-1, x.value) < slice(0, x.spec.W-1, y.value)
 
@@ -85,7 +85,7 @@ object ATan2Stage1Sim {
     val tooLargeX = (zeroed && !yIsLarger) || ( xinf && !yinf) || (!xzero &&  yzero)
     val tooLargeY = (zeroed &&  yIsLarger) || (!xinf &&  yinf) || ( xzero && !yzero)
 
-//     println(f"ATan2Stage1Sim: yIsLarger = ${yIsLarger}")
+//     println(f"ATan2Phase1Sim: yIsLarger = ${yIsLarger}")
 
     val xpos = x.sgn == 0
     val xneg = x.sgn == 1

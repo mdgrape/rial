@@ -25,13 +25,13 @@ import scala.collection.mutable.Queue
 import scala.language.reflectiveCalls
 
 //
-// Testing ATan2Stage1 using ChiselTest
+// Testing ATan2Phase1 using ChiselTest
 //
 
-class ATan2Stage1Test extends AnyFlatSpec
+class ATan2Phase1Test extends AnyFlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
-  behavior of "Test atan2Stage1"
+  behavior of "Test atan2Phase1"
 
   var n = 1000
 
@@ -65,7 +65,7 @@ class ATan2Stage1Test extends AnyFlatSpec
   ) = {
     val total = stage.total
     val pipeconfig = stage.getString
-    it should f"atan2Stage1(x, y) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
+    it should f"atan2Phase1(x, y) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
       test( new MathFunctions(fncfg, spec, nOrder, adrW, extraBits, stage, None, false, false)).
         withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
         {
@@ -76,7 +76,7 @@ class ATan2Stage1Test extends AnyFlatSpec
           val nstage     = c.getStage
           val recTable   = ReciprocalSim.reciprocalTableGeneration(
             nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit) )
-          val reference  = ATan2Stage1Sim.atan2Stage1SimGeneric(recTable, _, _, false)
+          val reference  = ATan2Phase1Sim.atan2Phase1SimGeneric(recTable, _, _, false)
 
           val q  = new Queue[(BigInt,BigInt,BigInt)]
           for(i <- 1 to n+nstage) {

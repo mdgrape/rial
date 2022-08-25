@@ -15,7 +15,7 @@ import rial.util.ScalaUtil._
 import rial.arith._
 import rial.table._
 
-class ACosStage1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
+class ACosPhase1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   var n = 1000000
 
   override def beforeAll(configMap: ConfigMap) = {
@@ -76,7 +76,7 @@ class ACosStage1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         val z0  = sqrt(1.0 - abs(xref))
         val z0r = new RealGeneric(spec, z0)
 
-        val zs   = ACosStage1Sim.acosStage1SimGeneric( tSqrt, x )
+        val zs   = ACosPhase1Sim.acosPhase1SimGeneric( tSqrt, x )
         val zi   = zs._1
         val zd   = zi.toDouble
         val errf = zd - z0r.toDouble
@@ -159,9 +159,9 @@ class ACosStage1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val extraBitsFP32 = 3
   val manWFP32 = RealSpec.Float32Spec.manW
   val fracWFP32 = RealSpec.Float32Spec.manW + extraBitsFP32
-  val acosFP32SqrtTableI = ACosStage1Sim.sqrtTableGeneration(
+  val acosFP32SqrtTableI = ACosPhase1Sim.sqrtTableGeneration(
         nOrderFP32, adrWFP32, manWFP32, fracWFP32)
-  val acosFP32ACosTableI = ACosStage2Sim.acosTableGeneration(
+  val acosFP32ACosTableI = ACosPhase2Sim.acosTableGeneration(
         nOrderFP32, adrWFP32, manWFP32, fracWFP32)
 
   acosTest(acosFP32SqrtTableI, acosFP32ACosTableI, RealSpec.Float32Spec, n, r, "Test Within 0      < x <= 2^-4",   generateRealWithin(0.0,                pow(2.0, -4)      ,_,_), 1)
@@ -177,9 +177,9 @@ class ACosStage1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val nOrderBF16 = 0
   val adrWBF16 = 7
   val extraBitsBF16 = 1
-  val acosBF16SqrtTableI = ACosStage1Sim.sqrtTableGeneration(
+  val acosBF16SqrtTableI = ACosPhase1Sim.sqrtTableGeneration(
         nOrderBF16, adrWBF16, RealSpec.BFloat16Spec.manW, RealSpec.BFloat16Spec.manW+extraBitsBF16)
-  val acosBF16ACosTableI = ACosStage2Sim.acosTableGeneration(
+  val acosBF16ACosTableI = ACosPhase2Sim.acosTableGeneration(
         nOrderBF16, adrWBF16, RealSpec.BFloat16Spec.manW, RealSpec.BFloat16Spec.manW+extraBitsBF16)
 
   acosTest(acosBF16SqrtTableI, acosBF16ACosTableI, RealSpec.BFloat16Spec, n, r, "Test Within 0      < x <= 2^-4",   generateRealWithin(0.0,                pow(2.0, -4)      ,_,_), 1)
@@ -198,9 +198,9 @@ class ACosStage1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val nOrderFP48 = 3
   val adrWFP48 = 10
   val extraBitsFP48 = 4
-  val acosFP48SqrtTableI = ACosStage1Sim.sqrtTableGeneration(
+  val acosFP48SqrtTableI = ACosPhase1Sim.sqrtTableGeneration(
         nOrderFP48, adrWFP48, float48Spec.manW, float48Spec.manW+extraBitsFP48)
-  val acosFP48ACosTableI       = ACosStage2Sim.acosTableGeneration(
+  val acosFP48ACosTableI       = ACosPhase2Sim.acosTableGeneration(
         nOrderFP48, adrWFP48, float48Spec.manW, float48Spec.manW+extraBitsFP48)
 
   acosTest(acosFP48SqrtTableI, acosFP48ACosTableI, float48Spec, n, r, "Test Within 0      < x <= 2^-4",   generateRealWithin(0.0,                pow(2.0, -4)      ,_,_), 3)
@@ -217,9 +217,9 @@ class ACosStage1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val nOrderFP64 = 3
   val adrWFP64 = 12
   val extraBitsFP64 = 4
-  val acosFP64SqrtTableI = ACosStage1Sim.sqrtTableGeneration(
+  val acosFP64SqrtTableI = ACosPhase1Sim.sqrtTableGeneration(
         nOrderFP64, adrWFP64, RealSpec.Float64Spec.manW, RealSpec.Float64Spec.manW+extraBitsFP64)
-  val acosFP64ACosTableI       = ACosStage2Sim.acosTableGeneration(
+  val acosFP64ACosTableI       = ACosPhase2Sim.acosTableGeneration(
         nOrderFP64, adrWFP64, RealSpec.Float64Spec.manW, RealSpec.Float64Spec.manW+extraBitsFP64)
 
   acosTest(acosFP64SqrtTableI, acosFP64ACosTableI, RealSpec.Float64Spec, n, r, "Test Within 0      < x <= 2^-4",   generateRealWithin(0.0,                pow(2.0, -4)      ,_,_), 7)

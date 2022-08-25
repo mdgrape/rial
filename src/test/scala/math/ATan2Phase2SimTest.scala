@@ -20,7 +20,7 @@ import rial.util.ScalaUtil._
 import rial.arith._
 import rial.table._
 
-class ATan2Stage2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
+class ATan2Phase2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   var n = 1000000
 
   override def beforeAll(configMap: ConfigMap) = {
@@ -90,7 +90,7 @@ class ATan2Stage2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     generatorX      : ( (RealSpec, Random) => RealGeneric),
     generatorY      : ( (RealSpec, Random) => RealGeneric),
     tolerance       : Int,
-    toleranceAtStage1 : Int = 1
+    toleranceAtPhase1 : Int = 1
     ) = {
     test(s"atan2(x), format ${spec.toStringShort}, ${generatorStr}") {
       counter = 0;
@@ -113,13 +113,13 @@ class ATan2Stage2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
 
         val z0   = math.atan2(y0, x0)
         val z0r  = new RealGeneric(spec, z0)
-        val s1   = ATan2Stage1Sim.atan2Stage1SimGeneric( t_rec, y, x )
+        val s1   = ATan2Phase1Sim.atan2Phase1SimGeneric( t_rec, y, x )
         val erriS1 = errorLSB(s1._1, stage1z.toDouble)
-        if(abs(erriS1.toInt) > toleranceAtStage1) {
-          println(f"WARN: ${toleranceAtStage1} < error in Stage1: sim(${s1._1.toDouble}) != ref(${stage1z.toDouble})")
+        if(abs(erriS1.toInt) > toleranceAtPhase1) {
+          println(f"WARN: ${toleranceAtPhase1} < error in Phase1: sim(${s1._1.toDouble}) != ref(${stage1z.toDouble})")
         }
 
-        val zi   = ATan2Stage2Sim.atan2Stage2SimGeneric( t, s1._1, s1._2, s1._3, s1._4 )
+        val zi   = ATan2Phase2Sim.atan2Phase2SimGeneric( t, s1._1, s1._2, s1._3, s1._4 )
         val zd   = zi.toDouble
         val errf = zd - z0r.toDouble
         val erri = errorLSB(zi, z0r.toDouble).toInt
@@ -195,7 +195,7 @@ class ATan2Stage2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val extraBitsFP32 = 3
   val atan2FP32ReciprocalTableI = ReciprocalSim.reciprocalTableGeneration(
         nOrderFP32, adrWFP32, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBitsFP32)
-  val atan2FP32ATanTableI       = ATan2Stage2Sim.atanTableGeneration(
+  val atan2FP32ATanTableI       = ATan2Phase2Sim.atanTableGeneration(
         nOrderFP32, adrWFP32, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBitsFP32)
 
   atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within  2^24  < y/x <  inf",               generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin( pow(2.0,  24), pow(2.0, 128),_,_), 3)
@@ -230,7 +230,7 @@ class ATan2Stage2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val extraBitsBF16 = 1
   val atan2BF16ReciprocalTableI = ReciprocalSim.reciprocalTableGeneration(
         nOrderBF16, adrWBF16, RealSpec.BFloat16Spec.manW, RealSpec.BFloat16Spec.manW+extraBitsBF16)
-  val atan2BF16ATanTableI       = ATan2Stage2Sim.atanTableGeneration(
+  val atan2BF16ATanTableI       = ATan2Phase2Sim.atanTableGeneration(
         nOrderBF16, adrWBF16, RealSpec.BFloat16Spec.manW, RealSpec.BFloat16Spec.manW+extraBitsBF16)
 
   atan2Test(atan2BF16ReciprocalTableI, atan2BF16ATanTableI, RealSpec.BFloat16Spec, n, r,
@@ -251,7 +251,7 @@ class ATan2Stage2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val extraBitsFP48 = 4
   val atan2FP48ReciprocalTableI = ReciprocalSim.reciprocalTableGeneration(
         nOrderFP48, adrWFP48, float48Spec.manW, float48Spec.manW+extraBitsFP48)
-  val atan2FP48ATanTableI       = ATan2Stage2Sim.atanTableGeneration(
+  val atan2FP48ATanTableI       = ATan2Phase2Sim.atanTableGeneration(
         nOrderFP48, adrWFP48, float48Spec.manW, float48Spec.manW+extraBitsFP48)
 
   atan2Test(atan2FP48ReciprocalTableI, atan2FP48ATanTableI, float48Spec, n, r,
@@ -270,7 +270,7 @@ class ATan2Stage2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val extraBitsFP64 = 4
   val atan2FP64ReciprocalTableI = ReciprocalSim.reciprocalTableGeneration(
         nOrderFP64, adrWFP64, RealSpec.Float64Spec.manW, RealSpec.Float64Spec.manW+extraBitsFP64)
-  val atan2FP64ATanTableI       = ATan2Stage2Sim.atanTableGeneration(
+  val atan2FP64ATanTableI       = ATan2Phase2Sim.atanTableGeneration(
         nOrderFP64, adrWFP64, RealSpec.Float64Spec.manW, RealSpec.Float64Spec.manW+extraBitsFP64)
 
   atan2Test(atan2FP64ReciprocalTableI, atan2FP64ATanTableI, RealSpec.Float64Spec, n, r,

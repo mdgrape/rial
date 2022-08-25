@@ -1,4 +1,4 @@
-//% @file acosStage1Sim.scala
+//% @file acosPhase1Sim.scala
 //
 // Simulators for acos(x) function
 // Copyright (C) Toru Niina RIKEN BDR 2022
@@ -30,8 +30,8 @@ import rial.arith._
 //
 // acos(1 - sqrt(1-|x|)^2) = acos(1-(1-|x|)) = acos(|x|)
 //
-object ACosStage1Sim {
-  def acosStage1SimGeneric(
+object ACosPhase1Sim {
+  def acosPhase1SimGeneric(
     tSqrt: FuncTableInt, x: RealGeneric
   ) : (RealGeneric, Boolean, Int) = { // neg flag, special flag (0: x==0, 1: |x|==1, 2: otherwise)
     val spec   = x.spec

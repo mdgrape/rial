@@ -57,7 +57,7 @@ class ACosFlags extends Bundle {
   val special = UInt(ACosSpecialValue.W.W)
 }
 
-class ACosStage1PreProcess(
+class ACosPhase1PreProcess(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -159,7 +159,7 @@ class ACosStage1PreProcess(
 
 // ============================================================================
 
-class ACosStage2PreProcess(
+class ACosPhase2PreProcess(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -224,7 +224,7 @@ class ACosTableCoeff(
   })
 
   if(order == 0) {
-    val tableI = ACosStage2Sim.acosTableGeneration( order, adrW, manW, fracW )
+    val tableI = ACosPhase2Sim.acosTableGeneration( order, adrW, manW, fracW )
     val cbit   = tableI.cbit
 
     // sign mode 1 = 2's complement and no sign bit
@@ -237,7 +237,7 @@ class ACosTableCoeff(
     io.cs.cs(0) := enable(io.en, coeff(0))
 
   } else {
-    val tableI = ACosStage2Sim.acosTableGeneration( order, adrW, manW, fracW )
+    val tableI = ACosPhase2Sim.acosTableGeneration( order, adrW, manW, fracW )
     val cbit   = tableI.cbit
 
     val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/0)
@@ -273,7 +273,7 @@ object ACosTableCoeff {
     if(order == 0) {
       return Seq(fracW)
     } else {
-      return ACosStage2Sim.acosTableGeneration( order, adrW, spec.manW, fracW ).cbit
+      return ACosPhase2Sim.acosTableGeneration( order, adrW, spec.manW, fracW ).cbit
     }
   }
   def getCalcW(
@@ -289,7 +289,7 @@ object ACosTableCoeff {
     if(order == 0) {
       return Seq(fracW)
     } else {
-      return ACosStage2Sim.acosTableGeneration( order, adrW, spec.manW, fracW ).calcWidth
+      return ACosPhase2Sim.acosTableGeneration( order, adrW, spec.manW, fracW ).calcWidth
     }
   }
 }

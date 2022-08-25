@@ -325,7 +325,7 @@ class MathFunctions(
       case ACosPhase1  => SqrtTableCoeff.getCBits(spec, polySpec)
       case ACosPhase2  => ACosTableCoeff.getCBits(spec, polySpec)
       case ATan2Phase1 => ReciprocalTableCoeff.getCBits(spec, polySpec)
-      case ATan2Phase2 => ATan2Stage2TableCoeff.getCBits(spec, polySpec)
+      case ATan2Phase2 => ATan2Phase2TableCoeff.getCBits(spec, polySpec)
       case Exp         => ExpTableCoeff.getCBits(spec, polySpec)
       case Log         => LogTableCoeff.getCBits(spec, polySpec)
     }
@@ -348,7 +348,7 @@ class MathFunctions(
       case ACosPhase1  => SqrtTableCoeff.getCalcW(spec, polySpec)
       case ACosPhase2  => ACosTableCoeff.getCalcW(spec, polySpec)
       case ATan2Phase1 => ReciprocalTableCoeff.getCalcW(spec, polySpec)
-      case ATan2Phase2 => ATan2Stage2TableCoeff.getCalcW(spec, polySpec)
+      case ATan2Phase2 => ATan2Phase2TableCoeff.getCalcW(spec, polySpec)
       case Exp         => ExpTableCoeff.getCalcW(spec, polySpec)
       case Log         => LogTableCoeff.getCalcW(spec, polySpec)
     }
@@ -456,8 +456,8 @@ class MathFunctions(
 
     val acosFlagReg = Reg(new ACosFlags())
 
-    val acos1Pre  = Module(new ACosStage1PreProcess(spec, polySpec, stage.preStage))
-    val acos2Pre  = Module(new ACosStage2PreProcess(spec, polySpec, stage.preStage))
+    val acos1Pre  = Module(new ACosPhase1PreProcess(spec, polySpec, stage.preStage))
+    val acos2Pre  = Module(new ACosPhase2PreProcess(spec, polySpec, stage.preStage))
     val acosTab   = Module(new ACosTableCoeff (spec, polySpec, maxCbit))
     val acosPost  = Module(new ACosPostProcess(spec, polySpec, stage.postStage))
 
@@ -775,66 +775,66 @@ class MathFunctions(
     // --------------------------------------------------------------------------
     // atan2
 
-    val atan2Stage1Pre   = Module(new ATan2Stage1PreProcess (spec, polySpec, stage.preStage))
-    val atan2Stage1Other = Module(new ATan2Stage1OtherPath  (spec, polySpec, otherStage))
-    val atan2Stage1Post  = Module(new ATan2Stage1PostProcess(spec, polySpec, stage.postStage))
+    val atan2Phase1Pre   = Module(new ATan2Phase1PreProcess (spec, polySpec, stage.preStage))
+    val atan2Phase1Other = Module(new ATan2Phase1OtherPath  (spec, polySpec, otherStage))
+    val atan2Phase1Post  = Module(new ATan2Phase1PostProcess(spec, polySpec, stage.postStage))
 
-    // atan2Stage1Pre checks if x and y are special values.
+    // atan2Phase1Pre checks if x and y are special values.
     // for calculation, reciprocal is re-used.
-    atan2Stage1Pre.io.en := (io.sel === fncfg.signal(ATan2Phase1))
-    atan2Stage1Pre.io.x  := xdecomp.io.decomp
-    atan2Stage1Pre.io.y  := ydecomp.io.decomp
-    atan2Stage1Pre.io.yIsLarger := yIsLarger
+    atan2Phase1Pre.io.en := (io.sel === fncfg.signal(ATan2Phase1))
+    atan2Phase1Pre.io.x  := xdecomp.io.decomp
+    atan2Phase1Pre.io.y  := ydecomp.io.decomp
+    atan2Phase1Pre.io.yIsLarger := yIsLarger
 
     if(order != 0) {
       polynomialDxs.get(ATan2Phase1) := recPre.io.dx.get
     }
 
     // ------ Preprocess-Calculate ------
-    atan2Stage1Other.io.x  := xdecPCGapReg
-    atan2Stage1Other.io.y  := ydecPCGapReg
-    atan2Stage1Other.io.yIsLarger := yIsLargerPCGapReg
+    atan2Phase1Other.io.x  := xdecPCGapReg
+    atan2Phase1Other.io.y  := ydecPCGapReg
+    atan2Phase1Other.io.yIsLarger := yIsLargerPCGapReg
 
     polynomialCoefs(ATan2Phase1) := recTab.io.cs.asUInt
 
-    atan2Stage1Post.io.en     := (selCPGapReg === fncfg.signal(ATan2Phase1))
-    atan2Stage1Post.io.zother := ShiftRegister(atan2Stage1Other.io.zother, cpGap)
-    atan2Stage1Post.io.zres   := polynomialResultCPGapReg
-    atan2Stage1Post.io.minxy  := Mux(yIsLargerCPGapReg, xdecCPGapReg, ydecCPGapReg)
+    atan2Phase1Post.io.en     := (selCPGapReg === fncfg.signal(ATan2Phase1))
+    atan2Phase1Post.io.zother := ShiftRegister(atan2Phase1Other.io.zother, cpGap)
+    atan2Phase1Post.io.zres   := polynomialResultCPGapReg
+    atan2Phase1Post.io.minxy  := Mux(yIsLargerCPGapReg, xdecCPGapReg, ydecCPGapReg)
 
-    zs(ATan2Phase1) := atan2Stage1Post.io.z
+    zs(ATan2Phase1) := atan2Phase1Post.io.z
 
-    val atan2Stage2Pre   = Module(new ATan2Stage2PreProcess (spec, polySpec, stage.preStage))
-    val atan2Stage2Tab   = Module(new ATan2Stage2TableCoeff (spec, polySpec, maxCbit))
-    val atan2Stage2Other = Module(new ATan2Stage2OtherPath  (spec, polySpec, otherStage))
-    val atan2Stage2Post  = Module(new ATan2Stage2PostProcess(spec, polySpec, stage.postStage))
-    atan2Stage2Pre.io.en  := (io.sel === fncfg.signal(ATan2Phase2))
-    atan2Stage2Pre.io.x   := xdecomp.io.decomp
+    val atan2Phase2Pre   = Module(new ATan2Phase2PreProcess (spec, polySpec, stage.preStage))
+    val atan2Phase2Tab   = Module(new ATan2Phase2TableCoeff (spec, polySpec, maxCbit))
+    val atan2Phase2Other = Module(new ATan2Phase2OtherPath  (spec, polySpec, otherStage))
+    val atan2Phase2Post  = Module(new ATan2Phase2PostProcess(spec, polySpec, stage.postStage))
+    atan2Phase2Pre.io.en  := (io.sel === fncfg.signal(ATan2Phase2))
+    atan2Phase2Pre.io.x   := xdecomp.io.decomp
 
     if(order != 0) {
-      polynomialDxs.get(ATan2Phase2) := atan2Stage2Pre.io.dx.get
+      polynomialDxs.get(ATan2Phase2) := atan2Phase2Pre.io.dx.get
     }
 
     // ------ Preprocess-Calculate ------
-    atan2Stage2Tab.io.en  := (selPCGapReg === fncfg.signal(ATan2Phase2))
-    atan2Stage2Tab.io.adr := ShiftRegister(atan2Stage2Pre.io.adr, pcGap)
-    atan2Stage2Other.io.x := xdecPCGapReg
+    atan2Phase2Tab.io.en  := (selPCGapReg === fncfg.signal(ATan2Phase2))
+    atan2Phase2Tab.io.adr := ShiftRegister(atan2Phase2Pre.io.adr, pcGap)
+    atan2Phase2Other.io.x := xdecPCGapReg
 
-    polynomialCoefs(ATan2Phase2) := atan2Stage2Tab.io.cs.asUInt
+    polynomialCoefs(ATan2Phase2) := atan2Phase2Tab.io.cs.asUInt
 
-    atan2Stage2Post.io.en     := (selCPGapReg === fncfg.signal(ATan2Phase2))
-    atan2Stage2Post.io.zother := ShiftRegister(atan2Stage2Other.io.zother, cpGap)
-    atan2Stage2Post.io.zres   := polynomialResultCPGapReg
-    atan2Stage2Post.io.x      := xdecCPGapReg
+    atan2Phase2Post.io.en     := (selCPGapReg === fncfg.signal(ATan2Phase2))
+    atan2Phase2Post.io.zother := ShiftRegister(atan2Phase2Other.io.zother, cpGap)
+    atan2Phase2Post.io.zres   := polynomialResultCPGapReg
+    atan2Phase2Post.io.x      := xdecCPGapReg
 
-    zs(ATan2Phase2) := atan2Stage2Post.io.z
+    zs(ATan2Phase2) := atan2Phase2Post.io.z
 
     when(selPCReg =/= fncfg.signal(ATan2Phase2)) {
-      assert(atan2Stage2Pre.io.adr === 0.U)
-      assert(atan2Stage2Pre.io.dx.getOrElse(0.U) === 0.U)
+      assert(atan2Phase2Pre.io.adr === 0.U)
+      assert(atan2Phase2Pre.io.dx.getOrElse(0.U) === 0.U)
     }
     when(selPCGapReg =/= fncfg.signal(ATan2Phase2)) {
-      assert(atan2Stage2Tab.io.cs.asUInt === 0.U)
+      assert(atan2Phase2Tab.io.cs.asUInt === 0.U)
     }
 
     // ------------------------------------------------------------------------
@@ -843,17 +843,17 @@ class MathFunctions(
     // process, it saves some flags to register.
 
     val atan2FlagReg = Reg(new ATan2Flags())
-    // the timing is at the cycle when atan2Stage1Pre completes
+    // the timing is at the cycle when atan2Phase1Pre completes
     when(selPCReg === fncfg.signal(ATan2Phase1)) {
       atan2FlagReg.status  := Cat(yIsLargerPCReg, xdecPCReg.sgn)
-      atan2FlagReg.special := atan2Stage1Pre.io.special
+      atan2FlagReg.special := atan2Phase1Pre.io.special
       atan2FlagReg.ysgn    := ydecPCReg.sgn
     }
     // The register is updated only when atan2stage1 is executed. That means that
-    // we don't need to care about the timing here. ATan2Stage2 can only be
-    // executed after the Stage1 because it uses the result of stage1 as its input.
-    atan2Stage2Other.io.flags := atan2FlagReg
-    atan2Stage2Post.io.flags  := atan2FlagReg
+    // we don't need to care about the timing here. ATan2Phase2 can only be
+    // executed after the Phase1 because it uses the result of stage1 as its input.
+    atan2Phase2Other.io.flags := atan2FlagReg
+    atan2Phase2Post.io.flags  := atan2FlagReg
   }
 
   // ==========================================================================

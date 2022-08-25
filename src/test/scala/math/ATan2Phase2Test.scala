@@ -25,13 +25,13 @@ import scala.collection.mutable.Queue
 import scala.language.reflectiveCalls
 
 //
-// Testing ATan2Stage2 using ChiselTest
+// Testing ATan2Phase2 using ChiselTest
 //
 
-class ATan2Stage2Test extends AnyFlatSpec
+class ATan2Phase2Test extends AnyFlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
-  behavior of "Test atan2Stage2"
+  behavior of "Test atan2Phase2"
 
   var n = 1000
 
@@ -112,7 +112,7 @@ class ATan2Stage2Test extends AnyFlatSpec
   ) = {
     val total = stage.total
     val pipeconfig = stage.getString
-    it should f"atan2Stage2(x, y) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
+    it should f"atan2Phase2(x, y) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr " in {
       test( new MathFunctions(fncfg, spec, nOrder, adrW, extraBits, stage, None, false, false)).
         withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
         {
@@ -124,11 +124,11 @@ class ATan2Stage2Test extends AnyFlatSpec
 
           val recTable  = ReciprocalSim.reciprocalTableGeneration(
             nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit))
-          val atanTable = ATan2Stage2Sim.atanTableGeneration(
+          val atanTable = ATan2Phase2Sim.atanTableGeneration(
             nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit))
 
-          val refstage1  = ATan2Stage1Sim.atan2Stage1SimGeneric(recTable, _, _, false)
-          val refstage2  = ATan2Stage2Sim.atan2Stage2SimGeneric(atanTable, _, _, _, _)
+          val refstage1  = ATan2Phase1Sim.atan2Phase1SimGeneric(recTable, _, _, false)
+          val refstage2  = ATan2Phase2Sim.atan2Phase2SimGeneric(atanTable, _, _, _, _)
 
           val q  = new Queue[(BigInt,BigInt,BigInt)]
           for(i <- 1 to n+2*nstage) {
@@ -171,7 +171,7 @@ class ATan2Stage2Test extends AnyFlatSpec
                 println(f"x = ${xi.sgn}|${xi.ex}|${xi.man.toLong.toBinaryString}(${xi.toDouble})")
                 println(f"y = ${yi.sgn}|${yi.ex}|${yi.man.toLong.toBinaryString}(${yi.toDouble})")
                 println(f"min(x,y)/max(x,y) = ${min(xi.toDouble.abs, yi.toDouble.abs) / max(xi.toDouble.abs, yi.toDouble.abs)}")
-                ATan2Stage1Sim.atan2Stage1SimGeneric( recTable, yi, xi, true)
+                ATan2Phase1Sim.atan2Phase1SimGeneric( recTable, yi, xi, true)
               }
               assert(z1r._3 != 0, "if z1 == 0, special value flag should be nonzero")
               if (!xi.isInfinite && !xi.isNaN && !yi.isInfinite && !yi.isNaN) {

@@ -28,10 +28,10 @@ import scala.language.reflectiveCalls
 // Testing ACos using ChiselTest
 //
 
-class ACosStage1Test extends AnyFlatSpec
+class ACosPhase2Test extends AnyFlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
-  behavior of "Test acos stage1"
+  behavior of "Test acos stage2"
 
   var n = 1000
 
@@ -92,50 +92,64 @@ class ACosStage1Test extends AnyFlatSpec
           val nstage     = c.getStage
           val sqrtF32TableI = SqrtSim.sqrtTableGeneration(nOrder, adrW,
             spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit))
+          val acosF32TableI = ACosPhase2Sim.acosTableGeneration(nOrder, adrW,
+            spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit))
 
-          val reference  = ACosStage1Sim.acosStage1SimGeneric(sqrtF32TableI, _ )
-          val q  = new Queue[(BigInt,BigInt)]
-          for(i <- 1 to n+nstage) {
+          val refacos1  = ACosPhase1Sim.acosPhase1SimGeneric(sqrtF32TableI, _ )
+          val refacos2  = ACosPhase2Sim.acosPhase2SimGeneric(acosF32TableI, _, _, _ )
+
+          for(i <- 1 to n) {
             val xi  = generator(spec,r)
-            val (z0r, xneg, special) = reference(xi)
+            val (z0r, xneg, special) = refacos1(xi)
+            val z1r = refacos2(z0r, xneg, special)
 
-            if(xi.toDouble < 0.0) {assert(xneg)} else {assert(!xneg)}
-            if     (xi.toDouble ==  0.0) {assert(special == 0)}
-            else if(xi.toDouble ==  1.0) {assert(special == 1)}
-            else if(xi.toDouble == -1.0) {assert(special == 1)}
-
-            q += ((xi.value.toBigInt,z0r.value.toBigInt))
             c.io.sel.poke(fncfg.signal(ACosPhase1))
             c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
             c.io.y.poke(0.U(spec.W.W))
-            val zi = c.io.z.peek().litValue.toBigInt
-            c.clock.step(1)
-            if (i > nstage) {
-              val (xid,z0d) = q.dequeue()
 
-              val xidsgn = bit(spec.W-1, xid).toInt
-              val xidexp = slice(spec.manW, spec.exW, xid)
-              val xidman = xid & maskSL(spec.manW)
-
-              val zisgn = bit(spec.W-1, zi).toInt
-              val ziexp = slice(spec.manW, spec.exW, zi)
-              val ziman = zi & maskSL(spec.manW)
-
-              val z0dsgn = bit(spec.W-1, z0d).toInt
-              val z0dexp = slice(spec.manW, spec.exW, z0d)
-              val z0dman = z0d & maskSL(spec.manW)
-
-              val rxid = new RealGeneric(spec, xid)
-              val rz0d = new RealGeneric(spec, z0d)
-              val rzi  = new RealGeneric(spec, zi)
-
-              if (zi != z0d) {
-                println(f"x = ${rxid.sgn}|${rxid.ex}(${rxid.ex - spec.exBias})|${rxid.man}(${rxid.toDouble})")
-                println(f"z = ${rz0d.sgn}|${rz0d.ex}(${rz0d.ex - spec.exBias})|${rz0d.man}(${rz0d.toDouble}), should be ${sqrt(1.0 - abs(rxid.toDouble))}")
-                println(f"c = ${rzi .sgn}|${rzi .ex}(${rzi .ex - spec.exBias})|${rzi .man}(${rzi .toDouble})")
+            if(stage.total > 0) {
+              c.clock.step(1)
+              c.io.sel.poke(fncfg.signalNone())
+              c.io.x.poke(0.U(spec.W.W))
+              c.io.y.poke(0.U(spec.W.W))
+              for(j <- 1 until max(1, stage.total)) {
+                c.clock.step(1)
               }
-              assert(zi == z0d, f"x = (${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman.toLong.toBinaryString}), test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString}) != ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})")
             }
+
+            val z0i = new RealGeneric(spec, c.io.z.peek().litValue.toBigInt)
+            assert(z0i.value == z0r.value,
+              f"x = (${xi.sgn}|${xi.ex}(${xi.ex - spec.exBias})|${xi.man.toLong.toBinaryString})(${xi.toDouble}), " +
+              f"test(${z0i.sgn}|${z0i.ex}(${z0i.ex - spec.exBias})|${z0i.man.toLong.toBinaryString})(${z0i.toDouble}) != " +
+              f"ref (${z0r.sgn}|${z0r.ex}(${z0r.ex - spec.exBias})|${z0r.man.toLong.toBinaryString})(${z0r.toDouble}) should be " +
+              f"sqrt(1-|${xi.toDouble}|) = ${sqrt(1.0 - abs(xi.toDouble))}")
+
+            if(stage.total == 0) {
+              c.clock.step(1)
+            }
+
+            c.io.sel.poke(fncfg.signal(ACosPhase2))
+            c.io.x.poke(z0i.value.toBigInt.U(spec.W.W))
+            c.io.y.poke(0.U(spec.W.W))
+
+            if(stage.total > 0) {
+              c.clock.step(1)
+              c.io.sel.poke(fncfg.signalNone())
+              c.io.x.poke(0.U(spec.W.W))
+              c.io.y.poke(0.U(spec.W.W))
+              for(j <- 1 until max(1, stage.total)) {
+                c.clock.step(1)
+              }
+            }
+
+            val z1i = new RealGeneric(spec, c.io.z.peek().litValue.toBigInt)
+            c.clock.step(1)
+
+            assert(z1i.value == z1r.value,
+              f"x = (${xi.sgn}|${xi.ex}(${xi.ex - spec.exBias})|${xi.man.toLong.toBinaryString})(${xi.toDouble}), " +
+              f"test(${z1i.sgn}|${z1i.ex}(${z1i.ex - spec.exBias})|${z1i.man.toLong.toBinaryString})(${z1i.toDouble}) != " +
+              f"ref (${z1r.sgn}|${z1r.ex}(${z1r.ex - spec.exBias})|${z1r.man.toLong.toBinaryString})(${z1r.toDouble}) should be " +
+              f"acos(${xi.toDouble}) = ${acos(xi.toDouble)}")
           }
         }
       }

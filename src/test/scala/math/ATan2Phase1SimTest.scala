@@ -20,7 +20,7 @@ import rial.util.ScalaUtil._
 import rial.arith._
 import rial.table._
 
-class ATan2Stage1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
+class ATan2Phase1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   var n = 10000
 
   override def beforeAll(configMap: ConfigMap) = {
@@ -70,7 +70,7 @@ class ATan2Stage1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
 
         val z0   = min(abs(y0), abs(x0)) * (1.0 / max(abs(y0), abs(x0)))
         val z0r  = new RealGeneric(spec, z0)
-        val zres = ATan2Stage1Sim.atan2Stage1SimGeneric( t_rec, y, x )
+        val zres = ATan2Phase1Sim.atan2Phase1SimGeneric( t_rec, y, x )
         val zi   = zres._1
         val zd   = zi.toDouble
         val errf = zd - z0r.toDouble
@@ -88,7 +88,7 @@ class ATan2Stage1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
           if (erri.abs>tolerance || erri.isNaN) {
             println(f"Error more than 2 LSB : x = ${x.toDouble}%14.7e, y = ${y.toDouble}%14.7e : refz = $z0%14.7e simz = ${zi.toDouble}%14.7e $errf%14.7e $erri%f")
 
-            ATan2Stage1Sim.atan2Stage1SimGeneric( t_rec, y, x, true)
+            ATan2Phase1Sim.atan2Phase1SimGeneric( t_rec, y, x, true)
 
             val xsgn = bit(spec.W-1, x.value).toInt
             val xexp = slice(spec.manW, spec.exW, x.value)
