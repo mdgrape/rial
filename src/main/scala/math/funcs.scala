@@ -74,12 +74,13 @@ class MathFuncConfig(
   val signalW = log2Up(funcs.length)
 
   /** Returns function select signal. It starts from 1.
-   *  If the passed function is not supported, returns 0.
+   *  If the passed function is not supported, fails.
    *
    *  @param fn An enumerator of the function
    *  @return the signal that corresponds to the function
    */
   def signal(fn: FuncKind): UInt = {
+    assert(has(fn))
     (funcs.indexWhere(_==fn) + 1).U(signalW.W)
   }
 
