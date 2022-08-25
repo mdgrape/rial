@@ -22,8 +22,23 @@ import rial.math._
 object FuncKind extends Enumeration {
   type FuncKind = Value
   val Sqrt, InvSqrt, Reciprocal, Sin, Cos, ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Exp, Log = Value
-}
 
+  def getString(fn: FuncKind): String = {
+    fn match {
+      case Sqrt => "Sqrt"
+      case InvSqrt => "InvSqrt"
+      case Reciprocal => "Reciprocal"
+      case Sin => "Sin"
+      case Cos => "Cos"
+      case ACosPhase1 => "ACosPhase1"
+      case ACosPhase2 => "ACosPhase2"
+      case ATan2Phase1 => "ATan2Phase1"
+      case ATan2Phase2 => "ATan2Phase2"
+      case Exp => "Exp"
+      case Log => "Log"
+    }
+  }
+}
 
 /** A Config class for [[rial.math.MathFunctions]] Module.
  *
@@ -80,7 +95,7 @@ class MathFuncConfig(
    *  @return the signal that corresponds to the function
    */
   def signal(fn: FuncKind): UInt = {
-    assert(has(fn))
+    assert(has(fn), f"function `${FuncKind.getString(fn)}` is currently not supported")
     (funcs.indexWhere(_==fn) + 1).U(signalW.W)
   }
 
@@ -90,6 +105,14 @@ class MathFuncConfig(
    */
   def signalNone(): UInt = {
     0.U(signalW.W)
+  }
+
+  def getString: String = {
+    if(funcs == MathFuncConfig.all.funcs) {
+      "[All functions]"
+    } else {
+      funcs.map(fn => FuncKind.getString(fn)).mkString("[", ", ", "]")
+    }
   }
 }
 
