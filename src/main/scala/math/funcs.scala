@@ -86,7 +86,7 @@ class MathFuncConfig(
 
   /** The width of UInt to represent function select signal.
    */
-  val signalW = log2Up(funcs.length)
+  val signalW = log2Up(1 + funcs.length) // None + [funcs..]
 
   /** Returns function select signal. It starts from 1.
    *  If the passed function is not supported, fails.
