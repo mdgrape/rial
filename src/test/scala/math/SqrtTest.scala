@@ -192,7 +192,7 @@ class SqrtTest extends AnyFlatSpec
     n, r, "Test Special Values",generateSpecialValues(_,_), sqrtLike)
 
   // sqrt/acos
-  val sqrtAndACos  = new MathFuncConfig(Seq(Sqrt, InvSqrt, ACosPhase1, ACosPhase2))
+  val sqrtAndACos  = new MathFuncConfig(Seq(Sqrt, ACosPhase1, ACosPhase2))
 
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline,
     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_), sqrtAndACos)
@@ -252,17 +252,17 @@ class SqrtTest extends AnyFlatSpec
 //   val nOrderFP64 = 3
 //   val adrWFP64 = 12
 //   val extraBitsFP64 = 4
-// 
+//
 //   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, MathFuncPipelineConfig.none,
 //     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_), sqrtOnly)
 //   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, MathFuncPipelineConfig.none,
 //     n, r, "Test All range",generateRealFull(_,_), sqrtOnly)
-// 
+//
 //   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, simplePipeline,
 //     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_), sqrtOnly)
 //   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, simplePipeline,
 //     n, r, "Test All range",generateRealFull(_,_), sqrtOnly)
-// 
+//
 //   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, complexPipeline,
 //     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_), sqrtOnly)
 //   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, complexPipeline,
