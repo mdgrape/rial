@@ -601,7 +601,12 @@ class MathFunctions(
 
     val sqrtPreAdrPCGapReg = ShiftRegister(sqrtPre.io.adr, pcGap)
 
-    sqrtPre.io.en  := io.sel === fncfg.signal(Sqrt) || io.sel === fncfg.signal(InvSqrt)
+    if(fncfg.has(InvSqrt)) {
+      sqrtPre.io.en  := io.sel === fncfg.signal(Sqrt) || io.sel === fncfg.signal(InvSqrt)
+    } else {
+      sqrtPre.io.en  := io.sel === fncfg.signal(Sqrt)
+    }
+
     sqrtPre.io.x   := xdecomp.io.decomp
     if(order != 0) {
       polynomialDxs.get(Sqrt) := sqrtPre.io.dx.get
@@ -624,10 +629,16 @@ class MathFunctions(
     // redundant...
     zs(Sqrt) := sqrtPost.io.z
 
-    // after preprocess
-    when(selPCReg =/= fncfg.signal(Sqrt) && selPCReg =/= fncfg.signal(InvSqrt)) {
-      assert(sqrtPre.io.adr === 0.U)
-      assert(sqrtPre.io.dx.getOrElse(0.U) === 0.U)
+    if(fncfg.has(InvSqrt)) {
+      when(selPCReg =/= fncfg.signal(Sqrt) && selPCReg =/= fncfg.signal(InvSqrt)) {
+        assert(sqrtPre.io.adr === 0.U)
+        assert(sqrtPre.io.dx.getOrElse(0.U) === 0.U)
+      }
+    } else {
+      when(selPCReg =/= fncfg.signal(Sqrt)) {
+        assert(sqrtPre.io.adr === 0.U)
+        assert(sqrtPre.io.dx.getOrElse(0.U) === 0.U)
+      }
     }
     when(selPCGapReg =/= fncfg.signal(Sqrt)) {
       assert(sqrtTab.io.cs.asUInt === 0.U)
