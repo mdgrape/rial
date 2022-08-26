@@ -326,27 +326,18 @@ class ACosPostProcess(
 
   val io = IO(new Bundle {
     val en    = Input(Bool())
-    val x     = Flipped(new DecomposedRealOutput(spec))
     val flags = Input(new ACosFlags())
-    val zres  = Input(UInt(fracW.W))
+    val zex0  = Input(UInt(exW.W))
+    val zman0 = Input(UInt(manW.W))
+    val exInc = Input(UInt(1.W))
     val z     = Output(UInt(spec.W.W))
   })
 
   // -----------------------------------------------------------------------
   // calc acos(|x|)
 
-  val lhs = Cat(1.U(1.W), io.zres)
-  val rhs = Cat(1.U(1.W), io.x.man)
-
-  val zProd = lhs * rhs
-  val zMoreThan2 = zProd((fracW+1) + (manW+1)-1)
-  val zShifted   = Mux(zMoreThan2, zProd((manW+1)+(fracW+1)-2, (fracW+1)  ),
-                                   zProd((manW+1)+(fracW+1)-3, (fracW+1)-1))
-  val zRounded   = zShifted +& Mux(zMoreThan2, zProd((fracW+1)-1), zProd((fracW+1)-2))
-  val zMoreThan2AfterRound = zRounded(manW)
-  val zExInc = zMoreThan2 | zMoreThan2AfterRound
-  val zMan0  = zRounded(manW-1, 0)
-  val zEx0   = io.x.ex + zExInc // table result has ex == exBias
+  val zMan0  = io.zman0(manW-1, 0)
+  val zEx0   = io.zex0 + io.exInc // table result has ex == exBias
 
   // -----------------------------------------------------------------------
   // calc pi - z in case of x < 0

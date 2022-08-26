@@ -533,10 +533,17 @@ class MathFunctions(
 
     polynomialCoefs(ACosPhase2)  := acosTab.io.cs.asUInt
 
+    assert(hasPostProcMultiplier, "ACos requires post-proc multiplier")
+
+    postProcMultiplier.get.io.en  := selCPGapReg === fncfg.signal(ACosPhase2)
+    postProcMultiplier.get.io.lhs := Cat(1.U(1.W), polynomialResultCPGapReg)
+    postProcMultiplier.get.io.rhs := Cat(1.U(1.W), xdecCPGapReg.man)
+
     acosPost.io.en     := (selCPGapReg === fncfg.signal(ACosPhase2))
-    acosPost.io.x      := xdecCPGapReg
     acosPost.io.flags  := acosFlagReg
-    acosPost.io.zres   := polynomialResultCPGapReg
+    acosPost.io.zex0   := xdecCPGapReg.ex
+    acosPost.io.zman0  := postProcMultiplier.get.io.out   // TODO consider nStage
+    acosPost.io.exInc  := postProcMultiplier.get.io.exInc
 
     zs(ACosPhase2)  := acosPost.io.z
 
