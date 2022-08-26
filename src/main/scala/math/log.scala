@@ -464,59 +464,13 @@ class LogPostProcess(
   val io = IO(new Bundle {
     val en     = Input(UInt(1.W))
     val zother = Flipped(new LogNonTableOutput(spec, polySpec))
-    val zres   = Input(UInt(fracW.W)) // polynomial
+    val zman0  = Input(UInt(manW.W)) // polynomial
+    val zexInc = Input(UInt(1.W)) // polynomial
     val z      = Output(UInt(spec.W.W))
   })
 
-  val x0_5to1_0  = io.zother.x0_5to1_0
-  val x1_0to2_0  = io.zother.x1_0to2_0
-  val xOtherwise = io.zother.xOtherwise
-
-  val zsgn = io.zother.zsgn
-
-  //
-  // case 1: x < 0.5 or 2 <= x. calc (ex + log2(1.man)) * ln2.
-  //
-  val zfrac0 = Mux(zsgn === 0.U,    io.zres, // means 0 <= xexNobias
-               Mux(io.zres === 0.U, Fill(fracW, 1.U(1.W)),
-                                    ~io.zres + 1.U))
-  val zfull0 = Cat(io.zother.zint, zfrac0)
-  val zfullShifted = (zfull0 << io.zother.zintShift)(exW+fracW-1, 0)
-
-//   printf("cir: zres         = %b\n", io.zres     )
-//   printf("cir: zfrac0       = %b\n", zfrac0      )
-//   printf("cir: zfull0       = %b\n", zfull0      )
-//   printf("cir: zfullShifted = %b\n", zfullShifted)
-
-  assert(zfullShifted(exW + fracW-1) === 1.U || !xOtherwise)
-
-  // fracW+1 width
-  val ymanW1 = Mux(x0_5to1_0, Cat(1.U(1.W), io.zres), // case 2
-               Mux(x1_0to2_0, Cat(io.zres, 0.U(1.W)), // case 3
-                              zfullShifted(exW+fracW-1, exW-1))) // case 1
-  // manW+1 width
-  val cmanW1 = io.zother.constant
-
-//   printf("cir: ymanW1 = %b\n", ymanW1)
-//   printf("cir: cmanW1 = %b\n", cmanW1)
-//   printf("cir: zex0   = %b\n", io.zother.zex0)
-
-  // --------------------------------------------------------------------------
-  // multiply (XXX rounding method is simple)
-
-  assert(ymanW1.getWidth == fracW+1)
-  assert(cmanW1.getWidth == manW+1)
-
-  val zmanProd = ymanW1 * cmanW1
-  val zmanProdMoreThan2 = zmanProd((fracW+1)+(manW+1)-1)
-  val zmanShifted = Mux(zmanProdMoreThan2, zmanProd((fracW+1)+(manW+1)-2, fracW+1),
-                                           zmanProd((fracW+1)+(manW+1)-3, fracW  ))
-  val zmanRoundInc = Mux(zmanProdMoreThan2, zmanProd(fracW), zmanProd(fracW-1))
-  val zmanRound = zmanShifted +& zmanRoundInc
-  val zmanRoundMoreThan2 = zmanRound(manW)
-
-  val zman0 = zmanRound(manW-1, 0)
-  val zex0 = io.zother.zex0 +& (zmanProdMoreThan2 + zmanRoundMoreThan2)
+  val zman0 = io.zman0
+  val zex0  = io.zother.zex0 +& io.zexInc
 
   val znan  = io.zother.znan
   val zinf  = io.zother.zinf || zex0(exW) === 1.U // (ex overflows == inf)

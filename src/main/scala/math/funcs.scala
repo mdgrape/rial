@@ -1113,16 +1113,52 @@ class MathFunctions(
     }
     // ------ Preprocess-Calculate ------
     val logPreExAdr = logPre.io.adr(logPre.io.adr.getWidth-1, logPre.io.adr.getWidth-2)
-    logTab.io.en      := (selPCGapReg === fncfg.signal(Log))
-    logTab.io.adr     := ShiftRegister(logPre.io.adr, pcGap)
+    logTab.io.en  := (selPCGapReg === fncfg.signal(Log))
+    logTab.io.adr := ShiftRegister(logPre.io.adr, pcGap)
 
     polynomialCoefs(Log) := logTab.io.cs.asUInt
 
-    logOther.io.x     := xdecPCGapReg
+    logOther.io.x := xdecPCGapReg
+    val nonTableOut = ShiftRegister(logOther.io.zother, cpGap)
+
+    assert(hasPostProcMultiplier, "Log requires post-proc multiplier")
+
+    // XXX Right place to put the following logic?
+    // - [x] put here
+    // - [ ] split logPostProc
+    // - [ ] add io ports to logPostProc
+
+    val fracW = polySpec.fracW
+
+    val x0_5to1_0  = nonTableOut.x0_5to1_0
+    val x1_0to2_0  = nonTableOut.x1_0to2_0
+    val xOtherwise = nonTableOut.xOtherwise
+
+    val zsgn = nonTableOut.zsgn
+
+    // case 1: x < 0.5 or 2 <= x. calc (ex + log2(1.man)) * ln2.
+    val zfrac0 = Mux(zsgn === 0.U, polynomialResultCPGapReg, // means 0 <= xexNobias
+                 Mux(polynomialResultCPGapReg === 0.U,
+                   Fill(fracW, 1.U(1.W)),
+                   ~polynomialResultCPGapReg + 1.U))
+
+    val zfull0 = Cat(nonTableOut.zint, zfrac0)
+    val zfullShifted = (zfull0 << nonTableOut.zintShift)(exW+fracW-1, 0)
+    assert(zfullShifted(exW + fracW-1) === 1.U || !xOtherwise)
+
+    // fracW+1 width
+    val ymanW1 = Mux(x0_5to1_0, Cat(1.U(1.W), polynomialResultCPGapReg), // case 2
+                 Mux(x1_0to2_0, Cat(polynomialResultCPGapReg, 0.U(1.W)), // case 3
+                                zfullShifted(exW+fracW-1, exW-1)))       // case 1
+
+    postProcMultiplier.get.io.en  := selCPGapReg === fncfg.signal(Log)
+    postProcMultiplier.get.io.lhs := ymanW1
+    postProcMultiplier.get.io.rhs := Cat(1.U(1.W), nonTableOut.constant)
 
     logPost.io.en     := selCPGapReg === fncfg.signal(Log)
-    logPost.io.zother := ShiftRegister(logOther.io.zother, cpGap)
-    logPost.io.zres   := polynomialResultCPGapReg
+    logPost.io.zother := nonTableOut
+    logPost.io.zman0  := postProcMultiplier.get.io.out
+    logPost.io.zexInc := postProcMultiplier.get.io.exInc
 
     zs(Log) := logPost.io.z
 
