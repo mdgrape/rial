@@ -515,23 +515,16 @@ class LogPostProcess(
   val zmanRound = zmanShifted +& zmanRoundInc
   val zmanRoundMoreThan2 = zmanRound(manW)
 
-  val lnman = zmanRound(manW-1, 0)
-  val lnex0 = io.zother.zex0 +& (zmanProdMoreThan2 + zmanRoundMoreThan2)
-  val lnex  = Mux(lnex0(exW) === 1.U, Fill(exW, 1.U(1.W)), lnex0(exW-1, 0))
-
-  val zman0 = Wire(UInt(manW.W))
-  val zex0  = Wire(UInt(exW.W))
-
-  zman0 := lnman
-  zex0  := lnex
+  val zman0 = zmanRound(manW-1, 0)
+  val zex0 = io.zother.zex0 +& (zmanProdMoreThan2 + zmanRoundMoreThan2)
 
   val znan  = io.zother.znan
-  val zinf  = io.zother.zinf
+  val zinf  = io.zother.zinf || zex0(exW) === 1.U // (ex overflows == inf)
   val zzero = io.zother.zzero
 
   val zman = Mux(znan || zinf || zzero, Cat(znan.asUInt, Fill(manW-1, 0.U(1.W))), zman0)
   val zex  = Mux(znan || zinf, Fill(exW, 1.U(1.W)),
-                               Mux(zzero, 0.U(exW.W), zex0))
+                               Mux(zzero, 0.U(exW.W), zex0(exW-1, 0)))
 
   val z0 = Cat(Mux(znan, 0.U(1.W), io.zother.zsgn), zex, zman)
   assert(z0.getWidth == spec.W)
