@@ -482,13 +482,32 @@ class MathFunctions(
   // ==========================================================================
   // PostProc multiplier
 
-  val hasPostProcMultiplier = fncfg.has(ACosPhase2) || fncfg.has(ATan2Phase1) ||
-    fncfg.has(ATan2Phase2) || fncfg.has(Sin) || fncfg.has(Cos) || fncfg.has(Log)
+  def usePostProcMultiplier(fn: FuncKind.FuncKind): Boolean = {
+//     fn == ACosPhase2 || fn == ATan2Phase1 || fn == ATan2Phase2 || fn == Sin || fn == Cos || fn == Log
+    fn == ACosPhase2 || fn == Log
+  }
+
+  val hasPostProcMultiplier = fncfg.funcs.exists(fn => usePostProcMultiplier(fn))
 
   val multStage = PipelineStageConfig.none // TODO
   val postProcMultiplier = if(hasPostProcMultiplier) {
     Some(Module(new PostProcMultiplier(polySpec, multStage)))
   } else {None}
+
+  // regsiter?
+  val postProcMultEn  = fncfg.funcs.filter(fn => usePostProcMultiplier(fn)).map( fn => { fn -> Wire(Bool()) }).toMap
+  val postProcMultLhs = fncfg.funcs.filter(fn => usePostProcMultiplier(fn)).map( fn => { fn -> Wire(UInt((1+polySpec.fracW).W)) }).toMap
+  val postProcMultRhs = fncfg.funcs.filter(fn => usePostProcMultiplier(fn)).map( fn => { fn -> Wire(UInt((1+manW).W)) }).toMap
+
+  postProcMultEn .values.foreach(v => v := false.B)
+  postProcMultLhs.values.foreach(v => v := 0.U)
+  postProcMultRhs.values.foreach(v => v := 0.U)
+
+  if(hasPostProcMultiplier) {
+    postProcMultiplier.get.io.en  := postProcMultEn.values.reduce(_|_)
+    postProcMultiplier.get.io.lhs := postProcMultLhs.values.reduce(_|_)
+    postProcMultiplier.get.io.rhs := postProcMultRhs.values.reduce(_|_)
+  }
 
   // ==========================================================================
   // Output float.
@@ -535,9 +554,9 @@ class MathFunctions(
 
     assert(hasPostProcMultiplier, "ACos requires post-proc multiplier")
 
-    postProcMultiplier.get.io.en  := selCPGapReg === fncfg.signal(ACosPhase2)
-    postProcMultiplier.get.io.lhs := Cat(1.U(1.W), polynomialResultCPGapReg)
-    postProcMultiplier.get.io.rhs := Cat(1.U(1.W), xdecCPGapReg.man)
+    postProcMultEn(ACosPhase2)  := selCPGapReg === fncfg.signal(ACosPhase2)
+    postProcMultLhs(ACosPhase2) := Cat(1.U(1.W), polynomialResultCPGapReg)
+    postProcMultRhs(ACosPhase2) := Cat(1.U(1.W), xdecCPGapReg.man)
 
     acosPost.io.en     := (selCPGapReg === fncfg.signal(ACosPhase2))
     acosPost.io.flags  := acosFlagReg
@@ -1151,9 +1170,9 @@ class MathFunctions(
                  Mux(x1_0to2_0, Cat(polynomialResultCPGapReg, 0.U(1.W)), // case 3
                                 zfullShifted(exW+fracW-1, exW-1)))       // case 1
 
-    postProcMultiplier.get.io.en  := selCPGapReg === fncfg.signal(Log)
-    postProcMultiplier.get.io.lhs := ymanW1
-    postProcMultiplier.get.io.rhs := Cat(1.U(1.W), nonTableOut.constant)
+    postProcMultEn(Log)  := selCPGapReg === fncfg.signal(Log)
+    postProcMultLhs(Log) := ymanW1
+    postProcMultRhs(Log) := Cat(1.U(1.W), nonTableOut.constant)
 
     logPost.io.en     := selCPGapReg === fncfg.signal(Log)
     logPost.io.zother := nonTableOut
