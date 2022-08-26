@@ -230,6 +230,48 @@ object MathFuncPipelineConfig {
   }
 }
 
+/** A module to multiply polynomial result and a coefficient.
+ *  (fracW+1) * (manW+1) -> manW
+ *
+ * Some of the functions require multiplication at postprocess, like:
+ * - sincos    approximates sin(x)/x      in polynomial, so z = polynomial * x
+ * - acos      approximates acos(1-x^2)/x in polynomial, so z = polynomial * x
+ * - atan2-1   approximates 1/max(x,y),   in polynomial, so z = polynomial * min(x,y)
+ * - atan2-2   approximates atan(x)/x     in polynomial, so z = polynomial * x
+ * - log(x~1)  approximates log(x)/(1-x)  in polynomial, so z = polynomial * (1-x)
+ * - log(x!=1) approximates log2(x)       in polynomial, so z = polynomial * ln2
+ *
+ * To reduce area of polynomial stage, those share one multiplier.
+ *
+ */
+class PostProcMultiplier(
+  val polySpec: PolynomialSpec,
+  val stage: PipelineStageConfig,
+) extends Module {
+
+  val fracW = polySpec.fracW
+  val manW  = polySpec.manW
+  val nStage = stage.total
+
+  val io = IO(new Bundle {
+    val en    = Input(Bool())
+    val lhs   = Input(UInt((1+fracW).W))
+    val rhs   = Input(UInt((1+manW).W))
+    val out   = Output(UInt(manW.W))
+    val exInc = Output(UInt(1.W))
+  })
+
+  val prod      = enable(io.en, io.lhs) * enable(io.en, io.rhs)
+  val moreThan2 = prod((manW+1)+(fracW+1)-1)
+  val shifted   = Mux(moreThan2, prod((manW+1)+(fracW+1)-2, (fracW+1)  ),
+                                 prod((manW+1)+(fracW+1)-3, (fracW+1)-1))
+  val rounded   = shifted +& Mux(moreThan2, prod((fracW+1)-1), prod((fracW+1)-2))
+  val moreThan2AfterRound = rounded(manW)
+
+  io.exInc := ShiftRegister(moreThan2 | moreThan2AfterRound, nStage)
+  io.out   := ShiftRegister(rounded(manW-1, 0),              nStage)
+}
+
 /** A module that calculates math functions.
  *
  * # Overview
@@ -409,16 +451,6 @@ class MathFunctions(
   val yIsLargerCPGapReg = ShiftRegister(yIsLargerCPReg, cpGap)
 
   // ==========================================================================
-  // Output float.
-  //
-  // later we will insert a value to the map.
-
-  val zs = fncfg.funcs.map( fn => { fn -> Wire(UInt(spec.W.W)) }).toMap
-  zs.values.foreach(_ := 0.U) // init
-  val z0 = zs.values.reduce(_|_)
-  io.z := z0
-
-  // ==========================================================================
   // Polynomial Evaluator
 
   val polynomialEval = Module(new PolynomialEval(spec, polySpec, maxCbit, stage.calcStage))
@@ -446,6 +478,27 @@ class MathFunctions(
 
   val polynomialResultCPGapReg = ShiftRegister(polynomialEval.io.result, cpGap)
 
+
+  // ==========================================================================
+  // PostProc multiplier
+
+  val hasPostProcMultiplier = fncfg.has(ACosPhase2) || fncfg.has(ATan2Phase1) ||
+    fncfg.has(ATan2Phase2) || fncfg.has(Sin) || fncfg.has(Cos) || fncfg.has(Log)
+
+  val multStage = PipelineStageConfig.none // TODO
+  val postProcMultiplier = if(hasPostProcMultiplier) {
+    Some(Module(new PostProcMultiplier(polySpec, multStage)))
+  } else {None}
+
+  // ==========================================================================
+  // Output float.
+  //
+  // later we will insert a value to the map.
+
+  val zs = fncfg.funcs.map( fn => { fn -> Wire(UInt(spec.W.W)) }).toMap
+  zs.values.foreach(_ := 0.U) // init
+  val z0 = zs.values.reduce(_|_)
+  io.z := z0
 
   // ==========================================================================
   // ACos
