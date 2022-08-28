@@ -554,9 +554,10 @@ class MathFunctions(
 
     assert(hasPostProcMultiplier, "ACos requires post-proc multiplier")
 
-    postProcMultEn(ACosPhase2)  := selCPGapReg === fncfg.signal(ACosPhase2)
-    postProcMultLhs(ACosPhase2) := Cat(1.U(1.W), polynomialResultCPGapReg)
-    postProcMultRhs(ACosPhase2) := Cat(1.U(1.W), xdecCPGapReg.man)
+    val isACos2 = selCPGapReg === fncfg.signal(ACosPhase2)
+    postProcMultEn(ACosPhase2)  := isACos2
+    postProcMultLhs(ACosPhase2) := enable(isACos2, Cat(1.U(1.W), polynomialResultCPGapReg))
+    postProcMultRhs(ACosPhase2) := enable(isACos2, Cat(1.U(1.W), xdecCPGapReg.man))
 
     acosPost.io.en     := (selCPGapReg === fncfg.signal(ACosPhase2))
     acosPost.io.flags  := acosFlagReg
@@ -1170,9 +1171,10 @@ class MathFunctions(
                  Mux(x1_0to2_0, Cat(polynomialResultCPGapReg, 0.U(1.W)), // case 3
                                 zfullShifted(exW+fracW-1, exW-1)))       // case 1
 
-    postProcMultEn(Log)  := selCPGapReg === fncfg.signal(Log)
-    postProcMultLhs(Log) := ymanW1
-    postProcMultRhs(Log) := Cat(1.U(1.W), nonTableOut.constant)
+    val isLog = selCPGapReg === fncfg.signal(Log)
+    postProcMultEn(Log)  := isLog
+    postProcMultLhs(Log) := enable(isLog, ymanW1)
+    postProcMultRhs(Log) := enable(isLog, Cat(1.U(1.W), nonTableOut.constant))
 
     logPost.io.en     := selCPGapReg === fncfg.signal(Log)
     logPost.io.zother := nonTableOut
