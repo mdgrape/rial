@@ -401,34 +401,13 @@ class SinCosPostProcess(
   val io = IO(new Bundle {
     val en   = Input(UInt(1.W))
     val pre  = Flipped(new SinCosPreProcessOutput(spec))
-    val zres = Input(UInt(fracW.W))
+    val zman0  = Input(UInt(manW.W))
+    val zexInc = Input(UInt(1.W))
     val z    = Output(UInt(spec.W.W))
   })
 
-  // --------------------------------------------------------------------------
-  // postprocess the polynomial result.
-  // polynomial approximates sin(x)/(x/pi). we need to multiply y == x/pi and
-  // the result of polynomial.
-
-  val ymanW1 = Cat(1.U(1.W), io.pre.yman)
-  val wmanW1 = Cat(1.U(1.W), io.zres)
-
-//   printf("cir: ymanW1 = %b\n", ymanW1)
-//   printf("cir: wmanW1 = %b\n", wmanW1)
-
-  val zProd      = ymanW1 * wmanW1
-  val zMoreThan2 = zProd((manW+1)+(fracW+1)-1)
-  val zShifted   = Mux(zMoreThan2, zProd((manW+1)+(fracW+1)-2, (fracW+1)  ),
-                                   zProd((manW+1)+(fracW+1)-3, (fracW+1)-1))
-  val zRounded   = zShifted +& Mux(zMoreThan2, zProd((fracW+1)-1),
-                                               zProd((fracW+1)-2))
-  val zMoreThan2AfterRound = zRounded(manW)
-  val zexInc = zMoreThan2 | zMoreThan2AfterRound
-  val zman0  = zRounded(manW-1, 0)
-  val zex0 = io.pre.yex + 1.U + zexInc
-
-//   printf("cir: zprod  = %b\n", zProd)
-//   printf("cir: zman0  = %b\n", zman0)
+  val zman0  = io.zman0
+  val zex0   = io.pre.yex + 1.U + io.zexInc
 
   val znan = io.pre.znan
   val zone = io.pre.zone

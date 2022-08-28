@@ -261,6 +261,10 @@ class PostProcMultiplier(
     val exInc = Output(UInt(1.W))
   })
 
+//   printf("cir: en        = %b\n", io.en)
+//   printf("cir: lhs(frac) = %b\n", io.lhs)
+//   printf("cir: rhs(man)  = %b\n", io.rhs)
+
   val prod      = enable(io.en, io.lhs) * enable(io.en, io.rhs)
   val moreThan2 = prod((manW+1)+(fracW+1)-1)
   val shifted   = Mux(moreThan2, prod((manW+1)+(fracW+1)-2, (fracW+1)  ),
@@ -484,7 +488,7 @@ class MathFunctions(
 
   def usePostProcMultiplier(fn: FuncKind.FuncKind): Boolean = {
 //     fn == ACosPhase2 || fn == ATan2Phase1 || fn == ATan2Phase2 || fn == Sin || fn == Cos || fn == Log
-    fn == ACosPhase2 || fn == Log
+    fn == ACosPhase2 || fn == Log || fn == Sin || fn == Cos
   }
 
   val hasPostProcMultiplier = fncfg.funcs.exists(fn => usePostProcMultiplier(fn))
@@ -502,6 +506,10 @@ class MathFunctions(
   postProcMultEn .values.foreach(v => v := false.B)
   postProcMultLhs.values.foreach(v => v := 0.U)
   postProcMultRhs.values.foreach(v => v := 0.U)
+
+//   postProcMultEn .foreach(kv => printf("cir: %d: en  = %b\n", fncfg.signal(kv._1), kv._2))
+//   postProcMultLhs.foreach(kv => printf("cir: %d: lhs = %b\n", fncfg.signal(kv._1), kv._2))
+//   postProcMultRhs.foreach(kv => printf("cir: %d: lhs = %b\n", fncfg.signal(kv._1), kv._2))
 
   if(hasPostProcMultiplier) {
     postProcMultiplier.get.io.en  := postProcMultEn.values.reduce(_|_)
@@ -993,17 +1001,34 @@ class MathFunctions(
                           (selPCGapReg === fncfg.signal(Cos))
       sincosTab.io.adr := ShiftRegister(sincosPre.io.adr, pcGap)
 
-      sincosPost.io.en   := (selCPGapReg === fncfg.signal(Sin)) ||
-                            (selCPGapReg === fncfg.signal(Cos))
-      sincosPost.io.pre  := ShiftRegister(sincosPre.io.out, pcGap + tcGap + nCalcStage + cpGap)
-      sincosPost.io.zres := polynomialResultCPGapReg
-
       if(order != 0) {
         polynomialDxs.get(Sin) := sincosPre.io.dx.get
         polynomialDxs.get(Cos) := sincosPre.io.dx.get
       }
       polynomialCoefs(Sin) := sincosTab.io.cs.asUInt
       polynomialCoefs(Cos) := sincosTab.io.cs.asUInt
+
+      // TODO consider nStage
+      val preOut = ShiftRegister(sincosPre.io.out, pcGap + tcGap + nCalcStage + cpGap)
+
+      assert(hasPostProcMultiplier, "Sin/Cos requires post-proc multiplier")
+
+      val isSin = (selCPGapReg === fncfg.signal(Sin))
+      postProcMultEn(Sin)  := isSin
+      postProcMultLhs(Sin) := enable(isSin, Cat(1.U(1.W), polynomialResultCPGapReg))
+      postProcMultRhs(Sin) := enable(isSin, Cat(1.U(1.W), preOut.yman))
+
+      val isCos = (selCPGapReg === fncfg.signal(Cos))
+      postProcMultEn(Cos)  := isCos
+      postProcMultLhs(Cos) := enable(isCos, Cat(1.U(1.W), polynomialResultCPGapReg))
+      postProcMultRhs(Cos) := enable(isCos, Cat(1.U(1.W), preOut.yman))
+
+      sincosPost.io.en   := (selCPGapReg === fncfg.signal(Sin)) ||
+                            (selCPGapReg === fncfg.signal(Cos))
+      sincosPost.io.pre  := preOut
+      sincosPost.io.zman0  := postProcMultiplier.get.io.out
+      sincosPost.io.zexInc := postProcMultiplier.get.io.exInc
+
       zs(Sin) := sincosPost.io.z
       zs(Cos) := sincosPost.io.z
 
@@ -1024,14 +1049,26 @@ class MathFunctions(
       sincosTab.io.en  := selPCGapReg === fncfg.signal(Sin)
       sincosTab.io.adr := ShiftRegister(sincosPre.io.adr, pcGap)
 
-      sincosPost.io.en   := selCPGapReg === fncfg.signal(Sin)
-      sincosPost.io.pre  := ShiftRegister(sincosPre.io.out, pcGap + tcGap + nCalcStage + cpGap)
-      sincosPost.io.zres := polynomialResultCPGapReg
-
       if(order != 0) {
         polynomialDxs.get(Sin) := sincosPre.io.dx.get
       }
       polynomialCoefs(Sin) := sincosTab.io.cs.asUInt
+
+     // TODO consider nStage
+      val preOut = ShiftRegister(sincosPre.io.out, pcGap + tcGap + nCalcStage + cpGap)
+
+      assert(hasPostProcMultiplier, "Sin/Cos requires post-proc multiplier")
+
+      val isSin = (selCPGapReg === fncfg.signal(Sin))
+      postProcMultEn(Sin)  := isSin
+      postProcMultLhs(Sin) := enable(isSin, Cat(1.U(1.W), polynomialResultCPGapReg))
+      postProcMultRhs(Sin) := enable(isSin, Cat(1.U(1.W), preOut.yman))
+
+      sincosPost.io.en   := (selCPGapReg === fncfg.signal(Sin))
+      sincosPost.io.pre  := preOut
+      sincosPost.io.zman0  := postProcMultiplier.get.io.out
+      sincosPost.io.zexInc := postProcMultiplier.get.io.exInc
+
       zs(Sin) := sincosPost.io.z
 
       when(selPCReg =/= fncfg.signal(Sin)) {
@@ -1051,14 +1088,26 @@ class MathFunctions(
       sincosTab.io.en  := selPCGapReg === fncfg.signal(Cos)
       sincosTab.io.adr := ShiftRegister(sincosPre.io.adr, pcGap)
 
-      sincosPost.io.en   := selCPGapReg === fncfg.signal(Cos)
-      sincosPost.io.pre  := ShiftRegister(sincosPre.io.out, pcGap + tcGap + nCalcStage + cpGap)
-      sincosPost.io.zres := polynomialResultCPGapReg
-
       if(order != 0) {
         polynomialDxs.get(Cos) := sincosPre.io.dx.get
       }
       polynomialCoefs(Cos) := sincosTab.io.cs.asUInt
+
+      // TODO consider nStage
+      val preOut = ShiftRegister(sincosPre.io.out, pcGap + tcGap + nCalcStage + cpGap)
+
+      assert(hasPostProcMultiplier, "Sin/Cos requires post-proc multiplier")
+
+      val isCos = (selCPGapReg === fncfg.signal(Cos))
+      postProcMultEn(Cos)  := isCos
+      postProcMultLhs(Cos) := enable(isCos, Cat(1.U(1.W), polynomialResultCPGapReg))
+      postProcMultRhs(Cos) := enable(isCos, Cat(1.U(1.W), preOut.yman))
+
+      sincosPost.io.en   := (selCPGapReg === fncfg.signal(Cos))
+      sincosPost.io.pre  := preOut
+      sincosPost.io.zman0  := postProcMultiplier.get.io.out
+      sincosPost.io.zexInc := postProcMultiplier.get.io.exInc
+
       zs(Cos) := sincosPost.io.z
 
       when(selPCReg =/= fncfg.signal(Cos)) {

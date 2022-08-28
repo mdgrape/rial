@@ -235,6 +235,9 @@ object SinCosSim {
 
     // restore z = w * y = sin(Pi*y)/y * y = sin(Pi*y) = sin(x)
 
+//     println(f"sim: lhs(frac) = ${wmanW1.toLong.toBinaryString}")
+//     println(f"sim: rhs(man)  = ${ymanW1.toLong.toBinaryString}")
+
     val zProd = wmanW1 * ymanW1
 
     val zMoreThan2 = bit((manW+1)+(fracW+1)-1, zProd)
