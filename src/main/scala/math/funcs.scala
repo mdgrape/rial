@@ -498,7 +498,7 @@ class MathFunctions(
 
   def usePostProcMultiplier(fn: FuncKind.FuncKind): Boolean = {
 //     fn == ACosPhase2 || fn == ATan2Phase1 || fn == ATan2Phase2 || fn == Sin || fn == Cos || fn == Log
-    fn == ACosPhase2 || fn == Log || fn == Sin || fn == Cos
+    fn == ACosPhase2 || fn == ATan2Phase1 || fn == Log || fn == Sin || fn == Cos
   }
 
   val hasPostProcMultiplier = fncfg.funcs.exists(fn => usePostProcMultiplier(fn))
@@ -895,10 +895,22 @@ class MathFunctions(
 
     polynomialCoefs(ATan2Phase1) := recTab.io.cs.asUInt
 
+    // TODO:
+    // consider adding PostProcess-1 and -2, meaning before and after PostProcMult.
+
+    val isATan21 = selCPGapReg === fncfg.signal(ATan2Phase1)
+    val minXY    = Mux(yIsLargerCPGapReg, xdecCPGapReg, ydecCPGapReg)
+    val zother   = ShiftRegister(atan2Phase1Other.io.zother, cpGap)
+    val zFrac    = Mux(zother.maxXYMan0, 0.U, polynomialResultCPGapReg)
+
+    postProcMultEn(ATan2Phase1)  := isATan21
+    postProcMultLhs(ATan2Phase1) := enable(isATan21, Cat(1.U(1.W), zFrac))
+    postProcMultRhs(ATan2Phase1) := enable(isATan21, Cat(1.U(1.W), minXY.man))
+
     atan2Phase1Post.io.en     := (selCPGapReg === fncfg.signal(ATan2Phase1))
-    atan2Phase1Post.io.zother := ShiftRegister(atan2Phase1Other.io.zother, cpGap)
-    atan2Phase1Post.io.zres   := polynomialResultCPGapReg
-    atan2Phase1Post.io.minxy  := Mux(yIsLargerCPGapReg, xdecCPGapReg, ydecCPGapReg)
+    atan2Phase1Post.io.zother := zother
+    atan2Phase1Post.io.zman0  := postProcMultiplier.get.io.out
+    atan2Phase1Post.io.minxy  := minXY
 
     zs(ATan2Phase1) := atan2Phase1Post.io.z
 
