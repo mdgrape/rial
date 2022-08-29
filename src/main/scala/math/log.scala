@@ -441,6 +441,52 @@ class LogOtherPath(
 // |_|                 |_|
 // -------------------------------------------------------------------------
 
+class LogMultArgs(
+  val spec     : RealSpec, // Input / Output floating spec
+  val polySpec : PolynomialSpec,
+  val stage    : PipelineStageConfig,
+) extends Module {
+
+  assert(stage.total == 0)
+
+  val exW    = spec.exW
+  val manW   = spec.manW
+  val exBias = spec.exBias
+
+  val fracW  = polySpec.fracW
+
+  val io = IO(new Bundle {
+    val en     = Input(UInt(1.W))
+    val zother = Flipped(new LogNonTableOutput(spec, polySpec))
+    val zres   = Input(UInt(fracW.W))
+    val lhs    = Output(UInt((1+fracW).W))
+    val rhs    = Output(UInt((1+manW).W))
+  })
+
+  val x0_5to1_0  = io.zother.x0_5to1_0
+  val x1_0to2_0  = io.zother.x1_0to2_0
+  val xOtherwise = io.zother.xOtherwise
+
+  val zsgn = io.zother.zsgn
+
+  // case 1: x < 0.5 or 2 <= x. calc (ex + log2(1.man)) * ln2.
+  val zfrac0 = Mux(zsgn === 0.U, io.zres, // means 0 <= xexNobias
+               Mux(io.zres === 0.U, Fill(fracW, 1.U(1.W)), ~io.zres + 1.U))
+
+  val zfull0 = Cat(io.zother.zint, zfrac0)
+  val zfullShifted = (zfull0 << io.zother.zintShift)(exW+fracW-1, 0)
+  assert(zfullShifted(exW + fracW-1) === 1.U || !xOtherwise)
+
+  // fracW+1 width
+  val ymanW1 = Mux(x0_5to1_0, Cat(1.U(1.W), io.zres), // case 2
+               Mux(x1_0to2_0, Cat(io.zres, 0.U(1.W)), // case 3
+                              zfullShifted(exW+fracW-1, exW-1))) // case 1
+
+  io.lhs := enable(io.en, ymanW1)
+  io.rhs := enable(io.en, Cat(1.U(1.W), io.zother.constant))
+}
+
+
 class LogPostProcess(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,

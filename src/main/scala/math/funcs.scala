@@ -1202,8 +1202,8 @@ class MathFunctions(
     val logOther = Module(new LogOtherPath  (spec, polySpec, otherStage))
     val logPost  = Module(new LogPostProcess(spec, polySpec, stage.postStage))
 
-    logPre.io.en      := (io.sel === fncfg.signal(Log))
-    logPre.io.x       := xdecomp.io.decomp
+    logPre.io.en := (io.sel === fncfg.signal(Log))
+    logPre.io.x  := xdecomp.io.decomp
     if(order != 0) {
       polynomialDxs.get(Log) := logPre.io.dx.get
     }
@@ -1215,42 +1215,20 @@ class MathFunctions(
     polynomialCoefs(Log) := logTab.io.cs.asUInt
 
     logOther.io.x := xdecPCGapReg
-    val nonTableOut = ShiftRegister(logOther.io.zother, cpGap)
 
     assert(hasPostProcMultiplier, "Log requires post-proc multiplier")
 
-    // XXX Right place to put the following logic?
-    // - [x] put here
-    // - [ ] split logPostProc
-    // - [ ] add io ports to logPostProc
-
-    val fracW = polySpec.fracW
-
-    val x0_5to1_0  = nonTableOut.x0_5to1_0
-    val x1_0to2_0  = nonTableOut.x1_0to2_0
-    val xOtherwise = nonTableOut.xOtherwise
-
-    val zsgn = nonTableOut.zsgn
-
-    // case 1: x < 0.5 or 2 <= x. calc (ex + log2(1.man)) * ln2.
-    val zfrac0 = Mux(zsgn === 0.U, polynomialResultCPGapReg, // means 0 <= xexNobias
-                 Mux(polynomialResultCPGapReg === 0.U,
-                   Fill(fracW, 1.U(1.W)),
-                   ~polynomialResultCPGapReg + 1.U))
-
-    val zfull0 = Cat(nonTableOut.zint, zfrac0)
-    val zfullShifted = (zfull0 << nonTableOut.zintShift)(exW+fracW-1, 0)
-    assert(zfullShifted(exW + fracW-1) === 1.U || !xOtherwise)
-
-    // fracW+1 width
-    val ymanW1 = Mux(x0_5to1_0, Cat(1.U(1.W), polynomialResultCPGapReg), // case 2
-                 Mux(x1_0to2_0, Cat(polynomialResultCPGapReg, 0.U(1.W)), // case 3
-                                zfullShifted(exW+fracW-1, exW-1)))       // case 1
-
     val isLog = selCPGapReg === fncfg.signal(Log)
+    val nonTableOut = ShiftRegister(logOther.io.zother, cpGap)
+
+    val logMulArgs = Module(new LogMultArgs(spec, polySpec, PipelineStageConfig.none))
+    logMulArgs.io.en     := isLog
+    logMulArgs.io.zother := nonTableOut
+    logMulArgs.io.zres   := polynomialResultCPGapReg
+
     postProcMultEn(Log)  := isLog
-    postProcMultLhs(Log) := enable(isLog, ymanW1)
-    postProcMultRhs(Log) := enable(isLog, Cat(1.U(1.W), nonTableOut.constant))
+    postProcMultLhs(Log) := logMulArgs.io.lhs
+    postProcMultRhs(Log) := logMulArgs.io.rhs
 
     logPost.io.en     := selCPGapReg === fncfg.signal(Log)
     logPost.io.zother := nonTableOut
