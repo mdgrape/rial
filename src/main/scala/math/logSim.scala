@@ -299,11 +299,12 @@ object LogSim {
 
     val zmanProd = ymanW1 * cmanW1
     val zmanProdMoreThan2 = bit((fracW+1)+(manW+1)-1, zmanProd).toInt
-    val zmanRound = slice(fracW + zmanProdMoreThan2, manW, zmanProd) +
-                    bit(fracW + zmanProdMoreThan2 - 1, zmanProd)
 
-    val zmanRoundMoreThan2 = bit(manW, zmanRound).toInt
-    val lnman = slice(0, manW, zmanRound)
+    val zmanRoundBits = fracW + zmanProdMoreThan2
+    val zmanRound = roundBySpec(RoundSpec.roundToEven, zmanRoundBits, zmanProd)
+
+    val zmanRoundMoreThan2 = bit(manW+1, zmanRound).toInt
+    val lnman = zmanRound >> zmanRoundMoreThan2
     val lnex = zex0 + zmanProdMoreThan2 + zmanRoundMoreThan2
 
     return new RealGeneric(x.spec, zsgn, lnex, lnman)

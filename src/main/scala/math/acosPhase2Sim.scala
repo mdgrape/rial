@@ -89,9 +89,10 @@ object ACosPhase2Sim {
 
     val zProd = lhsManW1 * rhsManW1
     val zMoreThan2 = bit((calcW+1)+(manW+1)-1, zProd)
-    val zRounded = (zProd >> (calcW+zMoreThan2)) + bit(calcW+zMoreThan2-1, zProd)
+    val zRoundBit = calcW + zMoreThan2
+    val zRounded = roundBySpec(RoundSpec.roundToEven, zRoundBit, zProd)
     val zMoreThan2AfterRound = bit(manW+1, zRounded)
-    val zManW1 = if(zMoreThan2AfterRound == 1) {SafeLong(1) << manW} else {zRounded}
+    val zManW1 = zRounded >> zMoreThan2AfterRound
 
     val lhsEx = exBias
     val rhsEx = x.ex

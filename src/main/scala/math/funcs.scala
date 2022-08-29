@@ -14,6 +14,7 @@ import rial.util.RialChiselUtil._
 import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig._
 import rial.arith.RealSpec
+import rial.arith.RoundSpec
 import rial.arith.FloatChiselUtil
 import rial.math._
 
@@ -245,12 +246,15 @@ object MathFuncPipelineConfig {
  *
  */
 class PostProcMultiplier(
+  val realSpec: RealSpec,
+  val roundSpec: RoundSpec,
   val polySpec: PolynomialSpec,
   val stage: PipelineStageConfig,
 ) extends Module {
+  assert(polySpec.manW == realSpec.manW)
 
   val fracW = polySpec.fracW
-  val manW  = polySpec.manW
+  val manW  = realSpec.manW
   val nStage = stage.total
 
   val io = IO(new Bundle {
@@ -267,9 +271,15 @@ class PostProcMultiplier(
 
   val prod      = enable(io.en, io.lhs) * enable(io.en, io.rhs)
   val moreThan2 = prod((manW+1)+(fracW+1)-1)
+
+  val roundBits = fracW
+  val sticky    = prod(roundBits-2, 0).orR | (moreThan2 & prod(roundBits-1))
+  val round     = Mux(moreThan2, prod(roundBits), prod(roundBits-1))
   val shifted   = Mux(moreThan2, prod((manW+1)+(fracW+1)-2, (fracW+1)  ),
                                  prod((manW+1)+(fracW+1)-3, (fracW+1)-1))
-  val rounded   = shifted +& Mux(moreThan2, prod((fracW+1)-1), prod((fracW+1)-2))
+  val lsb       = shifted(0)
+  val roundInc  = FloatChiselUtil.roundIncBySpec(roundSpec, lsb, round, sticky)
+  val rounded   = shifted +& roundInc
   val moreThan2AfterRound = rounded(manW)
 
   io.exInc := ShiftRegister(moreThan2 | moreThan2AfterRound, nStage)
@@ -495,7 +505,7 @@ class MathFunctions(
 
   val multStage = PipelineStageConfig.none // TODO
   val postProcMultiplier = if(hasPostProcMultiplier) {
-    Some(Module(new PostProcMultiplier(polySpec, multStage)))
+    Some(Module(new PostProcMultiplier(spec, RoundSpec.roundToEven, polySpec, multStage)))
   } else {None}
 
   // regsiter?
