@@ -894,22 +894,24 @@ class MathFunctions(
 
     polynomialCoefs(ATan2Phase1) := recTab.io.cs.asUInt
 
-    // TODO:
-    // consider adding PostProcess-1 and -2, meaning before and after PostProcMult.
-
     val isATan21 = selCPGapReg === fncfg.signal(ATan2Phase1)
-    val minXY    = Mux(yIsLargerCPGapReg, xdecCPGapReg, ydecCPGapReg)
+    val minxy    = Mux(yIsLargerCPGapReg, xdecCPGapReg, ydecCPGapReg)
     val zother   = ShiftRegister(atan2Phase1Other.io.zother, cpGap)
-    val zFrac    = Mux(zother.maxXYMan0, 0.U, polynomialResultCPGapReg)
+
+    val atan2Phase1MultArgs = Module(new ATan2Phase1MultArgs(spec, polySpec, PipelineStageConfig.none))
+    atan2Phase1MultArgs.io.en     := isATan21
+    atan2Phase1MultArgs.io.zother := zother
+    atan2Phase1MultArgs.io.zres   := polynomialResultCPGapReg
+    atan2Phase1MultArgs.io.minxy  := minxy
 
     postProcMultEn(ATan2Phase1)  := isATan21
-    postProcMultLhs(ATan2Phase1) := enable(isATan21, Cat(1.U(1.W), zFrac))
-    postProcMultRhs(ATan2Phase1) := enable(isATan21, Cat(1.U(1.W), minXY.man))
+    postProcMultLhs(ATan2Phase1) := atan2Phase1MultArgs.io.lhs
+    postProcMultRhs(ATan2Phase1) := atan2Phase1MultArgs.io.rhs
 
     atan2Phase1Post.io.en     := (selCPGapReg === fncfg.signal(ATan2Phase1))
     atan2Phase1Post.io.zother := zother
     atan2Phase1Post.io.zman0  := postProcMultiplier.get.io.out
-    atan2Phase1Post.io.minxy  := minXY
+    atan2Phase1Post.io.minxy  := minxy
 
     zs(ATan2Phase1) := atan2Phase1Post.io.z
 

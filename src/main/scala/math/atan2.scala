@@ -208,6 +208,40 @@ class ATan2Phase1OtherPath(
 
 // Phase1: takes 1/max(x, y) and min(x, y), returns min(x, y) / max(x, y)
 
+class ATan2Phase1MultArgs(
+  val spec     : RealSpec, // Input / Output floating spec
+  val polySpec : PolynomialSpec,
+  val stage    : PipelineStageConfig,
+) extends Module {
+
+  val exW    = spec.exW
+  val manW   = spec.manW
+  val exBias = spec.exBias
+
+  val nStage = stage.total
+  def getStage = nStage
+
+  val adrW   = polySpec.adrW
+  val fracW  = polySpec.fracW
+  val order  = polySpec.order
+  val extraBits = polySpec.extraBits
+
+  val io = IO(new Bundle {
+    val en     = Input(Bool())
+    val zother = Flipped(new ATan2Phase1NonTableOutput(spec))
+    val zres   = Input(UInt(fracW.W))
+    val minxy  = Flipped(new DecomposedRealOutput(spec))
+
+    val lhs    = Output(UInt((1+fracW).W))
+    val rhs    = Output(UInt((1+manW).W))
+  })
+
+  val zFrac = Mux(io.zother.maxXYMan0, 0.U, io.zres)
+
+  io.lhs := enable(io.en, Cat(1.U(1.W), zFrac))
+  io.rhs := enable(io.en, Cat(1.U(1.W), io.minxy.man))
+}
+
 class ATan2Phase1PostProcess(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
