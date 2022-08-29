@@ -293,8 +293,6 @@ class PostProcMultiplier(
  * It takes two floating point numbers, x and y, and returns one floating point
  * number, z. Only ATan2 uses both x and y. Others just ignores y.
  *
- * TODO: make io.y optional and disable when ATan2 is not required.
- *
  * {{{
  * //                                     table/Calc
  * //                                          |
