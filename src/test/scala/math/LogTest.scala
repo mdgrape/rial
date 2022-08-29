@@ -145,7 +145,10 @@ class LogTest extends AnyFlatSpec
             q += ((xi.value.toBigInt,z0r.value.toBigInt))
             c.io.sel.poke(fncfg.signal(Log))
             c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
-            c.io.y.poke(0.U(spec.W.W))
+            if(fncfg.has(ATan2Phase1)) {
+              c.io.y.get.poke(0.U(spec.W.W))
+            }
+
             val zi = c.io.z.peek().litValue.toBigInt
             if (i > nstage) {
 

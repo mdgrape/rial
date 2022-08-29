@@ -430,16 +430,12 @@ class MathFunctions(
   val io = IO(new Bundle {
     val sel = Input(UInt(fncfg.signalW.W))
     val x = Input (UInt(spec.W.W))
-    val y = Input (UInt(spec.W.W))
+    val y = if(fncfg.has(ATan2Phase1)) {Some(Input(UInt(spec.W.W)))} else {None}
     val z = Output(UInt(spec.W.W))
   })
 
   val xdecomp = Module(new DecomposeReal(spec))
-  val ydecomp = Module(new DecomposeReal(spec))
   xdecomp.io.real := io.x
-  ydecomp.io.real := io.y
-
-  val yIsLarger = io.x(spec.W-2, 0) < io.y(spec.W-2, 0) // cmp without sign bit
 
   // These registers delay sel, xdec, ydec by nPreStage and nCalcStage cycles.
   // The values of PC/CP registers can be used as if those are the output of
@@ -447,22 +443,13 @@ class MathFunctions(
   // If nStages are zero, then it becomes a wire.
   val selPCReg  = ShiftRegister(io.sel,            nPreStage)
   val xdecPCReg = ShiftRegister(xdecomp.io.decomp, nPreStage)
-  val ydecPCReg = ShiftRegister(ydecomp.io.decomp, nPreStage)
   val selPCGapReg  = ShiftRegister(selPCReg,  pcGap)
   val xdecPCGapReg = ShiftRegister(xdecPCReg, pcGap)
-  val ydecPCGapReg = ShiftRegister(ydecPCReg, pcGap)
 
   val selCPReg  = ShiftRegister(selPCGapReg,  tcGap + nCalcStage)
   val xdecCPReg = ShiftRegister(xdecPCGapReg, tcGap + nCalcStage)
-  val ydecCPReg = ShiftRegister(ydecPCGapReg, tcGap + nCalcStage)
   val selCPGapReg  = ShiftRegister(selCPReg,  cpGap)
   val xdecCPGapReg = ShiftRegister(xdecCPReg, cpGap)
-  val ydecCPGapReg = ShiftRegister(ydecCPReg, cpGap)
-
-  val yIsLargerPCReg    = ShiftRegister(yIsLarger, nPreStage)
-  val yIsLargerPCGapReg = ShiftRegister(yIsLargerPCReg, pcGap)
-  val yIsLargerCPReg    = ShiftRegister(yIsLargerPCGapReg, tcGap + nCalcStage)
-  val yIsLargerCPGapReg = ShiftRegister(yIsLargerCPReg, cpGap)
 
   // ==========================================================================
   // Polynomial Evaluator
@@ -827,6 +814,23 @@ class MathFunctions(
 
   if(fncfg.has(ATan2Phase1) || fncfg.has(ATan2Phase2)) {
     assert(fncfg.has(ATan2Phase1) && fncfg.has(ATan2Phase2) && fncfg.has(Reciprocal))
+
+    // -----------------------------------------------------------------------
+    // input y-related registers and signals
+
+    val ydecomp = Module(new DecomposeReal(spec))
+    ydecomp.io.real := io.y.get
+
+    val ydecPCReg = ShiftRegister(ydecomp.io.decomp, nPreStage)
+    val ydecPCGapReg = ShiftRegister(ydecPCReg, pcGap)
+    val ydecCPReg = ShiftRegister(ydecPCGapReg, tcGap + nCalcStage)
+    val ydecCPGapReg = ShiftRegister(ydecCPReg, cpGap)
+
+    val yIsLarger = io.x(spec.W-2, 0) < io.y.get(spec.W-2, 0) // cmp without sign bit
+    val yIsLargerPCReg    = ShiftRegister(yIsLarger, nPreStage)
+    val yIsLargerPCGapReg = ShiftRegister(yIsLargerPCReg, pcGap)
+    val yIsLargerCPReg    = ShiftRegister(yIsLargerPCGapReg, tcGap + nCalcStage)
+    val yIsLargerCPGapReg = ShiftRegister(yIsLargerCPReg, cpGap)
 
     // --------------------------------------------------------------------------
     // reciprocal

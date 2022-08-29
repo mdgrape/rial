@@ -105,13 +105,17 @@ class ACosPhase2Test extends AnyFlatSpec
 
             c.io.sel.poke(fncfg.signal(ACosPhase1))
             c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
-            c.io.y.poke(0.U(spec.W.W))
+            if(fncfg.has(ATan2Phase1)) {
+              c.io.y.get.poke(0.U(spec.W.W))
+            }
 
             if(stage.total > 0) {
               c.clock.step(1)
               c.io.sel.poke(fncfg.signalNone())
               c.io.x.poke(0.U(spec.W.W))
-              c.io.y.poke(0.U(spec.W.W))
+              if(fncfg.has(ATan2Phase1)) {
+                c.io.y.get.poke(0.U(spec.W.W))
+              }
               for(j <- 1 until max(1, stage.total)) {
                 c.clock.step(1)
               }
@@ -130,13 +134,18 @@ class ACosPhase2Test extends AnyFlatSpec
 
             c.io.sel.poke(fncfg.signal(ACosPhase2))
             c.io.x.poke(z0i.value.toBigInt.U(spec.W.W))
-            c.io.y.poke(0.U(spec.W.W))
+            if(fncfg.has(ATan2Phase1)) {
+              c.io.y.get.poke(0.U(spec.W.W))
+            }
+
 
             if(stage.total > 0) {
               c.clock.step(1)
               c.io.sel.poke(fncfg.signalNone())
               c.io.x.poke(0.U(spec.W.W))
-              c.io.y.poke(0.U(spec.W.W))
+              if(fncfg.has(ATan2Phase1)) {
+                c.io.y.get.poke(0.U(spec.W.W))
+              }
               for(j <- 1 until max(1, stage.total)) {
                 c.clock.step(1)
               }

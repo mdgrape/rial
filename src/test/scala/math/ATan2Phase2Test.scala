@@ -145,13 +145,13 @@ class ATan2Phase2Test extends AnyFlatSpec
 
             c.io.sel.poke(fncfg.signal(ATan2Phase1))
             c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
-            c.io.y.poke(yi.value.toBigInt.U(spec.W.W))
+            c.io.y.get.poke(yi.value.toBigInt.U(spec.W.W))
 
             if(stage.total > 0) {
               c.clock.step(1)
               c.io.sel.poke(fncfg.signalNone())
               c.io.x.poke(0.U(spec.W.W))
-              c.io.y.poke(0.U(spec.W.W))
+              c.io.y.get.poke(0.U(spec.W.W))
               for(j <- 1 until max(1, stage.total)) {
 //                 println(f"out = ${c.io.z.peek().litValue.toBigInt.toLong.toBinaryString}")
                 c.clock.step(1)
@@ -196,7 +196,7 @@ class ATan2Phase2Test extends AnyFlatSpec
 
             c.io.sel.poke(fncfg.signal(ATan2Phase2))
             c.io.x.poke(z1i.U(spec.W.W))
-            c.io.y.poke(0.U(spec.W.W))
+            c.io.y.get.poke(0.U(spec.W.W))
 
             val z1real = new RealGeneric(spec, z1i.toSafeLong)
 //             println(f"z1i = ${z1real.sgn}|${z1real.ex}|${z1real.man.toLong.toBinaryString}(${z1real.toDouble})")
@@ -205,7 +205,7 @@ class ATan2Phase2Test extends AnyFlatSpec
               c.clock.step(1)
               c.io.sel.poke(fncfg.signalNone())
               c.io.x.poke(0.U(spec.W.W))
-              c.io.y.poke(0.U(spec.W.W))
+              c.io.y.get.poke(0.U(spec.W.W))
               for(j <- 1 until max(1, stage.total)) {
 //                 println(f"out = ${c.io.z.peek().litValue.toBigInt.toLong.toBinaryString}")
                 c.clock.step(1)
