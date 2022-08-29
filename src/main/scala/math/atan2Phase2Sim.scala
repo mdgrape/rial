@@ -105,10 +105,11 @@ object ATan2Phase2Sim {
 
     val atanProd = resManW1 * x.manW1
     val atanProdMoreThan2 = bit((fracW+1)+(manW+1)-1, atanProd).toInt
-    val atanRound = slice(fracW + atanProdMoreThan2, manW, atanProd) +
-                    bit(fracW + atanProdMoreThan2 - 1, atanProd)
-    val atanRoundMoreThan2 = bit(manW, atanRound).toInt
-    val atanMan = slice(0, manW, atanRound)
+    val atanRoundBit = fracW + atanProdMoreThan2
+    val atanRound = roundBySpec(RoundSpec.roundToEven, atanRoundBit, atanProd)
+    val atanRoundMoreThan2 = bit(manW+1, atanRound).toInt
+
+    val atanMan = slice(0, manW, atanRound >> atanRoundMoreThan2)
     val atanEx  = x.ex + resEx + atanProdMoreThan2 + atanRoundMoreThan2
 
 //     println(f"atan2Phase2Sim: atanEx  = ${atanEx }(${atanEx - exBias})")

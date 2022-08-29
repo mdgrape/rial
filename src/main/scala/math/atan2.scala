@@ -535,27 +535,16 @@ class ATan2Phase2PostProcess(
     val en = Input(UInt(1.W))
     val x      = Flipped(new DecomposedRealOutput(spec))
     val zother = Flipped(new ATan2Phase2NonTableOutput(spec))
-    val zres   = Input(UInt(fracW.W))
+    val zman0  = Input(UInt(manW.W))
+    val zexInc = Input(UInt(1.W))
     val flags  = Input(new ATan2Flags()) // need status (|x|<|y|, xsgn)
     val z      = Output(UInt(spec.W.W))
   })
 
   val zSgn = io.zother.zsgn
 
-  val zres = Cat(io.zres, 0.U(1.W))
-//   printf("cir: zres   = %b\n", zres  )
-//   printf("cir: xmanW1 = %b\n", Cat(1.U(1.W), io.x.man))
-
-  val atanProd = zres * Cat(1.U(1.W), io.x.man)
-  val atanProdMoreThan2 = atanProd((fracW+1)+(manW+1)-1)
-  val atanShifted = Mux(atanProdMoreThan2, atanProd((fracW+1)+(manW+1)-2, fracW+1),
-                                           atanProd((fracW+1)+(manW+1)-3, fracW  ))
-  val atanRoundInc = Mux(atanProdMoreThan2, atanProd(fracW), atanProd(fracW-1))
-  val atanRound = atanShifted +& atanRoundInc
-  val atanRoundMoreThan2 = atanRound(manW)
-
-  val atanMan0 = atanRound(manW-1, 0)
-  val atanEx0  = io.x.ex +& (atanProdMoreThan2 + atanRoundMoreThan2) - 1.U
+  val atanMan0 = io.zman0
+  val atanEx0  = io.x.ex +& io.zexInc - 1.U
 
   // XXX there is no overflow.
   // 1. io.x in atan2stage2 is the result of min(x,y)/max(x,y), so |io.x| <= 1.
