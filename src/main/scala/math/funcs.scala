@@ -177,9 +177,10 @@ class DecomposeReal(val spec: RealSpec) extends Module {
  *       multiple cycles in its preprocess, but sincos may need.)
  *
  * @constructor create a new MathFuncConfig.
- * @param preStage     clock cycles in preprocess.
- * @param calcStage    clock cycles in table/polynomial and non-table path.
- * @param postStage    clock cycles in postprocess.
+ * @param preStage     pipeline stages of preprocess.
+ * @param calcStage    pipeline stages of table/polynomial and non-table path.
+ * @param postStage    pipeline stages of postprocess.
+ * @param postMulStage pipeline stages of multiplier in postprocess. should be smaller than postStage.
  * @param preCalcGap   if true, add register between preprocess and calculation stage
  * @param tableCalcGap if true, add register between table and calculation stage (+1 to calcStage for OtherPath)
  * @param calcPostGap  if true, add register between calculation and postprocess stage
@@ -189,10 +190,14 @@ class MathFuncPipelineConfig(
   val preStage:     PipelineStageConfig,
   val calcStage:    PipelineStageConfig,
   val postStage:    PipelineStageConfig,
+  val postMulStage: PipelineStageConfig,
   val preCalcGap:   Boolean,
   val tableCalcGap: Boolean,
   val calcPostGap:  Boolean,
   ) {
+
+  assert(postMulStage.total <= postStage.total,
+    "postStage includes postMulStage, so should be larger than postMulStage.")
 
   /** Calculates the total latency in clock cycles.
    */
@@ -209,7 +214,7 @@ class MathFuncPipelineConfig(
   def getString = {
     f"pre: ${preStage.getString}, " +
     f"calc: ${calcStage.getString}, " +
-    f"post: ${postStage.getString}, " +
+    f"post: ${postStage.getString}(mul = ${postMulStage.total}), " +
     f"pre-calc: ${preCalcGap}, table-calc: ${tableCalcGap}, calc-post: ${calcPostGap}"
   }
 }
@@ -222,6 +227,7 @@ object MathFuncPipelineConfig {
    */
   def none = {
     new MathFuncPipelineConfig(
+      PipelineStageConfig.none,
       PipelineStageConfig.none,
       PipelineStageConfig.none,
       PipelineStageConfig.none,
@@ -343,6 +349,7 @@ class MathFunctions(
   val nPreStage  = stage.preStage.total
   val nCalcStage = stage.calcStage.total
   val nPostStage = stage.postStage.total
+  val nPostMulStage = stage.postMulStage.total
 
   val nOtherStage = nCalcStage + tcGap
   val otherStage = PipelineStageConfig.atOut(nOtherStage)
@@ -487,9 +494,8 @@ class MathFunctions(
 
   val hasPostProcMultiplier = fncfg.funcs.exists(fn => usePostProcMultiplier(fn))
 
-  val multStage = PipelineStageConfig.none // TODO
   val postProcMultiplier = if(hasPostProcMultiplier) {
-    Some(Module(new PostProcMultiplier(spec, RoundSpec.roundToEven, polySpec, multStage)))
+    Some(Module(new PostProcMultiplier(spec, RoundSpec.roundToEven, polySpec, stage.postMulStage)))
   } else {None}
 
   // regsiter?
@@ -533,7 +539,8 @@ class MathFunctions(
     val acos1Pre  = Module(new ACosPhase1PreProcess(spec, polySpec, stage.preStage))
     val acos2Pre  = Module(new ACosPhase2PreProcess(spec, polySpec, stage.preStage))
     val acosTab   = Module(new ACosTableCoeff (spec, polySpec, maxCbit))
-    val acosPost  = Module(new ACosPostProcess(spec, polySpec, stage.postStage))
+    val acosPost  = Module(new ACosPostProcess(spec, polySpec,
+      PipelineStageConfig.atOut(nPostStage - nPostMulStage)))
 
     val acos1PreAdrPCGapReg = ShiftRegister(acos1Pre.io.adr, pcGap)
 
@@ -561,10 +568,10 @@ class MathFunctions(
     postProcMultLhs(ACosPhase2) := enable(isACos2, Cat(1.U(1.W), polynomialResultCPGapReg))
     postProcMultRhs(ACosPhase2) := enable(isACos2, Cat(1.U(1.W), xdecCPGapReg.man))
 
-    acosPost.io.en     := (selCPGapReg === fncfg.signal(ACosPhase2))
-    acosPost.io.flags  := acosFlagReg
-    acosPost.io.zex0   := xdecCPGapReg.ex
-    acosPost.io.zman0  := postProcMultiplier.get.io.out   // TODO consider nStage
+    acosPost.io.en     := ShiftRegister(selCPGapReg === fncfg.signal(ACosPhase2), nPostMulStage)
+    acosPost.io.flags  := ShiftRegister(acosFlagReg, nPostMulStage)
+    acosPost.io.zex0   := ShiftRegister(xdecCPGapReg.ex, nPostMulStage)
+    acosPost.io.zman0  := postProcMultiplier.get.io.out
     acosPost.io.exInc  := postProcMultiplier.get.io.exInc
 
     zs(ACosPhase2)  := acosPost.io.z
@@ -876,7 +883,8 @@ class MathFunctions(
 
     val atan2Phase1Pre   = Module(new ATan2Phase1PreProcess (spec, polySpec, stage.preStage))
     val atan2Phase1Other = Module(new ATan2Phase1OtherPath  (spec, polySpec, otherStage))
-    val atan2Phase1Post  = Module(new ATan2Phase1PostProcess(spec, polySpec, stage.postStage))
+    val atan2Phase1Post  = Module(new ATan2Phase1PostProcess(spec, polySpec,
+      PipelineStageConfig.atOut(nPostStage - nPostMulStage)))
 
     // atan2Phase1Pre checks if x and y are special values.
     // for calculation, reciprocal is re-used.
@@ -910,17 +918,19 @@ class MathFunctions(
     postProcMultLhs(ATan2Phase1) := atan2Phase1MultArgs.io.lhs
     postProcMultRhs(ATan2Phase1) := atan2Phase1MultArgs.io.rhs
 
-    atan2Phase1Post.io.en     := (selCPGapReg === fncfg.signal(ATan2Phase1))
-    atan2Phase1Post.io.zother := zother
+    atan2Phase1Post.io.en     := ShiftRegister(selCPGapReg === fncfg.signal(ATan2Phase1), nPostMulStage)
+    atan2Phase1Post.io.zother := ShiftRegister(zother, nPostMulStage)
     atan2Phase1Post.io.zman0  := postProcMultiplier.get.io.out
-    atan2Phase1Post.io.minxy  := minxy
+    atan2Phase1Post.io.minxy  := ShiftRegister(minxy, nPostMulStage)
 
     zs(ATan2Phase1) := atan2Phase1Post.io.z
 
     val atan2Phase2Pre   = Module(new ATan2Phase2PreProcess (spec, polySpec, stage.preStage))
     val atan2Phase2Tab   = Module(new ATan2Phase2TableCoeff (spec, polySpec, maxCbit))
     val atan2Phase2Other = Module(new ATan2Phase2OtherPath  (spec, polySpec, otherStage))
-    val atan2Phase2Post  = Module(new ATan2Phase2PostProcess(spec, polySpec, stage.postStage))
+    val atan2Phase2Post  = Module(new ATan2Phase2PostProcess(spec, polySpec,
+      PipelineStageConfig.atOut(nPostStage - nPostMulStage)))
+
     atan2Phase2Pre.io.en  := (io.sel === fncfg.signal(ATan2Phase2))
     atan2Phase2Pre.io.x   := xdecomp.io.decomp
 
@@ -940,11 +950,11 @@ class MathFunctions(
     postProcMultLhs(ATan2Phase2) := enable(isATan22, Cat(polynomialResultCPGapReg, 0.U(1.W)))
     postProcMultRhs(ATan2Phase2) := enable(isATan22, Cat(1.U(1.W), xdecCPGapReg.man))
 
-    atan2Phase2Post.io.en     := (selCPGapReg === fncfg.signal(ATan2Phase2))
-    atan2Phase2Post.io.zother := ShiftRegister(atan2Phase2Other.io.zother, cpGap)
+    atan2Phase2Post.io.en     := ShiftRegister(selCPGapReg === fncfg.signal(ATan2Phase2), nPostMulStage)
+    atan2Phase2Post.io.zother := ShiftRegister(atan2Phase2Other.io.zother, cpGap + nPostMulStage)
     atan2Phase2Post.io.zman0  := postProcMultiplier.get.io.out
     atan2Phase2Post.io.zexInc := postProcMultiplier.get.io.exInc
-    atan2Phase2Post.io.x      := xdecCPGapReg
+    atan2Phase2Post.io.x      := ShiftRegister(xdecCPGapReg, nPostMulStage)
 
     zs(ATan2Phase2) := atan2Phase2Post.io.z
 
@@ -1021,7 +1031,8 @@ class MathFunctions(
   if(fncfg.has(Sin) || fncfg.has(Cos)) {
     val sincosPre   = Module(new SinCosPreProcess (spec, polySpec, stage.preStage))
     val sincosTab   = Module(new SinCosTableCoeff (spec, polySpec, maxCbit))
-    val sincosPost  = Module(new SinCosPostProcess(spec, polySpec, stage.postStage))
+    val sincosPost  = Module(new SinCosPostProcess(spec, polySpec,
+      PipelineStageConfig.atOut(nPostStage - nPostMulStage)))
 
     if(fncfg.has(Sin) && fncfg.has(Cos)) {
       sincosPre.io.en    := (io.sel === fncfg.signal(Sin)) || (io.sel === fncfg.signal(Cos))
@@ -1054,9 +1065,9 @@ class MathFunctions(
       postProcMultLhs(Cos) := enable(isCos, Cat(1.U(1.W), polynomialResultCPGapReg))
       postProcMultRhs(Cos) := enable(isCos, Cat(1.U(1.W), preOut.yman))
 
-      sincosPost.io.en   := (selCPGapReg === fncfg.signal(Sin)) ||
-                            (selCPGapReg === fncfg.signal(Cos))
-      sincosPost.io.pre  := preOut
+      sincosPost.io.en     := ShiftRegister(selCPGapReg === fncfg.signal(Sin) ||
+                                            selCPGapReg === fncfg.signal(Cos), nPostMulStage)
+      sincosPost.io.pre    := ShiftRegister(preOut, nPostMulStage)
       sincosPost.io.zman0  := postProcMultiplier.get.io.out
       sincosPost.io.zexInc := postProcMultiplier.get.io.exInc
 
@@ -1095,8 +1106,8 @@ class MathFunctions(
       postProcMultLhs(Sin) := enable(isSin, Cat(1.U(1.W), polynomialResultCPGapReg))
       postProcMultRhs(Sin) := enable(isSin, Cat(1.U(1.W), preOut.yman))
 
-      sincosPost.io.en   := (selCPGapReg === fncfg.signal(Sin))
-      sincosPost.io.pre  := preOut
+      sincosPost.io.en     := ShiftRegister(selCPGapReg === fncfg.signal(Sin), nPostMulStage)
+      sincosPost.io.pre    := ShiftRegister(preOut, nPostMulStage)
       sincosPost.io.zman0  := postProcMultiplier.get.io.out
       sincosPost.io.zexInc := postProcMultiplier.get.io.exInc
 
@@ -1134,8 +1145,8 @@ class MathFunctions(
       postProcMultLhs(Cos) := enable(isCos, Cat(1.U(1.W), polynomialResultCPGapReg))
       postProcMultRhs(Cos) := enable(isCos, Cat(1.U(1.W), preOut.yman))
 
-      sincosPost.io.en   := (selCPGapReg === fncfg.signal(Cos))
-      sincosPost.io.pre  := preOut
+      sincosPost.io.en     := ShiftRegister(selCPGapReg === fncfg.signal(Cos), nPostMulStage)
+      sincosPost.io.pre    := ShiftRegister(preOut, nPostMulStage)
       sincosPost.io.zman0  := postProcMultiplier.get.io.out
       sincosPost.io.zexInc := postProcMultiplier.get.io.exInc
 
@@ -1204,7 +1215,8 @@ class MathFunctions(
     val logPre   = Module(new LogPreProcess (spec, polySpec, stage.preStage))
     val logTab   = Module(new LogTableCoeff (spec, polySpec, maxCbit))
     val logOther = Module(new LogOtherPath  (spec, polySpec, otherStage))
-    val logPost  = Module(new LogPostProcess(spec, polySpec, stage.postStage))
+    val logPost  = Module(new LogPostProcess(spec, polySpec,
+      PipelineStageConfig.atOut(nPostStage - nPostMulStage)))
 
     logPre.io.en := (io.sel === fncfg.signal(Log))
     logPre.io.x  := xdecomp.io.decomp
@@ -1234,8 +1246,8 @@ class MathFunctions(
     postProcMultLhs(Log) := logMulArgs.io.lhs
     postProcMultRhs(Log) := logMulArgs.io.rhs
 
-    logPost.io.en     := selCPGapReg === fncfg.signal(Log)
-    logPost.io.zother := nonTableOut
+    logPost.io.en     := ShiftRegister(selCPGapReg === fncfg.signal(Log), nPostMulStage)
+    logPost.io.zother := ShiftRegister(nonTableOut, nPostMulStage)
     logPost.io.zman0  := postProcMultiplier.get.io.out
     logPost.io.zexInc := postProcMultiplier.get.io.exInc
 
