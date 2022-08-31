@@ -212,10 +212,12 @@ class MathFuncPipelineConfig(
   /** Generates a string that represents the current config.
    */
   def getString = {
-    f"pre: ${preStage.getString}, " +
-    f"calc: ${calcStage.getString}, " +
-    f"post: ${postStage.getString}(mul = ${postMulStage.total}), " +
-    f"pre-calc: ${preCalcGap}, table-calc: ${tableCalcGap}, calc-post: ${calcPostGap}"
+    f"pre:${preStage.total}, " +
+    f"calc:${calcStage.total}, " +
+    f"post:${postStage.total}(mul=${postMulStage.total})" +
+    (if(preCalcGap){" pre/c"} else {""}) +
+    (if(tableCalcGap){" t/c"} else {""}) +
+    (if(calcPostGap){" c/post"} else {""})
   }
 }
 
