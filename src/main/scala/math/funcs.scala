@@ -569,7 +569,7 @@ class MathFunctions(
     postProcMultRhs(ACosPhase2) := enable(isACos2, Cat(1.U(1.W), xdecCPGapReg.man))
 
     acosPost.io.en     := ShiftRegister(selCPGapReg === fncfg.signal(ACosPhase2), nPostMulStage)
-    acosPost.io.flags  := ShiftRegister(acosFlagReg, nPostMulStage)
+    acosPost.io.flags  := acosFlagReg
     acosPost.io.zex0   := ShiftRegister(xdecCPGapReg.ex, nPostMulStage)
     acosPost.io.zman0  := postProcMultiplier.get.io.out
     acosPost.io.exInc  := postProcMultiplier.get.io.exInc
