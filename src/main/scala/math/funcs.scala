@@ -538,7 +538,7 @@ class MathFunctions(
   // PreProc multiplier
 
   def usePreProcMultiplier(fn: FuncKind.FuncKind): Boolean = {
-    fn == Exp //|| fn == Sin || fn == Cos
+    fn == Exp || fn == Sin || fn == Cos
   }
   val hasPreProcMultiplier = fncfg.funcs.exists(fn => usePreProcMultiplier(fn))
 
@@ -1106,15 +1106,31 @@ class MathFunctions(
   // sincos
 
   if(fncfg.has(Sin) || fncfg.has(Cos)) {
-    val sincosPre   = Module(new SinCosPreProcess (spec, polySpec, stage.preStage))
+    val sincosPre   = Module(new SinCosPreProcess (spec, polySpec,
+      PipelineStageConfig.atOut(nPreStage - nPreMulStage)))
     val sincosTab   = Module(new SinCosTableCoeff (spec, polySpec, maxCbit))
     val sincosPost  = Module(new SinCosPostProcess(spec, polySpec,
       PipelineStageConfig.atOut(nPostStage - nPostMulStage)))
 
+    if(fncfg.has(Sin)) {
+      val preProcIsSin = io.sel === fncfg.signal(Sin)
+      preProcMultEn(Sin)  := preProcIsSin
+      preProcMultLhs(Sin) := enable(preProcIsSin, SinCosPreMulArgs.lhs(spec, preProcMultiplier.get.lhsW))
+      preProcMultRhs(Sin) := enable(preProcIsSin, Cat(1.U(1.W), xdecomp.io.decomp.man))
+    }
+    if(fncfg.has(Cos)) {
+      val preProcIsCos = io.sel === fncfg.signal(Cos)
+      preProcMultEn(Cos)  := preProcIsCos
+      preProcMultLhs(Cos) := enable(preProcIsCos, SinCosPreMulArgs.lhs(spec, preProcMultiplier.get.lhsW))
+      preProcMultRhs(Cos) := enable(preProcIsCos, Cat(1.U(1.W), xdecomp.io.decomp.man))
+    }
+
     if(fncfg.has(Sin) && fncfg.has(Cos)) {
-      sincosPre.io.en    := (io.sel === fncfg.signal(Sin)) || (io.sel === fncfg.signal(Cos))
-      sincosPre.io.isSin := (io.sel === fncfg.signal(Sin))
-      sincosPre.io.x     := xdecomp.io.decomp
+
+      sincosPre.io.en    := ShiftRegister(io.sel === fncfg.signal(Sin) || io.sel === fncfg.signal(Cos), nPreMulStage)
+      sincosPre.io.isSin := ShiftRegister(io.sel === fncfg.signal(Sin), nPreMulStage)
+      sincosPre.io.x     := ShiftRegister(xdecomp.io.decomp, nPreMulStage)
+      sincosPre.io.prod  := SinCosPreMulArgs.prod(spec, preProcMultiplier.get.io.out)
 
       sincosTab.io.en  := (selPCGapReg === fncfg.signal(Sin)) ||
                           (selPCGapReg === fncfg.signal(Cos))
@@ -1160,9 +1176,10 @@ class MathFunctions(
 
     } else if (fncfg.has(Sin)) {
 
-      sincosPre.io.en    := io.sel === fncfg.signal(Sin)
+      sincosPre.io.en    := ShiftRegister(io.sel === fncfg.signal(Sin), nPreMulStage)
       sincosPre.io.isSin := true.B
-      sincosPre.io.x     := xdecomp.io.decomp
+      sincosPre.io.x     := ShiftRegister(xdecomp.io.decomp, nPreMulStage)
+      sincosPre.io.prod  := SinCosPreMulArgs.prod(spec, preProcMultiplier.get.io.out)
 
       sincosTab.io.en  := selPCGapReg === fncfg.signal(Sin)
       sincosTab.io.adr := ShiftRegister(sincosPre.io.adr, pcGap)
@@ -1198,9 +1215,10 @@ class MathFunctions(
 
     } else {
 
-      sincosPre.io.en    := io.sel === fncfg.signal(Cos)
+      sincosPre.io.en    := ShiftRegister(io.sel === fncfg.signal(Cos), nPreMulStage)
       sincosPre.io.isSin := false.B
-      sincosPre.io.x     := xdecomp.io.decomp
+      sincosPre.io.x     := ShiftRegister(xdecomp.io.decomp, nPreMulStage)
+      sincosPre.io.prod  := SinCosPreMulArgs.prod(spec, preProcMultiplier.get.io.out)
 
       sincosTab.io.en  := selPCGapReg === fncfg.signal(Cos)
       sincosTab.io.adr := ShiftRegister(sincosPre.io.adr, pcGap)

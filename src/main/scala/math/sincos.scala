@@ -109,6 +109,7 @@ class SinCosPreProcess(
     val en    = Input (UInt(1.W))
     val isSin = Input(Bool())
     val x     = Flipped(new DecomposedRealOutput(spec))
+    val prod  = Input(UInt(SinCosPreMulArgs.prodW(spec).W))
 
     val adr   = Output(UInt(adrW.W))
     val dx    = if(order != 0) { Some(Output(UInt(dxW.W))) } else { None }
@@ -122,11 +123,9 @@ class SinCosPreProcess(
   // --------------------------------------------------------------------------
   // calc x/pi
 
-  val oneOverPiPad = Seq(manW+1, 12).max
-  val oneOverPi = (Real.one / Real.pi)(1+manW+1+oneOverPiPad).toBigInt
-  val oneOverPiW = 1 + manW + oneOverPiPad
+  val oneOverPiW = SinCosPreMulArgs.lhsW(spec)
 
-  val xOverPiProd          = Mux(xex === 0.U, 0.U, Cat(1.U(1.W), xman) * oneOverPi.U(oneOverPiW.W))
+  val xOverPiProd          = Mux(xex === 0.U, 0.U, io.prod)
   val xOverPiProdMoreThan2 = xOverPiProd((1+manW) + oneOverPiW - 1)
   val xOverPiEx            = xex -& 2.U + xOverPiProdMoreThan2
   val xOverPiIsZero        = xOverPiEx(exW)
