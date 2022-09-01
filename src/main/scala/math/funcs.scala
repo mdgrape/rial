@@ -188,6 +188,7 @@ class DecomposeReal(val spec: RealSpec) extends Module {
  */
 class MathFuncPipelineConfig(
   val preStage:     PipelineStageConfig,
+  val preMulStage:  PipelineStageConfig,
   val calcStage:    PipelineStageConfig,
   val postStage:    PipelineStageConfig,
   val postMulStage: PipelineStageConfig,
@@ -196,6 +197,8 @@ class MathFuncPipelineConfig(
   val calcPostGap:  Boolean,
   ) {
 
+  assert(preMulStage.total <= preStage.total,
+    "preStage includes preMulStage, so should be larger than preMulStage.")
   assert(postMulStage.total <= postStage.total,
     "postStage includes postMulStage, so should be larger than postMulStage.")
 
@@ -212,7 +215,7 @@ class MathFuncPipelineConfig(
   /** Generates a string that represents the current config.
    */
   def getString = {
-    f"pre:${preStage.total}, " +
+    f"pre:${preStage.total}(mul=${preMulStage.total}), " +
     f"calc:${calcStage.total}, " +
     f"post:${postStage.total}(mul=${postMulStage.total})" +
     (if(preCalcGap){" pre/c"} else {""}) +
@@ -233,11 +236,55 @@ object MathFuncPipelineConfig {
       PipelineStageConfig.none,
       PipelineStageConfig.none,
       PipelineStageConfig.none,
+      PipelineStageConfig.none,
       false,
       false,
       false)
   }
 }
+
+/** A module to multiply an input and a coefficient.
+ *  (fracW+1) * (manW+1) -> manW
+ *
+ * Some of the functions require multiplication at postprocess, like:
+ * - sincos requires x * 1/pi
+ * - exp    requires x * log2(e)
+ *
+ * To reduce area of polynomial stage, those share one multiplier.
+ *
+ */
+class PreProcMultiplier(
+  val realSpec: RealSpec,
+  val roundSpec: RoundSpec,
+  val polySpec: PolynomialSpec,
+  val stage: PipelineStageConfig,
+) extends Module {
+  assert(polySpec.manW == realSpec.manW)
+
+  val fracW = polySpec.fracW
+  val manW  = realSpec.manW
+  val nStage = stage.total
+
+  val sincosW = SinCosPreMulArgs.lhsW(realSpec)
+  val expW    = ExpPreMulArgs.lhsW(realSpec)
+  val lhsW    = Seq(sincosW, expW).max
+  val outW    = lhsW + (1+manW)
+
+  val io = IO(new Bundle {
+    val en    = Input(Bool())
+    val lhs   = Input(UInt((lhsW).W))
+    val rhs   = Input(UInt((1+manW).W))
+    val out   = Output(UInt(outW.W))
+  })
+
+//   printf("cir: en        = %b\n", io.en)
+//   printf("cir: lhs(frac) = %b\n", io.lhs)
+//   printf("cir: rhs(man)  = %b\n", io.rhs)
+
+  val prod = enable(io.en, io.lhs) * enable(io.en, io.rhs)
+  io.out := ShiftRegister(prod, nStage)
+}
+
 
 /** A module to multiply polynomial result and a coefficient.
  *  (fracW+1) * (manW+1) -> manW
@@ -352,6 +399,7 @@ class MathFunctions(
   val nCalcStage = stage.calcStage.total
   val nPostStage = stage.postStage.total
   val nPostMulStage = stage.postMulStage.total
+  val nPreMulStage = stage.preMulStage.total
 
   val nOtherStage = nCalcStage + tcGap
   val otherStage = PipelineStageConfig.atOut(nOtherStage)
@@ -486,6 +534,33 @@ class MathFunctions(
 
   val polynomialResultCPGapReg = ShiftRegister(polynomialEval.io.result, cpGap)
 
+  // ==========================================================================
+  // PreProc multiplier
+
+  def usePreProcMultiplier(fn: FuncKind.FuncKind): Boolean = {
+    fn == Exp //|| fn == Sin || fn == Cos
+  }
+  val hasPreProcMultiplier = fncfg.funcs.exists(fn => usePreProcMultiplier(fn))
+
+  val preProcMultiplier = if(hasPreProcMultiplier) {
+    Some(Module(new PreProcMultiplier(spec, RoundSpec.roundToEven, polySpec, stage.preMulStage)))
+  } else {None}
+
+  // if there is no function that requires PreProcMultiplier, the map will be empty.
+  // we don't need to use Option here.
+  val preProcMultEn  = fncfg.funcs.filter(fn => usePreProcMultiplier(fn)).map(fn => { fn -> Wire(Bool()) }).toMap
+  val preProcMultLhs = fncfg.funcs.filter(fn => usePreProcMultiplier(fn)).map(fn => { fn -> Wire(UInt(preProcMultiplier.get.lhsW.W)) }).toMap
+  val preProcMultRhs = fncfg.funcs.filter(fn => usePreProcMultiplier(fn)).map(fn => { fn -> Wire(UInt((1+manW).W)) }).toMap
+
+  preProcMultEn .values.foreach(v => v := false.B)
+  preProcMultLhs.values.foreach(v => v := 0.U)
+  preProcMultRhs.values.foreach(v => v := 0.U)
+
+  if(hasPreProcMultiplier) {
+    preProcMultiplier.get.io.en  := preProcMultEn.values.reduce(_|_)
+    preProcMultiplier.get.io.lhs := preProcMultLhs.values.reduce(_|_)
+    preProcMultiplier.get.io.rhs := preProcMultRhs.values.reduce(_|_)
+  }
 
   // ==========================================================================
   // PostProc multiplier
@@ -1052,7 +1127,6 @@ class MathFunctions(
       polynomialCoefs(Sin) := sincosTab.io.cs.asUInt
       polynomialCoefs(Cos) := sincosTab.io.cs.asUInt
 
-      // TODO consider nStage
       val preOut = ShiftRegister(sincosPre.io.out, pcGap + tcGap + nCalcStage + cpGap)
 
       assert(hasPostProcMultiplier, "Sin/Cos requires post-proc multiplier")
@@ -1098,7 +1172,6 @@ class MathFunctions(
       }
       polynomialCoefs(Sin) := sincosTab.io.cs.asUInt
 
-     // TODO consider nStage
       val preOut = ShiftRegister(sincosPre.io.out, pcGap + tcGap + nCalcStage + cpGap)
 
       assert(hasPostProcMultiplier, "Sin/Cos requires post-proc multiplier")
@@ -1137,7 +1210,6 @@ class MathFunctions(
       }
       polynomialCoefs(Cos) := sincosTab.io.cs.asUInt
 
-      // TODO consider nStage
       val preOut = ShiftRegister(sincosPre.io.out, pcGap + tcGap + nCalcStage + cpGap)
 
       assert(hasPostProcMultiplier, "Sin/Cos requires post-proc multiplier")
@@ -1168,13 +1240,26 @@ class MathFunctions(
   // exp
 
   if(fncfg.has(Exp)) {
-    val expPre   = Module(new ExpPreProcess (spec, polySpec, stage.preStage))
+
+    val preProcIsExp = io.sel === fncfg.signal(Exp)
+    preProcMultEn(Exp)  := preProcIsExp
+    preProcMultLhs(Exp) := enable(preProcIsExp, ExpPreMulArgs.lhs(spec, preProcMultiplier.get.lhsW))
+    preProcMultRhs(Exp) := enable(preProcIsExp, Cat(1.U(1.W), xdecomp.io.decomp.man))
+
+//     printf("cir: lhs              = %b\n", ExpPreMulArgs.lhs(spec, preProcMultiplier.get.lhsW))
+//     printf("cir: rhs              = %b\n", Cat(1.U(1.W), xdecomp.io.decomp.man))
+//     printf("cir: prod             = %b\n", preProcMultiplier.get.io.out)
+//     printf("cir: prod (truncated) = %b\n", ExpPreMulArgs.prod(spec, preProcMultiplier.get.io.out))
+
+    val expPre   = Module(new ExpPreProcess (spec, polySpec,
+      PipelineStageConfig.atOut(nPreStage - nPreMulStage)))
     val expTab   = Module(new ExpTableCoeff (spec, polySpec, maxCbit))
     val expOther = Module(new ExpOtherPath  (spec, polySpec, otherStage))
     val expPost  = Module(new ExpPostProcess(spec, polySpec, stage.postStage))
 
-    expPre.io.en     := (io.sel === fncfg.signal(Exp))
-    expPre.io.x      := xdecomp.io.decomp
+    expPre.io.en     := ShiftRegister(io.sel === fncfg.signal(Exp), nPreMulStage)
+    expPre.io.x      := ShiftRegister(xdecomp.io.decomp, nPreMulStage)
+    expPre.io.prod   := ExpPreMulArgs.prod(spec, preProcMultiplier.get.io.out)
 
     if(order != 0) {
       polynomialDxs.get(Exp) := expPre.io.dx.get

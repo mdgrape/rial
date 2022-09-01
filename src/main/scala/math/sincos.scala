@@ -51,6 +51,33 @@ import rial.math._
 // |_|            |_|
 // -------------------------------------------------------------------------
 
+object SinCosPreMulArgs {
+  def lhsW(spec: RealSpec): Int = {
+    1 + spec.manW + Seq(spec.manW+1, 12).max
+  }
+
+  def lhs(spec: RealSpec, w: Int): UInt = {
+    val diffW = w - lhsW(spec)
+    assert(diffW >= 0, f"PreProcMultiplier lhsW(${w}) should be wider or " +
+      f"equal to lhsW(${lhsW(spec)})")
+
+    val coef = Real.one / Real.pi
+    if(diffW != 0) {
+      Cat(coef(lhsW(spec)+1).toBigInt.U(lhsW(spec).W), 0.U(diffW.W))
+    } else {
+      coef(lhsW(spec)+1).toBigInt.U(lhsW(spec).W)
+    }
+  }
+
+  def prodW(spec: RealSpec): Int = {
+    (1 + spec.manW) + (1 + spec.manW + Seq(spec.manW+1, 12).max)
+  }
+  def prod(spec: RealSpec, out: UInt): UInt = {
+    val outW = out.getWidth
+    out(outW-1, outW - prodW(spec))
+  }
+}
+
 // this contains x/pi rounded into [0, 2) and zsgn.
 // zsgn can be calculated from x/pi.
 class SinCosPreProcessOutput(val spec: RealSpec) extends Bundle {
@@ -96,7 +123,7 @@ class SinCosPreProcess(
   // calc x/pi
 
   val oneOverPiPad = Seq(manW+1, 12).max
-  val oneOverPi = (Real.one / Real.pi)(manW+2+oneOverPiPad).toBigInt
+  val oneOverPi = (Real.one / Real.pi)(1+manW+1+oneOverPiPad).toBigInt
   val oneOverPiW = 1 + manW + oneOverPiPad
 
   val xOverPiProd          = Mux(xex === 0.U, 0.U, Cat(1.U(1.W), xman) * oneOverPi.U(oneOverPiW.W))

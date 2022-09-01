@@ -32,6 +32,33 @@ import rial.arith.FloatChiselUtil
 // |_|            |_|
 // -------------------------------------------------------------------------
 
+object ExpPreMulArgs {
+  def lhsW(spec: RealSpec): Int = {
+    1 + spec.manW + 14 // XXX the width is determined empirically
+  }
+
+  def lhs(spec: RealSpec, w: Int): UInt = {
+    val diffW = w - lhsW(spec)
+    assert(diffW >= 0, f"PreProcMultiplier lhsW(${w}) should be wider or " +
+      f"equal to lhsW(${lhsW(spec)})")
+
+    val coef = Real.one / Real.log2
+    if(diffW != 0) {
+      Cat(coef(lhsW(spec)-1).toBigInt.U(lhsW(spec).W), 0.U(diffW.W))
+    } else {
+      coef(lhsW(spec)-1).toBigInt.U(lhsW(spec).W)
+    }
+  }
+
+  def prodW(spec: RealSpec): Int = {
+    (1 + spec.manW) + (1 + spec.manW + 14)
+  }
+  def prod(spec: RealSpec, out: UInt): UInt = {
+    val outW = out.getWidth
+    out(outW-1, outW - prodW(spec))
+  }
+}
+
 class ExpPreProcess(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
@@ -54,8 +81,9 @@ class ExpPreProcess(
   val padding   = extraBits
 
   val io = IO(new Bundle {
-    val en        = Input (UInt(1.W))
+    val en        = Input(UInt(1.W))
     val x         = Flipped(new DecomposedRealOutput(spec))
+    val prod      = Input(UInt(ExpPreMulArgs.prodW(spec).W))
     val adr       = Output(UInt(adrW.W))
     val dx        = if(order != 0) { Some(Output(UInt(dxW.W))) } else { None }
 
@@ -86,13 +114,10 @@ class ExpPreProcess(
   // ------------------------------------------------------------------------
   // for exponential, multiply x by log2e.
 
-  // XXX the width is determined empirically
-  val log2eManW  = spec.manW + 14
-  val log2eFixed = (Real.one / Real.log2)(log2eManW).toBigInt.U((log2eManW+1).W)
+  val log2eManW = ExpPreMulArgs.lhsW(spec) - 1
+  val xprod  = io.prod
+  val xprodW = ExpPreMulArgs.prodW(spec)
 
-  val xprod = Cat(1.U(1.W), xman0) * log2eFixed //.manW1.toBigInt.U((log2eSpec.manW+1).W)
-  val xprodW = xprod.getWidth
-  assert(xprodW == (1+manW) + (1+log2eManW))
   val xprodMoreThan2 = xprod(xprodW - 1) === 1.U
 
   assert(log2eManW - extraMan > 0)
