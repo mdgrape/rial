@@ -211,35 +211,21 @@ class BoxMullerSinCos2PiPostProc(
   assert(rndW > 2 + adrW + dxW) // manW + 2; satisfied by (i32, f32) or (i64, f64)
 
   val io = IO(new Bundle {
-    val en   = Input(Bool())
-    val pre  = Flipped(new BoxMullerSinCos2PiPreProcessOutput(rndW, spec))
-    val zres = Input(UInt(fracW.W))
-    val z    = Output(UInt(spec.W.W))
+    val en     = Input(Bool())
+    val pre    = Flipped(new BoxMullerSinCos2PiPreProcessOutput(rndW, spec))
+    val zman   = Input(UInt(spec.manW.W))
+    val zexInc = Input(UInt(1.W))
+    val z      = Output(UInt(spec.W.W))
   })
 
   val zone     = io.pre.zone
   val zsgn     = io.pre.zsgn
   val zzero    = io.pre.zzero
   val xShift   = io.pre.xShift
-  val xAligned = enable(io.en, io.pre.xAligned)
-  val zres     = enable(io.en, io.zres)
 
-  val zProd      = xAligned * zres
-  val zProdW     = xAligned.getWidth + fracW
-
-  val zMoreThan2 = zProd(zProdW - 1)
-  val zShifted   = Mux(zMoreThan2, zProd(zProdW-2, zProdW-manW-1),
-                                   zProd(zProdW-3, zProdW-manW-2))
-
-  val zRounded   = zShifted +& Mux(zMoreThan2, zProd(zProdW-manW-2),
-                                               zProd(zProdW-manW-3))
-  val zMoreThan2AfterRound = zRounded(manW)
-  val zmanW1     = Mux(zMoreThan2AfterRound, Cat(1.U(1.W), 0.U(manW.W)),
-                                             Cat(1.U(1.W), zRounded(manW-1, 0)))
-  val zexInc     = zMoreThan2 + zMoreThan2AfterRound
-
-  val zex  = Mux(zone, exBias.U(exW.W), Mux(zzero, 0.U, (exBias-1).U(exW.W) - xShift + zexInc))
-  val zman = Mux(zone || zzero, 0.U, zmanW1(manW-1, 0))
+  val zex0 = (exBias-1).U(exW.W) - xShift + io.zexInc
+  val zex  = Mux(zone, exBias.U(exW.W), Mux(zzero, 0.U, zex0))
+  val zman = Mux(zone || zzero, 0.U, io.zman)
 
   val z = Cat(zsgn, zex, zman)
   assert(z.getWidth == spec.W)
@@ -511,94 +497,16 @@ class BoxMullerLogPostProc(
   val io = IO(new Bundle {
     val en   = Input(Bool())
     val pre  = Flipped(new BoxMullerLogPreProcessOutput(rndW, spec))
-    val zres = Input(UInt(fracW.W))
+    val zman = Input(UInt(manW.W))
+    val zex  = Input(UInt(exW.W))
+    val zexInc = Input(UInt(1.W))
     val z    = Output(UInt(spec.W.W))
   })
 
   val zzero = io.pre.zzero
-  val useLn = io.pre.useLn
-  val x     = io.pre.x
 
-  // -------------------------------------------------------------------------
-  // ln path multiplies x * Cat(1, zres).
-
-  val xexLn   = (exBias - 1).U(exW.W) - io.pre.xShift
-  val lnOverX = Cat(1.U(1.W), io.zres)
-
-  // -------------------------------------------------------------------------
-  // log2 path multiplies Cat(xex, zfrac) * ln2.manW1.
-
-  val zFrac   = ~io.zres + 1.U
-  val xexLog2 = io.pre.xShift +& (zFrac === 0.U).asUInt
-
-  assert(xexLog2 =/= 0.U || useLn) // if log2 path is activated, xex should not be zero
-
-  val log2x0     = Cat(xexLog2, zFrac)
-  val log2xShift = PriorityEncoder(Reverse(xexLog2))
-  val log2x      = enable(io.en, (log2x0 << log2xShift)(log2x0.getWidth-1, 0))
-  assert(log2x(log2x0.getWidth-1) === 1.U || useLn || io.en =/= 1.U)
-
-  val ln2 = new RealGeneric(spec, log(2.0))
-  val ln2manW1 = ln2.manW1.toBigInt.U((manW+1).W)
-
-  // --------------------------------------------------------------------------
-  // both path use multiplication. we need only 1 multiply circuit, z = a * b.
-
-  // determine minimum required bit width
-  val amanW1 = Wire(UInt(Seq(log2x.getWidth, x.getWidth).max.W))
-  val bmanW1 = Wire(UInt(Seq(manW+1, fracW+1).max.W))
-
-  // set a and b in log2 path
-  val amanLog2 = if(amanW1.getWidth - log2x.getWidth > 0) {
-    Cat(log2x, Fill(amanW1.getWidth - log2x.getWidth, 0.U(1.W)))
-  } else {
-    log2x
-  }
-  val bmanLog2 = if(bmanW1.getWidth - ln2manW1.getWidth > 0) {
-    Cat(ln2manW1, Fill(bmanW1.getWidth - ln2manW1.getWidth, 0.U(1.W)))
-  } else {
-    ln2manW1
-  }
-  val zex0Log2 = (ln2.ex + xexLog2.getWidth).U(exW.W) - log2xShift
-
-  // a and b in ln path
-  val amanLn = if(amanW1.getWidth - x.getWidth > 0) {
-    Cat(x, Fill(amanW1.getWidth - x.getWidth, 0.U(1.W)))
-  } else {
-    x
-  }
-  val bmanLn = if(bmanW1.getWidth - lnOverX.getWidth > 0) {
-    Cat(lnOverX, Fill(bmanW1.getWidth - lnOverX.getWidth, 0.U(1.W)))
-  } else {
-    lnOverX
-  }
-  val zex0Ln = xexLn
-
-  // select
-  amanW1 := Mux(useLn, amanLn, amanLog2)
-  bmanW1 := Mux(useLn, bmanLn, bmanLog2)
-
-  val zex0 = Mux(useLn, zex0Ln, zex0Log2)
-
-  // --------------------------------------------------------------------------
-  // do multiplication.
-
-  val zProd  = amanW1 * bmanW1
-  val zProdW = amanW1.getWidth + bmanW1.getWidth
-
-  val zMoreThan2 = zProd(zProdW - 1)
-  val zShifted   = Mux(zMoreThan2, zProd(zProdW-2, zProdW-manW-1),
-                                   zProd(zProdW-3, zProdW-manW-2))
-
-  val zRounded   = zShifted +& Mux(zMoreThan2, zProd(zProdW-manW-2),
-                                               zProd(zProdW-manW-3))
-  val zMoreThan2AfterRound = zRounded(manW)
-  val zmanW1     = Mux(zMoreThan2AfterRound, Cat(1.U(1.W), 0.U(manW.W)),
-                                             Cat(1.U(1.W), zRounded(manW-1, 0)))
-  val zexInc     = zMoreThan2 + zMoreThan2AfterRound
-
-  val zex  = Mux(zzero, 0.U, zex0 + zexInc)
-  val zman = Mux(zzero, 0.U, zmanW1(manW-1, 0))
+  val zex  = Mux(zzero, 0.U, io.zex + io.zexInc)
+  val zman = Mux(zzero, 0.U, io.zman)
   val zsgn = 0.U(1.W)
 
   val z = Cat(zsgn, zex, zman)
@@ -764,6 +672,212 @@ object BoxMullerPipelineConfig {
   }
 }
 
+object BoxMullerSinCos2PiPostProcMulArgs {
+  def lhsW(rndW: Int, spec: RealSpec, polySpec: PolynomialSpec): Int = {
+    rndW-2
+  }
+  def rhsW(rndW: Int, spec: RealSpec, polySpec: PolynomialSpec): Int = {
+    polySpec.fracW
+  }
+}
+class BoxMullerSinCos2PiPostProcMulArgs(
+  rndW: Int,
+  spec: RealSpec,
+  polySpec: PolynomialSpec,
+  lhsOutW: Int,
+  rhsOutW: Int,
+) extends Module {
+
+  /** A function to add zero padding to LSB of the input.
+   */
+  def pad(x: UInt, width: Int): UInt = {
+    val diffW = width - x.getWidth
+    assert(diffW >= 0)
+
+    if(diffW == 0) {
+      x
+    } else {
+      Cat(x, 0.U(diffW.W))
+    }
+  }
+
+  val io = IO(new Bundle{
+    val pre  = Flipped(new BoxMullerSinCos2PiPreProcessOutput(rndW, spec))
+    val zres = Input(UInt(polySpec.fracW.W))
+
+    val lhs = Output(UInt(lhsOutW.W))
+    val rhs = Output(UInt(rhsOutW.W))
+  })
+
+  val xAligned = io.pre.xAligned
+  val zres     = io.zres
+
+  io.lhs := pad(xAligned, lhsOutW)
+  io.rhs := pad(zres    , rhsOutW)
+}
+
+object BoxMullerLogPostProcMulArgs {
+  def lhsW(rndW: Int, spec: RealSpec, polySpec: PolynomialSpec): Int = {
+    val xShiftW  = log2Up(rndW - 2)
+    val xexLog2W = xShiftW + 1
+    val log2xW   = polySpec.fracW + xexLog2W
+    val xW       = rndW - 1
+
+    Seq(log2xW, xW).max
+  }
+  def rhsW(rndW: Int, spec: RealSpec, polySpec: PolynomialSpec): Int = {
+    Seq(spec.manW+1, polySpec.fracW+1).max
+  }
+}
+class BoxMullerLogPostProcMulArgs(
+  rndW: Int,
+  spec: RealSpec,
+  polySpec: PolynomialSpec,
+  lhsOutW: Int,
+  rhsOutW: Int,
+) extends Module {
+
+  val exW    = spec.exW
+  val manW   = spec.manW
+  val exBias = spec.exBias
+  val fracW  = polySpec.fracW
+
+  /** A function to add zero padding to LSB of the input.
+   */
+  def pad(x: UInt, width: Int): UInt = {
+    val diffW = width - x.getWidth
+    assert(diffW >= 0)
+
+    if(diffW == 0) {
+      x
+    } else {
+      Cat(x, 0.U(diffW.W))
+    }
+  }
+
+  val io = IO(new Bundle{
+    val en   = Input(Bool())
+    val pre  = Flipped(new BoxMullerLogPreProcessOutput(rndW, spec))
+    val zres = Input(UInt(fracW.W))
+
+    val lhs = Output(UInt(lhsOutW.W))
+    val rhs = Output(UInt(rhsOutW.W))
+    val zex = Output(UInt(exW.W))
+  })
+
+  val useLn = io.pre.useLn
+  val x     = io.pre.x
+
+  // -------------------------------------------------------------------------
+  // ln path multiplies x * Cat(1, zres).
+
+  val xexLn   = (exBias - 1).U(exW.W) - io.pre.xShift
+  val lnOverX = Cat(1.U(1.W), io.zres)
+
+  // -------------------------------------------------------------------------
+  // log2 path multiplies Cat(xex, zfrac) * ln2.manW1.
+
+  val zFrac   = ~io.zres + 1.U
+  val xexLog2 = io.pre.xShift +& (zFrac === 0.U).asUInt
+
+  assert(xexLog2 =/= 0.U || useLn) // if log2 path is activated, xex should not be zero
+
+  val log2x0     = Cat(xexLog2, zFrac)
+  val log2xShift = PriorityEncoder(Reverse(xexLog2))
+  val log2x      = enable(io.en, (log2x0 << log2xShift)(log2x0.getWidth-1, 0))
+  assert(log2x(log2x0.getWidth-1) === 1.U || useLn || io.en =/= 1.U)
+
+  val ln2 = new RealGeneric(spec, log(2.0))
+  val ln2manW1 = ln2.manW1.toBigInt.U((manW+1).W)
+
+  // --------------------------------------------------------------------------
+  // both path use multiplication. we need only 1 multiply circuit, z = a * b.
+
+  // determine minimum required bit width
+  val amanW1 = Wire(UInt(Seq(log2x.getWidth, x.getWidth).max.W))
+  val bmanW1 = Wire(UInt(Seq(manW+1, fracW+1).max.W))
+
+  // set a and b in log2 path
+  val amanLog2 = if(amanW1.getWidth - log2x.getWidth > 0) {
+    Cat(log2x, Fill(amanW1.getWidth - log2x.getWidth, 0.U(1.W)))
+  } else {
+    log2x
+  }
+  val bmanLog2 = if(bmanW1.getWidth - ln2manW1.getWidth > 0) {
+    Cat(ln2manW1, Fill(bmanW1.getWidth - ln2manW1.getWidth, 0.U(1.W)))
+  } else {
+    ln2manW1
+  }
+  val zex0Log2 = (ln2.ex + xexLog2.getWidth).U(exW.W) - log2xShift
+
+  // a and b in ln path
+  val amanLn = if(amanW1.getWidth - x.getWidth > 0) {
+    Cat(x, Fill(amanW1.getWidth - x.getWidth, 0.U(1.W)))
+  } else {
+    x
+  }
+  val bmanLn = if(bmanW1.getWidth - lnOverX.getWidth > 0) {
+    Cat(lnOverX, Fill(bmanW1.getWidth - lnOverX.getWidth, 0.U(1.W)))
+  } else {
+    lnOverX
+  }
+  val zex0Ln = xexLn
+  val zex0 = Mux(useLn, zex0Ln, zex0Log2)
+
+  // select
+  amanW1 := Mux(useLn, amanLn, amanLog2)
+  bmanW1 := Mux(useLn, bmanLn, bmanLog2)
+
+  io.lhs := pad(amanW1, lhsOutW)
+  io.rhs := pad(bmanW1, rhsOutW)
+  io.zex := zex0
+}
+
+class BoxMullerPostProcMultiplier(
+  rndW: Int,
+  spec: RealSpec,
+  polySpec: PolynomialSpec,
+  roundSpec: RoundSpec,
+  stage: PipelineStageConfig,
+) extends Module {
+
+  val manW = spec.manW
+  val nStage = stage.total
+
+  val sincosLhsW = BoxMullerSinCos2PiPostProcMulArgs.lhsW(rndW, spec, polySpec)
+  val sincosRhsW = BoxMullerSinCos2PiPostProcMulArgs.rhsW(rndW, spec, polySpec)
+  val logLhsW  = BoxMullerLogPostProcMulArgs.lhsW(rndW, spec, polySpec)
+  val logRhsW  = BoxMullerLogPostProcMulArgs.rhsW(rndW, spec, polySpec)
+
+  val lhsW = Seq(sincosLhsW, logLhsW).max
+  val rhsW = Seq(sincosRhsW, logRhsW).max
+
+  val io = IO(new Bundle {
+    val en    = Input(Bool())
+    val lhs   = Input(UInt(lhsW.W))
+    val rhs   = Input(UInt(rhsW.W))
+    val out   = Output(UInt(manW.W))
+    val exInc = Output(UInt(1.W))
+  })
+
+  val zProd = enable(io.en, io.lhs) * enable(io.en, io.rhs)
+  val zProdW = lhsW + rhsW
+
+  val zMoreThan2 = zProd(zProdW - 1)
+  val zShifted = Mux(zMoreThan2, zProd(zProdW-2, zProdW-manW-1),
+                                 zProd(zProdW-3, zProdW-manW-2))
+
+  val zRounded = zShifted +& Mux(zMoreThan2, zProd(zProdW-manW-2),
+                                             zProd(zProdW-manW-3))
+  val zMoreThan2AfterRound = zRounded(manW)
+  val zmanW1 = Mux(zMoreThan2AfterRound, Cat(1.U(1.W), 0.U(manW.W)),
+                                         Cat(1.U(1.W), zRounded(manW-1, 0)))
+  val zexInc = zMoreThan2 + zMoreThan2AfterRound
+
+  io.out := ShiftRegister(zmanW1(manW-1, 0), nStage)
+  io.exInc := ShiftRegister(zexInc, nStage)
+}
+
 class BoxMuller(
     rndW: Int,      // width of input fixedpoint
     spec: RealSpec, // output width
@@ -869,6 +983,31 @@ class BoxMuller(
 
   // ---------------------------------------------------------------------------
 
+  val postIsSinCos = ~(pc(0) ^ pc(1))
+  val postIsLog    = pc === 2.U
+
+  val postMultiplier = Module(new BoxMullerPostProcMultiplier(
+    rndW, spec, polySpec, roundSpec, PipelineStageConfig.none))
+
+  val sincosPostMulArgs = Module(new BoxMullerSinCos2PiPostProcMulArgs(
+    rndW, spec, polySpec, postMultiplier.lhsW, postMultiplier.rhsW))
+  sincosPostMulArgs.io.pre  := ShiftRegister(sincosPre.io.out, 2)
+  sincosPostMulArgs.io.zres := polynomialResult
+
+  val logPostMulArgs = Module(new BoxMullerLogPostProcMulArgs(
+    rndW, spec, polySpec, postMultiplier.lhsW, postMultiplier.rhsW))
+  logPostMulArgs.io.en   := postIsLog
+  logPostMulArgs.io.pre  := ShiftRegister(logPre.io.out, 2)
+  logPostMulArgs.io.zres := polynomialResult
+
+  postMultiplier.io.en  := postIsSinCos || postIsLog
+  postMultiplier.io.lhs := Mux(postIsSinCos, sincosPostMulArgs.io.lhs,
+                           Mux(postIsLog, logPostMulArgs.io.lhs, 0.U))
+  postMultiplier.io.rhs := Mux(postIsSinCos, sincosPostMulArgs.io.rhs,
+                           Mux(postIsLog, logPostMulArgs.io.rhs, 0.U))
+
+  // ------------------------------------------------------------------------
+
   val sinResult  = RegInit(0.U(spec.W.W))
   val cosResult  = RegInit(0.U(spec.W.W))
   val logResult  = RegInit(0.U(spec.W.W))
@@ -876,7 +1015,8 @@ class BoxMuller(
 
   sincosPost.io.en   := ~(pc(0) ^ pc(1)) // pc == 3 or 0
   sincosPost.io.pre  := ShiftRegister(sincosPre.io.out, 2)
-  sincosPost.io.zres := polynomialResult
+  sincosPost.io.zman   := postMultiplier.io.out
+  sincosPost.io.zexInc := postMultiplier.io.exInc
 
   when(pc === 3.U) {
     sinResult := sincosPost.io.z
@@ -886,7 +1026,9 @@ class BoxMuller(
 
   logPost.io.en   := pc === 2.U
   logPost.io.pre  := ShiftRegister(logPre.io.out, 2)
-  logPost.io.zres := polynomialResult
+  logPost.io.zman   := postMultiplier.io.out
+  logPost.io.zexInc := postMultiplier.io.exInc
+  logPost.io.zex    := logPostMulArgs.io.zex
 
   when(pc === 2.U) {
     logResult := logPost.io.z
