@@ -16,10 +16,25 @@ import rial.util.RialChiselUtil._
 import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig._
 
+/** An I/O bundle for [[rial.math.PolynomialEval]] Module and table coeff module
+ *  of functions.
+ *  The direction is Input. To use it in a function, flip it.
+ *
+ *  @constructor create a new TableCoeffInput.
+ *  @param cbit bitwidths of coefficients.
+ */
 class TableCoeffInput( val cbit: Seq[Int] ) extends Bundle {
   val cs = Input(MixedVec(cbit.map{w => UInt(w.W)}))
 }
 
+/** Config class for [[rial.math.PolynomialEval]].
+ *
+ *  @constructor create a new PolynomialSpec.
+ *  @param spec the spec of floating point number.
+ *  @param nOrder the order of polynomial.
+ *  @param adrW the bit width of table address.
+ *  @param dxW0 the input bit width of polynomial.
+ */
 class PolynomialSpec (
       spec            : RealSpec,
   val nOrder          : Int,
@@ -35,6 +50,14 @@ class PolynomialSpec (
   def dxW   : Int = {dxW0.getOrElse(manW - adrW)}
 }
 
+/** Evaluates polynomial function.
+ *
+ *  @constructor create a new PolynomialEval module.
+ *  @param spec the spec of floating point number.
+ *  @param polySpec the spec of polynomial.
+ *  @param cbit bitwidths of polynomial coefficients.
+ *  @param stage the number of pipeline stages inside this module.
+ */
 class PolynomialEval(
   val spec:           RealSpec,
   val polySpec:       PolynomialSpec,

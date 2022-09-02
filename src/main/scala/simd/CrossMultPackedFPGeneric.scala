@@ -8,29 +8,24 @@ import chisel3.util._
 import rial.arith._
 import rial.util._
 
-// bonded-engine/emulate/fpu.hpp
-//
-// ```cpp
-// inline void select_source12_vregfx(int vfregindex1,int vfregindex2)
-// {
-//   vec4f_t v1 = vfreg.read(vfregindex1);
-//   vec4f_t v2 = vfreg.read(vfregindex2);
-//   sfpu[0].set_source1(v1[1]); sfpu[0].set_source2(v2[2]);
-//   sfpu[1].set_source1(v1[2]); sfpu[1].set_source2(v2[0]);
-//   sfpu[2].set_source1(v1[0]); sfpu[2].set_source2(v2[1]);
-//   sfpu[3].set_source1(v1[3]); sfpu[3].set_source2(v2[3]);
-// }
-//
-// void vfxmulv(int vfd, int vfs1, int vfs2)
-// {
-//   select_source12_vregfx(vfs1,vfs2);
-//   for(int i=0;i<4;i++)sfpu[i].fmul();
-//   set_results_to_vregf(vfd);
-//   debug_print(std::string("cross*").c_str(),vfd,vfs1,vfs2,true,true,true);
-// }
-// ```
-
-class CrossMultPackedFPGeneric( // length is fixed: 4.
+/** Performs cross product of 3d vectors.
+ *
+ * {{{
+ * z[0] = x[1] * y[2]
+ * z[1] = x[2] * y[0]
+ * z[2] = x[0] * y[1]
+ * z[3] = x[3] * y[3]
+ * }}}
+ *
+ * @constructor create a new CrossMultPackedFPGeneric module.
+ * @param xSpec the spec of input floating point number
+ * @param ySpec the spec of input floating point number
+ * @param zSpec the spec of output floating point number
+ * @param roundSpec the spec of rounding
+ * @param stage the number of pipeline stages.
+ *
+ */
+class CrossMultPackedFPGeneric(
   xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, // Input / Output floating spec
   roundSpec : RoundSpec, // Rounding spec
   stage : PipelineStageConfig
@@ -43,9 +38,9 @@ class CrossMultPackedFPGeneric( // length is fixed: 4.
   def getStage = nStage
 
   val io = IO(new Bundle{
-    val x   = Input (Vec(4, UInt(xSpec.W.W)))
-    val y   = Input (Vec(4, UInt(ySpec.W.W)))
-    val z   = Output(Vec(4, UInt(zSpec.W.W)))
+    val x = Input (Vec(4, UInt(xSpec.W.W)))
+    val y = Input (Vec(4, UInt(ySpec.W.W)))
+    val z = Output(Vec(4, UInt(zSpec.W.W)))
   })
 
   val mults = (0 until 4).map {i => Module(new MultFPGeneric(

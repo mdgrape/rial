@@ -8,14 +8,23 @@ import rial.arith._
 import rial.util._
 import rial.util.ScalaUtil._
 
-/**
-  * Compute negation of packed floating point numbers.
-  *
-  */
+/** Compute negation of packed floating point numbers.
+ *  When the specs of input and output floating point number are the same, it
+ *  only flips the sign. Otherwise, it converts input floating point to output
+ *  spec after flipping the sign.
+ *
+ * @constructor create a new NegPacked module.
+ * @param len length of SIMD pack.
+ * @param xSpec the spec of input floating point number
+ * @param zSpec the spec of output floating point number
+ * @param roundSpec the spec of rounding while conversion
+ * @param stage the number of pipeline stages.
+ * @param enableDebug dump temporary values.
+ */
 class NegPackedFPGeneric(
-  len : Int, // length of SIMD pack
-  xSpec : RealSpec, zSpec : RealSpec, // Input / Output floating spec
-  roundSpec : RoundSpec, // Rounding spec
+  len : Int,
+  xSpec : RealSpec, zSpec : RealSpec,
+  roundSpec : RoundSpec,
   stage : PipelineStageConfig,
   val enableDebug : Boolean = false
 ) extends Module with DebugControlSlave {
@@ -40,8 +49,8 @@ class NegPackedFPGeneric(
   val maxEx = maskI(xSpec.exW) - 1 + dBias // maximum non-inf number
   val minEx = 1                    + dBias // minimum normalized number
   val exW0  = max(log2Up(maxEx + 1), log2Up(abs(minEx)+1)) // required width
-  val exW   = if (minEx < 0) exW0+1 else exW0 // if it has negative value,
-                                              // the range of value is doubled
+  val exW   = if (minEx < 0) {exW0+1} else {exW0} // if it has negative value,
+                                                  // the range of value is doubled
   if(enableDebug) {
     println(xSpec.W, " -> ", zSpec.W)
     println("dBias = ",  dBias)
@@ -58,8 +67,8 @@ class NegPackedFPGeneric(
 
   if (xSpec == zSpec) {
     for (i <- 0 until len) {
-      val (xsgn, xex,  xman) = FloatChiselUtil.decompose(xSpec, io.x(i))
-      val z0 = (~xsgn) ## xex ## xman
+      val (xsgn, xex, xman) = FloatChiselUtil.decompose(xSpec, io.x(i))
+      val z0 = Cat(~xsgn, xex, xman)
       io.z(i) := ShiftRegister(z0, nStage)
     }
   } else {
@@ -67,7 +76,6 @@ class NegPackedFPGeneric(
       val (xsgn, xex,  xman) = FloatChiselUtil.decomposeWithLeading1(xSpec, io.x(i))
       val (xex0, xinf, xnan) = FloatChiselUtil.checkValue(xSpec, io.x(i))
       val xzero = !(io.x(i)(xSpec.W-2, 0).orR.asBool)
-      // TODO: 2^-126 0.0010 -> 2^-129 1.000
 
       val zsgn = ~xsgn
 
@@ -118,7 +126,7 @@ class NegPackedFPGeneric(
         printf("%d -> %d: xex  = %x, zex  = %x\n", xSpec.W.U, zSpec.W.U, xex , zex )
         printf("%d -> %d: xman = %x, zman = %x\n", xSpec.W.U, zSpec.W.U, xman, zman)
       }
-      val z0 = zsgn ## zex ## zman
+      val z0 = Cat(zsgn, zex, zman)
       io.z(i) := ShiftRegister(z0, nStage)
     }
   }
