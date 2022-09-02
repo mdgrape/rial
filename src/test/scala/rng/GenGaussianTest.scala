@@ -48,6 +48,9 @@ class BoxMullerSinCos2Pi(
 
   val preProc  = Module(new BoxMullerSinCos2PiPreProc(rndW, spec, polySpec, cbit, stage))
   val polyEval = Module(new PolynomialEval(spec, polySpec, cbit, stage))
+  val postMul  = Module(new BoxMullerPostProcMultiplier(rndW, spec, polySpec, RoundSpec.roundToEven, stage))
+  val postMulArgs = Module(new BoxMullerSinCos2PiPostProcMulArgs(
+    rndW, spec, polySpec, postMul.lhsW, postMul.rhsW))
   val postProc = Module(new BoxMullerSinCos2PiPostProc(rndW, spec, polySpec, stage))
 
   preProc.io.en    := io.en
@@ -59,9 +62,17 @@ class BoxMullerSinCos2Pi(
     polyEval.io.dx.get := preProc.io.dx.get
   }
 
-  postProc.io.en    := io.en
-  postProc.io.pre  := preProc.io.out
-  postProc.io.zres := polyEval.io.result
+  postMulArgs.io.pre  := preProc.io.out
+  postMulArgs.io.zres := polyEval.io.result
+
+  postMul.io.en  := io.en
+  postMul.io.lhs := postMulArgs.io.lhs
+  postMul.io.rhs := postMulArgs.io.rhs
+
+  postProc.io.en     := io.en
+  postProc.io.pre    := preProc.io.out
+  postProc.io.zman   := postMul.io.out
+  postProc.io.zexInc := postMul.io.exInc
 
   io.z := postProc.io.z
 }
@@ -299,6 +310,9 @@ class BoxMullerLog(
 
   val preProc  = Module(new BoxMullerLogPreProc(rndW, spec, polySpec, cbit, stage))
   val polyEval = Module(new PolynomialEval(spec, polySpec, cbit, stage))
+  val postMul  = Module(new BoxMullerPostProcMultiplier(rndW, spec, polySpec, RoundSpec.roundToEven, stage))
+  val postMulArgs = Module(new BoxMullerLogPostProcMulArgs(
+    rndW, spec, polySpec, postMul.lhsW, postMul.rhsW))
   val postProc = Module(new BoxMullerLogPostProc(rndW, spec, polySpec, stage))
 
   preProc.io.x := io.x
@@ -308,10 +322,19 @@ class BoxMullerLog(
   if(polySpec.order != 0) {
     polyEval.io.dx.get := preProc.io.dx.get
   }
+  postMulArgs.io.en   := io.en
+  postMulArgs.io.pre  := preProc.io.out
+  postMulArgs.io.zres := polyEval.io.result
+
+  postMul.io.en  := io.en
+  postMul.io.lhs := postMulArgs.io.lhs
+  postMul.io.rhs := postMulArgs.io.rhs
 
   postProc.io.en   := io.en
   postProc.io.pre  := preProc.io.out
-  postProc.io.zres := polyEval.io.result
+  postProc.io.zman   := postMul.io.out
+  postProc.io.zexInc := postMul.io.exInc
+  postProc.io.zex    := postMulArgs.io.zex
 
   io.z := postProc.io.z
 }
