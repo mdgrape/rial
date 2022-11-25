@@ -84,7 +84,7 @@ object ScaleMixtureGaussianSim {
         println("WARNING: table address width < mantissa width, " +
           "for polynomial order is zero. address width set to mantissa width.")
       }
-      val adr = xTableMan.toInt
+      val adr = slice(0, manW, xTableMan.toInt)
       t.interval(adr).eval(0L, 0)
     } else {
       val dxbp = manW-adrW-1
