@@ -129,7 +129,7 @@ class ScaleMixtureGaussianSimTest extends AnyFunSuite with BeforeAndAfterAllConf
           assert(erri.abs<=tolerance)
 
           if(erri != 0) {
-            val errkey = log2DownL(erri.abs)
+            val errkey = log2DownL(erri.abs) + 1
             if( ! errs.contains(errkey)) {
               errs(errkey) = (0, 0)
             }
@@ -147,7 +147,7 @@ class ScaleMixtureGaussianSimTest extends AnyFunSuite with BeforeAndAfterAllConf
           }
         }
       }
-      println(f"${generatorStr} Summary")
+      println(f"${generatorStr} Summary: total ${n} cases")
       if(maxError != 0.0) {
         println(f"N=$n%d : largest errors ${maxError.toInt}%d where the value is "
               + f"${zatMaxError} != ${refFunc(xatMaxError)}, "
@@ -163,29 +163,25 @@ class ScaleMixtureGaussianSimTest extends AnyFunSuite with BeforeAndAfterAllConf
 
   val sgmA16 = exp(-1.0)
   val sgmB16 = exp(-6.0)
-  val smg16F32TableI = ScaleMixtureGaussianSim.tableGeneration( 2, 8, 23, 23+3, sgmA16, sgmB16 )
+  val smg16TableMaxBitDigit = ScaleMixtureGaussianSim.tableMaxBitDigit(sgmA16, sgmB16)
 
-  val smg16TableMaxBitDigit  = ScaleMixtureGaussianSim.tableMaxBitDigit(sgmA16, sgmB16)
+  val smg16F32TableI = ScaleMixtureGaussianSim.tableGeneration( 2, 8, 23, 23+8, sgmA16, sgmB16 )
   println(f"smg16TableMaxBitDigit = ${smg16TableMaxBitDigit}")
-
-  val transitionPoint = pow(2.0, ScaleMixtureGaussianSim.tableDomainDigit(23, sgmA16, sgmB16))
+  val transitionPointF32 = pow(2.0, ScaleMixtureGaussianSim.tableDomainDigit(23, sgmA16, sgmB16))
 
   smgTest(smg16F32TableI, sgmA16, sgmB16, RealSpec.Float32Spec, n, r,
-    f"Test Within (-${transitionPoint},${transitionPoint}) where table is used",
-    generateRealWithin(transitionPoint,_,_), pow(2.0, smg16TableMaxBitDigit).toInt)
-
+    f"Test Within (-${transitionPointF32},${transitionPointF32}) where table is used",
+    generateRealWithin(transitionPointF32,_,_), pow(2.0, smg16TableMaxBitDigit).toInt)
   smgTest(smg16F32TableI, sgmA16, sgmB16, RealSpec.Float32Spec, n, r,
     "Test All range",generateRealFull(_,_), pow(2.0, smg16TableMaxBitDigit).toInt )
 
-//   smgTest(smg16F32TableI, sgmA16, sgmB16, RealSpec.Float32Spec, n, r,
-//     "Test special value",generateSpecialValues(_,_), pow(2.0, 9).toInt )
+  val smg16B16TableI = ScaleMixtureGaussianSim.tableGeneration( 0, 7, 7, 7+10, sgmA16, sgmB16 )
+  val transitionPointB16 = pow(2.0, ScaleMixtureGaussianSim.tableDomainDigit(RealSpec.BFloat16Spec.manW, sgmA16, sgmB16))
 
-  val smg16BF16TableI = ScaleMixtureGaussianSim.tableGeneration( 0, 7, 7, 7+3, sgmA16, sgmB16 )
+  smgTest(smg16B16TableI, sgmA16, sgmB16, RealSpec.BFloat16Spec, n, r,
+    f"Test Within (-${transitionPointB16},${transitionPointB16}) where table is used",
+    generateRealWithin(transitionPointB16,_,_), pow(2.0, smg16TableMaxBitDigit).toInt)
+  smgTest(smg16B16TableI, sgmA16, sgmB16, RealSpec.BFloat16Spec, n, r,
+    "Test All range",generateRealFull(_,_), pow(2.0, smg16TableMaxBitDigit).toInt )
 
-//   smgTest(smg16BF16TableI, sgmA16, sgmB16, RealSpec.BFloat16Spec, n, r,
-//     "Test Within (-128,128)",generateRealWithin(128.0,_,_), pow(2.0, 9))
-//   smgTest(smg16BF16TableI, sgmA16, sgmB16, RealSpec.BFloat16Spec, n, r,
-//     "Test All range",generateRealFull(_,_), pow(2.0, 9) )
-//   smgTest(smg16BF16TableI, sgmA16, sgmB16, RealSpec.BFloat16Spec, n, r,
-//     "Test special value",generateSpecialValues(_,_), pow(2.0, 9) )
 }
