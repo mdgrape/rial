@@ -29,12 +29,20 @@ object ScaleMixtureGaussianSim {
   // where
   //   f(x) = -x/sgm'^2 [ 1 / (sgmB/(sgmA*g(x))+1) + sgm'^2/sgmA^2 ]
   //
+  //        = -x/sgmA^2 [ (sgmA^2/sgm'^2) / (sgmB/(sgmA*g(x))+1) + 1 ]
+  //                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  //                      this part will be approximated
+  //
   def scaleMixtureGaussianSimGeneric(
     t: FuncTableInt, x: RealGeneric, sgmAd: Double = exp(-1.0), sgmBd: Double = exp(-6.0),
     debugDump: Boolean = false
   ): RealGeneric = {
 
-    println(f"-------------------------------------------------------------")
+    if(debugDump) {
+      println(f"-------------------------------------------------------------")
+      println(f"x    = ${x.toDouble}(${x.sgn}|${x.ex}(${x.ex-x.spec.exBias})|${x.man.toLong.toBinaryString})")
+      println(f"xman = ${x.man.toLong.toBinaryString}")
+    }
 
     val spec = x.spec
 
@@ -49,9 +57,6 @@ object ScaleMixtureGaussianSim {
     val exBias = x.spec.exBias
     val extraBits = bp - manW
 
-//     println(f"x    = ${x.toDouble}(${x.sgn}|${x.ex}(${x.ex-exBias})|${x.man.toLong.toBinaryString})")
-//     println(f"xman = ${x.man.toLong.toBinaryString}")
-
     val zSgn = if(x.sgn == 0) { 1 } else { 0 }
 
     if (x.isNaN)      {return RealGeneric.nan (x.spec)}
@@ -61,31 +66,18 @@ object ScaleMixtureGaussianSim {
     // ------------------------------------------------------------------------
     // scale x to table domain range
 
-    val tableMaxXd = tableDomain(manW, sgmAd, sgmBd)
-    val rTableMaxX = new RealGeneric(spec, 1.0 / tableMaxXd) // 1 / x_max
-
-    val xTableProd = x.manW1 * rTableMaxX.manW1
-    val xTableProdW = (1+manW) + (1 + rTableMaxX.spec.manW)
-    val xTableProdMoreThan2 = bit(xTableProdW-1, xTableProd)
-    val xTableProdRoundedW1 = Rounding.roundToEven(
-      manW + xTableProdMoreThan2, xTableProd)
-    val xTableProdRoundedMoreThan2AfterRounding = bit(manW+1, xTableProdRoundedW1)
-
-    val xTableEx = x.ex + rTableMaxX.ex - rTableMaxX.spec.exBias +
-      xTableProdMoreThan2 + xTableProdRoundedMoreThan2AfterRounding
+    val xTableMaxDigit = tableDomainDigit(manW, sgmAd, sgmBd)
+    val xTableShift0   = xTableMaxDigit - (x.ex - exBias)
+    val xTableShift    = abs(xTableShift0)
+    val xTableMan      = x.manW1 >> xTableShift
 
     if(debugDump) {
-      val xTable = new RealGeneric(spec, x.sgn, xTableEx, slice(0, manW, xTableProdRoundedW1))
-      println(f"xtable: ref = ${x.toDouble / tableMaxXd}, cir = ${xTable.toDouble}")
+      val xTableMax = pow(2.0, xTableMaxDigit)
+      println(f"xtable: ref = ${x.toDouble / xTableMax}, cir = ${xTableMan.toDouble * pow(2.0, -manW)}")
     }
 
     // ------------------------------------------------------------------------
     // use table (if x < tableDomain)
-
-    // TODO: in case if z >= (2nd term)
-
-    // first, convert xTableProd into [0, 1) fixedpoint
-    val xTableMan = slice(0, manW, xTableProdRoundedW1 >> (exBias-xTableEx-1))
 
     val zTable0 = if (nOrder==0) {
       if (adrW<manW) {
@@ -102,41 +94,34 @@ object ScaleMixtureGaussianSim {
     }
 
     // if x is large enough, then the first term is zero.
-    val zTable = if(xTableEx < exBias) { zTable0 } else { 0L }
+    val zTable = if(xTableShift0 > 0) { zTable0 } else { 0L }
 
     // ------------------------------------------------------------------------
-    // add (sgmPrime2 / sgmA2) to table result
-
-    val sgmA2d = sgmAd * sgmAd
-    val sgmB2d = sgmBd * sgmBd
-    val sgmPrime2d = (sgmA2d * sgmB2d) / (sgmA2d - sgmB2d)
-    val sgmP2overA2 = new RealGeneric(spec, sgmPrime2d / sgmA2d)
+    // add 1 to the table result
 
     if(debugDump) {
+      val sgmA2d = sgmAd * sgmAd
+      val sgmB2d = sgmBd * sgmBd
+      val sgmPrime2d = (sgmA2d * sgmB2d) / (sgmA2d - sgmB2d)
+
       val maxBitDigit = tableMaxBitDigit(sgmAd, sgmBd)
       val zTableD = zTable * pow(2.0, maxBitDigit-t.bp)
       val xd = x.toDouble
 
       val g     = exp(-xd*xd / (2*sgmPrime2d))
+      val numer = sgmA2d / sgmPrime2d
       val denom = (sgmBd / (sgmAd * g)) + 1.0
 
       println(f"ztable:                2         1         ")
       println(f"ztable:          65432109876543210987654321")
-      println(f"ztable: zTable = ${zTable.toBinaryString}, zTable/2^t.bp = ${zTable * pow(2.0, maxBitDigit-t.bp)}")
-      println(f"ztable: ref = ${1.0 / denom}, coef = ${sgmP2overA2.toDouble}, cir = ${zTableD}, xTableEx = ${xTableEx}, exBias = ${exBias}, scale = ${tableMaxBitDigit(sgmAd, sgmBd)}")
+      println(f"ztable: zTable = ${zTable.toBinaryString}")
+      println(f"ztable: ref = ${numer / denom}, cir = ${zTableD}")
     }
 
-    // this means that sgmP2overA2Ex < exBias.
-    assert(sgmP2overA2.toDouble < 1.0, "sigma_a should be larger than sigma_b.")
-
-    val sgmP2overA2Ex    = sgmP2overA2.ex
-    val sgmP2overA2ManW1 = sgmP2overA2.manW1 << extraBits
-
-    val tableBitDigit    = tableMaxBitDigit(sgmAd, sgmBd)
-    val zTableScaleDigit = tableBitDigit + (exBias - sgmP2overA2Ex)
+    val zTableScaleDigit = tableMaxBitDigit(sgmAd, sgmBd)
     val zTableScaled     = SafeLong(zTable) << zTableScaleDigit
 
-    val zman0        = zTableScaled + sgmP2overA2ManW1
+    val zman0        = zTableScaled + (SafeLong(1) << t.bp)
     val zman0W       = binaryWidthSL(zman0)
     val zman0Rounded = Rounding.roundToEven(zman0W - (manW+1+extraBits), zman0)
     val zman0MoreThan2AfterRound = bit(manW+1+extraBits+1, zman0Rounded)
@@ -146,66 +131,72 @@ object ScaleMixtureGaussianSim {
       zman0Rounded >> 1
     } else {zman0Rounded}
 
-    val z0ExNoBias = tableBitDigit - 1 - (t.bp + zTableScaleDigit - zman0W)
-
-    println(f"sim: zTableScaled     = ${zTableScaled.toLong.toBinaryString}")
-    println(f"sim: sgmP2overA2ManW1 = ${sgmP2overA2ManW1.toLong.toBinaryString}")
-    println(f"sim:                  =     2         1         ")
-    println(f"sim:                  = 432109876543210987654321")
-    println(f"sim: zman0            = ${zman0.toLong.toBinaryString}")
-    println(f"sim: zman0Rounded     = ${zman0Rounded.toLong.toBinaryString}")
-    println(f"sim: z0ManW1          = ${z0ManW1.toLong.toBinaryString}")
+    val z0ExNoBias = zman0W-1 - t.bp + zman0MoreThan2AfterRound
 
     if(debugDump) {
       val z0 = new RealGeneric(spec, zSgn, z0ExNoBias + exBias, slice(extraBits, manW, z0ManW1))
 
+      val sgmA2d = sgmAd * sgmAd
+      val sgmB2d = sgmBd * sgmBd
+      val sgmPrime2d  = (sgmA2d * sgmB2d) / (sgmA2d - sgmB2d)
+      val sgmA2overP2 = sgmA2d / sgmPrime2d
+
       val xd    = x.toDouble
-      val g     = exp(-xd*xd / sgmPrime2d)
-      val denom = (sgmBd / (sgmAd * g)) + 1.0
-      val term1 = 1.0 / denom
-      val term2 = sgmP2overA2.toDouble
+      val g     = exp(-xd*xd / (2*sgmPrime2d))
+      val term1 = (sgmA2d / sgmPrime2d) / ((sgmBd / (sgmAd * g)) + 1.0)
+      val term2 = 1.0
 
       val zr = new RealGeneric(spec, term1 + term2)
 
-      println(f"z0: ref = ${term1 + term2}, cir = ${z0.toDouble}")
+      println(f"z0: ref = ${-(term1 + term2)}, cir = ${z0.toDouble}")
       println(f"z0: ref.ex = ${zr.ex - exBias} ref.man = ${zr.manW1.toLong.toBinaryString}")
       println(f"z0: cir.ex = ${z0.ex - exBias} cir.man = ${z0.manW1.toLong.toBinaryString}")
     }
 
     // ------------------------------------------------------------------------
-    // multiply x/sgmPrime2
+    // multiply x/sgmA2
 
-    // x / sgmPrime2
-    val rsgmPrime2 = new RealGeneric(spec, 1.0 / sgmPrime2d)
-    val xOverSgmPrm2Prod = x.manW1 * rsgmPrime2.manW1
-    val xOverSgmPrm2ProdMoreThan2 = bit((1+manW) + (1+manW) - 1, xOverSgmPrm2Prod)
-    val xOverSgmPrm2ProdRoundedW1 = Rounding.roundToEven(
-      manW + xOverSgmPrm2ProdMoreThan2, xOverSgmPrm2Prod)
-    val xOverSgmPrm2ProdMoreThan2AfterRounding = bit(manW+1, xOverSgmPrm2ProdRoundedW1)
-    val xOverSgmPrm2ProdEx = x.ex + rsgmPrime2.ex - rsgmPrime2.spec.exBias +
-      xOverSgmPrm2ProdMoreThan2 + xOverSgmPrm2ProdMoreThan2AfterRounding
+    // x / sgmA2
+    val rsgmA2 = new RealGeneric(spec, 1.0 / (sgmAd * sgmAd))
+    val xOverSgmA2Prod = x.manW1 * rsgmA2.manW1
+    val xOverSgmA2ProdMoreThan2 = bit((1+manW) + (1+manW) - 1, xOverSgmA2Prod)
+    val xOverSgmA2ProdRoundedW1 = Rounding.roundToEven(
+      manW + xOverSgmA2ProdMoreThan2, xOverSgmA2Prod)
+    val xOverSgmA2ProdMoreThan2AfterRounding = bit(manW+1, xOverSgmA2ProdRoundedW1)
+    val xOverSgmA2ProdEx = x.ex + rsgmA2.ex - rsgmA2.spec.exBias +
+      xOverSgmA2ProdMoreThan2 + xOverSgmA2ProdMoreThan2AfterRounding
 
     if(debugDump) {
-      val xsgmP2 = new RealGeneric(spec, x.sgn, xOverSgmPrm2ProdEx, slice(0, manW, xOverSgmPrm2ProdRoundedW1))
-      println(f"x/sgmP2: ref = ${x.toDouble / sgmPrime2d}, cir = ${xsgmP2.toDouble}")
+      val sgmA2d = sgmAd * sgmAd
+      val xsgmA2 = new RealGeneric(spec, x.sgn, xOverSgmA2ProdEx, slice(0, manW, xOverSgmA2ProdRoundedW1))
+      println(f"x/sgmA2: ref = ${x.toDouble / sgmA2d}, cir = ${xsgmA2.toDouble}")
     }
 
-    // (x / sgmPrime2) * z0
+    // (x / sgmA2) * z0
 
-    val zProd = xOverSgmPrm2ProdRoundedW1 * z0ManW1
+    val zProd = xOverSgmA2ProdRoundedW1 * z0ManW1
     val zProdMoreThan2 = bit((1+manW)+(1+manW+extraBits)-1, zProd)
     val zProdRoundedW1 = Rounding.roundToEven(
       (manW + extraBits) + zProdMoreThan2, zProd)
     val zProdMoreThan2AfterRound = bit(manW+1, zProdRoundedW1)
-    val zProdEx = xOverSgmPrm2ProdEx + z0ExNoBias +
+    val zProdEx = xOverSgmA2ProdEx + z0ExNoBias +
       zProdMoreThan2 + zProdMoreThan2AfterRound
+
+    if(debugDump) {
+      println(f"xOverSgmA2ProdEx = ${xOverSgmA2ProdEx}, zProdEx = ${zProdEx}")
+    }
 
     val zProdMan = slice(0, manW, zProdRoundedW1)
 
-    return new RealGeneric(spec, zSgn, zProdEx, zProdMan)
+    if(zProdEx >= (1 << spec.exW) - 1) {
+      return new RealGeneric(spec, zSgn, (1 << spec.exW) - 1, 0)
+    } else {
+      return new RealGeneric(spec, zSgn, zProdEx, zProdMan)
+    }
   }
 
-  def tableDomain(manW: Int, sgmA: Double, sgmB: Double): Double = {
+  def tableDomainDigit(manW: Int, sgmA: Double, sgmB: Double): Int = {
+    val log2 = (x: Double) => {log(x) / log(2.0)}
     // Domain starts from 0 to the point where the first term is enough smaller
     // compared to the second term.
     //
@@ -220,18 +211,20 @@ object ScaleMixtureGaussianSim {
     val sgmB2 = sgmB * sgmB
     val sgmPrime2 = (sgmA2 * sgmB2) / (sgmA2 - sgmB2)
 
-    sqrt(2.0 * sgmPrime2 * log(
+    val boundary = sqrt(2.0 * sgmPrime2 * log(
       sgmA / sgmB * (pow(2.0, manW) * sgmA2 / sgmPrime2 - 1.0)
     ))
+
+    scala.math.ceil(log2(boundary)).toInt
   }
 
   def tableMaxValue(sgmA: Double, sgmB: Double): Double = {
     // table takes the max value at x = 0, because g(0) = 1 and g(inf) -> 0.
     //
     // f(x) = -x/sgm'^2 [ 1 / (sgmB/(sgmA*g)+1) + sgm'^2/sgmA^2 ]
-    //      = -x/sgmA^2 [ 1 / (sgmB/(sgmA*g)+1) * sgmA^2/sgm'^2 + 1]
+    //      = -x/sgmA^2 [ sgmA^2/sgm'^2 / (sgmB/(sgmA*g)+1)  + 1]
     //
-    // P(x) approximates 1 / (sgmB/(sgmA*g)+1) * sgmA^2/sgm'^2 / max(P).
+    // P(x) approximates [sgmA^2/sgm'^2 / (sgmB/(sgmA*g)+1)] / max(P).
     // P(inf) = 0
     // P(0) = 1 / (sgmB/sgmA+1) * sgmA^2/sgm'^2
     //      = 1 / (sgmB/sgmA+1) * sgmA^2(sgmA^2 - sgmB^2)/sgmA^2sgmB^2
@@ -269,17 +262,17 @@ object ScaleMixtureGaussianSim {
 
     val f = (x: Double) => {
       val g = exp(-x * x / (2*sgmPrime2))
-      1.0 / (sgmBoverA / g + 1.0)
+      sgmA2overP2 / (sgmBoverA / g + 1.0)
     }
 
-    val domainMax = tableDomain(manW, sgmA, sgmB)
+    val domainMax = pow(2.0, tableDomainDigit(manW, sgmA, sgmB))
 
     val tableD = new FuncTableDouble( (x0: Double) => {
       val x = domainMax * x0 // x0 in [0, 1) -> x in [0, domainMax)
       f(x) * pow(2.0, -maxDigit) // scales it into [0, 1)
     }, order )
 
-    tableD.addRange(0.0, 1.0, 1<<(adrW+1)) // this makes resulting table adrW+1
+    tableD.addRange(0.0, 1.0, 1<<adrW)
     new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
   }
 
