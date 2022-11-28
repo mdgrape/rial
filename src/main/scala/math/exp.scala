@@ -166,7 +166,7 @@ class ExpPreProcess(
   val xint = enable(io.en, (xint0 +& (xsgn.asBool && (xfrac0 =/= 0.U)).asUInt))
   io.xint := ShiftRegister(xint, nStage)
 
-  val xfracNeg = (1<<xFracW).U((xFracW+1).W) - xfrac0
+  val xfracNeg = (BigInt(1)<<xFracW).U((xFracW+1).W) - xfrac0
   val xfrac = Mux(xsgn === 0.U, xfrac0, xfracNeg(xFracW-1, 0))
 
   val adr  = enable(io.en, xfrac(xFracW-1, (xFracW-1)-adrW+1))
