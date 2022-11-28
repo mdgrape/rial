@@ -345,6 +345,9 @@ class PostProcMultiplier(
   val rounded   = shifted +& roundInc
   val moreThan2AfterRound = rounded(manW)
 
+//   printf("cir: zProd = %d\n", prod)
+//   printf("cir: zRounded = %b\n", rounded)
+
   io.exInc := ShiftRegister(moreThan2 | moreThan2AfterRound, nStage)
   io.out   := ShiftRegister(rounded(manW-1, 0),              nStage)
 }
@@ -1419,6 +1422,8 @@ class MathFunctions(
     smgOther.io.xex := xdecPCGapReg.ex
     smgOther.io.xsgmA2Prod := ShiftRegister(preProcProd, (nPreStage - nPreMulStage) + pcGap)
 
+//     printf("cir: polynomialEval.io.result = %b\n", polynomialEval.io.result)
+
     // ----------------------------------
 
     val smgMulArgs = Module(new ScaleMixtureGaussianPostMulArgs(sgmA, sgmB,
@@ -1435,7 +1440,7 @@ class MathFunctions(
     smgPost.io.en     := ShiftRegister(
       selCPGapReg === fncfg.signal(ScaleMixtureGaussian), nPostMulStage)
 
-    smgPost.io.xsgn     := ShiftRegister(xdecCPGapReg.ex, nPostMulStage)
+    smgPost.io.xsgn     := ShiftRegister(xdecCPGapReg.sgn, nPostMulStage)
     smgPost.io.xsgmA2Ex := ShiftRegister(smgOther.io.xsgmA2Ex, nPostMulStage)
     smgPost.io.z0ex     := ShiftRegister(smgMulArgs.io.z0ex, nPostMulStage)
     smgPost.io.zman0    := postProcMultiplier.get.io.out
