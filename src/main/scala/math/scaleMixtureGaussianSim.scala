@@ -73,6 +73,7 @@ object ScaleMixtureGaussianSim {
 
     if(debugDump) {
       val xTableMax = pow(2.0, xTableMaxDigit)
+      println(f"xtable: bits = ${xTableMan.toLong.toBinaryString}")
       println(f"xtable: ref = ${x.toDouble / xTableMax}, cir = ${xTableMan.toDouble * pow(2.0, -manW)}")
     }
 
@@ -112,9 +113,10 @@ object ScaleMixtureGaussianSim {
       val numer = sgmA2d / sgmPrime2d
       val denom = (sgmBd / (sgmAd * g)) + 1.0
 
-      println(f"ztable:                2         1         ")
-      println(f"ztable:          65432109876543210987654321")
-      println(f"ztable: zTable = ${zTable.toBinaryString}")
+      println(f"ztable:                 2         1         ")
+      println(f"ztable:           65432109876543210987654321")
+      println(f"ztable: zTable0 = ${zTable0.toBinaryString}")
+      println(f"ztable: zTable  = ${zTable.toBinaryString}")
       println(f"ztable: ref = ${numer / denom}, cir = ${zTableD}")
     }
 
@@ -135,6 +137,12 @@ object ScaleMixtureGaussianSim {
     val z0ExNoBias = zman0W-1 - t.bp + zman0MoreThan2AfterRound
 
     if(debugDump) {
+      println(f"z0: zTableScaled = ${zTableScaled.toLong.toBinaryString}")
+      println(f"z0: 1            = ${(SafeLong(1) << t.bp).toLong.toBinaryString}")
+      println(f"z0: zman0      = ${zman0.toLong.toBinaryString}")
+      println(f"z0: zman0W     = ${zman0W}")
+      println(f"z0: zman0Shift = ${zman0Shift}")
+
       val z0 = new RealGeneric(spec, zSgn, z0ExNoBias + exBias, slice(extraBits, manW, z0ManW1))
 
       val sgmA2d = sgmAd * sgmAd
@@ -150,8 +158,8 @@ object ScaleMixtureGaussianSim {
       val zr = new RealGeneric(spec, term1 + term2)
 
       println(f"z0: ref = ${-(term1 + term2)}, cir = ${z0.toDouble}")
-      println(f"z0: ref.ex = ${zr.ex - exBias} ref.man = ${zr.manW1.toLong.toBinaryString}")
-      println(f"z0: cir.ex = ${z0.ex - exBias} cir.man = ${z0.manW1.toLong.toBinaryString}")
+      println(f"z0: ref.ex = ${zr.ex - exBias}(${zr.ex}) ref.man = ${zr.manW1.toLong.toBinaryString}")
+      println(f"z0: cir.ex = ${z0.ex - exBias}(${z0.ex}) cir.man = ${z0.manW1.toLong.toBinaryString}")
     }
 
     // ------------------------------------------------------------------------
@@ -171,6 +179,8 @@ object ScaleMixtureGaussianSim {
       val sgmA2d = sgmAd * sgmAd
       val xsgmA2 = new RealGeneric(spec, x.sgn, xOverSgmA2ProdEx, slice(0, manW, xOverSgmA2ProdRoundedW1))
       println(f"x/sgmA2: ref = ${x.toDouble / sgmA2d}, cir = ${xsgmA2.toDouble}")
+
+      println(f"x/sgmA2: ex = ${xsgmA2.ex}, man = ${xsgmA2.manW1.toLong.toBinaryString}")
     }
 
     // (x / sgmA2) * z0
@@ -184,6 +194,10 @@ object ScaleMixtureGaussianSim {
       zProdMoreThan2 + zProdMoreThan2AfterRound
 
     if(debugDump) {
+      println(f"lhs = ${z0ManW1.toLong.toBinaryString}")
+      println(f"rhs = ${xOverSgmA2ProdRoundedW1.toLong.toBinaryString}")
+      println(f"zProd = ${zProd}")
+      println(f"zProdRoundedW1 = ${zProdRoundedW1.toLong.toBinaryString}")
       println(f"xOverSgmA2ProdEx = ${xOverSgmA2ProdEx}, zProdEx = ${zProdEx}")
     }
 
