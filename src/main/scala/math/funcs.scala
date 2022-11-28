@@ -126,7 +126,9 @@ object MathFuncConfig {
   /* All functions are supported.
    */
   val all = new MathFuncConfig(Seq(Sqrt, InvSqrt, Reciprocal, Sin, Cos,
-    ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Exp, Log, ScaleMixtureGaussian))
+    ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Exp, Log, ScaleMixtureGaussian),
+    Some((exp(-1.0), exp(-6.0)))
+  )
 }
 
 /** A Bundle that is returned from [[rial.math.DecomposeReal]].
