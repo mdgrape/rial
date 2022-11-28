@@ -123,7 +123,8 @@ object ScaleMixtureGaussianSim {
 
     val zman0        = zTableScaled + (SafeLong(1) << t.bp)
     val zman0W       = binaryWidthSL(zman0)
-    val zman0Rounded = Rounding.roundToEven(zman0W - (manW+1+extraBits), zman0)
+    val zman0Shift   = zman0W - (manW+1+extraBits)
+    val zman0Rounded = (zman0 >> zman0Shift) + bit(zman0Shift-1, zman0)
     val zman0MoreThan2AfterRound = bit(manW+1+extraBits+1, zman0Rounded)
 
     // z before multiplication
