@@ -208,11 +208,11 @@ object ScaleMixtureGaussianPreMulArgs {
     assert(diffW >= 0, f"PreProcMultiplier lhsW(${w}) should be wider or " +
       f"equal to lhsW(${lhsW(spec)})")
 
-    val coef = Real.one / Real(sgmA * sgmA)
+    val coef = new RealGeneric(spec, 1.0 / (sgmA * sgmA))
     if(diffW != 0) {
-      Cat(coef(lhsW(spec)-1).toBigInt.U(lhsW(spec).W), 0.U(diffW.W))
+      Cat(coef.manW1.toBigInt.U(lhsW(spec).W), 0.U(diffW.W))
     } else {
-      coef(lhsW(spec)-1).toBigInt.U(lhsW(spec).W)
+      coef.manW1.toBigInt.U(lhsW(spec).W)
     }
   }
 
@@ -323,11 +323,11 @@ class ScaleMixtureGaussianPostMulArgs(
   val z0Shift = z0W - (1+fracW+1).U
 
   val z0Rounded0 = z0 >> z0Shift
-  val z0Rounded  = z0Rounded0(z0Rounded0.getWidth, 1) +& z0Rounded0(0)
-  val z0MoreThan2AfterRound = z0Rounded(1+fracW+1)
+  val z0Rounded  = z0Rounded0(z0Rounded0.getWidth-1, 1) +& z0Rounded0(0)
+  val z0MoreThan2AfterRound = z0Rounded.head(1)
 
   val z0man = Mux(z0MoreThan2AfterRound === 1.U,
-    z0Rounded(1+fracW, 1), z0Rounded(1+fracW-1, 0))
+    z0Rounded(1+fracW-1, 1), z0Rounded(1+fracW-2, 0))
 
   val z0ex0 = z0W +& (exBias - 1 - fracW).U +& z0MoreThan2AfterRound
   val z0ex  = Mux(z0ex0.head(2).orR, (spec.exMax + 1 + exBias).U(exW.W), z0ex0(exW-1, 0))
