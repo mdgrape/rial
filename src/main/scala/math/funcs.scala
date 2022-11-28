@@ -22,7 +22,7 @@ import rial.math._
 /* Enumerator to represent which function is used in [[rial.math.MathFunctions]]. */
 object FuncKind extends Enumeration {
   type FuncKind = Value
-  val Sqrt, InvSqrt, Reciprocal, Sin, Cos, ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Exp, Log = Value
+  val Sqrt, InvSqrt, Reciprocal, Sin, Cos, ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Exp, Log, ScaleMixtureGaussian = Value
 
   def getString(fn: FuncKind): String = {
     fn match {
@@ -37,6 +37,7 @@ object FuncKind extends Enumeration {
       case ATan2Phase2 => "ATan2Phase2"
       case Exp => "Exp"
       case Log => "Log"
+      case ScaleMixtureGaussian => "ScaleMixtureGaussian"
     }
   }
 }
@@ -47,7 +48,8 @@ object FuncKind extends Enumeration {
  *  @param funcs the list of functions that should be supported.
  */
 class MathFuncConfig(
-  val funcs: Seq[FuncKind.FuncKind]
+  val funcs: Seq[FuncKind.FuncKind],
+  val scaleMixtureGaussianSigma: Option[(Double, Double)] = None,
 ) {
   assert(funcs.length > 0, "At least one function should be supported")
   import FuncKind._
@@ -78,6 +80,10 @@ class MathFuncConfig(
       | In principle, we can remove this assumption, but the implementation will
       | be painful and redundant.
       """.stripMargin)
+  }
+
+  if(has(ScaleMixtureGaussian)) {
+    assert(scaleMixtureGaussianSigma.isDefined)
   }
 
   /** The width of UInt to represent function select signal.
@@ -120,7 +126,7 @@ object MathFuncConfig {
   /* All functions are supported.
    */
   val all = new MathFuncConfig(Seq(Sqrt, InvSqrt, Reciprocal, Sin, Cos,
-    ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Exp, Log))
+    ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Exp, Log, ScaleMixtureGaussian))
 }
 
 /** A Bundle that is returned from [[rial.math.DecomposeReal]].
@@ -439,6 +445,10 @@ class MathFunctions(
       case ATan2Phase2 => ATan2Phase2TableCoeff.getCBits(spec, polySpec)
       case Exp         => ExpTableCoeff.getCBits(spec, polySpec)
       case Log         => LogTableCoeff.getCBits(spec, polySpec)
+      case ScaleMixtureGaussian => {
+        val (sA, sB) = fncfg.scaleMixtureGaussianSigma.get
+        ScaleMixtureGaussianTableCoeff.getCBits(sA, sB, spec, polySpec)
+      }
     }
   }
 
@@ -462,6 +472,10 @@ class MathFunctions(
       case ATan2Phase2 => ATan2Phase2TableCoeff.getCalcW(spec, polySpec)
       case Exp         => ExpTableCoeff.getCalcW(spec, polySpec)
       case Log         => LogTableCoeff.getCalcW(spec, polySpec)
+      case ScaleMixtureGaussian => {
+        val (sA, sB) = fncfg.scaleMixtureGaussianSigma.get
+        ScaleMixtureGaussianTableCoeff.getCalcW(sA, sB, spec, polySpec)
+      }
     }
   }
 
@@ -538,7 +552,7 @@ class MathFunctions(
   // PreProc multiplier
 
   def usePreProcMultiplier(fn: FuncKind.FuncKind): Boolean = {
-    fn == Exp || fn == Sin || fn == Cos
+    fn == Exp || fn == Sin || fn == Cos || fn == ScaleMixtureGaussian
   }
   val hasPreProcMultiplier = fncfg.funcs.exists(fn => usePreProcMultiplier(fn))
 
@@ -566,7 +580,8 @@ class MathFunctions(
   // PostProc multiplier
 
   def usePostProcMultiplier(fn: FuncKind.FuncKind): Boolean = {
-    fn == ACosPhase2 || fn == ATan2Phase1 || fn == ATan2Phase2 || fn == Log || fn == Sin || fn == Cos
+    fn == ACosPhase2 || fn == ATan2Phase1 || fn == ATan2Phase2 || fn == Log ||
+    fn == Sin || fn == Cos || fn == ScaleMixtureGaussian
   }
 
   val hasPostProcMultiplier = fncfg.funcs.exists(fn => usePostProcMultiplier(fn))
@@ -1329,7 +1344,6 @@ class MathFunctions(
       polynomialDxs.get(Log) := logPre.io.dx.get
     }
     // ------ Preprocess-Calculate ------
-    val logPreExAdr = logPre.io.adr(logPre.io.adr.getWidth-1, logPre.io.adr.getWidth-2)
     logTab.io.en  := (selPCGapReg === fncfg.signal(Log))
     logTab.io.adr := ShiftRegister(logPre.io.adr, pcGap)
 
@@ -1364,6 +1378,75 @@ class MathFunctions(
     }
     when(selPCGapReg =/= fncfg.signal(Log)) {
       assert(logTab.io.cs.asUInt === 0.U)
+    }
+  }
+
+  // ==========================================================================
+  // scale mixture gaussian
+
+  if(fncfg.has(ScaleMixtureGaussian)) {
+    val (sgmA, sgmB) = fncfg.scaleMixtureGaussianSigma.get
+
+    val smgPre   = Module(new ScaleMixtureGaussianPreProcess (sgmA, sgmB, spec, polySpec, stage.preStage))
+    val smgOther = Module(new ScaleMixtureGaussianOtherPath  (sgmA, sgmB, spec, polySpec, stage.preStage))
+    val smgTab   = Module(new ScaleMixtureGaussianTableCoeff (sgmA, sgmB, spec, polySpec, maxCbit))
+    val smgPost  = Module(new ScaleMixtureGaussianPostProcess(sgmA, sgmB, spec, polySpec,
+      PipelineStageConfig.atOut(nPostStage - nPostMulStage)))
+
+    val preProcIsSmg = (io.sel === fncfg.signal(ScaleMixtureGaussian))
+    preProcMultEn(ScaleMixtureGaussian)  := preProcIsSmg
+    preProcMultLhs(ScaleMixtureGaussian) := enable(preProcIsSmg, ScaleMixtureGaussianPreMulArgs.lhs(sgmA, sgmB, spec, preProcMultiplier.get.lhsW))
+    preProcMultRhs(ScaleMixtureGaussian) := enable(preProcIsSmg, Cat(1.U(1.W), xdecomp.io.decomp.man))
+
+    smgPre.io.en := (io.sel === fncfg.signal(ScaleMixtureGaussian))
+    smgPre.io.x  := xdecomp.io.decomp
+    if(order != 0) {
+      polynomialDxs.get(ScaleMixtureGaussian) := smgPre.io.dx.get
+    }
+
+    // ------ Preprocess-Calculate ------
+    smgTab.io.en  := (selPCGapReg === fncfg.signal(ScaleMixtureGaussian))
+    smgTab.io.adr := ShiftRegister(smgPre.io.adr, pcGap)
+
+    polynomialCoefs(ScaleMixtureGaussian) := smgTab.io.cs.asUInt
+
+    assert(hasPostProcMultiplier, "scale mixture gaussian requires post-proc multiplier")
+
+    val preProcProd = ScaleMixtureGaussianPreMulArgs.prod(spec, preProcMultiplier.get.io.out)
+
+    smgOther.io.xex := xdecPCGapReg.ex
+    smgOther.io.xsgmA2Prod := ShiftRegister(preProcProd, (nPreStage - nPreMulStage) + pcGap)
+
+    // ----------------------------------
+
+    val smgMulArgs = Module(new ScaleMixtureGaussianPostMulArgs(sgmA, sgmB,
+      spec, polySpec, PipelineStageConfig.none))
+    smgMulArgs.io.en       := (selCPGapReg === fncfg.signal(ScaleMixtureGaussian))
+    smgMulArgs.io.useTable := ShiftRegister(smgPre.io.useTable, pcGap + nCalcStage + tcGap + cpGap)
+    smgMulArgs.io.xman     := ShiftRegister(smgOther.io.xsgmA2Man, cpGap)
+    smgMulArgs.io.zres     := polynomialResultCPGapReg
+
+    postProcMultEn (ScaleMixtureGaussian) := (selCPGapReg === fncfg.signal(ScaleMixtureGaussian))
+    postProcMultLhs(ScaleMixtureGaussian) := smgMulArgs.io.lhs
+    postProcMultRhs(ScaleMixtureGaussian) := smgMulArgs.io.rhs
+
+    smgPost.io.en     := ShiftRegister(
+      selCPGapReg === fncfg.signal(ScaleMixtureGaussian), nPostMulStage)
+
+    smgPost.io.xsgn     := ShiftRegister(xdecCPGapReg.ex, nPostMulStage)
+    smgPost.io.xsgmA2Ex := ShiftRegister(smgOther.io.xsgmA2Ex, nPostMulStage)
+    smgPost.io.z0ex     := ShiftRegister(smgMulArgs.io.z0ex, nPostMulStage)
+    smgPost.io.zman0    := postProcMultiplier.get.io.out
+    smgPost.io.zexInc   := postProcMultiplier.get.io.exInc
+
+    zs(ScaleMixtureGaussian) := smgPost.io.z
+
+    when(selPCReg =/= fncfg.signal(ScaleMixtureGaussian)) {
+      assert(smgPre.io.adr === 0.U)
+      assert(smgPre.io.dx.getOrElse(0.U) === 0.U)
+    }
+    when(selPCGapReg =/= fncfg.signal(ScaleMixtureGaussian)) {
+      assert(smgTab.io.cs.asUInt === 0.U)
     }
   }
 }
