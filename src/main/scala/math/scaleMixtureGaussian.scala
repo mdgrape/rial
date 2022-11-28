@@ -66,6 +66,8 @@ class ScaleMixtureGaussianPreProcess(
 
   val xTableMan = Cat(1.U(1.W), io.x.man) >> xTableShift
 
+//   printf("cir: xTableMan = %b\n", xTableMan)
+
   val adr  = enable(io.en, xTableMan(manW-1, dxW))
   io.adr := ShiftRegister(adr, nStage)
 
@@ -270,10 +272,12 @@ class ScaleMixtureGaussianOtherPath(
 
   assert(rsgmA2.toDouble > 1.0, "sgmA < 1.0, so 1 / sgmA^2 > 1.0")
   val ex0 = io.xex +& (rsgmA2.ex - spec.exBias).U +& exInc
-  val ex  = Mux(ex0 > spec.exMax.U, (spec.exMax + exBias + 1).U, ex0)
+  val ex  = Mux(ex0 > (spec.exMax + exBias).U, (spec.exMax + exBias + 1).U, ex0)
 
-  io.xsgmA2Man := ShiftRegister(ex,  nStage)
-  io.xsgmA2Ex  := ShiftRegister(man, nStage)
+//   printf("cir: xsgmA2.ex = %d, man = %b\n", ex, man)
+
+  io.xsgmA2Ex  := ShiftRegister(ex,  nStage)
+  io.xsgmA2Man := ShiftRegister(man, nStage)
 }
 
 // -------------------------------------------------------------------------
@@ -313,27 +317,37 @@ class ScaleMixtureGaussianPostMulArgs(
     val z0ex   = Output(UInt(exW.W))
   })
 
+//   printf("cir: useTable = %b\n", io.useTable)
   val zTable = Mux(io.useTable, io.zres, 0.U(fracW.W))
 
   val zTableScaleDigit = ScaleMixtureGaussianSim.tableMaxBitDigit(sgmA, sgmB)
-  val zTableScaled = Cat(io.zres, 0.U(zTableScaleDigit))
+  val zTableScaled = Cat(zTable, 0.U(zTableScaleDigit.W))
 
-  val z0 = zTableScaled + Cat(1.U(1.W), 0.U(fracW))
-  val z0W = PriorityEncoder(Reverse(z0))
-  val z0Shift = z0W - (1+fracW+1).U
+//   printf("cir: zTableScaled = %b\n", zTableScaled)
+//   printf("cir: 1            = %b\n", Cat(1.U(1.W), 0.U(fracW.W)))
 
-  val z0Rounded0 = z0 >> z0Shift
+  val z0 = zTableScaled + Cat(1.U(1.W), 0.U(fracW.W))
+  val z0W = (fracW + zTableScaleDigit).U - PriorityEncoder(Reverse(z0))
+  val z0Shift = z0W - (1+fracW).U
+//   printf("cir: zman0      = %b\n", z0)
+//   printf("cir: zman0W     = %d\n", z0W)
+//   printf("cir: zman0Shift = %d\n", z0Shift)
+
+  val z0Rounded0 = Cat(z0, 0.U(1.W)) >> z0Shift
   val z0Rounded  = z0Rounded0(z0Rounded0.getWidth-1, 1) +& z0Rounded0(0)
   val z0MoreThan2AfterRound = z0Rounded.head(1)
 
-  val z0man = Mux(z0MoreThan2AfterRound === 1.U,
-    z0Rounded(1+fracW-1, 1), z0Rounded(1+fracW-2, 0))
+  val z0man = Mux(z0MoreThan2AfterRound === 1.U, (z0Rounded >> 1), z0Rounded)
 
-  val z0ex0 = z0W +& (exBias - 1 - fracW).U +& z0MoreThan2AfterRound
+  val z0ex0 = z0W +& (exBias - 1 - fracW).U(exW.W) +& z0MoreThan2AfterRound
+//   printf("cir: z0ex0 = %d\n", z0ex0)
   val z0ex  = Mux(z0ex0.head(2).orR, (spec.exMax + 1 + exBias).U(exW.W), z0ex0(exW-1, 0))
 
-  io.lhs := enable(io.en, z0man)         // = polynomial + 1.0
-  io.rhs := enable(io.en, Cat(1.U(1.W))) // = x / sgmA^2
+//   printf("cir: z0man = %b\n", z0man)
+//   printf("cir: z0ex = %d\n", z0ex)
+
+  io.lhs := enable(io.en, z0man)                  // = polynomial + 1.0
+  io.rhs := enable(io.en, Cat(1.U(1.W), io.xman)) // = x / sgmA^2
 
   io.z0ex := z0ex
 }
@@ -376,8 +390,10 @@ class ScaleMixtureGaussianPostProcess(
   val zex0  = Mux(zex00 < exBias.U, 0.U, zex00 - exBias.U)
   val zex = Mux(zex0 > (spec.exMax + exBias).U,
     (spec.exMax + 1 + exBias).U(exW.W), zex0(exW-1, 0))
+//   printf("cir: zex0 = %d, zex0NoBias = %d\n", zex0, zex0 - exBias.U)
 
-  val zman = io.zman0
+  // TODO isnan
+  val zman = Mux(zex === 0.U || zex === (spec.exMax + 1 + exBias).U, 0.U, io.zman0)
 
   val z0 = Cat(zsgn, zex, zman)
   val z = enable(io.en, z0)
