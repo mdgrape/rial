@@ -62,7 +62,8 @@ class ScaleMixtureGaussianPreProcess(
   assert(xTableMaxDigit <= spec.exMax)
 
   val xTableShift = (xTableMaxDigit + exBias).U(exW.W) - io.x.ex
-  io.useTable := enable(io.en, (xTableMaxDigit + exBias).U(exW.W) > io.x.ex)
+  val useTable = enable(io.en, (xTableMaxDigit + exBias).U(exW.W) > io.x.ex)
+  io.useTable := ShiftRegister(useTable, nStage)
 
   val xTableMan = Cat(1.U(1.W), io.x.man) >> xTableShift
 
