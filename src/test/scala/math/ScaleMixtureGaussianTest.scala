@@ -249,10 +249,22 @@ class ScaleMixtureGaussianTest extends AnyFlatSpec
 //   runtest(sgmA, sgmB, RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
 //     "Test Special Values", generateSpecialValues(_,_), false, scaleMixtureGaussianOnly)
 
-//   val nOrderBF16 = 0
-//   val adrWBF16 = 7
-//   val extraBitsBF16 = 1
-// 
+  val nOrderBF16 = 0
+  val adrWBF16 = 7
+  val extraBitsBF16 = 10
+
+  val transitionPointBF16 = pow(2.0, ScaleMixtureGaussianSim.tableDomainDigit(7, sgmA, sgmB))
+
+  runtest(sgmA, sgmB, RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
+    f"Test x Larger Than Pt [${transitionPointBF16}, inf)",
+    generateRealWithin(transitionPointBF16, pow(2.0, 127.0),_,_))
+  runtest(sgmA, sgmB, RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
+    f"Test x Smaller Than Pt (-${transitionPointBF16}, ${transitionPointBF16})",
+    generateRealWithin(-transitionPointBF16, transitionPointBF16,_,_))
+  runtest(sgmA, sgmB, RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
+    f"Test -x Larger Than Pt [${transitionPointBF16}, inf)",
+    generateRealWithin(-pow(2.0, 127.0), -transitionPointBF16,_,_))
+
 //   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
 //     "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 127.0),_,_))
 //   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
