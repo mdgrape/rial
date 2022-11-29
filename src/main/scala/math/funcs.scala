@@ -415,9 +415,12 @@ class MathFunctions(
   val nOtherStage = nCalcStage + tcGap
   val otherStage = PipelineStageConfig.atOut(nOtherStage)
 
-  println(f"nPreStage  = ${nPreStage }")
-  println(f"nCalcStage = ${nCalcStage}")
-  println(f"nPostStage = ${nPostStage}")
+  println(f"nPreMulStage  = ${nPreMulStage}")
+  println(f"nPreStage     = ${nPreStage }")
+  println(f"nCalcStage    = ${nCalcStage}")
+  println(f"nOtherStage   = ${nOtherStage}")
+  println(f"nPostMulStage = ${nPostMulStage}")
+  println(f"nPostStage    = ${nPostStage}")
 
   val nStage = stage.total
   def getStage = nStage
@@ -510,6 +513,9 @@ class MathFunctions(
 
   val xdecomp = Module(new DecomposeReal(spec))
   xdecomp.io.real := io.x
+
+//   printf("cir: input sel = %d\n", io.sel)
+//   printf("cir: input x = %b(%b|%d|%b)\n", io.x, xdecomp.io.decomp.sgn, xdecomp.io.decomp.ex, xdecomp.io.decomp.man)
 
   // These registers delay sel, xdec, ydec by nPreStage and nCalcStage cycles.
   // The values of PC/CP registers can be used as if those are the output of
@@ -1399,9 +1405,11 @@ class MathFunctions(
       PipelineStageConfig.atOut(nPostStage - nPostMulStage)))
 
     val preProcIsSmg = (io.sel === fncfg.signal(ScaleMixtureGaussian))
+    val preProcMultLhsV = ScaleMixtureGaussianPreMulArgs.lhs(sgmA, sgmB, spec, preProcMultiplier.get.lhsW)
+    val preProcMultRhsV = Cat(1.U(1.W), xdecomp.io.decomp.man)
     preProcMultEn(ScaleMixtureGaussian)  := preProcIsSmg
-    preProcMultLhs(ScaleMixtureGaussian) := enable(preProcIsSmg, ScaleMixtureGaussianPreMulArgs.lhs(sgmA, sgmB, spec, preProcMultiplier.get.lhsW))
-    preProcMultRhs(ScaleMixtureGaussian) := enable(preProcIsSmg, Cat(1.U(1.W), xdecomp.io.decomp.man))
+    preProcMultLhs(ScaleMixtureGaussian) := enable(preProcIsSmg, preProcMultLhsV)
+    preProcMultRhs(ScaleMixtureGaussian) := enable(preProcIsSmg, preProcMultRhsV)
 
     smgPre.io.en := (io.sel === fncfg.signal(ScaleMixtureGaussian))
     smgPre.io.x  := xdecomp.io.decomp
@@ -1423,6 +1431,7 @@ class MathFunctions(
     smgOther.io.xsgmA2Prod := ShiftRegister(preProcProd, (nPreStage - nPreMulStage) + pcGap)
 
 //     printf("cir: polynomialEval.io.result = %b\n", polynomialEval.io.result)
+//     printf("cir: polynomialResultCPGapReg = %b\n", polynomialResultCPGapReg)
 
     // ----------------------------------
 
@@ -1441,7 +1450,7 @@ class MathFunctions(
       selCPGapReg === fncfg.signal(ScaleMixtureGaussian), nPostMulStage)
 
     smgPost.io.xsgn     := ShiftRegister(xdecCPGapReg.sgn,     nPostMulStage)
-    smgPost.io.xsgmA2Ex := ShiftRegister(smgOther.io.xsgmA2Ex, nPostMulStage)
+    smgPost.io.xsgmA2Ex := ShiftRegister(smgOther.io.xsgmA2Ex, nPostMulStage + cpGap)
     smgPost.io.z0ex     := ShiftRegister(smgMulArgs.io.z0ex,   nPostMulStage)
     smgPost.io.zman0    := postProcMultiplier.get.io.out
     smgPost.io.zexInc   := postProcMultiplier.get.io.exInc
