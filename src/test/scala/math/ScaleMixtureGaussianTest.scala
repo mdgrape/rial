@@ -121,22 +121,12 @@ class ScaleMixtureGaussianTest extends AnyFlatSpec
           // return nan. Note that, assertion and `io.expect` still works so
           // there is no problem in the testing functionality.
 
-          val nstage     = c.getStage
-
+          val nstage = c.getStage
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
-            println("=========================================================")
+//             println("=========================================================")
             val xi = generator(spec,r)
             val z0r= reference(xi)
-
-            // check reference
-//             if(!z0r.isNaN && !z0r.isInfinite && !z0r.isZero) {
-//               val manW  = spec.manW
-//               val dref  = (z0r.toDouble - scaleMixtureGaussian(xi.toDouble)).abs
-//               val avref = (z0r.toDouble + scaleMixtureGaussian(xi.toDouble)).abs * 0.5
-//               assert(dref / (avref * pow(2.0, -manW)) < 4 || (z0r.isNaN && xi.toDouble < 0),
-//                      f"xi = ${xi.toDouble}, scaleMixtureGaussian(xi) = ${scaleMixtureGaussian(xi.toDouble)}, ref = ${z0r.toDouble}")
-//             }
 
             q += ((xi.value.toBigInt,z0r.value.toBigInt))
             c.io.sel.poke(fncfg.signal(ScaleMixtureGaussian))
@@ -194,6 +184,8 @@ class ScaleMixtureGaussianTest extends AnyFlatSpec
   val adrWFP32 = 8
   val extraBitsFP32 = 8
 
+  val scaleMixtureGaussianOnly = new MathFuncConfig(Seq(ScaleMixtureGaussian), Some((sgmA, sgmB)))
+
   val transitionPointF32 = pow(2.0, ScaleMixtureGaussianSim.tableDomainDigit(23, sgmA, sgmB))
 
   runtest(sgmA, sgmB, RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r,
@@ -206,48 +198,37 @@ class ScaleMixtureGaussianTest extends AnyFlatSpec
     f"Test -x Larger Than Pt [${transitionPointF32}, inf)",
     generateRealWithin(-pow(2.0, 127.0), -transitionPointF32,_,_))
 
-//   runtest(sgmA, sgmB, RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
-//     f"Test x Larger Than Pt [${transitionPointF32}, inf)",
-//     generateRealWithin(transitionPointF32, pow(2.0, 127.0),_,_))
-//   runtest(sgmA, sgmB, RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
-//     f"Test x Smaller Than Pt [0, ${transitionPointF32})",
-//     generateRealWithin(-transitionPointF32, transitionPointF32,_,_))
-//   runtest(sgmA, sgmB, RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
-//     f"Test -x Larger Than Pt [${transitionPointF32}, inf)",
-//     generateRealWithin(-pow(2.0, 127.0), -transitionPointF32,_,_))
-// 
-//   runtest(sgmA, sgmB, RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
-//     f"Test x Larger Than Pt [${transitionPointF32}, inf)",
-//     generateRealWithin(transitionPointF32, pow(2.0, 127.0),_,_))
-//   runtest(sgmA, sgmB, RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
-//     f"Test x Smaller Than Pt [0, ${transitionPointF32})",
-//     generateRealWithin(-transitionPointF32, transitionPointF32,_,_))
-//   runtest(sgmA, sgmB, RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
-//     f"Test -x Larger Than Pt [${transitionPointF32}, inf)",
-//     generateRealWithin(-pow(2.0, 127.0), -transitionPointF32,_,_))
-// 
-//   val scaleMixtureGaussianOnly = new MathFuncConfig(Seq(ScaleMixtureGaussian), Some((sgmA, sgmB)))
-// 
-//   runtest(sgmA, sgmB, RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
-//     "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 127.0),_,_), false, scaleMixtureGaussianOnly)
-//   runtest(sgmA, sgmB, RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
-//     "Test Small More Than 1 [1+2^-8, 2]",   generateRealWithin(1.0 + pow(2.0, -8), 2.0,_,_), false, scaleMixtureGaussianOnly)
-//   runtest(sgmA, sgmB, RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
-//     "Test Taylor More Than 1 [1, 1+2^-8]",   generateRealWithin(1.0, 1.0 + pow(2.0, -8),_,_), false, scaleMixtureGaussianOnly)
-//   runtest(sgmA, sgmB, RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
-//     "Test Taylor Less Than 1 [1-2^-8, 1]", generateRealWithin(1.0-pow(2.0, -8.0),1.0,_,_), false, scaleMixtureGaussianOnly)
-//   runtest(sgmA, sgmB, RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
-//     "Test Small Less Than 1 [0.5, 1-2^-8]", generateRealWithin(0.5,1.0-pow(2.0, -8.0),_,_), false, scaleMixtureGaussianOnly)
-//   runtest(sgmA, sgmB, RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
-//     "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5-pow(2.0, -24),_,_), false, scaleMixtureGaussianOnly)
-//   runtest(sgmA, sgmB, RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
-//     "Test small Negative [-1, 0]", generateRealWithin(-1.0, 0.0,_,_),
-//     /*disableTimeout = */ true, scaleMixtureGaussianOnly)
-//   runtest(sgmA, sgmB, RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
-//     "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 127), 0.0,_,_),
-//     /*disableTimeout = */ true, scaleMixtureGaussianOnly)
-//   runtest(sgmA, sgmB, RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
-//     "Test Special Values", generateSpecialValues(_,_), false, scaleMixtureGaussianOnly)
+  runtest(sgmA, sgmB, RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
+    f"Test x Larger Than Pt [${transitionPointF32}, inf)",
+    generateRealWithin(transitionPointF32, pow(2.0, 127.0),_,_))
+  runtest(sgmA, sgmB, RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
+    f"Test x Smaller Than Pt [0, ${transitionPointF32})",
+    generateRealWithin(-transitionPointF32, transitionPointF32,_,_))
+  runtest(sgmA, sgmB, RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline, n, r,
+    f"Test -x Larger Than Pt [${transitionPointF32}, inf)",
+    generateRealWithin(-pow(2.0, 127.0), -transitionPointF32,_,_))
+
+  runtest(sgmA, sgmB, RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
+    f"Test x Larger Than Pt [${transitionPointF32}, inf)",
+    generateRealWithin(transitionPointF32, pow(2.0, 127.0),_,_))
+  runtest(sgmA, sgmB, RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
+    f"Test x Smaller Than Pt [0, ${transitionPointF32})",
+    generateRealWithin(-transitionPointF32, transitionPointF32,_,_))
+  runtest(sgmA, sgmB, RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
+    f"Test -x Larger Than Pt [${transitionPointF32}, inf)",
+    generateRealWithin(-pow(2.0, 127.0), -transitionPointF32,_,_))
+
+  // no other math func
+
+  runtest(sgmA, sgmB, RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
+    f"Test x Larger Than Pt [${transitionPointF32}, inf)",
+    generateRealWithin(transitionPointF32, pow(2.0, 127.0),_,_), false, scaleMixtureGaussianOnly)
+  runtest(sgmA, sgmB, RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
+    f"Test x Smaller Than Pt [0, ${transitionPointF32})",
+    generateRealWithin(-transitionPointF32, transitionPointF32,_,_), false, scaleMixtureGaussianOnly)
+  runtest(sgmA, sgmB, RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
+    f"Test -x Larger Than Pt [${transitionPointF32}, inf)",
+    generateRealWithin(-pow(2.0, 127.0), -transitionPointF32,_,_), false, scaleMixtureGaussianOnly)
 
   val nOrderBF16 = 0
   val adrWBF16 = 7
@@ -265,66 +246,35 @@ class ScaleMixtureGaussianTest extends AnyFlatSpec
     f"Test -x Larger Than Pt [${transitionPointBF16}, inf)",
     generateRealWithin(-pow(2.0, 127.0), -transitionPointBF16,_,_))
 
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
-//     "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 127.0),_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
-//     "Test Small More Than 1 [1+2^-4, 2]",   generateRealWithin(1.0 + pow(2.0, -4), 2.0,_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
-//     "Test Taylor More Than 1 [1, 1+2^-4]",   generateRealWithin(1.0, 1.0 + pow(2.0, -4),_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
-//     "Test Taylor Less Than 1 [1-2^-4, 1]", generateRealWithin(1.0-pow(2.0, -4.0),1.0,_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
-//     "Test Small Less Than 1 [0.5, 1-2^-4]", generateRealWithin(0.5,1.0-pow(2.0, -4.0),_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
-//     "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5-pow(2.0, -24),_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
-//     "Test small Negative [-1, 0]", generateRealWithin(-1.0, 0.0,_,_),
-//     /*disableTimeout = */ true)
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
-//     "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 127), 0.0,_,_),
-//     /*disableTimeout = */ true)
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none, n, r,
-//     "Test Special Values", generateSpecialValues(_,_))
-// 
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
-//     "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 127.0),_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
-//     "Test Small More Than 1 [1+2^-4, 2]",   generateRealWithin(1.0 + pow(2.0, -4), 2.0,_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
-//     "Test Taylor More Than 1 [1, 1+2^-4]",   generateRealWithin(1.0, 1.0 + pow(2.0, -4),_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
-//     "Test Taylor Less Than 1 [1-2^-4, 1]", generateRealWithin(1.0-pow(2.0, -4.0),1.0,_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
-//     "Test Small Less Than 1 [0.5, 1-2^-4]", generateRealWithin(0.5,1.0-pow(2.0, -4.0),_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
-//     "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5-pow(2.0, -24),_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
-//     "Test small Negative [-1, 0]", generateRealWithin(-1.0, 0.0,_,_),
-//     /*disableTimeout = */ true)
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
-//     "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 127), 0.0,_,_),
-//     /*disableTimeout = */ true)
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
-//     "Test Special Values", generateSpecialValues(_,_))
-// 
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
-//     "Test Large More Than 1 [2, inf]", generateRealWithin(2.0, pow(2.0, 127.0),_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
-//     "Test Small More Than 1 [1+2^-4, 2]",   generateRealWithin(1.0 + pow(2.0, -4), 2.0,_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
-//     "Test Taylor More Than 1 [1, 1+2^-4]",   generateRealWithin(1.0, 1.0 + pow(2.0, -4),_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
-//     "Test Taylor Less Than 1 [1-2^-4, 1]", generateRealWithin(1.0-pow(2.0, -4.0),1.0,_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
-//     "Test Small Less Than 1 [0.5, 1-2^-4]", generateRealWithin(0.5,1.0-pow(2.0, -4.0),_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
-//     "Test Large Less Than 1 [0, 0.5]", generateRealWithin(0.0,0.5-pow(2.0, -24),_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
-//     "Test small Negative [-1, 0]", generateRealWithin(-1.0, 0.0,_,_),
-//     /*disableTimeout = */ true)
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
-//     "Test Any Negative [-inf, 0]", generateRealWithin(-pow(2.0, 127), 0.0,_,_),
-//     /*disableTimeout = */ true)
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
-//     "Test Special Values", generateSpecialValues(_,_))
+  runtest(sgmA, sgmB, RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
+    f"Test x Larger Than Pt [${transitionPointBF16}, inf)",
+    generateRealWithin(transitionPointBF16, pow(2.0, 127.0),_,_))
+  runtest(sgmA, sgmB, RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
+    f"Test x Smaller Than Pt [0, ${transitionPointBF16})",
+    generateRealWithin(-transitionPointBF16, transitionPointBF16,_,_))
+  runtest(sgmA, sgmB, RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline, n, r,
+    f"Test -x Larger Than Pt [${transitionPointBF16}, inf)",
+    generateRealWithin(-pow(2.0, 127.0), -transitionPointBF16,_,_))
+
+  runtest(sgmA, sgmB, RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
+    f"Test x Larger Than Pt [${transitionPointBF16}, inf)",
+    generateRealWithin(transitionPointBF16, pow(2.0, 127.0),_,_))
+  runtest(sgmA, sgmB, RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
+    f"Test x Smaller Than Pt [0, ${transitionPointBF16})",
+    generateRealWithin(-transitionPointBF16, transitionPointBF16,_,_))
+  runtest(sgmA, sgmB, RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
+    f"Test -x Larger Than Pt [${transitionPointBF16}, inf)",
+    generateRealWithin(-pow(2.0, 127.0), -transitionPointBF16,_,_))
+
+  // no other math func
+
+  runtest(sgmA, sgmB, RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
+    f"Test x Larger Than Pt [${transitionPointBF16}, inf)",
+    generateRealWithin(transitionPointBF16, pow(2.0, 127.0),_,_), false, scaleMixtureGaussianOnly)
+  runtest(sgmA, sgmB, RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
+    f"Test x Smaller Than Pt [0, ${transitionPointBF16})",
+    generateRealWithin(-transitionPointBF16, transitionPointBF16,_,_), false, scaleMixtureGaussianOnly)
+  runtest(sgmA, sgmB, RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline, n, r,
+    f"Test -x Larger Than Pt [${transitionPointBF16}, inf)",
+    generateRealWithin(-pow(2.0, 127.0), -transitionPointBF16,_,_), false, scaleMixtureGaussianOnly)
 }
