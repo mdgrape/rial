@@ -67,7 +67,8 @@ class ScaleMixtureGaussianPreProcess(
 
   val xTableMan = Cat(1.U(1.W), io.x.man) >> xTableShift
 
-//   printf("cir: xTableMan = %b\n", xTableMan)
+//   printf("cir: PreProc: xTableMan = %b\n", xTableMan)
+//   printf("cir: PreProc: useTable  = %b\n", useTable)
 
   val adr  = enable(io.en, xTableMan(manW-1, dxW))
   io.adr := ShiftRegister(adr, nStage)
@@ -75,6 +76,7 @@ class ScaleMixtureGaussianPreProcess(
   if(order != 0) {
     val dx   = enable(io.en, Cat(~xTableMan(manW-adrW-1), xTableMan(manW-adrW-2,0)))
     io.dx.get := ShiftRegister(dx, nStage)
+//     printf("cir: PreProc: adr = %b, dx = %d\n", adr, dx)
   }
 }
 
@@ -107,6 +109,7 @@ class ScaleMixtureGaussianTableCoeff(
   })
 
   val adr = io.adr
+//   printf("cir: Table: adr = %b\n", adr)
 
   if(order == 0) {
 
@@ -251,6 +254,7 @@ class ScaleMixtureGaussianOtherPath(
     val xsgmA2Man  = Output(UInt(manW.W))
     val xsgmA2Ex   = Output(UInt(exW.W))
   })
+//   printf("cir: Other: xex = %d, prod = %b\n", io.xex, io.xsgmA2Prod)
 
   val rsgmA2 = new RealGeneric(spec, 1.0 / (sgmA * sgmA))
 
@@ -275,7 +279,7 @@ class ScaleMixtureGaussianOtherPath(
   val ex0 = io.xex +& (rsgmA2.ex - spec.exBias).U +& exInc
   val ex  = Mux(ex0 > (spec.exMax + exBias).U, (spec.exMax + exBias + 1).U, ex0)
 
-//   printf("cir: xsgmA2.ex = %d, man = %b\n", ex, man)
+//   printf("cir: Other: xsgmA2.ex = %d, man = %b\n", ex, man)
 
   io.xsgmA2Ex  := ShiftRegister(ex,  nStage)
   io.xsgmA2Man := ShiftRegister(man, nStage)
@@ -317,8 +321,9 @@ class ScaleMixtureGaussianPostMulArgs(
     val rhs    = Output(UInt((1+manW).W))
     val z0ex   = Output(UInt(exW.W))
   })
+//   printf("cir: PostMulArgs: en = %b, useTable = %b, xman = %b, zres = %b\n",
+//     io.en, io.useTable, io.xman, io.zres)
 
-//   printf("cir: useTable = %b\n", io.useTable)
   val zTable = Mux(io.useTable, io.zres, 0.U(fracW.W))
 
   val zTableScaleDigit = ScaleMixtureGaussianSim.tableMaxBitDigit(sgmA, sgmB)
@@ -384,6 +389,9 @@ class ScaleMixtureGaussianPostProcess(
     // result
     val z        = Output(UInt(spec.W.W))
   })
+
+//   printf("cir: PostProc: en = %b, xsgn = %b, xsgmA2Ex = %d, z0ex = %d, zman0 = %b, zexInc = %b\n",
+//     io.en, io.xsgn, io.xsgmA2Ex, io.z0ex, io.zman0, io.zexInc)
 
   val zsgn = ~io.xsgn
 
