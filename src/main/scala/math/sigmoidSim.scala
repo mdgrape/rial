@@ -66,6 +66,7 @@ object SigmoidSim {
 
 //     val xPadded = (x.manW1 << rangeMaxLog2)
     val xScaled = x.manW1 >> (rangeMaxEx - x.ex)
+//     println(f"SigmoidSim: xScaled = ${xScaled.toLong.toBinaryString}")
 
     val zScaled0 = if (order==0) {
       if (adrW<manW) {
@@ -77,6 +78,8 @@ object SigmoidSim {
       val dxbp = (manW+1)-adrW-1
       val d    = slice(0, (manW+1)-adrW, xScaled) - (SafeLong(1)<<dxbp)
       val adr  = slice((manW+1)-adrW, adrW, xScaled).toInt
+//       println(f"SigmoidSim: adr = ${adr.toLong.toBinaryString}")
+//       println(f"SigmoidSim: dx  = ${d  .toLong.toBinaryString}")
       t.interval(adr).eval(d.toLong, dxbp).toLong
     }
 
@@ -90,22 +93,27 @@ object SigmoidSim {
       SafeLong(zScaled0)
     }
 
-//     println(f"zScaled0 = ${zScaled0.toDouble / (1 << calcW).toDouble}")
-//     println(f"zScaled  = ${zScaled .toDouble / (1 << calcW).toDouble}")
+//     println(f"SigmoidSim: zres = ${zScaled0.toLong.toBinaryString}(${zScaled0.toDouble / (1 << calcW).toDouble})")
+//     println(f"SigmoidSim: zScaled = ${zScaled.toLong.toBinaryString}(${zScaled .toDouble / (1 << calcW).toDouble})")
 
     // zScaled = 2 * [1 - 1 / (1 + exp(-x)]
     // if x > 0,  return 1 - zScaled / 2
     // otherwise, return     zScaled / 2
 
     val zShifted = if(x.sgn == 0) { (SafeLong(1) << (calcW+1)) - zScaled } else { zScaled }
-    val zShift   = (calcW+1) - binaryWidthSL(zShifted)
+    val zShift   = (calcW+2) - binaryWidthSL(zShifted)
     val zmanW1   = zShifted << zShift
-    val zmanW1Rounded = (zmanW1 >> extraBits) + bit(extraBits-1, zmanW1)
+    val zmanW1Rounded = (zmanW1 >> (extraBits+1)) + bit(extraBits, zmanW1)
 
-//     println(f"zShifted = ${zShifted.toDouble / (1 << calcW).toDouble}")
-//     println(f"zShift   = ${zShift}")
-//     println(f"zmanW1   = ${zmanW1.toDouble / (1 << calcW).toDouble}")
-//     println(f"zmanW1R  = ${zmanW1Rounded.toDouble / (1 << manW).toDouble}")
+    assert(zShift >= 0)
+
+//     println(f"SigmoidSim: zPos = ${((SafeLong(1) << (calcW+1)) - zScaled).toLong.toBinaryString}")
+//     println(f"SigmoidSim: zNeg = ${zScaled.toLong.toBinaryString}")
+//     println(f"SigmoidSim: zRes = ${zShifted.toLong.toBinaryString}(${zShifted.toDouble / (1 << calcW).toDouble})")
+//     println(f"SigmoidSim: zShifted = ${zShifted.toDouble / (1 << calcW).toDouble}")
+//     println(f"SigmoidSim: zShift   = ${zShift}")
+//     println(f"SigmoidSim: zmanW1   = ${zmanW1.toDouble / (1 << calcW).toDouble}")
+//     println(f"SigmoidSim: zmanW1R  = ${zmanW1Rounded.toLong.toBinaryString}(${zmanW1Rounded.toDouble / (1 << manW).toDouble})")
 
     val zMan = if(zmanW1Rounded >= (SafeLong(1)<<(manW+1))) {
       println(f"WARNING (${this.getClass.getName}) : rounding overflow at x=$x%h")
@@ -114,7 +122,7 @@ object SigmoidSim {
       slice(0, manW, zmanW1Rounded)
     }
 
-    val zEx = exBias - (zShift+1)
+    val zEx = exBias - zShift
 
     val z = new RealGeneric(x.spec, zSgn, zEx, zMan)
 //     println(f"SigmoidSim: z    = ${z.toDouble}(${z.sgn}|${z.ex}(${z.ex-exBias})|${z.man.toLong.toBinaryString})")
