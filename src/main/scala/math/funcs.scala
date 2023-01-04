@@ -22,7 +22,7 @@ import rial.math._
 /* Enumerator to represent which function is used in [[rial.math.MathFunctions]]. */
 object FuncKind extends Enumeration {
   type FuncKind = Value
-  val Sqrt, InvSqrt, Reciprocal, Sin, Cos, ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Exp, Log, ScaleMixtureGaussian = Value
+  val Sqrt, InvSqrt, Reciprocal, Sin, Cos, ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Exp, Log, Sigmoid, ScaleMixtureGaussian = Value
 
   def getString(fn: FuncKind): String = {
     fn match {
@@ -37,6 +37,7 @@ object FuncKind extends Enumeration {
       case ATan2Phase2 => "ATan2Phase2"
       case Exp => "Exp"
       case Log => "Log"
+      case Sigmoid => "Sigmoid"
       case ScaleMixtureGaussian => "ScaleMixtureGaussian"
     }
   }
@@ -126,7 +127,7 @@ object MathFuncConfig {
   /* All functions are supported.
    */
   val all = new MathFuncConfig(Seq(Sqrt, InvSqrt, Reciprocal, Sin, Cos,
-    ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Exp, Log, ScaleMixtureGaussian),
+    ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Exp, Log, Sigmoid, ScaleMixtureGaussian),
     Some((exp(-1.0), exp(-6.0)))
   )
 }
@@ -453,6 +454,7 @@ class MathFunctions(
       case ATan2Phase2 => ATan2Phase2TableCoeff.getCBits(spec, polySpec)
       case Exp         => ExpTableCoeff.getCBits(spec, polySpec)
       case Log         => LogTableCoeff.getCBits(spec, polySpec)
+      case Sigmoid     => SigmoidTableCoeff.getCBits(spec, polySpec)
       case ScaleMixtureGaussian => {
         val (sA, sB) = fncfg.scaleMixtureGaussianSigma.get
         ScaleMixtureGaussianTableCoeff.getCBits(sA, sB, spec, polySpec)
@@ -480,6 +482,7 @@ class MathFunctions(
       case ATan2Phase2 => ATan2Phase2TableCoeff.getCalcW(spec, polySpec)
       case Exp         => ExpTableCoeff.getCalcW(spec, polySpec)
       case Log         => LogTableCoeff.getCalcW(spec, polySpec)
+      case Sigmoid     => SigmoidTableCoeff.getCalcW(spec, polySpec)
       case ScaleMixtureGaussian => {
         val (sA, sB) = fncfg.scaleMixtureGaussianSigma.get
         ScaleMixtureGaussianTableCoeff.getCalcW(sA, sB, spec, polySpec)
@@ -1389,6 +1392,47 @@ class MathFunctions(
     }
     when(selPCGapReg =/= fncfg.signal(Log)) {
       assert(logTab.io.cs.asUInt === 0.U)
+    }
+  }
+
+  // ==========================================================================
+  // the standard sigmoid
+
+  if(fncfg.has(Sigmoid)) {
+    val sigmoidPre   = Module(new SigmoidPreProcess (spec, polySpec, stage.preStage))
+    val sigmoidTab   = Module(new SigmoidTableCoeff (spec, polySpec, maxCbit))
+    val sigmoidPost  = Module(new SigmoidPostProcess(spec, polySpec, stage.postStage))
+
+    sigmoidPre.io.en := (io.sel === fncfg.signal(Sigmoid))
+    sigmoidPre.io.x  := xdecomp.io.decomp
+    if(order != 0) {
+      polynomialDxs.get(Sigmoid) := sigmoidPre.io.dx.get
+    }
+
+    // ------ Preprocess-Calculate (P/C)------
+    sigmoidTab.io.en  := (selPCGapReg === fncfg.signal(Sigmoid))
+    sigmoidTab.io.adr := ShiftRegister(sigmoidPre.io.adr, pcGap)
+
+    polynomialCoefs(Sigmoid) := sigmoidTab.io.cs.asUInt
+
+    // ------ Calculate-PostProcess (C/P) ------
+
+    val sigmoidPreOut = ShiftRegister(sigmoidPre.io.out,
+      pcGap + tcGap + stage.calcStage.total + cpGap // wait until postproc starts
+    )
+
+    sigmoidPost.io.en     := selCPGapReg === fncfg.signal(Sigmoid)
+    sigmoidPost.io.preout := sigmoidPreOut
+    sigmoidPost.io.zres   := polynomialResultCPGapReg
+
+    zs(Sigmoid) := sigmoidPost.io.z
+
+    when(selPCReg =/= fncfg.signal(Sigmoid)) {
+      assert(sigmoidPre.io.adr === 0.U)
+      assert(sigmoidPre.io.dx.getOrElse(0.U) === 0.U)
+    }
+    when(selPCGapReg =/= fncfg.signal(Sigmoid)) {
+      assert(sigmoidTab.io.cs.asUInt === 0.U)
     }
   }
 
