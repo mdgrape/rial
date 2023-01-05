@@ -65,7 +65,7 @@ object SigmoidSim {
     assert(x.ex <= rangeMaxEx)
 
 //     val xPadded = (x.manW1 << rangeMaxLog2)
-    val xScaled = x.manW1 >> (rangeMaxEx - x.ex)
+    val xScaled = x.manW1 >> (rangeMaxEx - x.ex + 1)
 //     println(f"SigmoidSim: xScaled = ${xScaled.toLong.toBinaryString}")
 
     val zScaled0 = if (order==0) {
@@ -75,9 +75,9 @@ object SigmoidSim {
       val adr = slice(rangeMaxLog2, adrW, xScaled).toInt
       t.interval(adr).eval(0L, 0)
     } else {
-      val dxbp = (manW+1)-adrW-1
-      val d    = slice(0, (manW+1)-adrW, xScaled) - (SafeLong(1)<<dxbp)
-      val adr  = slice((manW+1)-adrW, adrW, xScaled).toInt
+      val dxbp = manW-adrW-1
+      val d    = slice(0, manW-adrW, xScaled) - (SafeLong(1)<<dxbp)
+      val adr  = slice(manW-adrW, adrW, xScaled).toInt
 //       println(f"SigmoidSim: adr = ${adr.toLong.toBinaryString}")
 //       println(f"SigmoidSim: dx  = ${d  .toLong.toBinaryString}")
       t.interval(adr).eval(d.toLong, dxbp).toLong
@@ -116,7 +116,7 @@ object SigmoidSim {
 //     println(f"SigmoidSim: zmanW1R  = ${zmanW1Rounded.toLong.toBinaryString}(${zmanW1Rounded.toDouble / (1 << manW).toDouble})")
 
     val zMan = if(zmanW1Rounded >= (SafeLong(1)<<(manW+1))) {
-      println(f"WARNING (${this.getClass.getName}) : rounding overflow at x=$x%h")
+      println(f"WARNING (${this.getClass.getName}) : rounding overflow at x=${x.toDouble}, zmanW1 = ${zmanW1Rounded.toLong.toBinaryString}")
       maskSL(manW)
     } else {
       slice(0, manW, zmanW1Rounded)
