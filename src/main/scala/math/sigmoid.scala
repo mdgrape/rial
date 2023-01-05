@@ -238,21 +238,22 @@ class SigmoidPostProcess(
   val zNeg = io.zres
   val zRes = Mux(io.preout.xsgn === 0.U, zPos, zNeg)
 
-  printf("sigmoid   : zPos = %b : %b - %b\n", zPos, (BigInt(1) << (calcW+1)).U((calcW+2).W), io.zres)
-  printf("sigmoid   : zNeg = %b\n", zNeg)
-  printf("sigmoid   : zRes = %b\n", zRes)
+//   printf("sigmoid   : zPos = %b : %b - %b\n", zPos, (BigInt(1) << (calcW+1)).U((calcW+2).W), io.zres)
+//   printf("sigmoid   : zNeg = %b\n", zNeg)
+//   printf("sigmoid   : zRes = %b\n", zRes)
 
   val zShift = Mux(zRes === 0.U, zRes.getWidth.U, PriorityEncoder(Reverse(zRes)))
   val zmanW1 = zRes << zShift
   val zmanW1Rounded = (zmanW1 >> (extraBits+1)) + zmanW1(extraBits)
 
-  printf("sigmoid   : zShift = %d\n", zShift)
-  printf("sigmoid   : zmanW1 = %b\n", zmanW1)
-  printf("sigmoid   : zmanW1Rounded = %b\n", zmanW1Rounded)
+//   printf("sigmoid   : zShift = %d\n", zShift)
+//   printf("sigmoid   : zmanW1 = %b\n", zmanW1)
+//   printf("sigmoid   : zmanW1Rounded = %b\n", zmanW1Rounded)
 
-  val zman = Mux(zmanW1Rounded > (BigInt(1) << (manW+1)).U, 0.U(manW.W), zmanW1Rounded(manW-1, 0))
+  val zmanW1RoundedMoreThan1 = zmanW1Rounded >= (BigInt(1) << (manW+1)).U
+  val zman = Mux(zmanW1RoundedMoreThan1, Fill(manW, 1.U(1.W)), zmanW1Rounded(manW-1, 0))
 
-  printf("sigmoid   : zman = %b\n", zman)
+//   printf("sigmoid   : zman = %b\n", zman)
 
   val zex = exBias.U(exW.W) - zShift
 
