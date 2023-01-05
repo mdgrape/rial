@@ -68,6 +68,12 @@ object SigmoidSim {
     val xScaled = x.manW1 >> (rangeMaxEx - x.ex + 1)
 //     println(f"SigmoidSim: xScaled = ${xScaled.toLong.toBinaryString}")
 
+    // table polynomial overflows when x is small (almost zero).
+    // we use additional check if x is small enough
+    if(xScaled == 0 || xScaled == 1) {
+      return new RealGeneric(spec, 0.5)
+    }
+
     val zScaled0 = if (order==0) {
       if (adrW<manW) {
         println("WARNING: table address width < mantissa width, for polynomial order is zero. address width set to mantissa width.")
@@ -87,7 +93,7 @@ object SigmoidSim {
       println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=$x%h")
       SafeLong(0)
     } else if (zScaled0 >= (SafeLong(1)<<calcW)) {
-      println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=$x%h")
+      println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=${x.toDouble}")
       maskSL(calcW)
     } else {
       SafeLong(zScaled0)
