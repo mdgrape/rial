@@ -69,21 +69,20 @@ class SigmoidPreProcess(
   val zone  = io.x.sgn === 0.U && xExLargeEnough
   val zzero = io.x.sgn === 1.U && xExLargeEnough
 
-  val xScaleShift = rangeMaxEx.U(exW.W) - io.x.ex
+  val xScaleShift = (rangeMaxEx+1).U(exW.W) - io.x.ex
 
   val xScaled = Cat(1.U, io.x.man) >> xScaleShift
 
-  printf("sigmoid   : xScaled = %b\n", xScaled)
+//   printf("sigmoid   : xScaled = %b\n", xScaled)
 
-  // we use hidden bit, not only the mantissa
-  val adr  = enable(io.en, xScaled(manW, dxW+1))
+  val adr  = enable(io.en, xScaled(manW-1, dxW))
   io.adr := ShiftRegister(adr, nStage)
-  printf("sigmoid   : adr = %b\n", adr)
+//   printf("sigmoid   : adr = %b\n", adr)
 
   if(order != 0) {
-    val dx   = enable(io.en, Cat(~xScaled(dxW), xScaled(dxW-1, 0)))
+    val dx   = enable(io.en, Cat(~xScaled(dxW-1), xScaled(dxW-2, 0)))
     io.dx.get := ShiftRegister(dx, nStage)
-    printf("sigmoid   : dx = %b\n", dx)
+//     printf("sigmoid   : dx = %b\n", dx)
   }
 
   io.out.xsgn  := ShiftRegister(io.x.sgn, nStage)
@@ -152,7 +151,7 @@ class SigmoidTableCoeff(
       } else {
         coeffs.cs(i) := coeff(i)
       }
-      printf(f"sigmoid   : coeff(${i}) = %%d(%%b)\n", coeffs.cs(i).asSInt,  coeffs.cs(i))
+//       printf(f"sigmoid   : coeff(${i}) = %%d(%%b)\n", coeffs.cs(i).asSInt,  coeffs.cs(i))
     }
     io.cs := enable(io.en, coeffs)
   }
@@ -228,7 +227,7 @@ class SigmoidPostProcess(
     val z      = Output(UInt(spec.W.W))
   })
 
-  printf("sigmoid   : zres = %b\n", io.zres)
+//   printf("sigmoid   : zres = %b\n", io.zres)
 
   val zsgn  = 0.U(1.W)
   val znan  = io.preout.znan
