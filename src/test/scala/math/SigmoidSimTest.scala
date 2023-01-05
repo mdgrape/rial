@@ -47,6 +47,8 @@ class SigmoidSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
      -1.0,
       2.0,
      -2.0,
+      1e10,
+     -1e10,
     )
   def generateSpecialValues( spec: RealSpec, r: Random ) = {
     val idx = counter
