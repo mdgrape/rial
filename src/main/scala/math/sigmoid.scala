@@ -31,6 +31,7 @@ import rial.math._
 
 class SigmoidPreProcessOutput(val spec: RealSpec) extends Bundle {
   val xsgn  = Output(UInt(1.W))
+  val xzero = Output(Bool())
   val zone  = Output(Bool())
   val zzero = Output(Bool())
   val znan  = Output(Bool())
@@ -65,6 +66,10 @@ class SigmoidPreProcess(
   val rangeMaxEx     = exBias + rangeMaxLog2 - 1
   val xExLargeEnough = rangeMaxEx.U < io.x.ex
 
+//   printf("sigmoid   : rangeMaxLog2   = %d\n", rangeMaxLog2.U)
+//   printf("sigmoid   : rangeMaxEx     = %d\n", rangeMaxEx.U  )
+//   printf("sigmoid   : xExLargeEnough = %b\n", xExLargeEnough)
+
   val znan  = io.x.nan
   val zone  = io.x.sgn === 0.U && xExLargeEnough
   val zzero = io.x.sgn === 1.U && xExLargeEnough
@@ -86,6 +91,7 @@ class SigmoidPreProcess(
   }
 
   io.out.xsgn  := ShiftRegister(io.x.sgn, nStage)
+  io.out.xzero := ShiftRegister(xScaled === 0.U || xScaled === 1.U, nStage)
   io.out.znan  := ShiftRegister(znan , nStage)
   io.out.zone  := ShiftRegister(zone , nStage)
   io.out.zzero := ShiftRegister(zzero, nStage)
@@ -233,6 +239,7 @@ class SigmoidPostProcess(
   val znan  = io.preout.znan
   val zone  = io.preout.zone
   val zzero = io.preout.zzero
+  val xzero = io.preout.xzero
 
   val zPos = (BigInt(1) << (calcW+1)).U((calcW+2).W) - io.zres
   val zNeg = io.zres
@@ -260,7 +267,9 @@ class SigmoidPostProcess(
   val z0 =
     Mux(znan,  Cat(zsgn, Fill(exW, 1.U(1.W)), 1.U(1.W), 0.U((manW-1).W)),
     Mux(zone,  Cat(zsgn, exBias.U, 0.U(manW.W)),
-    Mux(zzero, 0.U(spec.W.W), Cat(zsgn, zex, zman))))
+    Mux(zzero, 0.U(spec.W.W),
+    Mux(xzero, Cat(zsgn, (exBias-1).U, 0.U(manW.W)),
+               Cat(zsgn, zex, zman)))))
 
   val z = enable(io.en, z0)
   io.z := ShiftRegister(z, nStage)
