@@ -57,9 +57,21 @@ class SigmoidTest extends AnyFlatSpec
   val specialValues = Seq(
       0.0,
      -0.0,
+      1e-20,
+     -1e-20,
       1.0,
+     -1.0,
       2.0,
+     -2.0,
       4.0,
+     -4.0,
+      1e+10,
+     -1e+10,
+      5.88714647165034E-6,
+      2*5.88714647165034E-6,
+      3*5.88714647165034E-6,
+      4*5.88714647165034E-6,
+     -4.863028152612969E-6,
     )
   def generateSpecialValues( spec: RealSpec, r: Random ) = {
     val idx = counter
@@ -97,7 +109,7 @@ class SigmoidTest extends AnyFlatSpec
 
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
-            println(f"====================================================")
+//             println(f"====================================================")
             val xi = generator(spec,r)
             val z0r= reference(xi)
             q += ((xi.value.toBigInt,z0r.value.toBigInt))
@@ -159,10 +171,10 @@ class SigmoidTest extends AnyFlatSpec
 
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none,
     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_) )
-//   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none,
-//     n, r, "Test All range",generateRealFull(_,_) )
-//   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none,
-//     n, r, "Test Special Values",generateSpecialValues(_,_) )
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none,
+    n, r, "Test All range",generateRealFull(_,_) )
+  runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none,
+    n, r, "Test Special Values",generateSpecialValues(_,_) )
 
 //   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, simplePipeline,
 //     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_) )
