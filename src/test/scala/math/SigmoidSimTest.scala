@@ -143,15 +143,15 @@ class SigmoidSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   sigmoidTest(sigmoidF32TableI, RealSpec.Float32Spec, n, r,
     "Test special value",generateSpecialValues(_,_), 1e-5)
 
-//   val sigmoidBF16TableI = SigmoidSim.tableGeneration(0, 7, 7, 7 ) // [1,2) + [2,4) + 1.0
-// 
-//   sigmoidTest(sigmoidBF16TableI, RealSpec.BFloat16Spec, n, r,
-//     "Test Within (-128,128)",generateRealWithin(128.0,_,_), 1)
-//   sigmoidTest(sigmoidBF16TableI, RealSpec.BFloat16Spec, n, r,
-//     "Test All range",generateRealFull(_,_), 1 )
-//   sigmoidTest(sigmoidBF16TableI, RealSpec.BFloat16Spec, n, r,
-//     "Test special value",generateSpecialValues(_,_), 1 )
-// 
+  val sigmoidBF16TableI = SigmoidSim.tableGeneration(0, 7, 7, 7 ) // [1,2) + [2,4) + 1.0
+
+  sigmoidTest(sigmoidBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test Within (-128,128)",generateRealWithin(128.0,_,_), 1)
+  sigmoidTest(sigmoidBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test All range",generateRealFull(_,_), 1 )
+  sigmoidTest(sigmoidBF16TableI, RealSpec.BFloat16Spec, n, r,
+    "Test special value",generateSpecialValues(_,_), 1 )
+
 //   val float48Spec = new RealSpec(10, 511, 37)
 //   val sigmoidFP48TableI = SigmoidSim.tableGeneration(3, 10, 37, 37+4 )
 // 
