@@ -190,8 +190,8 @@ class SigmoidTest extends AnyFlatSpec
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline,
     n, r, "Test Special Values",generateSpecialValues(_,_))
 
-  --------------------------------------------------------------------------
-  different configs with complexPipeline
+  // --------------------------------------------------------------------------
+  // different configs with complexPipeline
 
   // sigmoidOnly
   val sigmoidOnly     = new MathFuncConfig(Seq(Sigmoid))
@@ -203,30 +203,30 @@ class SigmoidTest extends AnyFlatSpec
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline,
     n, r, "Test Special Values",generateSpecialValues(_,_), sigmoidOnly)
 
-//   val nOrderBF16 = 0
-//   val adrWBF16 = 7
-//   val extraBitsBF16 = 1
-// 
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none,
-//     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none,
-//     n, r, "Test All range",generateRealFull(_,_) )
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none,
-//     n, r, "Test Special Values",generateSpecialValues(_,_) )
+  val nOrderBF16 = 0
+  val adrWBF16 = 7
+  val extraBitsBF16 = 1
 
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline,
-//     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline,
-//     n, r, "Test All range",generateRealFull(_,_) )
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline,
-//     n, r, "Test Special Values",generateSpecialValues(_,_) )
-// 
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline,
-//     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline,
-//     n, r, "Test All range",generateRealFull(_,_) )
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline,
-//     n, r, "Test Special Values",generateSpecialValues(_,_) )
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none,
+    n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none,
+    n, r, "Test All range",generateRealFull(_,_) )
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none,
+    n, r, "Test Special Values",generateSpecialValues(_,_) )
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline,
+    n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline,
+    n, r, "Test All range",generateRealFull(_,_) )
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline,
+    n, r, "Test Special Values",generateSpecialValues(_,_) )
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline,
+    n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline,
+    n, r, "Test All range",generateRealFull(_,_) )
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline,
+    n, r, "Test Special Values",generateSpecialValues(_,_) )
 
 //   // it takes long time when we activate all the functions with wider FP specs.
 //   // so here we activate sigmoid only.
