@@ -78,7 +78,8 @@ object SigmoidSim {
       if (adrW<manW) {
         println("WARNING: table address width < mantissa width, for polynomial order is zero. address width set to mantissa width.")
       }
-      val adr = slice(rangeMaxLog2, adrW, xScaled).toInt
+      val adr = xScaled.toInt
+//       println(f"SigmoidSim: adr = ${adr.toLong.toBinaryString}")
       t.interval(adr).eval(0L, 0)
     } else {
       val dxbp = manW-adrW-1
@@ -158,6 +159,7 @@ object SigmoidSim {
     val f = ( x01: Double ) => {
       val x = x01 * rangeMax // [0, 1) => [0, rangeMax)
       val z = 2.0 - (2.0 / (1.0 + exp(-x)))
+//       println(f"x = ${x}, z = ${z}")
       assert(z <= 1.0, f"x = ${x}, z = ${z}")
       z
     }
