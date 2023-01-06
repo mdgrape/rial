@@ -123,18 +123,32 @@ class SigmoidTableCoeff(
   })
 
   if(order == 0) {
+    // SigmoidSim.tableGeneration fails with the cbit width...
 
-    val tableI = SigmoidSim.tableGeneration( order, adrW, manW, fracW )
-    val cbit   = tableI.cbit
+    val rangeMaxLog2 = SigmoidSim.tableRangeMaxLog2(manW)
+    val rangeMax     = 1 << rangeMaxLog2
+    val f = ( x01: Double ) => {
+      val x = x01 * rangeMax // [0, 1) => [0, rangeMax)
+      val z = 2.0 - (2.0 / (1.0 + exp(-x)))
+      assert(z <= 1.0, f"x = ${x}, z = ${z}")
+      z
+    }
 
-    // sign mode 1 = 2's complement and no sign bit
-    val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/1)
-    val coeff  = getSlices(coeffTable(io.adr), coeffWidth)
+    val tbl = VecInit( (0L to 1L<<adrW).map(
+      n => {
+        val x = ( n.toDouble / (1L<<adrW) ) // 0~1
+        val y = round( f(x) * (1L<<fracW) )
+        if (y >= (1L<<fracW)) {
+          maskL(fracW).U(fracW.W)
+        } else if (y <= 0.0) {
+          0.U(fracW.W)
+        } else {
+          y.toLong.U(fracW.W)
+        }
+      })
+    )
 
-    assert(maxCbit(0) == fracW)
-    assert(coeff(0).getWidth == fracW)
-
-    io.cs.cs(0) := enable(io.en, coeff(0))
+    io.cs.cs(0) := enable(io.en, tbl(io.adr))
 
   } else {
 
@@ -162,6 +176,7 @@ class SigmoidTableCoeff(
     io.cs := enable(io.en, coeffs)
   }
 }
+
 object SigmoidTableCoeff {
   def getCBits(
     spec:     RealSpec,
