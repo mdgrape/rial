@@ -145,12 +145,14 @@ class SigmoidSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
 
   val sigmoidBF16TableI = SigmoidSim.tableGeneration(0, 7, 7, 7 ) // [1,2) + [2,4) + 1.0
 
+  val toleranceBF16 = 0.05 // XXX large tolerance ...
+
   sigmoidTest(sigmoidBF16TableI, RealSpec.BFloat16Spec, n, r,
-    "Test Within (-128,128)",generateRealWithin(128.0,_,_), 1)
+    "Test Within (-128,128)",generateRealWithin(128.0,_,_), toleranceBF16)
   sigmoidTest(sigmoidBF16TableI, RealSpec.BFloat16Spec, n, r,
-    "Test All range",generateRealFull(_,_), 1 )
+    "Test All range",generateRealFull(_,_), toleranceBF16 )
   sigmoidTest(sigmoidBF16TableI, RealSpec.BFloat16Spec, n, r,
-    "Test special value",generateSpecialValues(_,_), 1 )
+    "Test special value",generateSpecialValues(_,_), toleranceBF16 )
 
 //   val float48Spec = new RealSpec(10, 511, 37)
 //   val sigmoidFP48TableI = SigmoidSim.tableGeneration(3, 10, 37, 37+4 )
