@@ -106,24 +106,12 @@ object SoftPlusSim {
 //     println(f"SoftPlusSim: zScaled0 = ${zScaled0.toDouble / (1 << calcW).toDouble}")
 //     println(f"SoftPlusSim: zScaled  = ${zScaled .toDouble / (1 << calcW).toDouble}")
 
-    val (zEx, zmanW1) = if(x.sgn == 0) {
-      val zFixed = zScaled << (rangeMaxLog2 + 1)
-      val zShift = (calcW+1 + rangeMaxLog2+1) - binaryWidthSL(zFixed)
-      val zShifted = zFixed << zShift
-      val zNormed  = zShifted >> (rangeMaxLog2 + 1)
-
-      val zex = (exBias + rangeMaxLog2 + 1) - zShift
-
-//       println(f"SoftPlusSim: zFixed   = ${zFixed.toDouble / (1 << calcW).toDouble}")
-//       println(f"SoftPlusSim: zShift   = ${zShift}")
-//       println(f"SoftPlusSim: zShifted = ${zShifted.toDouble / (1 << (calcW + rangeMaxLog2+1)).toDouble}")
-//       println(f"SoftPlusSim: zNormed  = ${zNormed.toDouble / (1 << calcW).toDouble}")
-
-      (zex, zNormed)
+    val zShift = (calcW+1) - binaryWidthSL(zScaled)
+    val zmanW1 = zScaled << zShift
+    val zEx = if(x.sgn == 0) {
+      exBias - zShift + (rangeMaxLog2 + 1)
     } else {
-      val zShift = (calcW+1) - binaryWidthSL(zScaled)
-      val zex = exBias - zShift
-      (zex, zScaled << zShift)
+      exBias - zShift
     }
     val zmanW1Rounded = (zmanW1 >> extraBits) + bit(extraBits-1, zmanW1)
 
