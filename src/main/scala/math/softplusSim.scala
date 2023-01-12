@@ -70,22 +70,27 @@ object SoftPlusSim {
     }
     assert(x.ex <= rangeMaxEx)
 
-    val xScaled = x.manW1 >> (rangeMaxEx - x.ex)
+    // +1 for hidden bit
+    val xScaled = x.manW1 >> (rangeMaxEx - x.ex + 1)
 
     val zScaled0 = if (order==0) {
       if (adrW<manW) {
         println("WARNING: table address width < mantissa width, for polynomial order is zero. address width set to mantissa width.")
       }
-      val adr = slice(rangeMaxLog2, adrW, xScaled).toInt
+      val adr = xScaled.toInt
       if(x.sgn == 0) {
         tpos.interval(adr).eval(0L, 0)
       } else {
         tneg.interval(adr).eval(0L, 0)
       }
     } else {
-      val dxbp = (manW+1)-adrW-1
-      val d    = slice(0, (manW+1)-adrW, xScaled) - (SafeLong(1)<<dxbp)
-      val adr  = slice((manW+1)-adrW, adrW, xScaled).toInt
+      val dxbp = manW-adrW-1
+      val d    = slice(0, manW-adrW, xScaled) - (SafeLong(1)<<dxbp)
+      val adr  = slice(manW-adrW, adrW, xScaled).toInt
+
+//       println(f"SoftPlusSim: dx  = ${d.toLong.toBinaryString}")
+//       println(f"SoftPlusSim: adr = ${adr.toLong.toBinaryString}")
+
       if(x.sgn == 0) {
         tpos.interval(adr).eval(d.toLong, dxbp).toLong
       } else {
@@ -105,6 +110,7 @@ object SoftPlusSim {
 
 //     println(f"SoftPlusSim: zScaled0 = ${zScaled0.toDouble / (1 << calcW).toDouble}")
 //     println(f"SoftPlusSim: zScaled  = ${zScaled .toDouble / (1 << calcW).toDouble}")
+//     println(f"SoftPlusSim: zres     = ${zScaled .toLong.toBinaryString}")
 
     val zShift = (calcW+1) - binaryWidthSL(zScaled)
     val zmanW1 = zScaled << zShift
@@ -115,8 +121,9 @@ object SoftPlusSim {
     }
     val zmanW1Rounded = (zmanW1 >> extraBits) + bit(extraBits-1, zmanW1)
 
-//     println(f"SoftPlusSim: zmanW1   = ${zmanW1.toDouble / (1 << calcW).toDouble}")
-//     println(f"SoftPlusSim: zmanW1R  = ${zmanW1Rounded.toDouble / (1 << manW).toDouble}")
+//     println(f"SoftPlusSim: zShift   = ${zShift}")
+//     println(f"SoftPlusSim: zmanW1   = ${zmanW1.toLong.toBinaryString}(${zmanW1.toDouble / (1 << calcW).toDouble})")
+//     println(f"SoftPlusSim: zmanW1R  = ${zmanW1Rounded.toLong.toBinaryString}(${zmanW1Rounded.toDouble / (1 << manW).toDouble})")
 
     val zMan = if(zmanW1Rounded >= (SafeLong(1)<<(manW+1))) {
       println(f"WARNING (${this.getClass.getName}) : rounding overflow at x=$x%h")
