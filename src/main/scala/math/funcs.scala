@@ -22,7 +22,7 @@ import rial.math._
 /* Enumerator to represent which function is used in [[rial.math.MathFunctions]]. */
 object FuncKind extends Enumeration {
   type FuncKind = Value
-  val Sqrt, InvSqrt, Reciprocal, Sin, Cos, ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Exp, Log, Sigmoid, ScaleMixtureGaussian = Value
+  val Sqrt, InvSqrt, Reciprocal, Sin, Cos, ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Exp, Log, Sigmoid, SoftPlus, ScaleMixtureGaussian = Value
 
   def getString(fn: FuncKind): String = {
     fn match {
@@ -38,6 +38,7 @@ object FuncKind extends Enumeration {
       case Exp => "Exp"
       case Log => "Log"
       case Sigmoid => "Sigmoid"
+      case SoftPlus => "SoftPlus"
       case ScaleMixtureGaussian => "ScaleMixtureGaussian"
     }
   }
@@ -127,7 +128,8 @@ object MathFuncConfig {
   /* All functions are supported.
    */
   val all = new MathFuncConfig(Seq(Sqrt, InvSqrt, Reciprocal, Sin, Cos,
-    ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Exp, Log, Sigmoid, ScaleMixtureGaussian),
+    ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Exp, Log,
+    Sigmoid, SoftPlus, ScaleMixtureGaussian),
     Some((exp(-1.0), exp(-6.0)))
   )
 }
@@ -455,6 +457,7 @@ class MathFunctions(
       case Exp         => ExpTableCoeff.getCBits(spec, polySpec)
       case Log         => LogTableCoeff.getCBits(spec, polySpec)
       case Sigmoid     => SigmoidTableCoeff.getCBits(spec, polySpec)
+      case SoftPlus    => SoftPlusTableCoeff.getCBits(spec, polySpec)
       case ScaleMixtureGaussian => {
         val (sA, sB) = fncfg.scaleMixtureGaussianSigma.get
         ScaleMixtureGaussianTableCoeff.getCBits(sA, sB, spec, polySpec)
@@ -483,6 +486,7 @@ class MathFunctions(
       case Exp         => ExpTableCoeff.getCalcW(spec, polySpec)
       case Log         => LogTableCoeff.getCalcW(spec, polySpec)
       case Sigmoid     => SigmoidTableCoeff.getCalcW(spec, polySpec)
+      case SoftPlus    => SoftPlusTableCoeff.getCalcW(spec, polySpec)
       case ScaleMixtureGaussian => {
         val (sA, sB) = fncfg.scaleMixtureGaussianSigma.get
         ScaleMixtureGaussianTableCoeff.getCalcW(sA, sB, spec, polySpec)
@@ -1435,6 +1439,50 @@ class MathFunctions(
       assert(sigmoidTab.io.cs.asUInt === 0.U)
     }
   }
+
+  // ==========================================================================
+  // softplus
+
+  if(fncfg.has(SoftPlus)) {
+    val softplusPre   = Module(new SoftPlusPreProcess (spec, polySpec, stage.preStage))
+    val softplusTab   = Module(new SoftPlusTableCoeff (spec, polySpec, maxCbit))
+    val softplusPost  = Module(new SoftPlusPostProcess(spec, polySpec, stage.postStage))
+
+    softplusPre.io.en := (io.sel === fncfg.signal(SoftPlus))
+    softplusPre.io.x  := xdecomp.io.decomp
+    if(order != 0) {
+      polynomialDxs.get(SoftPlus) := softplusPre.io.dx.get
+    }
+
+    // ------ Preprocess-Calculate (P/C)------
+    softplusTab.io.en   := (selPCGapReg === fncfg.signal(SoftPlus))
+    softplusTab.io.adr  := ShiftRegister(softplusPre.io.adr, pcGap)
+    softplusTab.io.xsgn := ShiftRegister(softplusPre.io.out.xsgn, pcGap)
+
+    polynomialCoefs(SoftPlus) := softplusTab.io.cs.asUInt
+
+    // ------ Calculate-PostProcess (C/P) ------
+
+    val softplusPreOut = ShiftRegister(softplusPre.io.out,
+      pcGap + tcGap + stage.calcStage.total + cpGap // wait until postproc starts
+    )
+
+    softplusPost.io.en     := selCPGapReg === fncfg.signal(SoftPlus)
+    softplusPost.io.preout := softplusPreOut
+    softplusPost.io.zres   := polynomialResultCPGapReg
+    softplusPost.io.x      := xdecCPGapReg
+
+    zs(SoftPlus) := softplusPost.io.z
+
+    when(selPCReg =/= fncfg.signal(SoftPlus)) {
+      assert(softplusPre.io.adr === 0.U)
+      assert(softplusPre.io.dx.getOrElse(0.U) === 0.U)
+    }
+    when(selPCGapReg =/= fncfg.signal(SoftPlus)) {
+      assert(softplusTab.io.cs.asUInt === 0.U)
+    }
+  }
+
 
   // ==========================================================================
   // scale mixture gaussian
