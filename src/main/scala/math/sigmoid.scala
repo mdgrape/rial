@@ -165,7 +165,6 @@ class SigmoidTableCoeff(
 
       if(diffWidth != 0) {
         val ci  = coeff(i)
-//         val msb = ci(cbit(i)-1)
         val msb = ci.head(1)
         coeffs.cs(i) := Cat(Fill(diffWidth, msb), ci) // sign extension
       } else {
