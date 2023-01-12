@@ -126,21 +126,52 @@ class SoftPlusTableCoeff(
 
   if(order == 0) {
 
-    val tableIs = SoftPlusSim.tableGeneration( order, adrW, manW, fracW )
-    val cbitPos = tableIs(0).cbit
-    val cbitNeg = tableIs(1).cbit
+    val rangeMaxLog2 = SoftPlusSim.tableRangeMaxLog2(manW)
+    val rangeMax     = 1 << rangeMaxLog2
 
-    // sign mode 1 = 2's complement and no sign bit
-    val (coeffTablePos, coeffWidthPos) = tableIs(0).getVectorUnified(/*sign mode =*/1)
-    val (coeffTableNeg, coeffWidthNeg) = tableIs(1).getVectorUnified(/*sign mode =*/1)
-    val coeffPos = getSlices(coeffTablePos(io.adr), coeffWidthPos)
-    val coeffNeg = getSlices(coeffTableNeg(io.adr), coeffWidthNeg)
+    val fpos = ( x01: Double ) => {
+      val x = x01 * rangeMax // [0, 1) => [0, rangeMax)
+      val z = log(1.0 + exp(x)) / (rangeMax*2).toDouble
+      assert(z <= 1.0, f"fpos: x = ${x}, z = ${z}")
+      z
+    }
+    val fneg = ( x01: Double ) => {
+      val x = -1 * x01 * rangeMax // [0, 1) => [0, rangeMax)
+      val z = log(1.0 + exp(x)) // 0 ~ ln(2)
+      assert(z <= 1.0, f"fneg: x = ${x}, z = ${z}")
+      z
+    }
 
-    assert(maxCbit(0) == fracW)
-    assert(coeffPos(0).getWidth == fracW)
-    assert(coeffNeg(0).getWidth == fracW)
+    val tblPos = VecInit( (0L to 1L<<adrW).map(
+      n => {
+        val x = ( n.toDouble / (1L<<adrW) ) // 0~1
+        val y = round( fpos(x) * (1L<<fracW) )
+        if (y >= (1L<<fracW)) {
+          maskL(fracW).U(fracW.W)
+        } else if (y <= 0.0) {
+          0.U(fracW.W)
+        } else {
+          y.toLong.U(fracW.W)
+        }
+      })
+    )
+    val tblNeg = VecInit( (0L to 1L<<adrW).map(
+      n => {
+        val x = ( n.toDouble / (1L<<adrW) ) // 0~1
+        val y = round( fneg(x) * (1L<<fracW) )
+        if (y >= (1L<<fracW)) {
+          maskL(fracW).U(fracW.W)
+        } else if (y <= 0.0) {
+          0.U(fracW.W)
+        } else {
+          y.toLong.U(fracW.W)
+        }
+      })
+    )
 
-    val coeff = Mux(io.xsgn === 0.U, coeffPos(0), coeffNeg(0))
+    val coeffPos = tblPos(io.adr)
+    val coeffNeg = tblNeg(io.adr)
+    val coeff = Mux(io.xsgn === 0.U, coeffPos, coeffNeg)
 
     io.cs.cs(0) := enable(io.en, coeff)
 
