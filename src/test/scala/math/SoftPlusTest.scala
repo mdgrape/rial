@@ -205,70 +205,72 @@ class SoftPlusTest extends AnyFlatSpec
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline,
     n, r, "Test Special Values",generateSpecialValues(_,_), softplusOnly)
 
-//   val nOrderBF16 = 0
-//   val adrWBF16 = 7
-//   val extraBitsBF16 = 1
+  // --------------------------------------------------------------------------
+
+  val nOrderBF16 = 0
+  val adrWBF16 = 7
+  val extraBitsBF16 = 1
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none,
+    n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none,
+    n, r, "Test All range",generateRealFull(_,_) )
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none,
+    n, r, "Test Special Values",generateSpecialValues(_,_) )
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline,
+    n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline,
+    n, r, "Test All range",generateRealFull(_,_) )
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline,
+    n, r, "Test Special Values",generateSpecialValues(_,_) )
+
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline,
+    n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline,
+    n, r, "Test All range",generateRealFull(_,_) )
+  runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline,
+    n, r, "Test Special Values",generateSpecialValues(_,_) )
+
+//   // it takes long time when we activate all the functions with wider FP specs.
+//   // so here we activate softplus only.
+//   val float48Spec = new RealSpec(10, 511, 37)
 // 
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none,
-//     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none,
-//     n, r, "Test All range",generateRealFull(_,_) )
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, MathFuncPipelineConfig.none,
-//     n, r, "Test Special Values",generateSpecialValues(_,_) )
+//   val nOrderFP48 = 3
+//   val adrWFP48 = 10
+//   val extraBitsFP48 = 4
 // 
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline,
-//     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline,
-//     n, r, "Test All range",generateRealFull(_,_) )
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, simplePipeline,
-//     n, r, "Test Special Values",generateSpecialValues(_,_) )
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, MathFuncPipelineConfig.none,
+//     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_), softplusOnly)
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, MathFuncPipelineConfig.none,
+//     n, r, "Test All range",generateRealFull(_,_), softplusOnly )
 // 
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline,
-//     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_))
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline,
-//     n, r, "Test All range",generateRealFull(_,_) )
-//   runtest(RealSpec.BFloat16Spec, nOrderBF16, adrWBF16, extraBitsBF16, complexPipeline,
-//     n, r, "Test Special Values",generateSpecialValues(_,_) )
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, simplePipeline,
+//     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_), softplusOnly)
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, simplePipeline,
+//     n, r, "Test All range",generateRealFull(_,_), softplusOnly )
 // 
-// //   // it takes long time when we activate all the functions with wider FP specs.
-// //   // so here we activate softplus only.
-// //   val float48Spec = new RealSpec(10, 511, 37)
-// // 
-// //   val nOrderFP48 = 3
-// //   val adrWFP48 = 10
-// //   val extraBitsFP48 = 4
-// // 
-// //   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, MathFuncPipelineConfig.none,
-// //     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_), softplusOnly)
-// //   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, MathFuncPipelineConfig.none,
-// //     n, r, "Test All range",generateRealFull(_,_), softplusOnly )
-// // 
-// //   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, simplePipeline,
-// //     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_), softplusOnly)
-// //   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, simplePipeline,
-// //     n, r, "Test All range",generateRealFull(_,_), softplusOnly )
-// // 
-// //   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, complexPipeline,
-// //     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_), softplusOnly)
-// //   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, complexPipeline,
-// //     n, r, "Test All range",generateRealFull(_,_), softplusOnly )
-// 
-// //   val nOrderFP64 = 3
-// //   val adrWFP64 = 12
-// //   val extraBitsFP64 = 4
-// //
-// //   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, MathFuncPipelineConfig.none,
-// //     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_), softplusOnly)
-// //   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, MathFuncPipelineConfig.none,
-// //     n, r, "Test All range",generateRealFull(_,_), softplusOnly)
-// //
-// //   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, simplePipeline,
-// //     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_), softplusOnly)
-// //   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, simplePipeline,
-// //     n, r, "Test All range",generateRealFull(_,_), softplusOnly)
-// //
-// //   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, complexPipeline,
-// //     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_), softplusOnly)
-// //   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, complexPipeline,
-// //     n, r, "Test All range",generateRealFull(_,_), softplusOnly)
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, complexPipeline,
+//     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_), softplusOnly)
+//   runtest(float48Spec, nOrderFP48, adrWFP48, extraBitsFP48, complexPipeline,
+//     n, r, "Test All range",generateRealFull(_,_), softplusOnly )
+
+//   val nOrderFP64 = 3
+//   val adrWFP64 = 12
+//   val extraBitsFP64 = 4
+//
+//   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, MathFuncPipelineConfig.none,
+//     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_), softplusOnly)
+//   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, MathFuncPipelineConfig.none,
+//     n, r, "Test All range",generateRealFull(_,_), softplusOnly)
+//
+//   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, simplePipeline,
+//     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_), softplusOnly)
+//   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, simplePipeline,
+//     n, r, "Test All range",generateRealFull(_,_), softplusOnly)
+//
+//   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, complexPipeline,
+//     n, r, "Test Within (-128,128)",generateRealWithin(128.0,_,_), softplusOnly)
+//   runtest(RealSpec.Float64Spec, nOrderFP64, adrWFP64, extraBitsFP64, complexPipeline,
+//     n, r, "Test All range",generateRealFull(_,_), softplusOnly)
 }
