@@ -80,12 +80,12 @@ class SigmoidPreProcess(
 
 //   printf("sigmoid   : xScaled = %b\n", xScaled)
 
-  val adr  = enable(io.en, xScaled(manW-1, dxW))
+  val adr  = enableIf(io.en, xScaled(manW-1, dxW))
   io.adr := ShiftRegister(adr, nStage)
 //   printf("sigmoid   : adr = %b\n", adr)
 
   if(order != 0) {
-    val dx   = enable(io.en, Cat(~xScaled(dxW-1), xScaled(dxW-2, 0)))
+    val dx   = enableIf(io.en, Cat(~xScaled(dxW-1), xScaled(dxW-2, 0)))
     io.dx.get := ShiftRegister(dx, nStage)
 //     printf("sigmoid   : dx = %b\n", dx)
   }
@@ -148,7 +148,7 @@ class SigmoidTableCoeff(
       })
     )
 
-    io.cs.cs(0) := enable(io.en, tbl(io.adr))
+    io.cs.cs(0) := enableIf(io.en, tbl(io.adr))
 
   } else {
 
@@ -172,7 +172,7 @@ class SigmoidTableCoeff(
       }
 //       printf(f"sigmoid   : coeff(${i}) = %%d(%%b)\n", coeffs.cs(i).asSInt,  coeffs.cs(i))
     }
-    io.cs := enable(io.en, coeffs)
+    io.cs := enableIf(io.en, coeffs)
   }
 }
 
@@ -285,6 +285,6 @@ class SigmoidPostProcess(
     Mux(xzero, Cat(zsgn, (exBias-1).U, 0.U(manW.W)),
                Cat(zsgn, zex, zman)))))
 
-  val z = enable(io.en, z0)
+  val z = enableIf(io.en, z0)
   io.z := ShiftRegister(z, nStage)
 }

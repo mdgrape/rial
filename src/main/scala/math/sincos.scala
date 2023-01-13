@@ -116,9 +116,9 @@ class SinCosPreProcess(
     val out   = new SinCosPreProcessOutput(spec)
   })
 
-  val xsgn = enable(io.en, io.x.sgn)
-  val xex  = enable(io.en, io.x.ex )
-  val xman = enable(io.en, io.x.man)
+  val xsgn = enableIf(io.en, io.x.sgn)
+  val xex  = enableIf(io.en, io.x.ex )
+  val xman = enableIf(io.en, io.x.man)
 
   // --------------------------------------------------------------------------
   // calc x/pi
@@ -255,8 +255,8 @@ class SinCosPreProcess(
 //   printf("cir:yex  = %d\n", yex)
 //   printf("cir:yman = %b\n", yman)
 
-  io.out.yex  := ShiftRegister(enable(io.en, yex ), nStage)
-  io.out.yman := ShiftRegister(enable(io.en, yman), nStage)
+  io.out.yex  := ShiftRegister(enableIf(io.en, yex ), nStage)
+  io.out.yman := ShiftRegister(enableIf(io.en, yman), nStage)
 
   val zone = (yex === (exBias-1).U) && yman === 0.U
   io.out.zone := ShiftRegister(io.en & zone, nStage)
@@ -268,11 +268,11 @@ class SinCosPreProcess(
 
   val yaligned = Cat(1.U(1.W), yman) >> ((exBias-1).U(exW.W) - yex)
 
-  val adr  = enable(io.en, yaligned(manW-1, manW-adrW))
+  val adr  = enableIf(io.en, yaligned(manW-1, manW-adrW))
   io.adr   := ShiftRegister(adr,  nStage)
 
   if(order != 0) {
-    val dx   = enable(io.en, Cat(~yaligned(manW-adrW-1), yaligned(manW-adrW-2,0)))
+    val dx   = enableIf(io.en, Cat(~yaligned(manW-adrW-1), yaligned(manW-adrW-2,0)))
     io.dx.get := ShiftRegister(dx, nStage)
   }
 }
@@ -316,7 +316,7 @@ class SinCosTableCoeff(
     assert(maxCbit(0) == fracW)
     assert(coeff(0).getWidth == fracW)
 
-    io.cs.cs(0) := enable(io.en, coeff(0))
+    io.cs.cs(0) := enableIf(io.en, coeff(0))
 
   } else {
 
@@ -339,7 +339,7 @@ class SinCosTableCoeff(
         coeffs.cs(i) := coeff(i)
       }
     }
-    io.cs := enable(io.en, coeffs)
+    io.cs := enableIf(io.en, coeffs)
   }
 }
 
@@ -446,5 +446,5 @@ class SinCosPostProcess(
   val z = Cat(zsgn, zex, zman)
   assert(z.getWidth == spec.W)
 
-  io.z := ShiftRegister(enable(io.en, z), nStage)
+  io.z := ShiftRegister(enableIf(io.en, z), nStage)
 }

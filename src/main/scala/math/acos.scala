@@ -86,9 +86,9 @@ class ACosPhase1PreProcess(
     val special = Output(new ACosFlags())
   })
 
-  val xsgn = enable(io.en, io.x.sgn)
-  val xex  = enable(io.en, io.x.ex )
-  val xman = enable(io.en, io.x.man)
+  val xsgn = enableIf(io.en, io.x.sgn)
+  val xex  = enableIf(io.en, io.x.ex )
+  val xman = enableIf(io.en, io.x.man)
 
   val xLargerThan1 = xex >= exBias.U
 
@@ -125,11 +125,11 @@ class ACosPhase1PreProcess(
   // -------------------------------------------------------------------------
   // do the same thing as sqrt
 
-  val adr = enable(io.en, Cat(xConvertedEx(0), xConvertedMan(manW-1, dxW)))
+  val adr = enableIf(io.en, Cat(xConvertedEx(0), xConvertedMan(manW-1, dxW)))
   io.adr := ShiftRegister(adr, nStage)
 
   if(order != 0) {
-    val dx = enable(io.en, Cat(~xConvertedMan(dxW-1), xConvertedMan(dxW-2, 0)))
+    val dx = enableIf(io.en, Cat(~xConvertedMan(dxW-1), xConvertedMan(dxW-2, 0)))
     io.dx.get := ShiftRegister(dx, nStage)
   }
 
@@ -137,12 +137,12 @@ class ACosPhase1PreProcess(
 //   printf("cir: xConvertedMan = %b\n", xConvertedMan)
 
   // pass 1-|x| to sqrtOtherPath
-  io.y.sgn  := ShiftRegister(enable(io.en, 0.U(1.W)),       nStage)
-  io.y.ex   := ShiftRegister(enable(io.en, xConvertedEx),  nStage)
-  io.y.man  := ShiftRegister(enable(io.en, xConvertedMan), nStage)
-  io.y.zero := ShiftRegister(enable(io.en, xLargerThan1),   nStage)
-  io.y.inf  := ShiftRegister(enable(io.en, io.x.inf),       nStage)
-  io.y.nan  := ShiftRegister(enable(io.en, io.x.nan),       nStage)
+  io.y.sgn  := ShiftRegister(enableIf(io.en, 0.U(1.W)),       nStage)
+  io.y.ex   := ShiftRegister(enableIf(io.en, xConvertedEx),  nStage)
+  io.y.man  := ShiftRegister(enableIf(io.en, xConvertedMan), nStage)
+  io.y.zero := ShiftRegister(enableIf(io.en, xLargerThan1),   nStage)
+  io.y.inf  := ShiftRegister(enableIf(io.en, io.x.inf),       nStage)
+  io.y.nan  := ShiftRegister(enableIf(io.en, io.x.nan),       nStage)
 
   // -------------------------------------------------------------------------
   // check if special value
@@ -153,8 +153,8 @@ class ACosPhase1PreProcess(
                     Mux(xZero,        ACosSpecialValue.xZero,
                     Mux(xLargerThan1, ACosSpecialValue.xOne,
                                       ACosSpecialValue.xNormal)))
-  io.special.special := ShiftRegister(enable(io.en, specialFlag), nStage)
-  io.special.xsgn := ShiftRegister(enable(io.en, xsgn), nStage)
+  io.special.special := ShiftRegister(enableIf(io.en, specialFlag), nStage)
+  io.special.xsgn := ShiftRegister(enableIf(io.en, xsgn), nStage)
 }
 
 // ============================================================================
@@ -183,17 +183,17 @@ class ACosPhase2PreProcess(
     val dx  = if(order != 0) { Some(Output(UInt(dxW.W))) } else { None }
   })
 
-  val xex  = enable(io.en, io.x.ex )
-  val xman = enable(io.en, io.x.man)
+  val xex  = enableIf(io.en, io.x.ex )
+  val xman = enableIf(io.en, io.x.man)
 
   val xShift = exBias.U - xex
   val xAligned = Cat(1.U(1.W), xman) >> xShift
 
-  val adr = enable(io.en, xAligned(manW-1, dxW))
+  val adr = enableIf(io.en, xAligned(manW-1, dxW))
   io.adr := ShiftRegister(adr, nStage)
 
   if(order != 0) {
-    val dx = enable(io.en, Cat(~xAligned(dxW-1), xAligned(dxW-2, 0)))
+    val dx = enableIf(io.en, Cat(~xAligned(dxW-1), xAligned(dxW-2, 0)))
     io.dx.get := ShiftRegister(dx, nStage)
   }
 }
@@ -234,7 +234,7 @@ class ACosTableCoeff(
     assert(maxCbit(0) == fracW)
     assert(coeff(0).getWidth == fracW)
 
-    io.cs.cs(0) := enable(io.en, coeff(0))
+    io.cs.cs(0) := enableIf(io.en, coeff(0))
 
   } else {
     val tableI = ACosPhase2Sim.acosTableGeneration( order, adrW, manW, fracW )
@@ -256,7 +256,7 @@ class ACosTableCoeff(
         coeffs.cs(i) := coeff(i)
       }
     }
-    io.cs := enable(io.en, coeffs)
+    io.cs := enableIf(io.en, coeffs)
   }
 }
 object ACosTableCoeff {
@@ -375,6 +375,6 @@ class ACosPostProcess(
              Mux(xOne && io.flags.xsgn === 1.U, realPi.ex.U(exW.W),
              Mux(io.flags.xsgn === 0.U, zEx0, zNegEx0)))))
 
-  val z = enable(io.en, Cat(0.U(1.W), zex, zman))
+  val z = enableIf(io.en, Cat(0.U(1.W), zex, zman))
   io.z := ShiftRegister(z, nStage)
 }

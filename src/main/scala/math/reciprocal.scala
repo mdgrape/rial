@@ -54,11 +54,11 @@ class ReciprocalPreProcess(
   })
 
   // invert x to make all the polynomial coefficients positive
-  val adr  = enable(io.en, ~io.x.man(manW-1, dxW))
+  val adr  = enableIf(io.en, ~io.x.man(manW-1, dxW))
   io.adr := ShiftRegister(adr, nStage)
 
   if(order != 0) {
-    val dx   = enable(io.en, Cat(io.x.man(dxW-1), ~io.x.man(dxW-2, 0)))
+    val dx   = enableIf(io.en, Cat(io.x.man(dxW-1), ~io.x.man(dxW-2, 0)))
     io.dx.get := ShiftRegister(dx, nStage)
   }
 }
@@ -107,7 +107,7 @@ class ReciprocalTableCoeff(
 
     assert(maxCbit(0) == fracW)
 
-    io.cs.cs(0) := enable(io.en, tbl(~io.adr))
+    io.cs.cs(0) := enableIf(io.en, tbl(~io.adr))
 
   } else {
     val tableI = ReciprocalSim.reciprocalTableGeneration( order, adrW, manW, fracW )
@@ -128,7 +128,7 @@ class ReciprocalTableCoeff(
         coeffs.cs(i) := coeff(i)
       }
     }
-    io.cs := enable(io.en, coeffs)
+    io.cs := enableIf(io.en, coeffs)
   }
 }
 object ReciprocalTableCoeff {
@@ -282,7 +282,7 @@ class ReciprocalPostProcess(
   }
 
   val zman = Mux(zIsNonTable, zmanNonTable, zmanRounded)
-  val z = enable(io.en, Cat(zsgn, zex, zman))
+  val z = enableIf(io.en, Cat(zsgn, zex, zman))
 
   io.z   := ShiftRegister(z, nStage)
 }

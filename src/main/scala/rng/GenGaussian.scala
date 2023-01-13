@@ -110,7 +110,7 @@ class BoxMullerSinCos2PiPreProc(
     val out   = new BoxMullerSinCos2PiPreProcessOutput(rndW, spec)
   })
 
-  val rnd = enable(io.en, io.rnd)
+  val rnd = enableIf(io.en, io.rnd)
 
   // detect special values
   val xExactQuot = rnd(rndW-3, 0) === 0.U
@@ -148,7 +148,7 @@ class BoxMullerSinCos2PiPreProc(
 
   if(order != 0) {
     val dx = Cat(~x(x.getWidth-adrW-1), x(x.getWidth-adrW-2, x.getWidth-adrW-dxW))
-    io.dx.get := ShiftRegister(enable(io.en, dx), nStage)
+    io.dx.get := ShiftRegister(enableIf(io.en, dx), nStage)
   }
   io.out.zsgn := ShiftRegister(zsgn, nStage)
   io.out.zone := ShiftRegister(zone, nStage)
@@ -176,7 +176,7 @@ class BoxMullerSinCos2PiPreProc(
     }
   }
 
-  io.cs := ShiftRegister(enable(io.en, coeffs), nStage)
+  io.cs := ShiftRegister(enableIf(io.en, coeffs), nStage)
 
   // --------------------------------------------------------------------------
 
@@ -230,7 +230,7 @@ class BoxMullerSinCos2PiPostProc(
   val z = Cat(zsgn, zex, zman)
   assert(z.getWidth == spec.W)
 
-  io.z := ShiftRegister(enable(io.en, z), nStage)
+  io.z := ShiftRegister(enableIf(io.en, z), nStage)
 }
 
 
@@ -403,11 +403,11 @@ class BoxMullerLogPreProc(
         coeffs.cs(i) := coeff(i)
       }
     }
-    io.cs := ShiftRegister(enable(io.en, coeffs), nStage)
+    io.cs := ShiftRegister(enableIf(io.en, coeffs), nStage)
 
     if(order != 0) {
       val dx = Cat(~x(xW-adrW-1), x(xW-adrW-2, xW-adrW-dxW))
-      io.dx.get := ShiftRegister(enable(io.en, dx), nStage)
+      io.dx.get := ShiftRegister(enableIf(io.en, dx), nStage)
     }
 
   }.otherwise {
@@ -415,7 +415,7 @@ class BoxMullerLogPreProc(
 
     assert(!zzero) // if zzero, i.e. io.x === 0.U, useLn == true.
 
-    val negx  = enable(io.en, ~io.x + 1.U)  // 1 - x
+    val negx  = enableIf(io.en, ~io.x + 1.U)  // 1 - x
 
     val nxShift   = PriorityEncoder(Reverse(negx))
     val nxShifted = (negx << nxShift)(rndW-1, 0)
@@ -449,11 +449,11 @@ class BoxMullerLogPreProc(
         coeffs.cs(i) := coeff(i)
       }
     }
-    io.cs := ShiftRegister(enable(io.en, coeffs), nStage)
+    io.cs := ShiftRegister(enableIf(io.en, coeffs), nStage)
 
     if(order != 0) {
       val dx = Cat(~xman(xmanW-adrW-1), xman(xmanW-adrW-2, xmanW-adrW-dxW))
-      io.dx.get := ShiftRegister(enable(io.en, dx), nStage)
+      io.dx.get := ShiftRegister(enableIf(io.en, dx), nStage)
     }
   }
 }
@@ -512,7 +512,7 @@ class BoxMullerLogPostProc(
   val z = Cat(zsgn, zex, zman)
   assert(z.getWidth == spec.W)
 
-  io.z := ShiftRegister(enable(io.en, z), nStage)
+  io.z := ShiftRegister(enableIf(io.en, z), nStage)
 }
 
 // ============================================================================
@@ -588,11 +588,11 @@ class BoxMullerSqrtPreProc(
       coeffs.cs(i) := coeff(i)
     }
   }
-  io.cs := ShiftRegister(enable(io.en, coeffs), nStage)
+  io.cs := ShiftRegister(enableIf(io.en, coeffs), nStage)
 
   if(order != 0) {
     val dx = Cat(~io.x(manW-adrW-1), io.x(manW-adrW-2, manW-adrW-dxW))
-    io.dx.get := ShiftRegister(enable(io.en, dx), nStage)
+    io.dx.get := ShiftRegister(enableIf(io.en, dx), nStage)
   }
 }
 
@@ -636,7 +636,7 @@ class BoxMullerSqrtPostProc(
   }
 
   val z = Mux(zzero, 0.U(spec.W.W), Cat(zsgn, zex, zman))
-  io.z := ShiftRegister(enable(io.en, z), nStage)
+  io.z := ShiftRegister(enableIf(io.en, z), nStage)
 }
 
 // ============================================================================
@@ -784,7 +784,7 @@ class BoxMullerLogPostProcMulArgs(
 
   val log2x0     = Cat(xexLog2, zFrac)
   val log2xShift = PriorityEncoder(Reverse(xexLog2))
-  val log2x      = enable(io.en, (log2x0 << log2xShift)(log2x0.getWidth-1, 0))
+  val log2x      = enableIf(io.en, (log2x0 << log2xShift)(log2x0.getWidth-1, 0))
   assert(log2x(log2x0.getWidth-1) === 1.U || useLn || io.en =/= 1.U)
 
   val ln2 = new RealGeneric(spec, log(2.0))
@@ -860,7 +860,7 @@ class BoxMullerPostProcMultiplier(
     val exInc = Output(UInt(1.W))
   })
 
-  val zProd = enable(io.en, io.lhs) * enable(io.en, io.rhs)
+  val zProd = enableIf(io.en, io.lhs) * enableIf(io.en, io.rhs)
   val zProdW = lhsW + rhsW
 
   val zMoreThan2 = zProd(zProdW - 1)
@@ -1053,7 +1053,7 @@ class BoxMuller(
   val a = Mux(pc === 2.U, sinResult,
           Mux(pc === 3.U, cosResult,
                           0.U))
-  val b = enable(pc(1), sqrtResult)
+  val b = enableIf(pc(1), sqrtResult)
 
   val amanW1 = Cat(1.U(1.W), a(manW-1, 0))
   val bmanW1 = Cat(1.U(1.W), b(manW-1, 0))

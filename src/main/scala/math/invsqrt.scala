@@ -75,7 +75,7 @@ class InvSqrtTableCoeff(
     )
     assert(maxCbit(0) == fracW)
 
-    io.cs.cs(0) := enable(io.en, tbl(io.adr(adrW, 0)))
+    io.cs.cs(0) := enableIf(io.en, tbl(io.adr(adrW, 0)))
 
   } else {
     val tableI = InvSqrtSim.invsqrtTableGeneration( order, adrW, manW, fracW )
@@ -96,7 +96,7 @@ class InvSqrtTableCoeff(
         coeffs.cs(i) := coeff(i)
       }
     }
-    io.cs := enable(io.en, coeffs)
+    io.cs := enableIf(io.en, coeffs)
   }
 }
 object InvSqrtTableCoeff {
@@ -245,7 +245,7 @@ class InvSqrtPostProcess(
   }
 
   val zman = Mux(zIsNonTable, zmanNonTable, zmanRounded)
-  val z = enable(io.en, Cat(zsgn, zex, zman))
+  val z = enableIf(io.en, Cat(zsgn, zex, zman))
 
   io.z   := ShiftRegister(z, nStage)
 }

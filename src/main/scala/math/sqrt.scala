@@ -61,11 +61,11 @@ class SqrtPreProcess(
   })
 
   // use the LSB of x.ex to distinguish 1~2 and 2~4
-  val adr  = enable(io.en, Cat(io.x.ex(0), io.x.man(manW-1, dxW)))
+  val adr  = enableIf(io.en, Cat(io.x.ex(0), io.x.man(manW-1, dxW)))
   io.adr := ShiftRegister(adr, nStage)
 
   if(order != 0) {
-    val dx   = enable(io.en, Cat(~io.x.man(dxW-1), io.x.man(dxW-2, 0)))
+    val dx   = enableIf(io.en, Cat(~io.x.man(dxW-1), io.x.man(dxW-2, 0)))
     io.dx.get := ShiftRegister(dx, nStage)
   }
 }
@@ -115,7 +115,7 @@ class SqrtTableCoeff(
     )
     assert(maxCbit(0) == fracW)
 
-    io.cs.cs(0) := enable(io.en, tbl(io.adr(adrW, 0)))
+    io.cs.cs(0) := enableIf(io.en, tbl(io.adr(adrW, 0)))
 
   } else {
     val tableI = SqrtSim.sqrtTableGeneration( order, adrW, manW, fracW )
@@ -137,7 +137,7 @@ class SqrtTableCoeff(
         coeffs.cs(i) := coeff(i)
       }
     }
-    io.cs := enable(io.en, coeffs)
+    io.cs := enableIf(io.en, coeffs)
   }
 }
 object SqrtTableCoeff {
@@ -284,7 +284,7 @@ class SqrtPostProcess(
   }
 
   val zman = Mux(zIsNonTable, zmanNonTable, zmanRounded)
-  val z = enable(io.en, Cat(zsgn, zex, zman))
+  val z = enableIf(io.en, Cat(zsgn, zex, zman))
 
   io.z := ShiftRegister(z, nStage)
 }

@@ -57,7 +57,7 @@ object RialChiselUtil {
   def maskU (n: Int) : UInt = Fill(n, 1.U(1.W))
 
   // if en === 0, returns 0.U.asTypeOf(x). otherwise, returns x.
-  def enable[T <: Data](en: UInt, x: T): T = {
+  def enableIf[T <: Data](en: UInt, x: T): T = {
     assert(en.getWidth == 1)
     (x.asUInt & Fill(x.asUInt.getWidth, en)).asTypeOf(x)
   }

@@ -292,7 +292,7 @@ class PreProcMultiplier(
 //   printf("cir: lhs(frac) = %b\n", io.lhs)
 //   printf("cir: rhs(man)  = %b\n", io.rhs)
 
-  val prod = enable(io.en, io.lhs) * enable(io.en, io.rhs)
+  val prod = enableIf(io.en, io.lhs) * enableIf(io.en, io.rhs)
   io.out := ShiftRegister(prod, nStage)
 }
 
@@ -335,7 +335,7 @@ class PostProcMultiplier(
 //   printf("cir: lhs(frac) = %b\n", io.lhs)
 //   printf("cir: rhs(man)  = %b\n", io.rhs)
 
-  val prod      = enable(io.en, io.lhs) * enable(io.en, io.rhs)
+  val prod      = enableIf(io.en, io.lhs) * enableIf(io.en, io.rhs)
   val moreThan2 = prod((manW+1)+(fracW+1)-1)
 
   val roundBits = fracW
@@ -675,8 +675,8 @@ class MathFunctions(
 
     val isACos2 = selCPGapReg === fncfg.signal(ACosPhase2)
     postProcMultEn(ACosPhase2)  := isACos2
-    postProcMultLhs(ACosPhase2) := enable(isACos2, Cat(1.U(1.W), polynomialResultCPGapReg))
-    postProcMultRhs(ACosPhase2) := enable(isACos2, Cat(1.U(1.W), xdecCPGapReg.man))
+    postProcMultLhs(ACosPhase2) := enableIf(isACos2, Cat(1.U(1.W), polynomialResultCPGapReg))
+    postProcMultRhs(ACosPhase2) := enableIf(isACos2, Cat(1.U(1.W), xdecCPGapReg.man))
 
     acosPost.io.en     := ShiftRegister(selCPGapReg === fncfg.signal(ACosPhase2), nPostMulStage)
     acosPost.io.flags  := acosFlagReg
@@ -1057,8 +1057,8 @@ class MathFunctions(
 
     val isATan22 = selCPGapReg === fncfg.signal(ATan2Phase2)
     postProcMultEn(ATan2Phase2)  := isATan22
-    postProcMultLhs(ATan2Phase2) := enable(isATan22, Cat(polynomialResultCPGapReg, 0.U(1.W)))
-    postProcMultRhs(ATan2Phase2) := enable(isATan22, Cat(1.U(1.W), xdecCPGapReg.man))
+    postProcMultLhs(ATan2Phase2) := enableIf(isATan22, Cat(polynomialResultCPGapReg, 0.U(1.W)))
+    postProcMultRhs(ATan2Phase2) := enableIf(isATan22, Cat(1.U(1.W), xdecCPGapReg.man))
 
     atan2Phase2Post.io.en     := ShiftRegister(selCPGapReg === fncfg.signal(ATan2Phase2), nPostMulStage)
     atan2Phase2Post.io.zother := ShiftRegister(atan2Phase2Other.io.zother, cpGap + nPostMulStage)
@@ -1148,14 +1148,14 @@ class MathFunctions(
     if(fncfg.has(Sin)) {
       val preProcIsSin = io.sel === fncfg.signal(Sin)
       preProcMultEn(Sin)  := preProcIsSin
-      preProcMultLhs(Sin) := enable(preProcIsSin, SinCosPreMulArgs.lhs(spec, preProcMultiplier.get.lhsW))
-      preProcMultRhs(Sin) := enable(preProcIsSin, Cat(1.U(1.W), xdecomp.io.decomp.man))
+      preProcMultLhs(Sin) := enableIf(preProcIsSin, SinCosPreMulArgs.lhs(spec, preProcMultiplier.get.lhsW))
+      preProcMultRhs(Sin) := enableIf(preProcIsSin, Cat(1.U(1.W), xdecomp.io.decomp.man))
     }
     if(fncfg.has(Cos)) {
       val preProcIsCos = io.sel === fncfg.signal(Cos)
       preProcMultEn(Cos)  := preProcIsCos
-      preProcMultLhs(Cos) := enable(preProcIsCos, SinCosPreMulArgs.lhs(spec, preProcMultiplier.get.lhsW))
-      preProcMultRhs(Cos) := enable(preProcIsCos, Cat(1.U(1.W), xdecomp.io.decomp.man))
+      preProcMultLhs(Cos) := enableIf(preProcIsCos, SinCosPreMulArgs.lhs(spec, preProcMultiplier.get.lhsW))
+      preProcMultRhs(Cos) := enableIf(preProcIsCos, Cat(1.U(1.W), xdecomp.io.decomp.man))
     }
 
     if(fncfg.has(Sin) && fncfg.has(Cos)) {
@@ -1182,13 +1182,13 @@ class MathFunctions(
 
       val isSin = (selCPGapReg === fncfg.signal(Sin))
       postProcMultEn(Sin)  := isSin
-      postProcMultLhs(Sin) := enable(isSin, Cat(1.U(1.W), polynomialResultCPGapReg))
-      postProcMultRhs(Sin) := enable(isSin, Cat(1.U(1.W), preOut.yman))
+      postProcMultLhs(Sin) := enableIf(isSin, Cat(1.U(1.W), polynomialResultCPGapReg))
+      postProcMultRhs(Sin) := enableIf(isSin, Cat(1.U(1.W), preOut.yman))
 
       val isCos = (selCPGapReg === fncfg.signal(Cos))
       postProcMultEn(Cos)  := isCos
-      postProcMultLhs(Cos) := enable(isCos, Cat(1.U(1.W), polynomialResultCPGapReg))
-      postProcMultRhs(Cos) := enable(isCos, Cat(1.U(1.W), preOut.yman))
+      postProcMultLhs(Cos) := enableIf(isCos, Cat(1.U(1.W), polynomialResultCPGapReg))
+      postProcMultRhs(Cos) := enableIf(isCos, Cat(1.U(1.W), preOut.yman))
 
       sincosPost.io.en     := ShiftRegister(selCPGapReg === fncfg.signal(Sin) ||
                                             selCPGapReg === fncfg.signal(Cos), nPostMulStage)
@@ -1228,8 +1228,8 @@ class MathFunctions(
 
       val isSin = (selCPGapReg === fncfg.signal(Sin))
       postProcMultEn(Sin)  := isSin
-      postProcMultLhs(Sin) := enable(isSin, Cat(1.U(1.W), polynomialResultCPGapReg))
-      postProcMultRhs(Sin) := enable(isSin, Cat(1.U(1.W), preOut.yman))
+      postProcMultLhs(Sin) := enableIf(isSin, Cat(1.U(1.W), polynomialResultCPGapReg))
+      postProcMultRhs(Sin) := enableIf(isSin, Cat(1.U(1.W), preOut.yman))
 
       sincosPost.io.en     := ShiftRegister(selCPGapReg === fncfg.signal(Sin), nPostMulStage)
       sincosPost.io.pre    := ShiftRegister(preOut, nPostMulStage)
@@ -1267,8 +1267,8 @@ class MathFunctions(
 
       val isCos = (selCPGapReg === fncfg.signal(Cos))
       postProcMultEn(Cos)  := isCos
-      postProcMultLhs(Cos) := enable(isCos, Cat(1.U(1.W), polynomialResultCPGapReg))
-      postProcMultRhs(Cos) := enable(isCos, Cat(1.U(1.W), preOut.yman))
+      postProcMultLhs(Cos) := enableIf(isCos, Cat(1.U(1.W), polynomialResultCPGapReg))
+      postProcMultRhs(Cos) := enableIf(isCos, Cat(1.U(1.W), preOut.yman))
 
       sincosPost.io.en     := ShiftRegister(selCPGapReg === fncfg.signal(Cos), nPostMulStage)
       sincosPost.io.pre    := ShiftRegister(preOut, nPostMulStage)
@@ -1294,8 +1294,8 @@ class MathFunctions(
 
     val preProcIsExp = io.sel === fncfg.signal(Exp)
     preProcMultEn(Exp)  := preProcIsExp
-    preProcMultLhs(Exp) := enable(preProcIsExp, ExpPreMulArgs.lhs(spec, preProcMultiplier.get.lhsW))
-    preProcMultRhs(Exp) := enable(preProcIsExp, Cat(1.U(1.W), xdecomp.io.decomp.man))
+    preProcMultLhs(Exp) := enableIf(preProcIsExp, ExpPreMulArgs.lhs(spec, preProcMultiplier.get.lhsW))
+    preProcMultRhs(Exp) := enableIf(preProcIsExp, Cat(1.U(1.W), xdecomp.io.decomp.man))
 
 //     printf("cir: lhs              = %b\n", ExpPreMulArgs.lhs(spec, preProcMultiplier.get.lhsW))
 //     printf("cir: rhs              = %b\n", Cat(1.U(1.W), xdecomp.io.decomp.man))
@@ -1500,8 +1500,8 @@ class MathFunctions(
     val preProcMultLhsV = ScaleMixtureGaussianPreMulArgs.lhs(sgmA, sgmB, spec, preProcMultiplier.get.lhsW)
     val preProcMultRhsV = Cat(1.U(1.W), xdecomp.io.decomp.man)
     preProcMultEn(ScaleMixtureGaussian)  := preProcIsSmg
-    preProcMultLhs(ScaleMixtureGaussian) := enable(preProcIsSmg, preProcMultLhsV)
-    preProcMultRhs(ScaleMixtureGaussian) := enable(preProcIsSmg, preProcMultRhsV)
+    preProcMultLhs(ScaleMixtureGaussian) := enableIf(preProcIsSmg, preProcMultLhsV)
+    preProcMultRhs(ScaleMixtureGaussian) := enableIf(preProcIsSmg, preProcMultRhsV)
 
     smgPre.io.en := (io.sel === fncfg.signal(ScaleMixtureGaussian))
     smgPre.io.x  := xdecomp.io.decomp

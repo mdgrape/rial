@@ -62,7 +62,7 @@ class ScaleMixtureGaussianPreProcess(
   assert(xTableMaxDigit <= spec.exMax)
 
   val xTableShift = (xTableMaxDigit + exBias).U(exW.W) - io.x.ex
-  val useTable = enable(io.en, (xTableMaxDigit + exBias).U(exW.W) > io.x.ex)
+  val useTable = enableIf(io.en, (xTableMaxDigit + exBias).U(exW.W) > io.x.ex)
   io.useTable := ShiftRegister(useTable, nStage)
 
   val xTableMan = Cat(1.U(1.W), io.x.man) >> xTableShift
@@ -70,11 +70,11 @@ class ScaleMixtureGaussianPreProcess(
 //   printf("cir: PreProc: xTableMan = %b\n", xTableMan)
 //   printf("cir: PreProc: useTable  = %b\n", useTable)
 
-  val adr  = enable(io.en, xTableMan(manW-1, dxW))
+  val adr  = enableIf(io.en, xTableMan(manW-1, dxW))
   io.adr := ShiftRegister(adr, nStage)
 
   if(order != 0) {
-    val dx   = enable(io.en, Cat(~xTableMan(manW-adrW-1), xTableMan(manW-adrW-2,0)))
+    val dx   = enableIf(io.en, Cat(~xTableMan(manW-adrW-1), xTableMan(manW-adrW-2,0)))
     io.dx.get := ShiftRegister(dx, nStage)
 //     printf("cir: PreProc: adr = %b, dx = %d\n", adr, dx)
   }
@@ -120,7 +120,7 @@ class ScaleMixtureGaussianTableCoeff(
     val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode = */1)
     val coeff = getSlices(coeffTable(adr), coeffWidth)
 
-    io.cs.cs(0) := enable(io.en, coeff(0))
+    io.cs.cs(0) := enableIf(io.en, coeff(0))
 
   } else {
 
@@ -143,7 +143,7 @@ class ScaleMixtureGaussianTableCoeff(
         coeffs.cs(i) := coeff(i)
       }
     }
-    io.cs := enable(io.en, coeffs)
+    io.cs := enableIf(io.en, coeffs)
   }
 }
 
@@ -352,8 +352,8 @@ class ScaleMixtureGaussianPostMulArgs(
 //   printf("cir: z0man = %b\n", z0man)
 //   printf("cir: z0ex = %d\n", z0ex)
 
-  io.lhs := enable(io.en, z0man)                  // = polynomial + 1.0
-  io.rhs := enable(io.en, Cat(1.U(1.W), io.xman)) // = x / sgmA^2
+  io.lhs := enableIf(io.en, z0man)                  // = polynomial + 1.0
+  io.rhs := enableIf(io.en, Cat(1.U(1.W), io.xman)) // = x / sgmA^2
 
   io.z0ex := z0ex
 }
@@ -405,7 +405,7 @@ class ScaleMixtureGaussianPostProcess(
   val zman = Mux(zex === 0.U || zex === (spec.exMax + 1 + exBias).U, 0.U, io.zman0)
 
   val z0 = Cat(zsgn, zex, zman)
-  val z = enable(io.en, z0)
+  val z = enableIf(io.en, z0)
 
   io.z := ShiftRegister(z, nStage)
 }

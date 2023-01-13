@@ -81,12 +81,12 @@ class SoftPlusPreProcess(
 
 //   printf("softplus   : xScaled = %b\n", xScaled)
 
-  val adr  = enable(io.en, xScaled(manW-1, dxW))
+  val adr  = enableIf(io.en, xScaled(manW-1, dxW))
   io.adr := ShiftRegister(adr, nStage)
 //   printf("softplus   : adr = %b\n", adr)
 
   if(order != 0) {
-    val dx   = enable(io.en, Cat(~xScaled(dxW-1), xScaled(dxW-2, 0)))
+    val dx   = enableIf(io.en, Cat(~xScaled(dxW-1), xScaled(dxW-2, 0)))
     io.dx.get := ShiftRegister(dx, nStage)
 //     printf("softplus   : dx = %b\n", dx)
   }
@@ -173,7 +173,7 @@ class SoftPlusTableCoeff(
     val coeffNeg = tblNeg(io.adr)
     val coeff = Mux(io.xsgn === 0.U, coeffPos, coeffNeg)
 
-    io.cs.cs(0) := enable(io.en, coeff)
+    io.cs.cs(0) := enableIf(io.en, coeff)
 
   } else {
 
@@ -219,7 +219,7 @@ class SoftPlusTableCoeff(
       coeffs.cs(i) := Mux(io.xsgn === 0.U, ciPos, ciNeg)
 //       printf(f"softplus   : coeff(${i}) = %%d(%%b)\n", coeffs.cs(i).asSInt,  coeffs.cs(i))
     }
-    io.cs := enable(io.en, coeffs)
+    io.cs := enableIf(io.en, coeffs)
   }
 }
 
@@ -330,7 +330,7 @@ class SoftPlusPostProcess(
 //   printf("softplus   : zman = %b\n", zman)
 
   val rangeMaxLog2 = SoftPlusSim.tableRangeMaxLog2(manW)
-  val zex = exBias.U(exW.W) - zShift + enable(xsgn === 0.U, (rangeMaxLog2 + 1).U)
+  val zex = exBias.U(exW.W) - zShift + enableIf(xsgn === 0.U, (rangeMaxLog2 + 1).U)
 
   val z0 =
     Mux(znan || zinf, Cat(zsgn, Fill(exW, 1.U(1.W)), znan.asUInt, 0.U((manW-1).W)),
@@ -338,6 +338,6 @@ class SoftPlusPostProcess(
     Mux(xlarge,       Cat(0.U(1.W), io.x.ex, io.x.man),
     /* default = */   Cat(zsgn, zex, zman))))
 
-  val z = enable(io.en, z0)
+  val z = enableIf(io.en, z0)
   io.z := ShiftRegister(z, nStage)
 }

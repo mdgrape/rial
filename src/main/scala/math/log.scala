@@ -73,12 +73,12 @@ class LogPreProcess(
   val exAdr = Mux(io.x.ex === exBias.U, 2.U, (io.x.ex === (exBias - 1).U).asUInt)
 
   val adr0  = Cat(exAdr, io.x.man(manW-1, dxW))
-  val adr   = enable(io.en, adr0)
+  val adr   = enableIf(io.en, adr0)
   io.adr := ShiftRegister(adr, nStage)
 
   if(order != 0) {
     val dx0 = Cat(~io.x.man(dxW-1), io.x.man(dxW-2, 0))
-    val dx  = enable(io.en, dx0)
+    val dx  = enableIf(io.en, dx0)
     io.dx.get := ShiftRegister(dx, nStage)
   }
 }
@@ -169,7 +169,7 @@ class LogTableCoeff(
     val coeff = Mux(exadr === 0.U, coeffNormal,
                 Mux(exadr === 1.U, coeffSmallNeg, coeffSmallPos))
 
-    io.cs.cs(0) := enable(io.en, coeff)
+    io.cs.cs(0) := enableIf(io.en, coeff)
 
   } else {
 
@@ -243,7 +243,7 @@ class LogTableCoeff(
                  Mux(exadr === 1.U, coeffsSmallNeg.asUInt, coeffsSmallPos.asUInt)
                      ).asTypeOf(new TableCoeffInput(maxCbit))
 
-    io.cs := enable(io.en, coeffs)
+    io.cs := enableIf(io.en, coeffs)
   }
 }
 
@@ -482,8 +482,8 @@ class LogMultArgs(
                Mux(x1_0to2_0, Cat(io.zres, 0.U(1.W)), // case 3
                               zfullShifted(exW+fracW-1, exW-1))) // case 1
 
-  io.lhs := enable(io.en, ymanW1)
-  io.rhs := enable(io.en, Cat(1.U(1.W), io.zother.constant))
+  io.lhs := enableIf(io.en, ymanW1)
+  io.rhs := enableIf(io.en, Cat(1.U(1.W), io.zother.constant))
 }
 
 
@@ -529,6 +529,6 @@ class LogPostProcess(
   val z0 = Cat(Mux(znan, 0.U(1.W), io.zother.zsgn), zex, zman)
   assert(z0.getWidth == spec.W)
 
-  val z = enable(io.en, z0)
+  val z = enableIf(io.en, z0)
   io.z := ShiftRegister(z, nStage)
 }

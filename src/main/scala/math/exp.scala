@@ -97,9 +97,9 @@ class ExpPreProcess(
     val xexd = Output(UInt(1.W))
   })
 
-  val xsgn  = enable(io.en, io.x.sgn)
-  val xex0  = enable(io.en, io.x.ex )
-  val xman0 = enable(io.en, io.x.man)
+  val xsgn  = enableIf(io.en, io.x.sgn)
+  val xex0  = enableIf(io.en, io.x.ex )
+  val xman0 = enableIf(io.en, io.x.man)
 
   val log2 = (a:Double) => {log(a) / log(2.0)}
   val xExOvfLimit = math.ceil(log2((maskL(exW)-exBias).toDouble)).toLong // log2(255-127 = 128) = 7
@@ -144,7 +144,7 @@ class ExpPreProcess(
 
   assert(xprodMoreThan2AfterRounded +& xprodMoreThan2 =/= 2.U)
 
-  val xexd0 = enable(io.en, xprodMoreThan2AfterRounded + xprodMoreThan2)
+  val xexd0 = enableIf(io.en, xprodMoreThan2AfterRounded + xprodMoreThan2)
   io.xexd := ShiftRegister(xexd0, nStage)
 
   val xVal = Cat(1.U(1.W), xman)
@@ -163,22 +163,22 @@ class ExpPreProcess(
 
   // if xsgn == 1, we negate xint to calculate exbias. but we later do that in
   // ExpOtherPath.
-  val xint = enable(io.en, (xint0 +& (xsgn.asBool && (xfrac0 =/= 0.U)).asUInt))
+  val xint = enableIf(io.en, (xint0 +& (xsgn.asBool && (xfrac0 =/= 0.U)).asUInt))
   io.xint := ShiftRegister(xint, nStage)
 
   val xfracNeg = (BigInt(1)<<xFracW).U((xFracW+1).W) - xfrac0
   val xfrac = Mux(xsgn === 0.U, xfrac0, xfracNeg(xFracW-1, 0))
 
-  val adr  = enable(io.en, xfrac(xFracW-1, (xFracW-1)-adrW+1))
+  val adr  = enableIf(io.en, xfrac(xFracW-1, (xFracW-1)-adrW+1))
   io.adr := ShiftRegister(adr, nStage)
 
   if(order != 0) {
-    val dx   = enable(io.en, Cat(~xfrac(xFracW-1-adrW), xfrac(xFracW-1-adrW-1, padding)))
+    val dx   = enableIf(io.en, Cat(~xfrac(xFracW-1-adrW), xfrac(xFracW-1-adrW-1, padding)))
     io.dx.get := ShiftRegister(dx, nStage)
   }
 
   if(padding != 0) {
-    val xfracLSBs  = enable(io.en, xfrac(padding-1, 0))
+    val xfracLSBs  = enableIf(io.en, xfrac(padding-1, 0))
     io.xfracLSBs.get := ShiftRegister(xfracLSBs, nStage)
   }
 }
@@ -218,7 +218,7 @@ class ExpTableCoeff(
     assert(maxCbit(0) == fracW)
     assert(coeff(0).getWidth == fracW)
 
-    io.cs.cs(0) := enable(io.en, coeff(0))
+    io.cs.cs(0) := enableIf(io.en, coeff(0))
 
   } else {
     // x -> xInt + xFrac
@@ -245,7 +245,7 @@ class ExpTableCoeff(
         coeffs.cs(i) := coeff(i)
       }
     }
-    io.cs := enable(io.en, coeffs)
+    io.cs := enableIf(io.en, coeffs)
   }
 }
 object ExpTableCoeff {
@@ -472,7 +472,7 @@ class ExpPostProcess(
   assert(zMan.getWidth == manW)
   assert(z0  .getWidth == spec.W)
 
-  val z = enable(io.en, z0)
+  val z = enableIf(io.en, z0)
 
   io.z   := ShiftRegister(z, nStage)
 }

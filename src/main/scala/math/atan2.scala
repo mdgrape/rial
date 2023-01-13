@@ -130,7 +130,7 @@ class ATan2Phase1PreProcess(
     z1piover4 -> ATan2SpecialValue.zQuarterPi,
     z3piover4 -> ATan2SpecialValue.z3QuarterPi
   ))
-  val special = enable(io.en, special0)
+  val special = enableIf(io.en, special0)
 
   assert(!io.en || !zeroed || special0 =/= ATan2SpecialValue.zNormal)
 
@@ -238,8 +238,8 @@ class ATan2Phase1MultArgs(
 
   val zFrac = Mux(io.zother.maxXYMan0, 0.U, io.zres)
 
-  io.lhs := enable(io.en, Cat(1.U(1.W), zFrac))
-  io.rhs := enable(io.en, Cat(1.U(1.W), io.minxy.man))
+  io.lhs := enableIf(io.en, Cat(1.U(1.W), zFrac))
+  io.rhs := enableIf(io.en, Cat(1.U(1.W), io.minxy.man))
 }
 
 class ATan2Phase1PostProcess(
@@ -278,7 +278,7 @@ class ATan2Phase1PostProcess(
              Mux(maxXYMan0, io.minxy.man, zman0))
 
   val z0 = Cat(zsgn, zex, zman)
-  val z = enable(io.en, z0)
+  val z = enableIf(io.en, z0)
 
   io.z := ShiftRegister(z, nStage)
 }
@@ -347,13 +347,13 @@ class ATan2Phase2PreProcess(
   assert(xFixed(manW) =/= 1.U || xFixed(manW-1, 0) === 0.U || io.en === 0.U,
          "xFixed = %b", xFixed)
 
-  val adr  = enable(io.en, xFixed(manW-1, dxW))
+  val adr  = enableIf(io.en, xFixed(manW-1, dxW))
   io.adr := ShiftRegister(adr, nStage)
 
 //   printf("cir: adr = %b\n", adr)
 
   if(order != 0) {
-    val dx   = enable(io.en, Cat(~xFixed(manW-adrW-1), xFixed(manW-adrW-2,0)))
+    val dx   = enableIf(io.en, Cat(~xFixed(manW-adrW-1), xFixed(manW-adrW-2,0)))
 //     printf("cir: dx  = %b\n", dx)
     io.dx.get := ShiftRegister(dx, nStage)
   }
@@ -397,7 +397,7 @@ class ATan2Phase2TableCoeff(
     val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode = */1)
     val coeff = getSlices(coeffTable(adr), coeffWidth)
 
-    io.cs.cs(0) := enable(io.en, coeff(0))
+    io.cs.cs(0) := enableIf(io.en, coeff(0))
 
   } else {
 
@@ -420,7 +420,7 @@ class ATan2Phase2TableCoeff(
         coeffs.cs(i) := coeff(i)
       }
     }
-    io.cs := enable(io.en, coeffs)
+    io.cs := enableIf(io.en, coeffs)
   }
 }
 
@@ -748,7 +748,7 @@ class ATan2Phase2PostProcess(
       (special === ATan2SpecialValue.zQuarterPi ) -> Cat(zSgn, quarterPi .ex.U(exW.W), quarterPi .man.toBigInt.U(manW.W)),
       (special === ATan2SpecialValue.z3QuarterPi) -> Cat(zSgn, quarter3Pi.ex.U(exW.W), quarter3Pi.man.toBigInt.U(manW.W))
     ))
-  val z = enable(io.en, z0)
+  val z = enableIf(io.en, z0)
 
   io.z := ShiftRegister(z, nStage)
 }
