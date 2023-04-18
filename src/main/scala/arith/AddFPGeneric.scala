@@ -312,7 +312,7 @@ class AddFPGeneric(
   dbgPrintf("zex0 = %d, zeroAfterAdd = %d\n", zex0, zeroAfterAdd)
 
   val zex = Mux (infOrNaN, maskU(zSpec.exW),
-    Mux (zero, 0.U(zSpec.exW), zex0(zSpec.exW-1,0)))
+    Mux (zero, 0.U(zSpec.exW.W), zex0(zSpec.exW-1,0)))
   val zman = Mux(infOrNaN || zero, xyNaN ## 0.U((zSpec.manW-1).W), zman0(zSpec.manW-1, 0))
   val zsgn = if(roundSpec == RoundSpec.truncate) {
     Mux(xyNaN, 0.U(1.W), Mux(xyBothZero, xsgn | ysgn, Mux(xyInf, xyInfSgn, zsgn0)))

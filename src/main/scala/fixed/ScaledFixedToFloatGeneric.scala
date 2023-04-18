@@ -100,14 +100,14 @@ class ScaledFixedToFloatGeneric(
   val zinf  = (zSpec.exMax.S < zExNobias) || yinf
   val zzero = yzero || xzero || zEx0 <= 0.S
 
-  val zEx = Mux(zzero,       0.U(zSpec.exW),
+  val zEx = Mux(zzero,       0.U(zSpec.exW.W),
             Mux(zinf | znan, Fill(zSpec.exW, 1.U(1.W)),
                              zEx0(zSpec.exW-1, 0)))
 
   // -------------------------------------------------------------------------
   // merge
 
-  val zMan = Mux(zzero,       0.U(zSpec.manW),
+  val zMan = Mux(zzero,       0.U(zSpec.manW.W),
              Mux(zinf | znan, Cat(znan.asUInt, Fill(zSpec.manW-1, 0.U(1.W))),
                               manRounded(zSpec.manW-1, 0)))
 

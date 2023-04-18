@@ -111,7 +111,7 @@ class MultFPGeneric(
   }
 
   val zex =
-    Mux(exZN, 0.U(zSpec.exW),
+    Mux(exZN, 0.U(zSpec.exW.W),
       Mux(exInf | znan, Fill(zSpec.exW,1.U(1.W)), exInc(zSpec.exW-1,0)) )
 
   // Final mantissa

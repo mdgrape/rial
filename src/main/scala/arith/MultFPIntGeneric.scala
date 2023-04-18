@@ -103,7 +103,7 @@ class MultFPIntGeneric(
   val exZN   = exZero || exNeg || zzero
   val exInf  = zinf || exInc(zSpec.exW-1,0).andR | exInc(exW-1, zSpec.exW).orR
 
-  val zex = Mux(exZN,         0.U(zSpec.exW),
+  val zex = Mux(exZN,         0.U(zSpec.exW.W),
             Mux(exInf | znan, Fill(zSpec.exW,1.U(1.W)),
                               exInc(zSpec.exW-1,0)))
 

@@ -174,7 +174,7 @@ class FusedMulAddFPGeneric(
   val zManAligned0  = zManInverted.asSInt >> diffExXYZ(zShiftOutW-1, 0)
   val zManAligned   = Mux(zShiftOut, 0.U,
     zManAligned0(zManAligned0.getWidth - 1, zManAligned0.getWidth - 1 - (farProdWidth-1)))
-  val prodPad       = (0.U(2.W) ## xyprod ## 0.U(farProdWidth - 2 - xyprod.getWidth))
+  val prodPad       = (0.U(2.W) ## xyprod ## 0.U((farProdWidth - 2 - xyprod.getWidth).W)) // XXX FIXME
   val sumFarProd    = prodPad + zManAligned
   val shiftSticky   = PriorityEncoder(zManInverted) < diffExXYZ(zShiftOutW-1, 0) || zShiftOut
 
@@ -459,7 +459,7 @@ class FusedMulAddFPGeneric(
   val infOrNaN = wInfAfterAdd  || xyzinf || xyznan
   val wzero    = wZeroAfterAdd || (xyzero && zzero)
 
-  val wex  = Mux(infOrNaN, maskU(wSpec.exW), Mux(wzero, 0.U(wSpec.exW), wex0(wSpec.exW-1,0)))
+  val wex  = Mux(infOrNaN, maskU(wSpec.exW), Mux(wzero, 0.U(wSpec.exW.W), wex0(wSpec.exW-1,0)))
   val wman = Mux(infOrNaN || wzero, xyznan ## 0.U((wSpec.manW-1).W), wman0(wSpec.manW-1, 0))
   val wsgn = Mux(xyznan, 0.U, Mux(xyzinf, xysgn, wsgn0)) // XXX sign of NaN?
   // +inf + inf = +inf, -inf - inf = inf, but inf - inf = nan.
