@@ -114,12 +114,12 @@ class NegPackedFPGeneric(
       } else {
         xinf || zex0(zSpec.exW-1, 0).andR
       })
-      val zex = Mux(exZN,         0.U(zSpec.exW),
+      val zex = Mux(exZN,         0.U(zSpec.exW.W),
                 Mux(exInf | xnan, Fill(zSpec.exW, 1.U(1.W)),
                                   zex0(zSpec.exW-1, 0)))
 
       // since subnormal is disabled, we can just set mantissa zero if exponent is zero
-      val zman = Mux(exZN | exInf, 0.U(zSpec.exW), zmanRound)
+      val zman = Mux(exZN | exInf, 0.U(zSpec.exW.W), zmanRound)
 
       if(enableDebug) {
         printf("%d -> %d: xsgn = %d, zsgn = %d\n", xSpec.W.U, zSpec.W.U, xsgn, zsgn)

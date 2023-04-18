@@ -108,7 +108,7 @@ class FixedToFloatGeneric(
   } else {
     val zinf = maskI(zSpec.exW).U < zex0 // zex0 is biased, don't use exMax
     zEx  := Mux(zinf, zSpec.exMax.U(zSpec.exW.W), Mux(xzero, 0.U(zSpec.exW.W),  zex0))
-    zMan := Mux(xzero || zinf, 0.U(zSpec.manW), zman0)
+    zMan := Mux(xzero || zinf, 0.U(zSpec.manW.W), zman0)
   }
 //   printf("zEx   = %b\n", zEx  )
 //   printf("zMan  = %b\n", zMan )

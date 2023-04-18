@@ -187,7 +187,7 @@ class ATan2Phase1OtherPath(
   val maxEx  = Mux(io.yIsLarger, io.y.ex, io.x.ex)
   val minEx  = Mux(io.yIsLarger, io.x.ex, io.y.ex)
   val zeroed = minEx +& exBias.U(exW.W) <= maxEx + exDec.asUInt
-  val zex0  = Mux(io.x.inf && io.y.inf, exBias.U(exW),
+  val zex0  = Mux(io.x.inf && io.y.inf, exBias.U(exW.W),
               Mux((io.x.inf && !io.y.inf) || (!io.x.inf && io.y.inf), 0.U(exW.W),
                   ((minEx +& exBias.U) - maxEx) - exDec.asUInt))
   val zex   = Mux(zeroed, 0.U, zex0)
