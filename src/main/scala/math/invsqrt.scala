@@ -143,13 +143,6 @@ object InvSqrtTableCoeff {
 //                                               |_|
 // -------------------------------------------------------------------------
 
-class InvSqrtNonTableOutput(val spec: RealSpec) extends Bundle {
-  val zsgn  = Output(UInt(1.W))
-  val zex   = Output(UInt(spec.exW.W))
-  val znan  = Output(Bool())
-  val zIsNonTable = Output(Bool())
-}
-
 // No pathway other than table interpolation. just calculate ex and sgn.
 class InvSqrtOtherPath(
   val spec     : RealSpec, // Input / Output floating spec
@@ -165,7 +158,7 @@ class InvSqrtOtherPath(
 
   val io = IO(new Bundle {
     val x      = Flipped(new DecomposedRealOutput(spec))
-    val zother = new InvSqrtNonTableOutput(spec)
+    val zother = new RoundingNonTableOutput(spec)
   })
 
   val xneg = if(spec.disableSign) {false.B} else {io.x.sgn === 1.U(1.W)}
@@ -201,51 +194,4 @@ class InvSqrtOtherPath(
 // |_|                 |_|
 // -------------------------------------------------------------------------
 
-class InvSqrtPostProcess(
-  val spec     : RealSpec, // Input / Output floating spec
-  val polySpec : PolynomialSpec,
-  val stage    : PipelineStageConfig,
-) extends Module {
-
-  val exW    = spec.exW
-  val manW   = spec.manW
-  val exBias = spec.exBias
-
-  val nStage = stage.total
-  def getStage = nStage
-
-  val adrW   = polySpec.adrW
-  val fracW  = polySpec.fracW
-  val order  = polySpec.order
-  val extraBits = polySpec.extraBits
-
-  val io = IO(new Bundle {
-    val en  = Input(UInt(1.W))
-    // ex and some flags
-    val zother = Flipped(new InvSqrtNonTableOutput(spec))
-    // table interpolation results
-    val zres   = Input(UInt(fracW.W))
-    // output
-    val z      = Output(UInt(spec.W.W))
-  })
-
-  val zsgn = io.zother.zsgn
-  val zex  = io.zother.zex
-  val znan = io.zother.znan
-  val zIsNonTable  = io.zother.zIsNonTable
-  val zmanNonTable = Cat(znan, Fill(manW-1, 0.U(1.W)))
-
-  val zmanRounded = Wire(UInt(manW.W))
-  if(extraBits == 0) {
-    zmanRounded := io.zres
-  } else {
-    val zman0 = dropLSB(extraBits, io.zres) +& io.zres(extraBits-1)
-    val polynomialOvf = zman0(manW)
-    zmanRounded := Mux(polynomialOvf, maskU(manW), zman0(manW-1,0))
-  }
-
-  val zman = Mux(zIsNonTable, zmanNonTable, zmanRounded)
-  val z = enableIf(io.en, Cat(zsgn, zex, zman))
-
-  io.z   := ShiftRegister(z, nStage)
-}
+// use the default RoundingPostProcess.

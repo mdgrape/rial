@@ -175,13 +175,6 @@ object ReciprocalTableCoeff {
 //                                               |_|
 // -------------------------------------------------------------------------
 
-class ReciprocalNonTableOutput(val spec: RealSpec) extends Bundle {
-  val zsgn  = Output(UInt(1.W))
-  val zex   = Output(UInt(spec.exW.W))
-  val znan  = Output(UInt(1.W))
-  val zIsNonTable = Output(Bool())
-}
-
 // No pathway other than table interpolation. just calculate ex and sgn.
 class ReciprocalOtherPath(
   val spec     : RealSpec, // Input / Output floating spec
@@ -197,7 +190,7 @@ class ReciprocalOtherPath(
 
   val io = IO(new Bundle {
     val x      = Flipped(new DecomposedRealOutput(spec))
-    val zother = new ReciprocalNonTableOutput(spec)
+    val zother = new RoundingNonTableOutput(spec)
   })
 
   val xmanNonZero = io.x.man.orR.asUInt
@@ -241,48 +234,4 @@ class ReciprocalOtherPath(
 // |_|                 |_|
 // -------------------------------------------------------------------------
 
-class ReciprocalPostProcess(
-  val spec     : RealSpec, // Input / Output floating spec
-  val polySpec : PolynomialSpec,
-  val stage    : PipelineStageConfig,
-) extends Module {
-
-  val exW    = spec.exW
-  val manW   = spec.manW
-  val exBias = spec.exBias
-
-  val nStage = stage.total
-  def getStage = nStage
-
-  val adrW   = polySpec.adrW
-  val fracW  = polySpec.fracW
-  val order  = polySpec.order
-  val extraBits = polySpec.extraBits
-
-  val io = IO(new Bundle {
-    val en = Input(UInt(1.W))
-    val zother = Flipped(new ReciprocalNonTableOutput(spec))
-    val zres   = Input(UInt(fracW.W))
-    val z      = Output(UInt(spec.W.W))
-  })
-
-  val zsgn = io.zother.zsgn
-  val zex  = io.zother.zex
-  val znan = io.zother.znan
-  val zIsNonTable  = io.zother.zIsNonTable
-  val zmanNonTable = Cat(znan, Fill(manW-1, 0.U(1.W)))
-
-  val zmanRounded = Wire(UInt(manW.W))
-  if(extraBits == 0) {
-    zmanRounded := io.zres
-  } else {
-    val zman0 = dropLSB(extraBits, io.zres) +& io.zres(extraBits-1)
-    val polynomialOvf = zman0(manW)
-    zmanRounded := Mux(polynomialOvf, Fill(manW, 1.U(1.W)), zman0(manW-1,0))
-  }
-
-  val zman = Mux(zIsNonTable, zmanNonTable, zmanRounded)
-  val z = enableIf(io.en, Cat(zsgn, zex, zman))
-
-  io.z   := ShiftRegister(z, nStage)
-}
+// use the default RoundingPostProcess.

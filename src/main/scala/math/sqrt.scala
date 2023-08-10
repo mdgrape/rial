@@ -184,11 +184,11 @@ object SqrtTableCoeff {
 //                                               |_|
 // -------------------------------------------------------------------------
 
-class SqrtNonTableOutput(val spec: RealSpec) extends Bundle {
-  val zsgn  = Output(UInt(1.W))
-  val zex   = Output(UInt(spec.exW.W))
-  val znan  = Output(Bool())
-  val zIsNonTable = Output(Bool())
+class RoundingNonTableOutput(val spec: RealSpec) extends Bundle {
+  val zsgn        = UInt(1.W)
+  val zex         = UInt(spec.exW.W)
+  val znan        = Bool()
+  val zIsNonTable = Bool()
 }
 
 // No pathway other than table interpolation. just calculate ex and sgn.
@@ -206,7 +206,7 @@ class SqrtOtherPath(
 
   val io = IO(new Bundle {
     val x      = Flipped(new DecomposedRealOutput(spec))
-    val zother = new SqrtNonTableOutput(spec)
+    val zother = Output(new RoundingNonTableOutput(spec))
   })
 
   val xneg = if(spec.disableSign) {false.B} else {io.x.sgn === 1.U(1.W)}
@@ -240,7 +240,10 @@ class SqrtOtherPath(
 // |_|                 |_|
 // -------------------------------------------------------------------------
 
-class SqrtPostProcess(
+// It just rounds the polynomial result.
+// sqrt, invsqrt, reciprocal requires the same postprocess.
+//
+class RoundingPostProcess(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -260,11 +263,8 @@ class SqrtPostProcess(
 
   val io = IO(new Bundle {
     val en = Input(UInt(1.W))
-    // ex and some flags
-    val zother = Flipped(new SqrtNonTableOutput(spec))
-    // table interpolation results
+    val zother = Input(new RoundingNonTableOutput(spec))
     val zres   = Input(UInt(fracW.W))
-    // output
     val z      = Output(UInt(spec.W.W))
   })
 

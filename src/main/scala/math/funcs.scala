@@ -628,6 +628,27 @@ class MathFunctions(
   }
 
   // ==========================================================================
+  // default postproc
+
+  val roundingPost = Module(new RoundingPostProcess(spec, polySpec, stage.postStage))
+
+  val roundingPostFuncs  = fncfg.funcs.filter(fn => {fn == Sqrt || fn == InvSqrt || fn == Reciprocal || fn == ACosPhase1})
+  val roundingPostEn     = roundingPostFuncs.map( fn => {fn -> Wire(Bool())} ).toMap
+  val roundingPostZother = roundingPostFuncs.map( fn => {fn -> Wire(new RoundingNonTableOutput(spec))} ).toMap
+
+  roundingPostEn    .values.foreach(_ := false.B)
+  roundingPostZother.values.foreach(_ := 0.U.asTypeOf(new RoundingNonTableOutput(spec)))
+
+  val roundingPostZotherFiltered = roundingPostZother.values.
+    zip(roundingPostEn.values).map(ze => { enableIf(ze._2, ze._1) })
+
+  roundingPost.io.en     := roundingPostEn.values.reduce(_||_)
+  roundingPost.io.zother := roundingPostZotherFiltered.reduce( (l, r) => {
+    (l.asUInt | r.asUInt).asTypeOf(new RoundingNonTableOutput(spec))
+  })
+  roundingPost.io.zres   := polynomialResultCPGapReg
+
+  // ==========================================================================
   // Output float.
   //
   // later we will insert a value to the map.
@@ -711,7 +732,6 @@ class MathFunctions(
     val sqrtPre   = Module(new SqrtPreProcess (spec, polySpec, stage.preStage))
     val sqrtTab   = Module(new SqrtTableCoeff (spec, polySpec, maxCbit))
     val sqrtOther = Module(new SqrtOtherPath  (spec, polySpec, otherStage))
-    val sqrtPost  = Module(new SqrtPostProcess(spec, polySpec, stage.postStage))
 
     val sqrtPreAdrPCGapReg = ShiftRegister(sqrtPre.io.adr, pcGap)
 
@@ -736,13 +756,14 @@ class MathFunctions(
 
     sqrtOther.io.x := Mux(selPCGapReg === fncfg.signal(Sqrt), xdecPCGapReg, ShiftRegister(acos1Pre.io.y, pcGap))
 
-    sqrtPost.io.en     := (selCPGapReg === fncfg.signal(Sqrt) || selCPGapReg === fncfg.signal(ACosPhase1))
-    sqrtPost.io.zother := ShiftRegister(sqrtOther.io.zother, cpGap)
-    sqrtPost.io.zres   := polynomialResultCPGapReg
-
     // redundant...
-    zs(ACosPhase1)  := sqrtPost.io.z
-    zs(Sqrt) := sqrtPost.io.z
+    roundingPostEn(Sqrt)       := selCPGapReg === fncfg.signal(Sqrt)
+    roundingPostEn(ACosPhase1) := selCPGapReg === fncfg.signal(ACosPhase1)
+    roundingPostZother(Sqrt)       := ShiftRegister(sqrtOther.io.zother, cpGap)
+    roundingPostZother(ACosPhase1) := ShiftRegister(sqrtOther.io.zother, cpGap)
+
+    zs(ACosPhase1)  := roundingPost.io.z
+    zs(Sqrt)        := roundingPost.io.z
 
     // after preprocess
     if(fncfg.has(InvSqrt)) {
@@ -765,7 +786,6 @@ class MathFunctions(
       // invsqrt
       val invsqrtTab   = Module(new InvSqrtTableCoeff (spec, polySpec, maxCbit))
       val invsqrtOther = Module(new InvSqrtOtherPath  (spec, polySpec, otherStage))
-      val invsqrtPost  = Module(new InvSqrtPostProcess(spec, polySpec, stage.postStage))
 
       // (preprocess is same as sqrt)
 
@@ -781,11 +801,10 @@ class MathFunctions(
 
       invsqrtOther.io.x := xdecPCGapReg
 
-      invsqrtPost.io.en     := (selCPGapReg === fncfg.signal(InvSqrt))
-      invsqrtPost.io.zother := ShiftRegister(invsqrtOther.io.zother, cpGap)
-      invsqrtPost.io.zres   := polynomialResultCPGapReg
+      roundingPostEn(InvSqrt)     := selCPGapReg === fncfg.signal(InvSqrt)
+      roundingPostZother(InvSqrt) := ShiftRegister(invsqrtOther.io.zother, cpGap)
 
-      zs(InvSqrt) := invsqrtPost.io.z
+      zs(InvSqrt) := roundingPost.io.z
 
       when(selPCGapReg =/= fncfg.signal(InvSqrt)) {
         assert(invsqrtTab.io.cs.asUInt === 0.U)
@@ -803,7 +822,6 @@ class MathFunctions(
     val sqrtPre   = Module(new SqrtPreProcess (spec, polySpec, stage.preStage))
     val sqrtTab   = Module(new SqrtTableCoeff (spec, polySpec, maxCbit))
     val sqrtOther = Module(new SqrtOtherPath  (spec, polySpec, otherStage))
-    val sqrtPost  = Module(new SqrtPostProcess(spec, polySpec, stage.postStage))
 
     val sqrtPreAdrPCGapReg = ShiftRegister(sqrtPre.io.adr, pcGap)
 
@@ -828,12 +846,10 @@ class MathFunctions(
 
     sqrtOther.io.x := xdecPCGapReg
 
-    sqrtPost.io.en     := selCPGapReg === fncfg.signal(Sqrt)
-    sqrtPost.io.zother := ShiftRegister(sqrtOther.io.zother, cpGap)
-    sqrtPost.io.zres   := polynomialResultCPGapReg
+    roundingPostEn(Sqrt)     := selCPGapReg === fncfg.signal(Sqrt)
+    roundingPostZother(Sqrt) := ShiftRegister(sqrtOther.io.zother, cpGap)
 
-    // redundant...
-    zs(Sqrt) := sqrtPost.io.z
+    zs(Sqrt) := roundingPost.io.z
 
     if(fncfg.has(InvSqrt)) {
       when(selPCReg =/= fncfg.signal(Sqrt) && selPCReg =/= fncfg.signal(InvSqrt)) {
@@ -855,7 +871,6 @@ class MathFunctions(
       // invsqrt
       val invsqrtTab   = Module(new InvSqrtTableCoeff (spec, polySpec, maxCbit))
       val invsqrtOther = Module(new InvSqrtOtherPath  (spec, polySpec, otherStage))
-      val invsqrtPost  = Module(new InvSqrtPostProcess(spec, polySpec, stage.postStage))
 
       // (preprocess is same as sqrt)
 
@@ -871,11 +886,10 @@ class MathFunctions(
 
       invsqrtOther.io.x := xdecPCGapReg
 
-      invsqrtPost.io.en     := (selCPGapReg === fncfg.signal(InvSqrt))
-      invsqrtPost.io.zother := ShiftRegister(invsqrtOther.io.zother, cpGap)
-      invsqrtPost.io.zres   := polynomialResultCPGapReg
+      roundingPostEn(InvSqrt)     := selCPGapReg === fncfg.signal(InvSqrt)
+      roundingPostZother(InvSqrt) := ShiftRegister(invsqrtOther.io.zother, cpGap)
 
-      zs(InvSqrt) := invsqrtPost.io.z
+      zs(InvSqrt) := roundingPost.io.z
 
       when(selPCGapReg =/= fncfg.signal(InvSqrt)) {
         assert(invsqrtTab.io.cs.asUInt === 0.U)
@@ -890,7 +904,6 @@ class MathFunctions(
     val sqrtPre      = Module(new SqrtPreProcess (spec, polySpec, stage.preStage))
     val invsqrtTab   = Module(new InvSqrtTableCoeff (spec, polySpec, maxCbit))
     val invsqrtOther = Module(new InvSqrtOtherPath  (spec, polySpec, otherStage))
-    val invsqrtPost  = Module(new InvSqrtPostProcess(spec, polySpec, stage.postStage))
 
     val sqrtPreAdrPCGapReg = ShiftRegister(sqrtPre.io.adr, pcGap)
 
@@ -909,11 +922,10 @@ class MathFunctions(
 
     invsqrtOther.io.x := xdecPCGapReg
 
-    invsqrtPost.io.en     := (selCPGapReg === fncfg.signal(InvSqrt))
-    invsqrtPost.io.zother := ShiftRegister(invsqrtOther.io.zother, cpGap)
-    invsqrtPost.io.zres   := polynomialResultCPGapReg
+    roundingPostEn(InvSqrt)     := selCPGapReg === fncfg.signal(InvSqrt)
+    roundingPostZother(InvSqrt) := ShiftRegister(invsqrtOther.io.zother, cpGap)
 
-    zs(InvSqrt) := invsqrtPost.io.z
+    zs(InvSqrt) := roundingPost.io.z
 
     when(selPCReg =/= fncfg.signal(InvSqrt)) {
       assert(sqrtPre.io.adr === 0.U)
@@ -953,7 +965,6 @@ class MathFunctions(
     val recPre   = Module(new ReciprocalPreProcess (spec, polySpec, stage.preStage))
     val recTab   = Module(new ReciprocalTableCoeff (spec, polySpec, maxCbit))
     val recOther = Module(new ReciprocalOtherPath  (spec, polySpec, otherStage))
-    val recPost  = Module(new ReciprocalPostProcess(spec, polySpec, stage.postStage))
 
     // atan2 uses reciprocal 1/max(x,y) to calculate min(x,y)/max(x,y).
     val recUseY = (io.sel === fncfg.signal(ATan2Phase1)) && yIsLarger
@@ -974,11 +985,10 @@ class MathFunctions(
 
     recOther.io.x := xdecPCGapReg
 
-    recPost.io.en     := selCPGapReg === fncfg.signal(Reciprocal)
-    recPost.io.zother := ShiftRegister(recOther.io.zother, cpGap)
-    recPost.io.zres   := polynomialResultCPGapReg
+    roundingPostEn    (Reciprocal) := selCPGapReg === fncfg.signal(Reciprocal)
+    roundingPostZother(Reciprocal) := ShiftRegister(recOther.io.zother, cpGap)
 
-    zs(Reciprocal) := recPost.io.z
+    zs(Reciprocal) := roundingPost.io.z
 
     when(selPCReg =/= fncfg.signal(Reciprocal) && selPCReg =/= fncfg.signal(ATan2Phase1)) {
       assert(recPre.io.adr === 0.U)
@@ -1103,7 +1113,6 @@ class MathFunctions(
     val recPre   = Module(new ReciprocalPreProcess (spec, polySpec, stage.preStage))
     val recTab   = Module(new ReciprocalTableCoeff (spec, polySpec, maxCbit))
     val recOther = Module(new ReciprocalOtherPath  (spec, polySpec, otherStage))
-    val recPost  = Module(new ReciprocalPostProcess(spec, polySpec, stage.postStage))
 
     recPre.io.en  := io.sel === fncfg.signal(Reciprocal)
     recPre.io.x   := xdecomp.io.decomp
@@ -1120,11 +1129,10 @@ class MathFunctions(
 
     recOther.io.x := xdecPCGapReg
 
-    recPost.io.en     := selCPGapReg === fncfg.signal(Reciprocal)
-    recPost.io.zother := ShiftRegister(recOther.io.zother, cpGap)
-    recPost.io.zres   := polynomialResultCPGapReg
+    roundingPostEn    (Reciprocal) := selCPGapReg === fncfg.signal(Reciprocal)
+    roundingPostZother(Reciprocal) := ShiftRegister(recOther.io.zother, cpGap)
 
-    zs(Reciprocal) := recPost.io.z
+    zs(Reciprocal) := roundingPost.io.z
 
     when(selPCReg =/= fncfg.signal(Reciprocal)) {
       assert(recPre.io.adr === 0.U)
