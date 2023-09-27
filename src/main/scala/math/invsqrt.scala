@@ -158,7 +158,7 @@ class InvSqrtOtherPath(
 
   val io = IO(new Bundle {
     val x      = Flipped(new DecomposedRealOutput(spec))
-    val zother = new RoundingNonTableOutput(spec)
+    val zother = Output(new RoundingNonTableOutput(spec))
   })
 
   val xneg = if(spec.disableSign) {false.B} else {io.x.sgn === 1.U(1.W)}

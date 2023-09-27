@@ -190,7 +190,7 @@ class ReciprocalOtherPath(
 
   val io = IO(new Bundle {
     val x      = Flipped(new DecomposedRealOutput(spec))
-    val zother = new RoundingNonTableOutput(spec)
+    val zother = Output(new RoundingNonTableOutput(spec))
   })
 
   val xmanNonZero = io.x.man.orR.asUInt
