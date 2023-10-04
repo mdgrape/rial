@@ -36,7 +36,7 @@ class TableCoeffInput( val cbit: Seq[Int] ) extends Bundle {
  *  @param dxW0 the input bit width of polynomial.
  */
 class PolynomialSpec (
-      spec            : RealSpec,
+  val manW            : Int,
   val nOrder          : Int,
   val adrW            : Int,
   val extraBits       : Int,
@@ -44,7 +44,6 @@ class PolynomialSpec (
   val enableRangeCheck: Boolean = true,
   val enableRounding  : Boolean = false,
 ) {
-  val manW = spec.manW
   def order : Int = {if(adrW == manW) {0} else {nOrder}}
   def fracW : Int = {manW + extraBits}
   def dxW   : Int = {dxW0.getOrElse(manW - adrW)}

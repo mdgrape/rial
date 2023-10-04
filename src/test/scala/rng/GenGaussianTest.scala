@@ -278,7 +278,7 @@ class BoxMullerSinCos2PiTest extends AnyFlatSpec
   val nOrderFP32    = 2
   val adrWFP32      = 8
   val extraBitsFP32 = 3
-  val polySpecFP32  = new PolynomialSpec(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32)
+  val polySpecFP32  = new PolynomialSpec(RealSpec.Float32Spec.manW, nOrderFP32, adrWFP32, extraBitsFP32)
 
   runtest(true,  32, RealSpec.Float32Spec, polySpecFP32, PipelineStageConfig.none,
     n, r, "Test FP32 sin",generateRandomUInt, 3)
@@ -502,7 +502,7 @@ class BoxMullerLogTest extends AnyFlatSpec
   val nOrderFP32    = 2
   val adrWFP32      = 8
   val extraBitsFP32 = 3
-  val polySpecFP32  = new PolynomialSpec(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32)
+  val polySpecFP32  = new PolynomialSpec(RealSpec.Float32Spec.manW, nOrderFP32, adrWFP32, extraBitsFP32)
 
   runtest(32, RealSpec.Float32Spec, polySpecFP32, PipelineStageConfig.none,
     n, r, "Test FP32 log",generateRandomUInt, 3)
@@ -664,7 +664,7 @@ class BoxMullerSqrtTest extends AnyFlatSpec
   val nOrderFP32    = 2
   val adrWFP32      = 8
   val extraBitsFP32 = 3
-  val polySpecFP32  = new PolynomialSpec(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32)
+  val polySpecFP32  = new PolynomialSpec(RealSpec.Float32Spec.manW, nOrderFP32, adrWFP32, extraBitsFP32)
 
   runtest(32, RealSpec.Float32Spec, polySpecFP32, PipelineStageConfig.none,
     n, r, "Test FP32 log",generateRealWithin(128.0,_,_), 3)
@@ -953,7 +953,7 @@ class BoxMullerTest extends AnyFlatSpec
   val nOrderFP32    = 2
   val adrWFP32      = 8
   val extraBitsFP32 = 3
-  val polySpecFP32  = new PolynomialSpec(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32)
+  val polySpecFP32  = new PolynomialSpec(RealSpec.Float32Spec.manW, nOrderFP32, adrWFP32, extraBitsFP32)
 
   runTest(RealSpec.Float32Spec, polySpecFP32, RoundSpec.roundToEven, 3)
   runChiSquared(RealSpec.Float32Spec, polySpecFP32, RoundSpec.roundToEven)

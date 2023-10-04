@@ -428,7 +428,7 @@ class MathFunctions(
   val nStage = stage.total
   def getStage = nStage
 
-  val polySpec = new PolynomialSpec(spec, nOrder, adrW, extraBits, dxW0,
+  val polySpec = new PolynomialSpec(spec.manW, nOrder, adrW, extraBits, dxW0,
     enableRangeCheck, enablePolynomialRounding)
   val order = polySpec.order
 
