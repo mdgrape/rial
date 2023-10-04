@@ -642,10 +642,10 @@ class MathFunctions(
   val roundingPostZotherFiltered = roundingPostZother.values.
     zip(roundingPostEn.values).map(ze => { enableIf(ze._2, ze._1) })
 
-  roundingPost.io.en     := roundingPostEn.values.reduce(_||_)
-  roundingPost.io.zother := roundingPostZotherFiltered.reduce( (l, r) => {
+  roundingPost.io.en     := roundingPostEn.values.reduceOption(_||_).getOrElse(false.B)
+  roundingPost.io.zother := roundingPostZotherFiltered.reduceOption( (l, r) => {
     (l.asUInt | r.asUInt).asTypeOf(new RoundingNonTableOutput(spec))
-  })
+  }).getOrElse(0.U.asTypeOf(new RoundingNonTableOutput(spec)))
   roundingPost.io.zres   := polynomialResultCPGapReg
 
   // ==========================================================================
