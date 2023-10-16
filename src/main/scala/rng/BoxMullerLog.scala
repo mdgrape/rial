@@ -70,7 +70,9 @@ class HTBoxMullerLogPreProc(
 object HTBoxMullerLog2TableCoeff{
 
   def genTable(
-    polySpec: PolynomialSpec
+    polySpec: PolynomialSpec,
+    calcW: Option[Seq[Int]] = None,
+    cbit:  Option[Seq[Int]] = None
   ): FuncTableInt = {
 
     val f = (x0: Double) => {
@@ -86,7 +88,7 @@ object HTBoxMullerLog2TableCoeff{
     val tableD = new FuncTableDouble( f, order )
     tableD.addRange(0.0, 1.0, 1<<adrW)
 
-    new FuncTableInt( tableD, fracW )
+    new FuncTableInt( tableD, fracW, calcW, cbit )
   }
 
   def getCBits(
@@ -95,12 +97,20 @@ object HTBoxMullerLog2TableCoeff{
     val tableI = genTable(polySpec)
     tableI.cbit
   }
+  def getCalcW(
+    polySpec: PolynomialSpec
+  ): Seq[Int] = {
+    val tableI = genTable(polySpec)
+    tableI.calcWidth
+  }
 }
 
 object HTBoxMullerLnTableCoeff{
 
   def genTable(
-    polySpec: PolynomialSpec
+    polySpec: PolynomialSpec,
+    calcW: Option[Seq[Int]] = None,
+    cbit:  Option[Seq[Int]] = None
   ): FuncTableInt = {
 
     val f = (x0: Double) => {
@@ -108,7 +118,7 @@ object HTBoxMullerLnTableCoeff{
       if(x0 == 1.0) {
         0.0
       } else {
-        -(log(x) + x - 1.0) / (1.0 - x)
+        -log(x) / (1.0 - x) - 1.0
       }
     }
 
@@ -119,7 +129,7 @@ object HTBoxMullerLnTableCoeff{
     val tableD = new FuncTableDouble( f, order )
     tableD.addRange(0.0, 1.0, 1<<adrW)
 
-    new FuncTableInt( tableD, fracW )
+    new FuncTableInt( tableD, fracW, calcW, cbit )
   }
 
   def getCBits(
@@ -127,6 +137,12 @@ object HTBoxMullerLnTableCoeff{
   ): Seq[Int] = {
     val tableI = genTable(polySpec)
     tableI.cbit
+  }
+  def getCalcW(
+    polySpec: PolynomialSpec
+  ): Seq[Int] = {
+    val tableI = genTable(polySpec)
+    tableI.calcWidth
   }
 }
 
@@ -148,6 +164,12 @@ class HTBoxMullerLog2TableCoeff(
   ).reduce( (lhs, rhs) => {
     lhs.zip(rhs).map( c => max(c._1, c._2) )
   } )
+  val maxCalcW = Seq(
+    HTBoxMullerLog2TableCoeff.getCalcW(polySpec),
+    HTBoxMullerLnTableCoeff.getCalcW(polySpec)
+  ).reduce( (lhs, rhs) => {
+    lhs.zip(rhs).map( c => max(c._1, c._2) )
+  } )
 
   val io = IO(new Bundle {
     val en  = Input(Bool())
@@ -157,7 +179,7 @@ class HTBoxMullerLog2TableCoeff(
 
   if(order == 0) {
 
-    val tableI = HTBoxMullerLog2TableCoeff.genTable(polySpec)
+    val tableI = HTBoxMullerLog2TableCoeff.genTable(polySpec, Some(maxCalcW), Some(maxCbit))
     val cbit   = tableI.cbit
     val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/1)
     val coeff  = getSlices(coeffTable(io.adr), coeffWidth)
@@ -169,7 +191,7 @@ class HTBoxMullerLog2TableCoeff(
 
   } else {
 
-    val tableI = HTBoxMullerLog2TableCoeff.genTable(polySpec)
+    val tableI = HTBoxMullerLog2TableCoeff.genTable(polySpec, Some(maxCalcW), Some(maxCbit))
     val cbit   = tableI.cbit
     val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/0)
     val coeff  = getSlices(coeffTable(io.adr), coeffWidth)
@@ -177,7 +199,7 @@ class HTBoxMullerLog2TableCoeff(
     val coeffs = Wire(new TableCoeffInput(maxCbit))
     for (i <- 0 to order) {
       val diffWidth = maxCbit(i) - cbit(i)
-      assert(0 <= diffWidth)
+      assert(0 <= diffWidth, f"diffWidth = ${diffWidth} must be > 0")
 
       if(diffWidth != 0) {
         val ci  = coeff(i)
@@ -209,6 +231,12 @@ class HTBoxMullerLnTableCoeff(
   ).reduce( (lhs, rhs) => {
     lhs.zip(rhs).map( c => max(c._1, c._2) )
   } )
+  val maxCalcW = Seq(
+    HTBoxMullerLog2TableCoeff.getCalcW(polySpec),
+    HTBoxMullerLnTableCoeff.getCalcW(polySpec)
+  ).reduce( (lhs, rhs) => {
+    lhs.zip(rhs).map( c => max(c._1, c._2) )
+  } )
 
   val io = IO(new Bundle {
     val en  = Input(Bool())
@@ -218,7 +246,7 @@ class HTBoxMullerLnTableCoeff(
 
   if(order == 0) {
 
-    val tableI = HTBoxMullerLnTableCoeff.genTable(polySpec)
+    val tableI = HTBoxMullerLnTableCoeff.genTable(polySpec, Some(maxCalcW), Some(maxCbit))
     val cbit   = tableI.cbit
     val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/1)
     val coeff  = getSlices(coeffTable(io.adr), coeffWidth)
@@ -230,7 +258,7 @@ class HTBoxMullerLnTableCoeff(
 
   } else {
 
-    val tableI = HTBoxMullerLnTableCoeff.genTable(polySpec)
+    val tableI = HTBoxMullerLnTableCoeff.genTable(polySpec, Some(maxCalcW), Some(maxCbit))
     val cbit   = tableI.cbit
     val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/0)
     val coeff  = getSlices(coeffTable(io.adr), coeffWidth)
@@ -355,7 +383,7 @@ class HTBoxMullerLnPostProcess(
 
   val io = IO(new Bundle {
     val en       = Input(Bool())
-    val zres     = Input(UInt(fracW.W)) // -ln(x)/(1-x) - 1
+    val zres     = Input(UInt(fracW.W))       // -ln(x)/(1-x) - 1
     val z        = Output(UInt(realSpec.W.W)) // -ln(x)/(1-x)
   })
 
