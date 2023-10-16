@@ -574,10 +574,10 @@ class HTBoxMullerLog(
   log2postproc.io.xExM1    := ShiftRegister((exBias-1).U - io.x.ex, postProcInputDelay)
   // -(x.ex-exBias) - 1 == -x.xex + exBias - 1
 
-  lnpostproc.io.en   := ShiftRegister(useln, preStage.total + pcGap + tcGap + calcStage.total + cpGap)
+  lnpostproc.io.en   := ShiftRegister(useln, postProcInputDelay)
   lnpostproc.io.zres := ShiftRegister(eval.io.result, cpGap)
 
-  val zIsZero = ShiftRegister(xIsOne, preStage.total + pcGap + tcGap + calcStage.total + cpGap + postStage.total)
+  val zIsZero = ShiftRegister(xIsOne, postProcInputDelay + postStage.total)
 
   val z0 = Mux(zIsZero, 0.U(realSpec.W.W), log2postproc.io.z | lnpostproc.io.z)
 
@@ -586,14 +586,15 @@ class HTBoxMullerLog(
   val ln2x2    = new RealGeneric(realSpec, 2.0 * log(2.0))
   val log2Coef = Cat(1.U(1.W), (ln2x2.man.toBigInt).U(manW.W))
   val lnCoef0  = Cat(1.U(1.W), 0.U((manW+1).W)) - Cat(1.U(2.W), io.x.man) // 2(1-x)
-  val lnCoef   = ShiftRegister(lnCoef0(manW+1-1, 0), preStage.total + pcGap + tcGap + calcStage.total + cpGap + postStage.total)
+  val lnCoef   = ShiftRegister(lnCoef0(manW+1-1, 0), postProcInputDelay + postStage.total)
   when(io.en) {assert(lnCoef0.head(1) === 0.U)}
+  val uselog2coef = ShiftRegister(uselog2, postProcInputDelay + postStage.total)
 
-  val coef = Mux(uselog2, log2Coef, lnCoef)
+  val coef = Mux(uselog2coef, log2Coef, lnCoef)
 
   val multiplier = Module(new HTBoxMullerLogMultiplier(cfg))
 
-  multiplier.io.en := ShiftRegister(io.en, preStage.total + pcGap + tcGap + calcStage.total + cpGap + postStage.total)
+  multiplier.io.en := ShiftRegister(io.en, postProcInputDelay + postStage.total)
   multiplier.io.x  := z0
   multiplier.io.y  := coef
 
