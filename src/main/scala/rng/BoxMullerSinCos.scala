@@ -23,6 +23,7 @@ class HTBoxMullerSinCos2PiPreProc(
   val polySpec = cfg.polySpec
 
   val manW = realSpec.manW
+  val exBias = realSpec.exBias
 
   val adrW  = polySpec.adrW
   val dxW   = polySpec.dxW
@@ -115,6 +116,63 @@ object HTBoxMullerSinCos2PiTableCoeff {
   }
 }
 
+class HTBoxMullerSinCos2PiTableCoeff(
+  val cfg: BoxMullerConfig
+) extends Module {
+
+  val realSpec = cfg.realSpec
+  val polySpec = cfg.polySpec
+
+  val adrW  = polySpec.adrW
+  val fracW = polySpec.fracW
+  val dxW   = polySpec.dxW
+  val order = polySpec.order
+
+  val maxCbit = HTBoxMullerSinCos2PiTableCoeff.getCBits(polySpec)
+
+  val io = IO(new Bundle {
+    val en  = Input(Bool())
+    val adr = Input(UInt(adrW.W))
+    val cs  = Flipped(new TableCoeffInput(maxCbit))
+  })
+
+  if(order == 0) {
+
+    val tableI = HTBoxMullerSinCos2PiTableCoeff.genTable(polySpec)
+    val cbit   = tableI.cbit
+    val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/1)
+    val coeff  = getSlices(coeffTable(io.adr), coeffWidth)
+
+    assert(cbit(0) == fracW)
+    assert(coeff(0).getWidth == fracW)
+
+    io.cs.cs(0) := enableIf(io.en, coeff(0))
+
+  } else {
+
+    val tableI = HTBoxMullerSinCos2PiTableCoeff.genTable(polySpec)
+    val cbit   = tableI.cbit
+    val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/0)
+    val coeff  = getSlices(coeffTable(io.adr), coeffWidth)
+
+    val coeffs = Wire(new TableCoeffInput(maxCbit))
+    for (i <- 0 to order) {
+      val diffWidth = maxCbit(i) - cbit(i)
+      assert(0 <= diffWidth, f"diffWidth = ${diffWidth} must be > 0")
+
+      if(diffWidth != 0) {
+        val ci  = coeff(i)
+        val msb = ci(cbit(i)-1)
+        coeffs.cs(i) := Cat(Fill(diffWidth, msb), ci) // sign extension
+      } else {
+        coeffs.cs(i) := coeff(i)
+      }
+    }
+    io.cs := enableIf(io.en, coeffs)
+  }
+}
+
+
 class HTBoxMullerSinCos2PiOtherPath(
   val cfg: BoxMullerConfig,
   val isSin: Boolean
@@ -168,17 +226,17 @@ class HTBoxMullerSinCos2PiOtherPath(
   val xmanhalf = io.x.man.head(1) === 1.U && io.x.man.tail(1) === 0.U
 
   if(isSin) {
-    io.zsgn  := x0piover2 || x1piover2
-    io.zzero := (io.x.ex === 0.U) || (io.x.ex === (exBias-1).U && xman0)
-    io.zone  := (io.x.ex === (exBias-2).U && xman0) ||
-                (io.x.ex === (exBias-1).U && xmanhalf)
+    io.zsgn  := ShiftRegister(x2piover2 || x3piover2, nStage)
+    io.zzero := ShiftRegister((io.x.ex === 0.U) || (io.x.ex === (exBias-1).U && xman0), nStage)
+    io.zone  := ShiftRegister((io.x.ex === (exBias-2).U && xman0) ||
+                              (io.x.ex === (exBias-1).U && xmanhalf), nStage)
 
     val yConv = WireDefault(0.U(manW.W))
     val yex   = WireDefault(0.U(exW.W))
     val yman  = WireDefault(0.U(manW.W))
 
     when(x0piover2) {
-      yex  := io.x.ex+2.U
+      yex  := io.x.ex
       yman := io.x.man
     }.otherwise {
       when(x1piover2) {
@@ -189,18 +247,19 @@ class HTBoxMullerSinCos2PiOtherPath(
         yConv := ~Cat(io.x.man.tail(1), 0.U(1.W)) + 1.U
       }
       val yShift   = PriorityEncoder(Reverse(yConv))
-      val yAligned = (Cat(yConv, 0.U(1.W)) << yShift)(manW-1, 0)
-      yex  := (exBias-1).U - yShift
-      yman := yAligned
+      val yAligned = (yConv << yShift)(manW-1, 0)
+      when(io.en) {assert(yAligned.head(1) === 1.U, "yConv = %b, yShift = %d, yAligned = %b\n", yConv, yShift, yAligned)}
+      yex  := (exBias-3).U - yShift
+      yman := Cat(yAligned, 0.U(1.W))(manW-1, 0)
     }
-    io.coef := Cat(0.U(1.W), yex, yman)
+    io.coef := ShiftRegister(Cat(0.U(1.W), yex, yman), nStage)
 
   } else {
 
-    io.zsgn  := x0piover2 || x3piover2
-    io.zzero := (io.x.ex === (exBias-2).U && xman0) ||
-                (io.x.ex === (exBias-1).U && xmanhalf)
-    io.zone  := (io.x.ex === 0.U) || (io.x.ex === (exBias-1).U && xman0)
+    io.zsgn  := ShiftRegister(x1piover2 || x2piover2, nStage)
+    io.zzero := ShiftRegister((io.x.ex === (exBias-2).U && xman0) ||
+                              (io.x.ex === (exBias-1).U && xmanhalf), nStage)
+    io.zone  := ShiftRegister((io.x.ex === 0.U) || (io.x.ex === (exBias-1).U && xman0), nStage)
 
     val yConv = WireDefault(0.U(manW.W))
     val yex   = WireDefault(0.U(exW.W))
@@ -218,9 +277,9 @@ class HTBoxMullerSinCos2PiOtherPath(
     }
     val yShift   = PriorityEncoder(Reverse(yConv))
     val yAligned = (Cat(yConv, 0.U(1.W)) << yShift)(manW-1, 0)
-    yex  := (exBias-1).U - yShift
+    yex  := (exBias-3).U - yShift
     yman := yAligned
-    io.coef := Cat(0.U(1.W), yex, yman)
+    io.coef := ShiftRegister(Cat(0.U(1.W), yex, yman), nStage)
   }
 }
 
@@ -245,7 +304,7 @@ class HTBoxMullerSinCos2PiPostProcess(
     val zres = Input(UInt(fracW.W))       // [0.5,1), sin(2pix) / 8x
     val z    = Output(UInt(realSpec.W.W)) // sin(2pix)/x [4, 8)
   })
-  when(io.en) {assert(zres.head(1) === 1.U)}
+  when(io.en) {assert(io.zres.head(1) === 1.U)}
 
   val zsgn = 0.U(1.W)
   val zex  = (exBias+2).U(exW.W)
@@ -305,7 +364,7 @@ class HTBoxMullerSinCos2Pi(
     val z  = Output (UInt(realSpec.W.W))
   })
 
-  val preproc = Module(new HTBoxMullerLogPreProc(cfg, isSin))
+  val preproc = Module(new HTBoxMullerSinCos2PiPreProc(cfg, isSin))
 
   preproc.io.en := io.en
   preproc.io.x  := io.x
@@ -331,12 +390,16 @@ class HTBoxMullerSinCos2Pi(
   // ---------------------------------------------------------------------------
 
   val postProcInputDelay = preStage.total + pcGap + tcGap + calcStage.total + cpGap
-  val postproc = Module(new HTBoxMullerLog2PostProcess(cfg))
+  val postproc = Module(new HTBoxMullerSinCos2PiPostProcess(cfg))
 
   postproc.io.en   := ShiftRegister(io.en, postProcInputDelay)
   postproc.io.zres := ShiftRegister(eval.io.result, cpGap)
 
   val sinXoverX = postproc.io.z
+
+  val sinXoverXex  = sinXoverX(manW+exW-1, manW)
+  val sinXoverXman = sinXoverX(manW-1, 0)
+//   printf("sinXoverX   = (%b|%d|%b (%d/%d))\n", sinXoverX.head(1), sinXoverXex, sinXoverXman, sinXoverXman, (1<<manW).U)
 
   // ---------------------------------------------------------------------------
 
@@ -346,6 +409,9 @@ class HTBoxMullerSinCos2Pi(
   other.io.x  := io.x
 
   val coef = other.io.coef
+  val coefex  = coef(manW+exW-1, manW)
+  val coefman = coef(manW-1, 0)
+//   printf("coef        = (%b|%d|%b (%d/%d))\n", coef.head(1), coefex, coefman, coefman, (1<<manW).U)
 
   // ---------------------------------------------------------------------------
 
@@ -356,9 +422,9 @@ class HTBoxMullerSinCos2Pi(
 
   val z0 = multiplier.io.z
 
-  val zsgn  = ShiftRegister(other.io.zsgn,  postStage.total, false.B, true.B)
-  val zzero = ShiftRegister(other.io.zzero, postStage.total, false.B, true.B)
-  val zone  = ShiftRegister(other.io.zone,  postStage.total, false.B, true.B)
+  val zsgn  = ShiftRegister(other.io.zsgn,  mulStage.total, false.B, true.B)
+  val zzero = ShiftRegister(other.io.zzero, mulStage.total, false.B, true.B)
+  val zone  = ShiftRegister(other.io.zone,  mulStage.total, false.B, true.B)
 
   val zex  = Mux(zzero, 0.U(exW.W),
              Mux(zone, exBias.U(exW.W), z0(manW+exW-1, manW)))
