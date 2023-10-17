@@ -179,15 +179,25 @@ class HTBoxMullerLog2TableCoeff(
 
   if(order == 0) {
 
-    val tableI = HTBoxMullerLog2TableCoeff.genTable(polySpec, Some(maxCalcW), Some(maxCbit))
-    val cbit   = tableI.cbit
-    val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/1)
-    val coeff  = getSlices(coeffTable(io.adr), coeffWidth)
+    val tableI = VecInit((0L to 1L<<adrW).map(
+      n => {
+        val log2 = (a:Double) => {log(a) / log(2.0)}
+        val x = (n.toDouble / (1L<<adrW)) + 1.0
+        val res = log2(x)
+        assert(0.0 <= res && res <= 1.0, f"log2(x) = ${res}")
+        val y = round(res * (1L<<fracW))
+        if (y >= (1L<<fracW)) {
+          maskL(fracW).U(fracW.W)
+        } else if (y <= 0.0) {
+          0.U(fracW.W)
+        } else {
+          y.U(fracW.W)
+        }
+      })
+    )
 
-    assert(cbit(0) == fracW)
-    assert(coeff(0).getWidth == fracW)
-
-    io.cs.cs(0) := enableIf(io.en, coeff(0))
+    val coeff = tableI(io.adr)
+    io.cs.cs(0) := enableIf(io.en, coeff)
 
   } else {
 
@@ -246,15 +256,25 @@ class HTBoxMullerLnTableCoeff(
 
   if(order == 0) {
 
-    val tableI = HTBoxMullerLnTableCoeff.genTable(polySpec, Some(maxCalcW), Some(maxCbit))
-    val cbit   = tableI.cbit
-    val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/1)
-    val coeff  = getSlices(coeffTable(io.adr), coeffWidth)
+    val tableI = VecInit((0L to 1L<<adrW).map(
+      n => {
+        val x = (n.toDouble / (1L<<adrW)) + 1.0 // 0~1 -> 1~2
+        val res = if(n == 0) {1.0} else {log(x) / (x - 1.0)}
+        assert(0.0 <= res && res <= 1.0, f"log(x)/(x-1) = ${res}")
+        val y = round(res * (1L<<fracW))
 
-    assert(cbit(0) == fracW)
-    assert(coeff(0).getWidth == fracW)
+        if (y >= (1L<<fracW)) {
+          maskL(fracW).U(fracW.W)
+        } else if (y <= 0.0) {
+          0.U(fracW.W)
+        } else {
+          y.U(fracW.W)
+        }
+      })
+    )
 
-    io.cs.cs(0) := enableIf(io.en, coeff(0))
+    val coeff = tableI(io.adr)
+    io.cs.cs(0) := enableIf(io.en, coeff)
 
   } else {
 

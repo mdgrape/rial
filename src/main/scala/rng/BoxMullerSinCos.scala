@@ -138,15 +138,29 @@ class HTBoxMullerSinCos2PiTableCoeff(
 
   if(order == 0) {
 
-    val tableI = HTBoxMullerSinCos2PiTableCoeff.genTable(polySpec)
-    val cbit   = tableI.cbit
-    val (coeffTable, coeffWidth) = tableI.getVectorUnified(/*sign mode =*/1)
-    val coeff  = getSlices(coeffTable(io.adr), coeffWidth)
+    val tableI = VecInit((0L to 1L<<adrW).map(
+      n => {
+        val x = (n.toDouble / (1L<<adrW)) * 0.25
+        val res = if(x == 0) {
+          2 * Pi / 8
+        } else {
+          sin(2 * Pi * x) / (8 * x)
+        }
+        assert(0.0 <= res && res <= 1.0, f"sin(2pix)/8x = ${res}")
 
-    assert(cbit(0) == fracW)
-    assert(coeff(0).getWidth == fracW)
+        val y = round(res * (1L<<fracW))
+        if (y >= (1L<<fracW)) {
+          maskL(fracW).U(fracW.W)
+        } else if (y <= 0.0) {
+          0.U(fracW.W)
+        } else {
+          y.U(fracW.W)
+        }
+      })
+    )
 
-    io.cs.cs(0) := enableIf(io.en, coeff(0))
+    val coeff = tableI(io.adr)
+    io.cs.cs(0) := enableIf(io.en, coeff)
 
   } else {
 
