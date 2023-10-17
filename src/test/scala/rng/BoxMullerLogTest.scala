@@ -38,7 +38,7 @@ class HTBoxMullerLogTest extends AnyFlatSpec
   }
 
   private def runtest (
-    cfg:         BoxMullerConfig,
+    cfg:         HTBoxMullerConfig,
     n:           Int,
     description: String
   ) = {
@@ -111,39 +111,49 @@ class HTBoxMullerLogTest extends AnyFlatSpec
   val adrWFP32      = 8
   val extraBitsFP32 = 3
 
-  val cfgNone = BoxMullerConfig(
+  val cfgNone = HTBoxMullerConfig(
       rndW,
       realSpec = RealSpec.Float32Spec,
       polySpec = new PolynomialSpec(RealSpec.Float32Spec.manW, nOrderFP32, adrWFP32, extraBitsFP32),
-      PipelineStageConfig.none,
-      PipelineStageConfig.none,
-      PipelineStageConfig.none,
-      false, false, false,
-      PipelineStageConfig.none
+      int2floatStge = PipelineStageConfig.none,
+      polyPreStage  = PipelineStageConfig.none,
+      polyCalcStage = PipelineStageConfig.none,
+      polyPostStage = PipelineStageConfig.none,
+      i2fPolyGap    = false,
+      preCalcGap    = false,
+      tableCalcGap  = false,
+      calcPostGap   = false,
+      mulStage = PipelineStageConfig.none
     )
 
-  val cfgSimple = BoxMullerConfig(
+  val cfgSimple = HTBoxMullerConfig(
       rndW,
       realSpec = RealSpec.Float32Spec,
       polySpec = new PolynomialSpec(RealSpec.Float32Spec.manW, nOrderFP32, adrWFP32, extraBitsFP32),
-      PipelineStageConfig.none,
-      PipelineStageConfig.none,
-      PipelineStageConfig.none,
-      true,
-      true,
-      true,
-      PipelineStageConfig.none
+      int2floatStge = PipelineStageConfig.none,
+      polyPreStage  = PipelineStageConfig.none,
+      polyCalcStage = PipelineStageConfig.none,
+      polyPostStage = PipelineStageConfig.none,
+      i2fPolyGap    = true,
+      preCalcGap    = true,
+      tableCalcGap  = true,
+      calcPostGap   = true,
+      mulStage = PipelineStageConfig.none
     )
 
-  val cfgFull = BoxMullerConfig(
+  val cfgFull = HTBoxMullerConfig(
       rndW,
       realSpec = RealSpec.Float32Spec,
       polySpec = new PolynomialSpec(RealSpec.Float32Spec.manW, nOrderFP32, adrWFP32, extraBitsFP32),
-      PipelineStageConfig.atOut(1),
-      PipelineStageConfig.atOut(3),
-      PipelineStageConfig.atOut(1),
-      true, true, true,
-      PipelineStageConfig.atOut(3)
+      int2floatStge = PipelineStageConfig.atOut(1),
+      polyPreStage  = PipelineStageConfig.atOut(1),
+      polyCalcStage = PipelineStageConfig.atOut(3),
+      polyPostStage = PipelineStageConfig.atOut(1),
+      i2fPolyGap    = true,
+      preCalcGap    = true,
+      tableCalcGap  = true,
+      calcPostGap   = true,
+      mulStage = PipelineStageConfig.atOut(3)
     )
 
   runtest(cfgNone,   1000, "Test w/ no registers")

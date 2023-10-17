@@ -15,7 +15,7 @@ import rial.util.ScalaUtil._
 
 // sin/cos(2piy)
 class HTBoxMullerSinCos2PiPreProc(
-  val cfg: BoxMullerConfig,
+  val cfg: HTBoxMullerConfig,
   val isSin: Boolean
 ) extends Module {
 
@@ -117,7 +117,7 @@ object HTBoxMullerSinCos2PiTableCoeff {
 }
 
 class HTBoxMullerSinCos2PiTableCoeff(
-  val cfg: BoxMullerConfig
+  val cfg: HTBoxMullerConfig
 ) extends Module {
 
   val realSpec = cfg.realSpec
@@ -174,7 +174,7 @@ class HTBoxMullerSinCos2PiTableCoeff(
 
 
 class HTBoxMullerSinCos2PiOtherPath(
-  val cfg: BoxMullerConfig,
+  val cfg: HTBoxMullerConfig,
   val isSin: Boolean
 ) extends Module {
 
@@ -284,7 +284,7 @@ class HTBoxMullerSinCos2PiOtherPath(
 }
 
 class HTBoxMullerSinCos2PiPostProcess(
-  val cfg: BoxMullerConfig
+  val cfg: HTBoxMullerConfig
 ) extends Module {
 
   val realSpec = cfg.realSpec
@@ -328,7 +328,7 @@ class HTBoxMullerSinCos2PiPostProcess(
 }
 
 class HTBoxMullerSinCos2Pi(
-  val cfg: BoxMullerConfig,
+  val cfg: HTBoxMullerConfig,
   val isSin: Boolean
 ) extends Module {
 

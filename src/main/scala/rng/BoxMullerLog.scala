@@ -37,7 +37,7 @@ import rial.util.ScalaUtil._
 //   return 0.0
 //
 class HTBoxMullerLogPreProc(
-  val cfg: BoxMullerConfig
+  val cfg: HTBoxMullerConfig
 ) extends Module {
 
   val realSpec = cfg.realSpec
@@ -147,7 +147,7 @@ object HTBoxMullerLnTableCoeff{
 }
 
 class HTBoxMullerLog2TableCoeff(
-  val cfg: BoxMullerConfig
+  val cfg: HTBoxMullerConfig
 ) extends Module {
 
   val realSpec = cfg.realSpec
@@ -214,7 +214,7 @@ class HTBoxMullerLog2TableCoeff(
 }
 
 class HTBoxMullerLnTableCoeff(
-  val cfg: BoxMullerConfig
+  val cfg: HTBoxMullerConfig
 ) extends Module {
 
   val realSpec = cfg.realSpec
@@ -289,7 +289,7 @@ class HTBoxMullerLnTableCoeff(
 //   part. then we normalize -ex-1+zres and multiply it with 2ln2.
 //
 class HTBoxMullerLog2PostProcess(
-  val cfg: BoxMullerConfig
+  val cfg: HTBoxMullerConfig
 ) extends Module {
 
   val realSpec = cfg.realSpec
@@ -366,7 +366,7 @@ class HTBoxMullerLog2PostProcess(
 //   so we need to add hidden bit to zres, round it, and multiply with 2(1-x).
 //
 class HTBoxMullerLnPostProcess(
-  val cfg: BoxMullerConfig
+  val cfg: HTBoxMullerConfig
 ) extends Module {
 
   val realSpec = cfg.realSpec
@@ -407,7 +407,7 @@ class HTBoxMullerLnPostProcess(
 }
 
 class HTBoxMullerLogMultiplier(
-  val cfg: BoxMullerConfig,
+  val cfg: HTBoxMullerConfig,
 ) extends Module {
 
   val realSpec = cfg.realSpec
@@ -476,7 +476,7 @@ class HTBoxMullerLogMultiplier(
 //    '-> 2(1-x)            -'
 //
 class HTBoxMullerLog(
-  val cfg: BoxMullerConfig
+  val cfg: HTBoxMullerConfig
 ) extends Module {
 
   val realSpec = cfg.realSpec
@@ -501,10 +501,11 @@ class HTBoxMullerLog(
   val pcGap: Int = if(cfg.preCalcGap)   { 1 } else { 0 }
   val tcGap: Int = if(cfg.tableCalcGap) { 1 } else { 0 }
   val cpGap: Int = if(cfg.calcPostGap)  { 1 } else { 0 }
+  val mulStage = cfg.mulStage
 
   def nStage(): Int = {
     preStage.total + pcGap + tcGap + calcStage.total + cpGap + postStage.total +
-    cfg.mulStage.total
+    mulStage.total
   }
 
   // ---------------------------------------------------------------------------

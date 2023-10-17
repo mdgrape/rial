@@ -19,7 +19,7 @@ import rial.math._
 // -------------------------------------------------------------------------
 
 class HTBoxMullerSqrt(
-  val cfg: BoxMullerConfig
+  val cfg: HTBoxMullerConfig
 ) extends Module {
 
   val realSpec = cfg.realSpec
