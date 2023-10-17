@@ -40,10 +40,11 @@ class HTBoxMullerSinCos2PiPreProc(
 
   // round 2pix to [0, pi/4]
   val x0piover2 = io.x.ex < (exBias-2).U
-  val x1piover2 = (exBias-2).U === io.x.ex
-  val x2piover2 = (exBias-1).U === io.x.ex && (io.x.man.head(1) === 0.U)
-  val x3piover2 = (exBias-1).U === io.x.ex && (io.x.man.head(1) === 1.U)
-  when(io.en) {assert(x0piover2 || x1piover2 || x2piover2 || x3piover2)}
+  val x1piover2 = io.x.ex === (exBias-2).U
+  val x2piover2 = io.x.ex === (exBias-1).U && (io.x.man.head(1) === 0.U)
+  val x3piover2 = io.x.ex === (exBias-1).U && (io.x.man.head(1) === 1.U)
+  val xone      = io.x.ex === exBias.U && io.x.man === 0.U
+  when(io.en) {assert(x0piover2 || x1piover2 || x2piover2 || x3piover2 || xone)}
 
   // ^   _           _ cos
   // |'.' '.       .'
@@ -221,10 +222,11 @@ class HTBoxMullerSinCos2PiOtherPath(
   })
 
   val x0piover2 = io.x.ex < (exBias-2).U
-  val x1piover2 = (exBias-2).U === io.x.ex
-  val x2piover2 = (exBias-1).U === io.x.ex && (io.x.man.head(1) === 0.U)
-  val x3piover2 = (exBias-1).U === io.x.ex && (io.x.man.head(1) === 1.U)
-  when(io.en) {assert(x0piover2 || x1piover2 || x2piover2 || x3piover2)}
+  val x1piover2 = io.x.ex === (exBias-2).U
+  val x2piover2 = io.x.ex === (exBias-1).U && (io.x.man.head(1) === 0.U)
+  val x3piover2 = io.x.ex === (exBias-1).U && (io.x.man.head(1) === 1.U)
+  val xone      = io.x.ex === exBias.U && io.x.man === 0.U
+  when(io.en) {assert(x0piover2 || x1piover2 || x2piover2 || x3piover2 || xone)}
 
   // ^   _           _ cos
   // |'.' '.       .'
@@ -240,10 +242,12 @@ class HTBoxMullerSinCos2PiOtherPath(
   val xmanhalf = io.x.man.head(1) === 1.U && io.x.man.tail(1) === 0.U
 
   if(isSin) {
+    val zzero = (io.x.ex === 0.U) || (io.x.ex === (exBias-1).U && xman0) || xone
+    val zone  = (io.x.ex === (exBias-2).U && xman0) ||
+                (io.x.ex === (exBias-1).U && xmanhalf)
     io.zsgn  := ShiftRegister(x2piover2 || x3piover2, nStage)
-    io.zzero := ShiftRegister((io.x.ex === 0.U) || (io.x.ex === (exBias-1).U && xman0), nStage)
-    io.zone  := ShiftRegister((io.x.ex === (exBias-2).U && xman0) ||
-                              (io.x.ex === (exBias-1).U && xmanhalf), nStage)
+    io.zzero := ShiftRegister(zzero, nStage)
+    io.zone  := ShiftRegister(zone, nStage)
 
     val yConv = WireDefault(0.U(manW.W))
     val yex   = WireDefault(0.U(exW.W))
@@ -262,7 +266,11 @@ class HTBoxMullerSinCos2PiOtherPath(
       }
       val yShift   = PriorityEncoder(Reverse(yConv))
       val yAligned = (yConv << yShift)(manW-1, 0)
-      when(io.en) {assert(yAligned.head(1) === 1.U, "yConv = %b, yShift = %d, yAligned = %b\n", yConv, yShift, yAligned)}
+      when(io.en) {
+        assert(yAligned.head(1) === 1.U || zzero || zone,
+          "zzero = %b, zone = %b, x.man = %b, yConv = %b, yShift = %d, yAligned = %b\n",
+          zzero, zone, io.x.man, yConv, yShift, yAligned)
+      }
       yex  := (exBias-3).U - yShift
       yman := Cat(yAligned, 0.U(1.W))(manW-1, 0)
     }
@@ -270,10 +278,13 @@ class HTBoxMullerSinCos2PiOtherPath(
 
   } else {
 
+    val zzero = (io.x.ex === (exBias-2).U && xman0) ||
+                (io.x.ex === (exBias-1).U && xmanhalf)
+    val zone  = (io.x.ex === 0.U) || (io.x.ex === (exBias-1).U && xman0)
+
     io.zsgn  := ShiftRegister(x1piover2 || x2piover2, nStage)
-    io.zzero := ShiftRegister((io.x.ex === (exBias-2).U && xman0) ||
-                              (io.x.ex === (exBias-1).U && xmanhalf), nStage)
-    io.zone  := ShiftRegister((io.x.ex === 0.U) || (io.x.ex === (exBias-1).U && xman0), nStage)
+    io.zzero := ShiftRegister(zzero, nStage)
+    io.zone  := ShiftRegister(zone, nStage)
 
     val yConv = WireDefault(0.U(manW.W))
     val yex   = WireDefault(0.U(exW.W))
