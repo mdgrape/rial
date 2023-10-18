@@ -53,22 +53,36 @@ class HTBoxMullerCosTest extends AnyFlatSpec
 
           assert(cfg.rndW < 64)
 
-//           val specialValues = Seq(1.0, 1.0-pow(2.0, -spec.manW))
-//           var specialIdx = 0
-
           for(i <- 1 to n+nstage) {
             val xi0 = r.nextDouble
             val xi  = if(xi0 == 0.0) {1.0} else {xi0}
             val x   = new RealGeneric(spec, xi)
-            val xr  = x.toFloat
 
-            val pif = (new RealGeneric(spec, Pi)).toFloat
-            val z0r = cos(2 * pif * xr)
+             // ^   _           _ cos
+             // |'.' '.       .'
+             // |/ \   \     /    sin
+             // +---\---\---/---/->
+             //      \   \ /   /
+             //       '._.'._.'
+             //
+             // | 0 | 1 | 2 | 3 |
+
+            val xr = if(x.toDouble < 0.25) {
+              new RealGeneric(spec, 0.25 - x.toDouble).toDouble
+            } else if (x.toDouble < 0.5) {
+              new RealGeneric(spec, x.toDouble - 0.25).toDouble * (-1.0)
+            } else if (x.toDouble < 0.75) {
+              new RealGeneric(spec, 0.75 - x.toDouble).toDouble * (-1.0)
+            } else {
+              new RealGeneric(spec, x.toDouble - 0.75).toDouble
+            }
+
+            val pi  = (new RealGeneric(spec, Pi)).toDouble
+            val z0r = sin(2 * pi * xr)
             val z0  = new RealGeneric(spec, z0r)
 
-            val y0  = new RealGeneric(spec, z0r / xr)
             println("============================================================")
-            println(f"x = ${xi}, cos(2pix) = ${z0r}")
+            println(f"x = ${xi}(-> ${x.toDouble}), cos(2pix) = ${cos(2 * Pi * xi)}(-> ${z0r})")
 
             q += ((xi, z0.value.toLong))
 
@@ -102,7 +116,7 @@ class HTBoxMullerCosTest extends AnyFlatSpec
 
               val log_threshold = floor(-log(rel) / log(2.0)) + 1
               val threshold = pow(2.0, log_threshold)
-              println(f"x = ${xref}, diff = ${rel}, log(threshold) = ${log_threshold}, threshold = ${threshold}, diff = ${abs(zi-zref)}")
+//               println(f"x = ${xref}, diff = ${rel}, log(threshold) = ${log_threshold}, threshold = ${threshold}, diff = ${abs(zi-zref)}")
 
               assert(abs(zi - zref) <= threshold, f"x = ${xref}, "+
                   f"test(${zisgn }|${ziexp  }(${ziexp   - spec.exBias})|${ziman  .toLong.toBinaryString})(${new RealGeneric(spec, zisgn.toInt,   ziexp.toInt,   ziman).toDouble}) != " +

@@ -60,14 +60,30 @@ class HTBoxMullerSinTest extends AnyFlatSpec
             val xi0 = r.nextDouble
             val xi  = if(xi0 == 0.0) {1.0} else {xi0}
             val x   = new RealGeneric(spec, xi)
-            val xr  = x.toFloat
+
+            val xr = if(x.toDouble < 0.25) {
+              if(x.toDouble == 0.0) {
+                0.0
+              } else {
+                x.toDouble
+              }
+            } else if (x.toDouble < 0.5) {
+              if(x.toDouble == 0.25) {
+                0.25
+              } else {
+                new RealGeneric(spec, 0.5 - x.toDouble).toDouble
+              }
+            } else if (x.toDouble < 0.75) {
+              new RealGeneric(spec, x.toDouble - 0.5).toDouble * (-1.0)
+            } else {
+              new RealGeneric(spec, 1.0 - x.toDouble).toDouble * (-1.0)
+            }
 
             val z0r = sin(2 * Pi * xr)
             val z0  = new RealGeneric(spec, z0r)
 
-            val y0  = new RealGeneric(spec, z0r / xr)
             println("============================================================")
-            println(f"x = ${xi}, sin(2pix) = ${z0r}")
+            println(f"x = ${xi}(-> ${x.toDouble}), sin(2pix) = ${z0r}")
 
             q += ((xi, z0.value.toLong))
 
