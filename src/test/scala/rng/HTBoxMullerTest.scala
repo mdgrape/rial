@@ -158,6 +158,26 @@ class HTBoxMullerTest extends AnyFlatSpec
       mulStage = PipelineStageConfig.atOut(3)
     )
 
-  runChiSquared(cfgFP32, 1000, "FP32, rndW=32")
+  runChiSquared(cfgFP32, 5000, "FP32, rndW=32")
 
+  val nOrderBF16    = 0
+  val adrWBF16      = 7
+  val extraBitsBF16 = 1
+
+  val cfgBF16 = HTBoxMullerConfig(
+      rndW,
+      realSpec = RealSpec.Float32Spec,
+      polySpec = new PolynomialSpec(RealSpec.Float32Spec.manW, nOrderBF16, adrWBF16, extraBitsBF16),
+      int2floatStge = PipelineStageConfig.atOut(1),
+      polyPreStage  = PipelineStageConfig.atOut(1),
+      polyCalcStage = PipelineStageConfig.atOut(3),
+      polyPostStage = PipelineStageConfig.atOut(1),
+      i2fPolyGap    = true,
+      preCalcGap    = true,
+      tableCalcGap  = true,
+      calcPostGap   = true,
+      mulStage = PipelineStageConfig.atOut(3)
+    )
+
+  runChiSquared(cfgBF16, 5000, "BF16, rndW=32")
 }
