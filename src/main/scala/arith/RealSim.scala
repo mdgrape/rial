@@ -640,10 +640,17 @@ object RealGeneric {
   }
 
   private def doubleToRealGeneric(spec : RealSpec, x : Double ) : SafeLong = {
-    if (x == 0.0) SafeLong(0)
-    else if (x.isNaN) (maskSL(spec.exW+1)<<(spec.manW-1))
-    else if (x.isPosInfinity) ( maskSL(spec.exW)<<spec.manW )
-    else if (x.isNegInfinity) ( maskSL(spec.exW+1)<<spec.manW )
+    if (x == 0.0) {
+      val (sgn,exD,manD) = unpackDouble(x)
+      if(sgn == 1) {
+        SafeLong(1 << (spec.W-1))
+      } else {
+        SafeLong(0)
+      }
+    }
+    else if (x.isNaN)         { maskSL(spec.exW+1) << (spec.manW-1) }
+    else if (x.isPosInfinity) { maskSL(spec.exW  ) <<  spec.manW }
+    else if (x.isNegInfinity) { maskSL(spec.exW+1) <<  spec.manW }
     else {
       val (sgn,exD,manD) = unpackDouble(x)
       val man = SafeLong(manD)
