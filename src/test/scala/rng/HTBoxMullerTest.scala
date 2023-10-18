@@ -166,8 +166,8 @@ class HTBoxMullerTest extends AnyFlatSpec
 
   val cfgBF16 = HTBoxMullerConfig(
       rndW,
-      realSpec = RealSpec.Float32Spec,
-      polySpec = new PolynomialSpec(RealSpec.Float32Spec.manW, nOrderBF16, adrWBF16, extraBitsBF16),
+      realSpec = RealSpec.BFloat16Spec,
+      polySpec = new PolynomialSpec(RealSpec.BFloat16Spec.manW, nOrderBF16, adrWBF16, extraBitsBF16),
       int2floatStge = PipelineStageConfig.none,
       polyPreStage  = PipelineStageConfig.none,
       polyCalcStage = PipelineStageConfig.none,
