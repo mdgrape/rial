@@ -245,7 +245,7 @@ class HTBoxMullerSinCos2PiOtherPath(
     val zzero = (io.x.ex === 0.U) || (io.x.ex === (exBias-1).U && xman0) || xone
     val zone  = (io.x.ex === (exBias-2).U && xman0) ||
                 (io.x.ex === (exBias-1).U && xmanhalf)
-    io.zsgn  := ShiftRegister(x2piover2 || x3piover2, nStage)
+    io.zsgn  := ShiftRegister(x2piover2 || x3piover2 || xone, nStage)
     io.zzero := ShiftRegister(zzero, nStage)
     io.zone  := ShiftRegister(zone, nStage)
 
@@ -280,7 +280,7 @@ class HTBoxMullerSinCos2PiOtherPath(
 
     val zzero = (io.x.ex === (exBias-2).U && xman0) ||
                 (io.x.ex === (exBias-1).U && xmanhalf)
-    val zone  = (io.x.ex === 0.U) || (io.x.ex === (exBias-1).U && xman0)
+    val zone  = (io.x.ex === 0.U) || (io.x.ex === (exBias-1).U && xman0) || xone
 
     io.zsgn  := ShiftRegister(x1piover2 || x2piover2, nStage)
     io.zzero := ShiftRegister(zzero, nStage)
