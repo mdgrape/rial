@@ -181,9 +181,10 @@ class HTBoxMullerLog2TableCoeff(
 
     val tableI = VecInit((0L to 1L<<adrW).map(
       n => {
-        val log2 = (a:Double) => {log(a) / log(2.0)}
         val x = (n.toDouble / (1L<<adrW)) + 1.0
-        val res = log2(x)
+        val log2x = log(x) / log(2.0)
+        val res = 1.0 - log2x
+
         assert(0.0 <= res && res <= 1.0, f"log2(x) = ${res}")
         val y = round(res * (1L<<fracW))
         if (y >= (1L<<fracW)) {
@@ -258,8 +259,8 @@ class HTBoxMullerLnTableCoeff(
 
     val tableI = VecInit((0L to 1L<<adrW).map(
       n => {
-        val x = (n.toDouble / (1L<<adrW)) + 1.0 // 0~1 -> 1~2
-        val res = if(n == 0) {1.0} else {log(x) / (x - 1.0)}
+        val x = 0.5 * ((n.toDouble / (1L<<adrW)) + 1.0) // 0~1 -> 0.5~1
+        val res = if(n == 1L<<adrW) {0.0} else {-log(x) / (1.0 - x) - 1.0}
         assert(0.0 <= res && res <= 1.0, f"log(x)/(x-1) = ${res}")
         val y = round(res * (1L<<fracW))
 
