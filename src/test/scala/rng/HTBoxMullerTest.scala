@@ -168,15 +168,15 @@ class HTBoxMullerTest extends AnyFlatSpec
       rndW,
       realSpec = RealSpec.Float32Spec,
       polySpec = new PolynomialSpec(RealSpec.Float32Spec.manW, nOrderBF16, adrWBF16, extraBitsBF16),
-      int2floatStge = PipelineStageConfig.atOut(1),
-      polyPreStage  = PipelineStageConfig.atOut(1),
-      polyCalcStage = PipelineStageConfig.atOut(3),
-      polyPostStage = PipelineStageConfig.atOut(1),
+      int2floatStge = PipelineStageConfig.none,
+      polyPreStage  = PipelineStageConfig.none,
+      polyCalcStage = PipelineStageConfig.none,
+      polyPostStage = PipelineStageConfig.none,
       i2fPolyGap    = true,
       preCalcGap    = true,
       tableCalcGap  = true,
       calcPostGap   = true,
-      mulStage = PipelineStageConfig.atOut(3)
+      mulStage = PipelineStageConfig.atOut(1)
     )
 
   runChiSquared(cfgBF16, 5000, "BF16, rndW=32")
