@@ -181,4 +181,25 @@ class HTBoxMullerCosTest extends AnyFlatSpec
   runtest(cfgNone,   1000, "Test w/ no registers")
   runtest(cfgSimple, 1000, "Test w/ simple registers")
   runtest(cfgFull,   1000, "Test w/ full registers")
+
+  val nOrderBF16    = 0
+  val adrWBF16      = 7
+  val extraBitsBF16 = 1
+
+  val cfgBF16 = HTBoxMullerConfig(
+      rndW,
+      realSpec = RealSpec.BFloat16Spec,
+      polySpec = new PolynomialSpec(RealSpec.BFloat16Spec.manW, nOrderBF16, adrWBF16, extraBitsBF16),
+      int2floatStge = PipelineStageConfig.atOut(0),
+      polyPreStage  = PipelineStageConfig.atOut(0),
+      polyCalcStage = PipelineStageConfig.atOut(0),
+      polyPostStage = PipelineStageConfig.atOut(0),
+      i2fPolyGap    = true,
+      preCalcGap    = true,
+      tableCalcGap  = true,
+      calcPostGap   = true,
+      mulStage = PipelineStageConfig.atOut(1)
+    )
+
+  runtest(cfgBF16,   1000, "Test BF16")
 }
