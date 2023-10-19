@@ -79,6 +79,8 @@ class HTBoxMullerSinCos2PiPreProc(
     }
   }
 
+//   printf(f"${if(isSin){"Sin2Pi: "}else{"Cos2Pi: "}}"+"io.x = (%b|%d|%b), xAligned = %b\n", io.x.sgn, io.x.ex, io.x.man, xAligned)
+
   val adr  = enableIf(io.en, xAligned(manW-1, dxW))
   io.adr := ShiftRegister(adr, nStage)
 
@@ -226,6 +228,8 @@ class HTBoxMullerSinCos2PiOtherPath(
   val x2piover2 = io.x.ex === (exBias-1).U && (io.x.man.head(1) === 0.U)
   val x3piover2 = io.x.ex === (exBias-1).U && (io.x.man.head(1) === 1.U)
   val xone      = io.x.ex === exBias.U && io.x.man === 0.U
+  val xzero     = io.x.ex <= (exBias-2 - (manW+1)).U
+
   when(io.en) {assert(x0piover2 || x1piover2 || x2piover2 || x3piover2 || xone)}
 
   // ^   _           _ cos
@@ -241,8 +245,10 @@ class HTBoxMullerSinCos2PiOtherPath(
   val xman0    = io.x.man === 0.U
   val xmanhalf = io.x.man.head(1) === 1.U && io.x.man.tail(1) === 0.U
 
+
+
   if(isSin) {
-    val zzero = (io.x.ex === 0.U) || (io.x.ex === (exBias-1).U && xman0) || xone
+    val zzero = xzero || (io.x.ex === (exBias-1).U && xman0) || xone
     val zone  = (io.x.ex === (exBias-2).U && xman0) ||
                 (io.x.ex === (exBias-1).U && xmanhalf)
     io.zsgn  := ShiftRegister(x2piover2 || x3piover2 || xone, nStage)
@@ -276,11 +282,11 @@ class HTBoxMullerSinCos2PiOtherPath(
     }
     io.coef := ShiftRegister(Cat(0.U(1.W), yex, yman), nStage)
 
-  } else {
+  } else { // isCos
 
     val zzero = (io.x.ex === (exBias-2).U && xman0) ||
                 (io.x.ex === (exBias-1).U && xmanhalf)
-    val zone  = (io.x.ex === 0.U) || (io.x.ex === (exBias-1).U && xman0) || xone
+    val zone  = xzero || (io.x.ex === (exBias-1).U && xman0) || xone
 
     io.zsgn  := ShiftRegister(x1piover2 || x2piover2, nStage)
     io.zzero := ShiftRegister(zzero, nStage)
@@ -424,7 +430,7 @@ class HTBoxMullerSinCos2Pi(
 
   val sinXoverXex  = sinXoverX(manW+exW-1, manW)
   val sinXoverXman = sinXoverX(manW-1, 0)
-//   printf("sinXoverX   = (%b|%d|%b (%d/%d))\n", sinXoverX.head(1), sinXoverXex, sinXoverXman, sinXoverXman, (1<<manW).U)
+//   printf(f"${if(isSin){"Sin2Pi: "}else{"Cos2Pi: "}}"+"sinXoverX   = (%b|%d|%b (%d/%d))\n", sinXoverX.head(1), sinXoverXex, sinXoverXman, sinXoverXman, (1<<manW).U)
 
   // ---------------------------------------------------------------------------
 
@@ -436,7 +442,7 @@ class HTBoxMullerSinCos2Pi(
   val coef = other.io.coef
   val coefex  = coef(manW+exW-1, manW)
   val coefman = coef(manW-1, 0)
-//   printf("coef        = (%b|%d|%b (%d/%d))\n", coef.head(1), coefex, coefman, coefman, (1<<manW).U)
+//   printf(f"${if(isSin){"Sin2Pi: "}else{"Cos2Pi: "}}"+"coef        = (%b|%d|%b (%d/%d))\n", coef.head(1), coefex, coefman, coefman, (1<<manW).U)
 
   // ---------------------------------------------------------------------------
 
