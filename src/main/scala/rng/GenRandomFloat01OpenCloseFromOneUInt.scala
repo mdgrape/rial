@@ -64,11 +64,15 @@ class GenRandomFloat01OpenCloseFromOneUInt(
   val zex0 = Mux(rndExponent === 0.U, rndExW.U, zexP)
   val zex  = (spec.exBias-1).U(exW.W) - zex0 + exCorrection
 
+//   printf(f"GenRandomFloat01(rndW=${rndW}): rndEx = %%b, zex0 = %%d\n", rndExponent, zex0)
+
   val zsgn = 0.U(1.W)
   val zman = rndMantissa
 
   val z = Cat(zsgn, zex, zman)
   assert(z.getWidth == spec.W)
+
+//   printf(f"GenRandomFloat01(rndW=${rndW}): z = %%b|%%d|%%b\n",zsgn, zex, zman)
 
   io.z := ShiftRegister(z, nStage)
 }
