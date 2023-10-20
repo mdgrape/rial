@@ -428,8 +428,8 @@ class HTBoxMullerSinCos2Pi(
 
   val sinXoverX = postproc.io.z
 
-  val sinXoverXex  = sinXoverX(manW+exW-1, manW)
-  val sinXoverXman = sinXoverX(manW-1, 0)
+//   val sinXoverXex  = sinXoverX(manW+exW-1, manW)
+//   val sinXoverXman = sinXoverX(manW-1, 0)
 //   printf(f"${if(isSin){"Sin2Pi: "}else{"Cos2Pi: "}}"+"sinXoverX   = (%b|%d|%b (%d/%d))\n", sinXoverX.head(1), sinXoverXex, sinXoverXman, sinXoverXman, (1<<manW).U)
 
   // ---------------------------------------------------------------------------
@@ -440,8 +440,9 @@ class HTBoxMullerSinCos2Pi(
   other.io.x  := io.x
 
   val coef = other.io.coef
-  val coefex  = coef(manW+exW-1, manW)
-  val coefman = coef(manW-1, 0)
+
+//   val coefex  = coef(manW+exW-1, manW)
+//   val coefman = coef(manW-1, 0)
 //   printf(f"${if(isSin){"Sin2Pi: "}else{"Cos2Pi: "}}"+"coef        = (%b|%d|%b (%d/%d))\n", coef.head(1), coefex, coefman, coefman, (1<<manW).U)
 
   // ---------------------------------------------------------------------------
