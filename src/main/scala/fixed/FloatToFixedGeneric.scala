@@ -16,8 +16,25 @@ import rial.util.RialChiselUtil._
 import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig._
 
+/** Floating point number -> Fixed point number
+ *
+ * First input is the input floating point number.
+ * Second input (optional) is the current fraction width.
+ * If yintW is not given (be `None`), it uses zSpec.fracW that will be hard-coded.
+ *
+ * 0 means the fixed point value is an integer (w/o fractional part).
+ * Since, in most cases, fixed point is signed, it results a weird result if
+ * fracW > totalW in a fixed point value.
+ * Take care of the width of the second input, y.
+ *
+ * @param xSpec spec of the input floating point number.
+ * @param yintW width of the second input, fracWidth value. If None, zSpec.fracW is used instead.
+ * @param zSpec spec of the output fixed point number.
+ * @param roundSpec spec of the rounding
+ * @param stage Determines how many registers needed.
+ */
 class FloatToFixedGeneric(
-  xSpec : RealSpec, yintW: Option[Int], zSpec : FixedSpec, // Input / Output floating spec
+  xSpec : RealSpec, yintW: Option[Int], zSpec : FixedSpec,
   roundSpec : RoundSpec, // Rounding spec
   stage : PipelineStageConfig
 ) extends Module {
