@@ -11,60 +11,100 @@ import chisel3.util._
 class Squares32 extends Module {
 
   val io = IO(new Bundle {
-    val key   = Input (UInt(64.W))
-    val count = Input (UInt(64.W))
-    val rand  = Output(UInt(32.W))
+    val en = Input(Bool())
+
+    val input = new Bundle {
+      val valid = Input (Bool())
+      val key   = Input (UInt(64.W))
+      val count = Input (UInt(64.W))
+    }
+
+    val output = new Bundle {
+      val valid = Output(Bool())
+      val rand  = Output(UInt(32.W))
+    }
   })
 
   val x0 = WireDefault(0.U(64.W))
   val y0 = WireDefault(0.U(64.W))
   val z0 = WireDefault(0.U(64.W))
-  x0 := io.key * io.count
+  x0 := io.input.key * io.input.count
   y0 := x0
-  z0 := io.key + y0
+  z0 := io.input.key + y0
 
   val stage0 = Module(new Squares32RNGStage)
   val stage1 = Module(new Squares32RNGStage)
   val stage2 = Module(new Squares32RNGStage)
   val stage3 = Module(new Squares32RNGStage)
 
-  stage0.io.x := x0
-  stage0.io.y := y0
+  stage0.io.en := io.en
+  stage0.io.input.valid := io.input.valid
+  stage0.io.input.x     := x0
+  stage0.io.input.y     := y0
+  stage0.io.input.c     := z0
 
-  val x1 = stage0.io.out
-  val z1 = ShiftRegister(1, z0, 0.U, true.B)
-  stage1.io.x := x1
-  stage1.io.y := z1
+  stage1.io.en := io.en
+  stage1.io.input.valid := stage0.io.output.valid
+  stage1.io.input.x     := stage0.io.output.z
+  stage1.io.input.y     := stage0.io.output.c
+  stage1.io.input.c     := stage0.io.output.y
 
-  val x2 = stage1.io.out
-  val y2 = ShiftRegister(2, y0, 0.U, true.B)
-  stage2.io.x := x2
-  stage2.io.y := y2
+  stage2.io.en := io.en
+  stage2.io.input.valid := stage1.io.output.valid
+  stage2.io.input.x     := stage1.io.output.z
+  stage2.io.input.y     := stage1.io.output.c
+  stage2.io.input.c     := stage1.io.output.y
 
-  val x3 = stage2.io.out
-  val z3 = ShiftRegister(2, z1, 0.U, true.B)
-  stage3.io.x := x3
-  stage3.io.y := z3
+  stage3.io.en := io.en
+  stage3.io.input.valid := stage2.io.output.valid
+  stage3.io.input.x     := stage2.io.output.z
+  stage3.io.input.y     := stage2.io.output.c
+  stage3.io.input.c     := stage2.io.output.y
 
-  io.rand := stage3.io.out(31, 0)
+  io.output.valid := stage3.io.output.valid
+  io.output.rand  := stage3.io.output.z(31, 0)
 }
 
 class Squares32RNGStage extends Module {
 
   val io = IO(new Bundle {
-    val x   = Input(UInt(64.W))
-    val y   = Input(UInt(64.W))
-    val out = Output(UInt(64.W))
+    val en = Input(Bool())
+
+    val input = new Bundle {
+      val valid = Input(Bool())
+      val x = Input(UInt(64.W))
+      val y = Input(UInt(64.W))
+      val c = Input(UInt(64.W))
+    }
+    val output = new Bundle {
+      val valid = Output(Bool())
+      val z     = Output(UInt(64.W))
+      val y     = Output(UInt(64.W))
+      val c     = Output(UInt(64.W))
+    }
   })
 
   val xsq = WireDefault(0.U(64.W))
-  xsq := io.x * io.x
+  val z0  = WireDefault(0.U(64.W))
+  val z   = WireDefault(0.U(64.W))
+  xsq := io.input.x * io.input.x
+  z0  := xsq + io.input.y
+  z   := Cat(z0(31,0), z0(63, 32))
 
-  val z0 = WireDefault(0.U(64.W))
-  z0 := xsq + io.y
+  val vReg = RegInit(false.B)
+  val zReg = RegInit(0.U(64.W))
+  val yReg = RegInit(0.U(64.W))
+  val cReg = RegInit(0.U(64.W))
 
-  val z = RegInit(0.U(64.W))
-  z := Cat(z(31,0), z(63, 32))
+  when(io.en) {
+    vReg := io.input.valid
+    zReg := z
+    yReg := io.input.y
+    cReg := io.input.c
+  }
 
-  io.out := z
+  io.output.valid := vReg
+  io.output.z     := zReg
+  io.output.y     := yReg
+  io.output.c     := cReg
 }
