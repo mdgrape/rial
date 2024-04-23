@@ -38,16 +38,18 @@ class ThreefryTest extends AnyFlatSpec
     test(new Threefry4_32(r, rotStage)) {
       c => {
         val (r, rotStage) = c.getParam
-        println(f"Threefry4_32 parameters rotation=$r%d stage between rotation=$rotStage%d")
+        println(f"Threefry4_32 parameters rotation=$r%d stage between rotation=$rotStage%d, nStages = ${c.nStages}")
 
         val threefry = c
+        threefry.io.en.poke(true.B)
 
         val key = Array( 0x11111111, 0x22222222, 0, 0 )
         val ctr = Array( 0, 0, 0, 0 )
-        threefry.io.key(0).poke(0x11111111.U)
-        threefry.io.key(1).poke(0x22222222.U)
-        threefry.io.key(2).poke(0.U)
-        threefry.io.key(3).poke(0.U)
+        threefry.io.input.valid.poke(true.B)
+        threefry.io.input.key(0).poke(0x11111111.U)
+        threefry.io.input.key(1).poke(0x22222222.U)
+        threefry.io.input.key(2).poke(0.U)
+        threefry.io.input.key(3).poke(0.U)
 
         val rng = crial.threefry4x32_init( ctr, key )
 
@@ -55,24 +57,28 @@ class ThreefryTest extends AnyFlatSpec
           //val key = "".U
           //val count = Wire(UInt(128.W)); count = i.U
 
-          threefry.io.count(0).poke(i.U)
-          threefry.io.count(1).poke(0.U)
-          threefry.io.count(2).poke(0.U)
-          threefry.io.count(3).poke(0.U)
+          threefry.io.input.count(0).poke(i.U)
+          threefry.io.input.count(1).poke(0.U)
+          threefry.io.input.count(2).poke(0.U)
+          threefry.io.input.count(3).poke(0.U)
 
-          val r = crial.threefry4x32( rng )
+          threefry.io.output.valid.expect((i >= threefry.nStages).B)
 
-          for (j <- 0 to 3) {
-            val x = threefry.io.rand(j).peek()
-            val y : Long = if (r(j)<0) {
-              r(j) + 0x100000000L
-            } else {
-              r(j)
+          if(i >= threefry.nStages) {
+            val r = crial.threefry4x32( rng )
+            for (j <- 0 to 3) {
+              val y : Long = if (r(j)<0) {
+                r(j) + 0x100000000L
+              } else {
+                r(j)
+              }
+              val x = threefry.io.output.rand(j).peek().litValue.toLong
+              if(x != y) {
+                println(f"actual=${x}%08x, expected=${y}%08x")
+              }
+              threefry.io.output.rand(j).expect(y.U)
             }
-            //print(f" $x%08x $y%08x")
-            threefry.io.rand(j).expect(y.U)
           }
-          //println()
           c.clock.step(1)
         }
       }
@@ -81,6 +87,9 @@ class ThreefryTest extends AnyFlatSpec
 
   it should "Threefry should be equal to crial C impl" in {
     runTest(20, 0)
+    runTest(20, 2)
+    runTest(20, 4)
+    runTest(20, 5)
   }
 }
 
