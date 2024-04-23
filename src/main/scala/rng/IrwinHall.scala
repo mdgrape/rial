@@ -1,5 +1,7 @@
 package rial.rng
 
+import rial.arith.RealSpec
+
 // generate approx-gaussian random number based on Irwin-Hall distribution.
 
 import scala.language.reflectiveCalls
@@ -18,10 +20,10 @@ class IrwinHall(
     val output = Decoupled(UInt(spec.W.W))
   })
 
-  val node0 = IrwinHallTreeSumNode(12, w)
-  val node1 = IrwinHallTreeSumNode( 6, w+1)
-  val node2 = IrwinHallTreeSumNode( 3, w+2)
-  val node3 = IrwinHallTreeSumNode( 2, w+3)
+  val node0 = Module(new IrwinHallTreeSumNode(12, rndW))
+  val node1 = Module(new IrwinHallTreeSumNode( 6, rndW+1))
+  val node2 = Module(new IrwinHallTreeSumNode( 3, rndW+2))
+  val node3 = Module(new IrwinHallTreeSumNode( 2, rndW+3))
 
   io.input.ready := node0.io.input.ready
   node0.io.input.valid := io.input.ready
@@ -31,7 +33,7 @@ class IrwinHall(
   node2.io.input <> node1.io.output
   node3.io.input <> node2.io.output
 
-  val fpconv = IrwinHallFPConverter(spec, rndW)
+  val fpconv = Module(new IrwinHallFPConverter(spec, rndW))
 
   fpconv.io.input <> node3.io.output
   io.output <> fpconv.io.output
@@ -43,11 +45,11 @@ class IrwinHallFPConverter(
 
   val io = IO(new Bundle {
     val input = Flipped(Decoupled(UInt((rndW+4).W)))
-    val ouptut = Decoupled(UInt(spec.W.W))
+    val output = Decoupled(UInt(spec.W.W))
   })
 
   val sum    = io.input.bits
-  val six    = Fill(6.U(4.W), 0.U(rndW.W))
+  val six    = Cat(6.U(4.W), 0.U(rndW.W))
   val zZero  = sum === six
   val zSgn   = Mux(sum >= six, 0.U(1.W),  1.U(1.W))
   val zAbs   = Mux(sum >= six, sum - six, six - sum)
