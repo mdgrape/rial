@@ -10,6 +10,8 @@ import chisel3.util._
 
 class Squares32 extends Module {
 
+  def nStages = 4
+
   val io = IO(new Bundle {
     val en = Input(Bool())
 
