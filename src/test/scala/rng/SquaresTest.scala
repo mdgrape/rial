@@ -82,3 +82,74 @@ class SquaresTest extends AnyFlatSpec
   }
 }
 
+class Squares32GeneratorTest extends AnyFlatSpec
+  with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
+
+  behavior of "Test Squares32Generator"
+
+  var n = 1000
+
+  override def beforeAll(configMap: ConfigMap) = {
+    n = configMap.getOptional[String]("n").getOrElse("1000").toInt
+    println(s"ncycle=$n")
+  }
+
+  def squares(cnt: BigInt, key: BigInt): BigInt = {
+    val mask64 = (BigInt(1) << 64) - BigInt(1)
+    val mask32 = (BigInt(1) << 32) - BigInt(1)
+
+    var x = cnt * key
+    val y = cnt * key
+    val z = y + key
+
+    x = (((x * x) & mask64) + y) & mask64
+    x = ((x >>32) & mask32) | ((x & mask32) << 32)
+
+    x = (((x * x) & mask64) + z) & mask64
+    x = ((x >>32) & mask32) | ((x & mask32) << 32)
+
+    x = (((x * x) & mask64) + y) & mask64
+    x = ((x >>32) & mask32) | ((x & mask32) << 32)
+
+    x = (((x * x) & mask64) + z) & mask64
+    x = ((x >>32) & mask32) | ((x & mask32) << 32)
+
+    return x & mask32
+  }
+
+  def runTest(key: BigInt) = {
+    test(new Squares32Generator) {
+      c => {
+        c.io.initialized.expect(false.B)
+
+        c.io.init.en   .poke(true.B)
+        c.io.init.key  .poke(key.U)
+        c.io.init.count.poke(  0.U)
+
+        c.io.rand.ready.poke(false.B)
+
+        c.clock.step(1) // --------------------------------------------
+
+        c.io.initialized.expect(true.B)
+
+        c.io.init.en   .poke(false.B)
+        c.io.init.key  .poke(0.U)
+        c.io.init.count.poke(0.U)
+
+        c.io.rand.ready.poke(true.B)
+        for (i <- 0 to n-1) {
+          c.io.rand.valid.expect( (i >= c.nStages).B )
+
+          if(c.io.rand.valid.peek().litValue == 1) {
+            c.io.rand.bits.expect(squares(BigInt(i-c.nStages), key).U)
+          }
+          c.clock.step(1)
+        }
+      }
+    }
+  }
+
+  it should "Squares should be equal to software impl" in {
+    runTest(BigInt("2467cb532b5ce8d1", 16))
+  }
+}
