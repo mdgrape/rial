@@ -95,6 +95,97 @@ class ThreefryTest extends AnyFlatSpec
   }
 }
 
+// test of wrapper
+class ThreefryGeneratorTest extends AnyFlatSpec
+  with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
+
+  behavior of "Test ThreefryGenerator"
+
+  var n = 1000
+
+  override def beforeAll(configMap: ConfigMap) = {
+    n = configMap.getOptional[String]("n").getOrElse("1000").toInt
+    println(s"ncycle=$n")
+  }
+
+  def runTest(r: Int, rotStage: Int) = {
+    test(new Threefry4x32Generator(r, rotStage)) {
+      c => {
+        val (r, rotStage) = c.getParam
+        println(f"Threefry4x32 parameters rotation=${r}%d stage between rotation=${rotStage}%d, nStages = ${c.nStages}")
+
+        val threefry = c
+
+        val key = Array( 0x11111111, 0x22222222, 0, 0 )
+        val ctr = Array( 0, 0, 0, 0 )
+
+        threefry.io.initialized.expect(false.B)
+
+        threefry.io.init.en.poke(true.B)
+        threefry.io.init.key  (0).poke(key(0).U)
+        threefry.io.init.key  (1).poke(key(1).U)
+        threefry.io.init.key  (2).poke(key(2).U)
+        threefry.io.init.key  (3).poke(key(3).U)
+        threefry.io.init.count(0).poke(ctr(0).U)
+        threefry.io.init.count(1).poke(ctr(1).U)
+        threefry.io.init.count(2).poke(ctr(2).U)
+        threefry.io.init.count(3).poke(ctr(3).U)
+
+        threefry.clock.step(1) // --------------------------------------------
+
+        threefry.io.initialized.expect(true.B)
+
+        threefry.io.init.en.poke(false.B)
+        threefry.io.init.key(0).poke(0.U)
+        threefry.io.init.key(1).poke(0.U)
+        threefry.io.init.key(2).poke(0.U)
+        threefry.io.init.key(3).poke(0.U)
+        threefry.io.init.count(0).poke(0.U)
+        threefry.io.init.count(1).poke(0.U)
+        threefry.io.init.count(2).poke(0.U)
+        threefry.io.init.count(3).poke(0.U)
+
+        val rng = crial.threefry4x32_init( ctr, key )
+
+        threefry.io.rand.ready.poke(true.B)
+        for (i <- 0 to n-1) {
+
+          // we added a Queue to Generator, so +1 latency
+          threefry.io.rand.valid.expect( (i >= (1+threefry.nStages)).B )
+          if(threefry.io.rand.valid.peek().litValue == 1) {
+
+            val r = crial.threefry4x32( rng )
+            for (j <- 0 to 3) {
+              val y : Long = if (r(j)<0) {
+                r(j) + 0x100000000L
+              } else {
+                r(j)
+              }
+              val x = threefry.io.rand.bits(j).peek().litValue.toLong
+              if(x != y) {
+                println(f"actual=${x}%08x, expected=${y}%08x")
+              }
+              assert(x == y)
+              // threefry.io.rand.bits(j).expect(y.U)
+            }
+          }
+          c.clock.step(1)
+        }
+      }
+    }
+  }
+
+  it should "Threefry should be equal to crial C impl" in {
+    runTest(20, 0)  // latency  0 + 1 (queue)
+    runTest(20, 20) // latency  1 + 1
+    runTest(20, 10) // latency  2 + 1
+    runTest(20, 5)  // latency  4 + 1
+    runTest(20, 4)  // latency  5 + 1
+    runTest(20, 2)  // latency 10 + 1
+  }
+}
+
+
 // /**
 //   * This is a trivial example of how to run this Specification
 //   * From within sbt use:
