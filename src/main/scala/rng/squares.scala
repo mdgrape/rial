@@ -8,6 +8,57 @@ import scala.language.reflectiveCalls
 import chisel3._
 import chisel3.util._
 
+//
+// take random number from Threefry using ready/valid interface
+//
+class Squares32Generator() extends Module {
+
+  val io = IO(new Bundle {
+    val initialized = Output(Bool())
+    val init = new Bundle {
+      val en    = Input(Bool())
+      val key   = Input(UInt(64.W))
+      val count = Input(UInt(64.W))
+    }
+    val rand = Decoupled(UInt(32.W))
+  })
+
+  val rng = Module(new Squares32)
+
+  def nStages  = { rng.nStages + 1 }
+
+  val initialized = RegInit(false.B)
+  io.initialized := initialized
+
+  val key   = RegInit(0.U(64.W))
+  val count = RegInit(0.U(64.W))
+  when(io.init.en) {
+    key   := io.init.key
+    count := io.init.count
+    initialized := true.B
+  }
+
+  val outQ = Module(new Queue(UInt(32.W), 1, pipe=true, flow=false))
+  io.rand <> outQ.io.deq
+
+  val step = initialized && outQ.io.enq.ready
+
+  rng.io.en          := step
+  rng.io.input.valid := initialized
+  rng.io.input.key   := key
+  rng.io.input.count := count
+
+  // update counter only when we need to push pipeline forward
+  val countNext = count + 1.U
+  when(step) {
+    count := countNext
+  }
+
+  outQ.io.enq.valid := rng.io.output.valid
+  outQ.io.enq.bits  := rng.io.output.rand
+}
+
+
 class Squares32 extends Module {
 
   def nStages = 4
