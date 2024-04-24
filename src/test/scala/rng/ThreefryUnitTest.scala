@@ -87,9 +87,11 @@ class ThreefryTest extends AnyFlatSpec
 
   it should "Threefry should be equal to crial C impl" in {
     runTest(20, 0)
-    runTest(20, 2)
-    runTest(20, 4)
+    runTest(20, 20)
+    runTest(20, 10)
     runTest(20, 5)
+    runTest(20, 4)
+    runTest(20, 2)
   }
 }
 
