@@ -150,8 +150,7 @@ class ThreefryGeneratorTest extends AnyFlatSpec
         threefry.io.rand.ready.poke(true.B)
         for (i <- 0 to n-1) {
 
-          // we added a Queue to Generator, so +1 latency
-          threefry.io.rand.valid.expect( (i >= (1+threefry.nStages)).B )
+          threefry.io.rand.valid.expect( (i >= (threefry.nStages)).B )
           if(threefry.io.rand.valid.peek().litValue == 1) {
 
             val r = crial.threefry4x32( rng )

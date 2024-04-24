@@ -31,7 +31,7 @@ class Threefry4x32Generator(
   val rng = Module(new Threefry4_32(r, rotStage))
 
   def getParam = { rng.getParam }
-  def nStages  = { rng.nStages  }
+  def nStages  = { rng.nStages + 1 }
 
   val initialized = RegInit(false.B)
   io.initialized := initialized
