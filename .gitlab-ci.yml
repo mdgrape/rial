@@ -3,18 +3,7 @@ default:
     name: 10.5.6.16:5050/mdg5/rial:latest
 
 stages:
-  - build
   - test
-
-build-clib:
-  stage: build
-  script:
-    - make
-  cache:
-    key: "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
-    paths:
-      - include/
-      - lib/
 
 # test-arith:
 #   stage: test
@@ -40,6 +29,7 @@ test-rng:
   cache:
     key: "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
   script:
+    - make
     - sbt "testOnly ThreefryTest"
     - sbt "testOnly ThreefryGeneratorTest"
     - sbt "testOnly SquaresTest"
