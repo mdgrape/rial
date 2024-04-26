@@ -75,7 +75,7 @@ class MultFPIntTest extends AnyFlatSpec
               val yr = generateLongWithin(yWidth, ySigned, r)
               val xi = xr.value.toBigInt
               val yi = yr.toBigInt
-              val zr = new RealGeneric(zSpec, xr.toDouble * yr) // TODO write simulator
+              val zr = new RealGeneric(zSpec, xr.toDouble * yr.toDouble) // TODO write simulator
               val z0i= zr.value.toBigInt
               println(f"x = ${xi}(${xr.toDouble}), y = ${yr}, z = ${zr.value}")
               q += ((xi,yi,z0i))
@@ -96,8 +96,13 @@ class MultFPIntTest extends AnyFlatSpec
                 val z0dsgn = bit(zSpec.W-1, z0d).toInt
                 val z0dexp = slice(zSpec.manW, zSpec.exW, z0d)
                 val z0dman = z0d & maskSL(zSpec.manW)
-                assert(zisgn == z0dsgn && ziexp == z0dexp && ziman == z0dman,
-                  f"test(${zisgn}|${ziexp}|${ziman}) != ref(${z0dsgn}|${z0dexp}|${z0dman})")
+                if(ziexp != 0) {
+                  assert(zisgn == z0dsgn && ziexp == z0dexp && ziman == z0dman,
+                    f"test(${zisgn}|${ziexp}|${ziman}) != ref(${z0dsgn}|${z0dexp}|${z0dman})")
+                } else {
+                  assert(ziexp == z0dexp && ziman == z0dman,
+                    f"test(${zisgn}|${ziexp}|${ziman}) != ref(${z0dsgn}|${z0dexp}|${z0dman})")
+                }
               }
             }
             q.clear()
