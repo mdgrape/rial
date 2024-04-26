@@ -5,22 +5,22 @@ default:
 stages:
   - test
 
-# test-arith:
-#   stage: test
-#   script:
-#     - sbt "testOnly RealSimTest"
-    # - sbt "testOnly AddFPTest"
-    # - sbt "testOnly Add3opFPTest"
-    # - sbt "testOnly MultFPTest"
-    # - sbt "testOnly MultFPIntTest"
-    # - sbt "testOnly FMAFPTest"
+test-arith:
+  stage: test
+  script:
+    - sbt "testOnly RealSimTest"
+    - sbt "testOnly AddFPTest"
+    - sbt "testOnly Add3opFPTest"
+    - sbt "testOnly MultFPTest"
+    - sbt "testOnly MultFPIntTest"
+    - sbt "testOnly FMAFPTest"
 
-# test-fixed:
-#   stage: test
-#   script:
-#     - sbt "testOnly FixedToFloatTest"
-#     - sbt "testOnly FloatToFixedTest"
-#     - sbt "testOnly ScaledFixedToFloatTest"
+test-fixed:
+  stage: test
+  script:
+    - sbt "testOnly FixedToFloatTest"
+    - sbt "testOnly FloatToFixedTest"
+    - sbt "testOnly ScaledFixedToFloatTest"
 
 test-rng:
   stage: test
@@ -32,12 +32,12 @@ test-rng:
     - sbt "testOnly Squares32GeneratorTest"
     - sbt -J-Xmx4G "testOnly IrwinHallTest"
     - sbt -J-Xmx4G "testOnly IrwinHallGeneratorTest"
-#     - sbt "testOnly Uniform01OpenCloseTest"
-#     - sbt "testOnly Uniform12Test"
-#     - sbt "testOnly Uniform01Test"
-#     - sbt "testOnly Uniform01FullTest"
-#     - sbt "testOnly Uniform01FullPipeTest"
-#     - sbt "testOnly BoxMullerTest"
+    - sbt "testOnly Uniform01OpenCloseTest"
+    - sbt "testOnly Uniform12Test"
+    - sbt "testOnly Uniform01Test"
+    - sbt "testOnly Uniform01FullTest"
+    - sbt "testOnly Uniform01FullPipeTest"
+    - sbt "testOnly BoxMullerTest"
 
 # test-math:
 #   stage: test
