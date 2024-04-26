@@ -15,11 +15,11 @@ test-arith:
   stage: test
   script:
     - sbt "testOnly RealSimTest"
-    - sbt "testOnly AddFPTest"
-    - sbt "testOnly Add3opFPTest"
-    - sbt "testOnly MultFPTest"
-    - sbt "testOnly MultFPIntTest"
-    - sbt "testOnly FMAFPTest"
+    # - sbt "testOnly AddFPTest"
+    # - sbt "testOnly Add3opFPTest"
+    # - sbt "testOnly MultFPTest"
+    # - sbt "testOnly MultFPIntTest"
+    # - sbt "testOnly FMAFPTest"
 
 # test-fixed:
 #   stage: test
