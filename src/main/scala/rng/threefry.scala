@@ -176,7 +176,7 @@ class Threefry4_32(
       xj    := xNext(j)
     }
 
-    val addStage = !((rotStage == 0) || ( ((j+1) % rotStage) != 0 ))
+    val addStage = (rotStage != 0) && ( ((j+1) % rotStage) == 0 )
     if(addStage) {
       val vReg = RegInit(false.B)
       val xReg = RegInit(VecInit.fill(4)(0.U(32.W)))
