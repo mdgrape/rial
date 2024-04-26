@@ -15,10 +15,10 @@ build-clib:
       - include/
       - lib/
 
-test-arith:
-  stage: test
-  script:
-    - sbt "testOnly RealSimTest"
+# test-arith:
+#   stage: test
+#   script:
+#     - sbt "testOnly RealSimTest"
     # - sbt "testOnly AddFPTest"
     # - sbt "testOnly Add3opFPTest"
     # - sbt "testOnly MultFPTest"
@@ -32,15 +32,17 @@ test-arith:
 #     - sbt "testOnly FloatToFixedTest"
 #     - sbt "testOnly ScaledFixedToFloatTest"
 
-# test-rng:
-#   stage: test
-#   script:
-#     - sbt "testOnly ThreefryTest"
-#     - sbt "testOnly ThreefryGeneratorTest"
-#     - sbt "testOnly SquaresTest"
-#     - sbt "testOnly Squares32GeneratorTest"
-#     - sbt "testOnly IrwinHallTest"
-#     - sbt "testOnly IrwinHallGeneratorTest"
+test-rng:
+  stage: test
+  dependencies:
+    - build-clib
+  script:
+    - sbt "testOnly ThreefryTest"
+    - sbt "testOnly ThreefryGeneratorTest"
+    - sbt "testOnly SquaresTest"
+    - sbt "testOnly Squares32GeneratorTest"
+    - sbt "testOnly IrwinHallTest"
+    - sbt "testOnly IrwinHallGeneratorTest"
 #     - sbt "testOnly Uniform01OpenCloseTest"
 #     - sbt "testOnly Uniform12Test"
 #     - sbt "testOnly Uniform01Test"
