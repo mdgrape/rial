@@ -1,7 +1,7 @@
 package rial.rng
 
 // Squares: A Fast Counter-Based RNG
-//   Bernard Widynski1, 2022
+//   Bernard Widynski, 2022
 // https://arxiv.org/pdf/2004.06278.pdf
 
 import scala.language.reflectiveCalls
