@@ -7,8 +7,8 @@ stages:
   - test
 
 build-clib:
-  - stage: build
-  - script:
+  stage: build
+  script:
     - make
 
 test-arith:
