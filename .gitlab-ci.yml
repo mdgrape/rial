@@ -10,10 +10,10 @@ build-clib:
   stage: build
   script:
     - make
-  # artifacts:
-  #   paths:
-  #     - include/
-  #     - lib/
+  cache:
+    paths:
+      - include/
+      - lib/
 
 # test-arith:
 #   stage: test
