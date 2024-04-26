@@ -57,7 +57,7 @@ class IrwinHall(
     }
   })
 
-  def nStages = { 4 + 1 } // 4 for TreeSum, 1 for FPConv
+  def nStage = { 4 + 1 } // 4 for TreeSum, 1 for FPConv
 
   val node0 = Module(new IrwinHallTreeSumNode(12, rndW))
   val node1 = Module(new IrwinHallTreeSumNode( 6, rndW+1))

@@ -38,7 +38,7 @@ class ThreefryTest extends AnyFlatSpec
     test(new Threefry4_32(r, rotStage)) {
       c => {
         val (r, rotStage) = c.getParam
-        println(f"Threefry4_32 parameters rotation=$r%d stage between rotation=$rotStage%d, nStages = ${c.nStages}")
+        println(f"Threefry4_32 parameters rotation=$r%d stage between rotation=$rotStage%d, nStage = ${c.nStage}")
 
         val threefry = c
         threefry.io.en.poke(true.B)
@@ -62,9 +62,9 @@ class ThreefryTest extends AnyFlatSpec
           threefry.io.input.count(2).poke(0.U)
           threefry.io.input.count(3).poke(0.U)
 
-          threefry.io.output.valid.expect((i >= threefry.nStages).B)
+          threefry.io.output.valid.expect((i >= threefry.nStage).B)
 
-          if(i >= threefry.nStages) {
+          if(i >= threefry.nStage) {
             val r = crial.threefry4x32( rng )
             for (j <- 0 to 3) {
               val y : Long = if (r(j)<0) {
@@ -112,7 +112,7 @@ class ThreefryGeneratorTest extends AnyFlatSpec
     test(new Threefry4x32Generator(r, rotStage)) {
       c => {
         val (r, rotStage) = c.getParam
-        println(f"Threefry4x32 parameters rotation=${r}%d stage between rotation=${rotStage}%d, nStages = ${c.nStages}")
+        println(f"Threefry4x32 parameters rotation=${r}%d stage between rotation=${rotStage}%d, nStage = ${c.nStage}")
 
         val threefry = c
 
@@ -150,7 +150,7 @@ class ThreefryGeneratorTest extends AnyFlatSpec
         threefry.io.rand.ready.poke(true.B)
         for (i <- 0 to n-1) {
 
-          threefry.io.rand.valid.expect( (i >= (threefry.nStages)).B )
+          threefry.io.rand.valid.expect( (i >= (threefry.nStage)).B )
           if(threefry.io.rand.valid.peek().litValue == 1) {
 
             val r = crial.threefry4x32( rng )

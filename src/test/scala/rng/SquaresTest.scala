@@ -138,10 +138,10 @@ class Squares32GeneratorTest extends AnyFlatSpec
 
         c.io.rand.ready.poke(true.B)
         for (i <- 0 to n-1) {
-          c.io.rand.valid.expect( (i >= c.nStages).B )
+          c.io.rand.valid.expect( (i >= c.nStage).B )
 
           if(c.io.rand.valid.peek().litValue == 1) {
-            c.io.rand.bits.expect(squares(BigInt(i-c.nStages), key).U)
+            c.io.rand.bits.expect(squares(BigInt(i-c.nStage), key).U)
           }
           c.clock.step(1)
         }

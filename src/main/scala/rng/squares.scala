@@ -25,7 +25,7 @@ class Squares32Generator() extends Module {
 
   val rng = Module(new Squares32)
 
-  def nStages  = { rng.nStages + 1 }
+  def nStage = { rng.nStage + 1 }
 
   val initialized = RegInit(false.B)
   io.initialized := initialized
@@ -61,7 +61,7 @@ class Squares32Generator() extends Module {
 
 class Squares32 extends Module {
 
-  def nStages = 4
+  def nStage = 4
 
   val io = IO(new Bundle {
     val en = Input(Bool())

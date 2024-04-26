@@ -31,7 +31,7 @@ class Threefry4x32Generator(
   val rng = Module(new Threefry4_32(r, rotStage))
 
   def getParam = { rng.getParam }
-  def nStages  = { rng.nStages + 1 }
+  def nStage   = { rng.nStage + 1 }
 
   val initialized = RegInit(false.B)
   io.initialized := initialized
@@ -92,7 +92,7 @@ class Threefry4_32(
   def getParam = { (r, rotStage) }
   def rotL( x : UInt, n : Int ) = { Cat( x.tail(n), x.head(n) ) }
 
-  def nStages = {
+  def nStage = {
     if(rotStage == 0) {
       0
     } else {
