@@ -8,6 +8,36 @@ import scala.language.reflectiveCalls
 import chisel3._
 import chisel3.util._
 
+class IrwinHallGenerator(
+  val spec: RealSpec = RealSpec.Float32Spec,
+  val rndW: Int = 32
+) extends Module {
+
+  val io = IO(new Bundle {
+    val input  = Flipped(Decoupled(Input(Vec(12, UInt(rndW.W)))))
+    val output = Decoupled(UInt(spec.W.W))
+  })
+
+  val rng = Module(new IrwinHall(spec, rndW))
+
+  val inQ = Module(new Queue(Vec(12, UInt(rndW.W)), 1, pipe=true, flow=false))
+  inQ.io.enq <> io.input
+
+  val outQ = Module(new Queue(UInt(spec.W.W), 1, pipe=true, flow=false))
+  io.output <> outQ.io.deq
+
+  // if outQ is ready, then we can keep output from rng. push rng pipe forward.
+  val step = outQ.io.enq.ready
+  inQ.io.deq.ready := step
+
+  rng.io.en          := step
+  rng.io.input.valid := inQ.io.deq.valid
+  rng.io.input.rnds  := inQ.io.deq.bits
+
+  outQ.io.enq.valid := rng.io.output.valid
+  outQ.io.enq.bits  := rng.io.output.rnd
+}
+
 class IrwinHall(
   spec: RealSpec = RealSpec.Float32Spec,
   rndW: Int = 32
@@ -26,6 +56,8 @@ class IrwinHall(
       val rnd   = Output(UInt(spec.W.W))
     }
   })
+
+  def nStages = { 4 + 1 } // 4 for TreeSum, 1 for FPConv
 
   val node0 = Module(new IrwinHallTreeSumNode(12, rndW))
   val node1 = Module(new IrwinHallTreeSumNode( 6, rndW+1))
