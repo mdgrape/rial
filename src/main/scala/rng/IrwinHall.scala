@@ -43,7 +43,7 @@ class IrwinHall(
   rndW: Int = 32
 ) extends Module {
 
-  assert(rndW > spec.manW)
+  assert(rndW+4 >= spec.manW)
 
   val io = IO(new Bundle {
     val en    = Input(Bool())
