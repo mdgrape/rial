@@ -537,6 +537,7 @@ class HTBoxMullerLog(
     val z  = Output (UInt(realSpec.W.W))
   })
 
+  val xIsZero     = io.x.zero
   val xIsOne      = io.x.ex === exBias.U     // return 0.0
   val xIsOverHalf = io.x.ex === (exBias-1).U // use ln(x)/(1-x) part.
                                              // otherwise, use log2 part.
@@ -620,5 +621,8 @@ class HTBoxMullerLog(
   multiplier.io.x  := z0
   multiplier.io.y  := coef
 
-  io.z := multiplier.io.z
+  val xWasZero = ShiftRegister(xIsZero, nStage)
+
+  val fmax = Cat(0.U(1.W), realSpec.exMax.U(realSpec.exW.W), Fill(realSpec.manW, 1.U(1.W)))
+  io.z := Mux(xWasZero, fmax, multiplier.io.z)
 }
