@@ -7,24 +7,26 @@ import chisel3.util._
 import rial.arith._
 import rial.util._
 
-// generate Float in (0, 1] using one uint by Downey's method.
+// generate Float in [0, 1] using one uint by Downey's method.
 //
 // In case of UInt(32.W) -> BFloat(1, 8, 7):
-// - man: 7 bits, downey: 1 bit, ex = 24 bits
-// - min value = 2^-25 * 1.0
-// - max value = 1.0
+// -> man: 7 bits, downey: 1 bit, ex = 24 bits
 //
 // In case of UInt(32.W) -> Float32(1, 8, 23):
-// - man: 23 bits, downey: 1 bit, ex = 8 bits
-// - min value = 2^-9 * 1.0
-// - max value = 1.0
+// -> man: 23 bits, downey: 1 bit, ex = 8 bits
 //
 // In case of UInt(64.W) -> Float32(1, 8, 23):
-// - man: 23 bits, downey: 1 bit, ex = 40 bits
-// - min value = 2^-41 * 1.0
-// - max value = 1.0
+// -> man: 23 bits, downey: 1 bit, ex = 40 bits
 //
-class GenRandomFloat01OpenCloseFromOneUInt(
+// In case of UInt(128.W) -> Float32(1, 8, 23):
+// -> man: 23 bits, downey: 1 bit, ex = 104 bits
+//
+// rndEx = 1xxx..x -> zex = exBias-1 (0.5~1.0) (+ rndDowney (0.5 or 1.0))
+//         01xx..x -> zex = exBias-2 (1/4~1/2)
+//         0000..1 -> zex = exBias-rndExW
+//         0000..0 -> zex = something like a subnormal number.
+//
+class GenRandomFloat01Close(
   rndW: Int, // random number width
   spec: RealSpec,
   stage: PipelineStageConfig
@@ -32,11 +34,12 @@ class GenRandomFloat01OpenCloseFromOneUInt(
 
   val nStage = stage.total
 
-  val exW  = spec.exW
-  val manW = spec.manW
+  val exBias = spec.exBias
+  val exW    = spec.exW
+  val manW   = spec.manW
+  val rndExW = rndW - (manW + 1)
 
-  assert(rndW > manW + 1, "GenRandomFloat01OpenCloseFromOneUInt requires " +
-    f"rndW (${rndW}) > manW+1 (${manW+1})")
+  assert(rndW > manW + 1, f"GenRandomFloat01Close requires rndW (${rndW}) > manW+1 (${manW+1})")
 
   val io = IO(new Bundle {
     val rnd = Input(UInt(rndW.W))
@@ -45,34 +48,64 @@ class GenRandomFloat01OpenCloseFromOneUInt(
 
   val rndMantissa = io.rnd(manW-1, 0)
   val rndDowney   = io.rnd(manW)
-  val rndExponent = io.rnd(rndW-1, manW+1)
+  val rndExponent = if(rndExW <= exBias-1) {
+    io.rnd(rndW-1, manW+1)
+  } else {
+    io.rnd(spec.exBias-1 + manW+1 -1, manW+1)
+  }
+  assert(rndExponent.getWidth <= exBias-1)
 
-  val rndExW = rndW - (manW + 1)
-
-  assert(rndExW < spec.exBias-1, "GenRandomFloat01OpenCloseFromOneUInt requires " +
-    f"rndExW (${rndExW}) < exBias-1 (${spec.exBias-1})")
-
-  val exCorrection = Mux(rndMantissa === 0.U, rndDowney, 0.U(1.W))
+  val zsgn = WireDefault(0.U(1.W))
+  val zex  = WireDefault(0.U(exW.W))
+  val zman = WireDefault(0.U(manW.W))
 
   //       LSB     MSB
   // rndEx = 1xxx..x -> zex = exBias-1 (0.5~1.0) (+ rndDowney (0.5 or 1.0))
   //         01xx..x -> zex = exBias-2 (1/4~1/2)
   //         0000..1 -> zex = exBias-rndExW
-  //         0000..0 -> zex = exBias-(rndExW+1)
+  //         0000..0 -> zex = exBias-(rndExW+1) ; use man like subnormal
 
-  val zexP = PriorityEncoder(rndExponent)
-  val zex0 = Mux(rndExponent === 0.U, rndExW.U, zexP)
-  val zex  = (spec.exBias-1).U(exW.W) - zex0 + exCorrection
+  when(rndExponent === 0.U) { // subnormal!
 
-//   printf(f"GenRandomFloat01(rndW=${rndW}): rndEx = %%b, zex0 = %%d\n", rndExponent, zex0)
+    if(rndExW < exBias-1) {
 
-  val zsgn = 0.U(1.W)
-  val zman = rndMantissa
+      when(rndMantissa === 0.U) {
+        zex  := 0.U
+        zman := 0.U
+      }.otherwise {
+        val baseEx     = (exBias - 1 - rndExW).U // > 0
+        val manPE      = PriorityEncoder(Reverse(rndMantissa))
+        val manAligned = (rndMantissa << (manPE + 1.U))(manW, 0)
 
-  val z = Cat(zsgn, zex, zman)
+        assert(manAligned(manW) === 1.U, "RNG: rndMantissa = %b, manPE = %d, aligned = %b", rndMantissa, manPE, manAligned)
+
+        zex  := Mux(manPE > baseEx, 0.U, baseEx - manPE)
+        zman := manAligned(manW-1, 0)
+      }
+    } else { // rndExW >= exBias-1. we have looooong random bits input.
+      zex  := 0.U
+      zman := rndMantissa
+    }
+  }.otherwise { // normal
+
+    val zexPE = PriorityEncoder(rndExponent)
+    zex  := (spec.exBias-1).U(exW.W) - zexPE
+    zman := rndMantissa
+  }
+
+  val exCorrection = Mux(zman === 0.U, rndDowney, 0.U(1.W))
+  val zexCorrected = zex + exCorrection
+
+  // if subnormal numbers are disabled, numbers in range [0, 2^-exMin) will be
+  // rounded to zero, so distribution around zero is slightly skewed.
+  val zmanCorrected = if(spec.disableSubnormal) {
+    Mux(zexCorrected === 0.U, 0.U, zman)
+  } else {
+    zman
+  }
+
+  val z = Cat(zsgn, zexCorrected, zmanCorrected)
   assert(z.getWidth == spec.W)
-
-//   printf(f"GenRandomFloat01(rndW=${rndW}): z = %%b|%%d|%%b\n",zsgn, zex, zman)
 
   io.z := ShiftRegister(z, nStage)
 }
