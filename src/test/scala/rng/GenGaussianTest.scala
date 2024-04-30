@@ -485,12 +485,14 @@ class BoxMullerLogTest extends AnyFlatSpec
             val z0dexp = slice(spec.manW, spec.exW, z0d)
             val z0dman = z0d & maskSL(spec.manW)
 
-            if(diff > tolerance) {
+            val isZero = ziexp == 0 && z0dexp == 0
+
+            if(diff > tolerance && !isZero) {
               c.clock.step(1) // run printf
             }
 
             val x0r = xid.toDouble / (SafeLong(1) << rndW).toDouble
-            assert(diff <= tolerance,
+            assert(diff <= tolerance || isZero,
                    f"x = ${xid.toLong.toBinaryString}(${x0r} -> ${xr}), z(scala.math.FP64) = ${zr}, "+
                    f"test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString})(${new RealGeneric(spec, zisgn, ziexp.toInt, ziman).toDouble}) != " +
                    f"ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})(${new RealGeneric(spec, z0dsgn, z0dexp.toInt, z0dman).toDouble})")

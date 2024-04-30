@@ -113,9 +113,9 @@ class HTBoxMullerSinTest extends AnyFlatSpec
               val zrefexp = slice(spec.manW, spec.exW, zref)
               val zrefman = zref & maskSL(spec.manW)
 
-              assert(abs(zi - zref) <= 7, f"x = ${xref}, "+
-                  f"test(${zisgn }|${ziexp  }(${ziexp   - spec.exBias})|${ziman  .toLong.toBinaryString})(${new RealGeneric(spec, zisgn.toInt,   ziexp.toInt,   ziman).toDouble}) != " +
-                  f"ref(${zrefsgn}|${zrefexp}(${zrefexp - spec.exBias})|${zrefman.toLong.toBinaryString})(${new RealGeneric(spec, zrefsgn.toInt, zrefexp.toInt, zrefman).toFloat})")
+              assert(abs(zi - zref) <= 7, f"x = ${new RealGeneric(spec, xref).toDouble}, "+
+                  f"test(${zisgn }|${ziexp  }(${ziexp   - spec.exBias})|${ziman  .toLong.toBinaryString})(${new RealGeneric(spec, zisgn.toInt,   ziexp.toInt,   ziman  ).toDouble}) != " +
+                  f"ref(${zrefsgn}|${zrefexp}(${zrefexp - spec.exBias})|${zrefman.toLong.toBinaryString})(${new RealGeneric(spec, zrefsgn.toInt, zrefexp.toInt, zrefman).toFloat })")
             }
           }
         }
