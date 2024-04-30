@@ -82,8 +82,8 @@ class HTBoxMuller(
   // --------------------------------------------------------------------------
   // convert x and y into float.
 
-  val convX = Module(new GenRandomFloat01OpenCloseFromOneUInt(cfg.rndW, realSpec, cfg.int2floatStge))
-  val convY = Module(new GenRandomFloat01OpenCloseFromOneUInt(cfg.rndW, realSpec, cfg.int2floatStge))
+  val convX = Module(new GenRandomFloat01Close(cfg.rndW, realSpec, cfg.int2floatStge))
+  val convY = Module(new GenRandomFloat01Close(cfg.rndW, realSpec, cfg.int2floatStge))
 
   convX.io.rnd := io.in.x
   convY.io.rnd := io.in.y

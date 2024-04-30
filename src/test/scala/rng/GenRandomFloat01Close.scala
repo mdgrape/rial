@@ -25,7 +25,7 @@ import scala.language.reflectiveCalls
 // Test GenRandomFloat01 using chi-squared test.
 //
 
-class Uniform01OpenCloseTest extends AnyFlatSpec
+class Uniform01CloseTest extends AnyFlatSpec
     with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
 
   behavior of "Test uniform real distribution (0, 1]"
@@ -40,12 +40,12 @@ class Uniform01OpenCloseTest extends AnyFlatSpec
 
   private def runtest ( rndW: Int, spec: RealSpec, stage: PipelineStageConfig ) = {
 
-    val n = 1000
+    val n = 4000
     val total = stage.total
     val pipeconfig = stage.getString
 
-    it should f"uniform01OpenClose(x) pipereg ${pipeconfig} rndW ${rndW} spec ${spec.toStringShort}" in {
-      test( new GenRandomFloat01OpenCloseFromOneUInt(rndW, spec, stage)).
+    it should f"uniform01Close(x) pipereg ${pipeconfig} rndW ${rndW} spec ${spec.toStringShort}" in {
+      test( new GenRandomFloat01Close(rndW, spec, stage)).
         withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
         {
           val nstage = stage.total
@@ -67,8 +67,16 @@ class Uniform01OpenCloseTest extends AnyFlatSpec
           val ndeg      = nbins - 1
           val threshold = 1.8 // probability of getting this value is ~2.9%
 
-          // generate random numbers
+          // check if rnd==0 can be handled
+          {
+            c.io.rnd.poke(0.U(rndW.W))
+            for(i <- 0 until nstage) {
+              c.clock.step(1)
+            }
+            c.io.z.expect(0.U)
+          }
 
+          // generate random numbers
           for(i <- 1 to n+nstage) {
 
             c.io.rnd.poke(generateRandomUInt(rndW).U(rndW.W))
@@ -120,8 +128,9 @@ class Uniform01OpenCloseTest extends AnyFlatSpec
     }
   }
 
-  runtest(32, RealSpec.BFloat16Spec, PipelineStageConfig.none)
-  runtest(32, RealSpec.Float32Spec,  PipelineStageConfig.none)
-  runtest(64, RealSpec.Float32Spec,  PipelineStageConfig.none)
+  runtest( 32, RealSpec.BFloat16Spec, PipelineStageConfig.none)
+  runtest( 32, RealSpec.Float32Spec,  PipelineStageConfig.none)
+  runtest( 64, RealSpec.Float32Spec,  PipelineStageConfig.none)
+  runtest(128, RealSpec.Float32Spec,  PipelineStageConfig.none)
 }
 
