@@ -204,3 +204,57 @@ object Threefry4_32Driver extends App {
       Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new Threefry4_32(20,2)))
     )
 }
+
+class ThreefrySim(
+  val round: Int       = 20,
+  val key  : Seq[Long] = Seq(0x11111111L, 0x22222222L, 0x0L, 0x0L)
+) {
+  val c240  = 0x1BD11BDAL
+  val r0    = Seq( 10, 11, 13, 23, 6, 17, 25, 18 )
+  val r1    = Seq( 26, 21, 27, 5, 20, 11, 10, 20 )
+  val keys  = key ++ Seq(key.foldLeft(c240)( (z,k) => z ^ k ))
+
+  def rotL( x : Long, n : Int ): Long = {
+    ((x << n) | (x >> (32-n))) & 0xFFFFFFFFL
+  }
+  def gen(count: Seq[Long]): Seq[Long] = {
+    assert(count.length == 4)
+    var x0 = (count(0) + key(0)) & 0xFFFFFFFFL
+    var x1 = (count(1) + key(1)) & 0xFFFFFFFFL
+    var x2 = (count(2) + key(2)) & 0xFFFFFFFFL
+    var x3 = (count(3) + key(3)) & 0xFFFFFFFFL
+
+    // println(f"x = [${x0}%x, ${x1}%x, ${x2}%x, ${x3}%x]")
+
+    for(i <- 0 until round) {
+      val (y0, y1, y2, y3) = if (i % 2 == 0) {
+        val z0 = (     x0             + x1) & 0xFFFFFFFFL
+        val z1 = (rotL(x1, r0(i % 8)) ^ z0) & 0xFFFFFFFFL
+        val z2 = (     x2             + x3) & 0xFFFFFFFFL
+        val z3 = (rotL(x3, r1(i % 8)) ^ z2) & 0xFFFFFFFFL
+        (z0, z1, z2, z3)
+      } else {
+        val z0 = (     x0             + x3) & 0xFFFFFFFFL
+        val z3 = (rotL(x3, r0(i % 8)) ^ z0) & 0xFFFFFFFFL
+        val z2 = (     x2             + x1) & 0xFFFFFFFFL
+        val z1 = (rotL(x1, r1(i % 8)) ^ z2) & 0xFFFFFFFFL
+        (z0, z1, z2, z3)
+      }
+
+      if(i % 4 == 3) {
+        val keyR = (i / 4) + 1
+        x0 = (y0 + keys((keyR+0)%5)       ) & 0xFFFFFFFFL
+        x1 = (y1 + keys((keyR+1)%5)       ) & 0xFFFFFFFFL
+        x2 = (y2 + keys((keyR+2)%5)       ) & 0xFFFFFFFFL
+        x3 = (y3 + keys((keyR+3)%5) + keyR) & 0xFFFFFFFFL
+      } else {
+        x0 = y0
+        x1 = y1
+        x2 = y2
+        x3 = y3
+      }
+      // println(f"x = [${x0}%x, ${x1}%x, ${x2}%x, ${x3}%x]")
+    }
+    Seq(x0, x1, x2, x3)
+  }
+}
