@@ -107,57 +107,6 @@ class ThreefrySimTest extends AnyFlatSpec
     println(s"ncycle=$n")
   }
 
-  val tf_round = 20
-  val tf_c240  = 0x1BD11BDAL
-  val tf_r0    = Seq( 10, 11, 13, 23, 6, 17, 25, 18 )
-  val tf_r1    = Seq( 26, 21, 27, 5, 20, 11, 10, 20 )
-  val tf_key   = Seq(0x11111111L, 0x22222222L, 0x0L, 0x0L)
-  val tf_keys  = tf_key ++ Seq(tf_key.foldLeft(tf_c240)( (z,k) => z ^ k ))
-
-  def rotL( x : Long, n : Int ): Long = {
-    ((x << n) | (x >> (32-n))) & 0xFFFFFFFFL
-  }
-  def threefrySim(count: Seq[Long]): Seq[Long] = {
-    assert(count.length == 4)
-    var x0 = (count(0) + tf_key(0)) & 0xFFFFFFFFL
-    var x1 = (count(1) + tf_key(1)) & 0xFFFFFFFFL
-    var x2 = (count(2) + tf_key(2)) & 0xFFFFFFFFL
-    var x3 = (count(3) + tf_key(3)) & 0xFFFFFFFFL
-
-    println(f"x = [${x0}%x, ${x1}%x, ${x2}%x, ${x3}%x]")
-
-    for(i <- 0 until tf_round) {
-      val (y0, y1, y2, y3) = if (i % 2 == 0) {
-        val z0 = (     x0                + x1) & 0xFFFFFFFFL
-        val z1 = (rotL(x1, tf_r0(i % 8)) ^ z0) & 0xFFFFFFFFL
-        val z2 = (     x2                + x3) & 0xFFFFFFFFL
-        val z3 = (rotL(x3, tf_r1(i % 8)) ^ z2) & 0xFFFFFFFFL
-        (z0, z1, z2, z3)
-      } else {
-        val z0 = (     x0                + x3) & 0xFFFFFFFFL
-        val z3 = (rotL(x3, tf_r0(i % 8)) ^ z0) & 0xFFFFFFFFL
-        val z2 = (     x2                + x1) & 0xFFFFFFFFL
-        val z1 = (rotL(x1, tf_r1(i % 8)) ^ z2) & 0xFFFFFFFFL
-        (z0, z1, z2, z3)
-      }
-
-      if(i % 4 == 3) {
-        val keyR = (i / 4) + 1
-        x0 = (y0 + tf_keys((keyR+0)%5)       ) & 0xFFFFFFFFL
-        x1 = (y1 + tf_keys((keyR+1)%5)       ) & 0xFFFFFFFFL
-        x2 = (y2 + tf_keys((keyR+2)%5)       ) & 0xFFFFFFFFL
-        x3 = (y3 + tf_keys((keyR+3)%5) + keyR) & 0xFFFFFFFFL
-      } else {
-        x0 = y0
-        x1 = y1
-        x2 = y2
-        x3 = y3
-      }
-      println(f"x = [${x0}%x, ${x1}%x, ${x2}%x, ${x3}%x]")
-    }
-    Seq(x0, x1, x2, x3)
-  }
-
   def runTest(r: Int, rotStage: Int) = {
     test(new Threefry4_32(r, rotStage)) {
       c => {
@@ -175,6 +124,8 @@ class ThreefrySimTest extends AnyFlatSpec
         threefry.io.input.key(2).poke(0.U)
         threefry.io.input.key(3).poke(0.U)
 
+        val sim = new ThreefrySim(r, Seq(0x11111111L, 0x22222222L, 0L, 0L))
+
         for (i <- 0 to n-1) {
           //val key = "".U
           //val count = Wire(UInt(128.W)); count = i.U
@@ -187,7 +138,7 @@ class ThreefrySimTest extends AnyFlatSpec
           threefry.io.output.valid.expect((i >= threefry.nStage).B)
 
           if(i >= threefry.nStage) {
-            val r = threefrySim(Seq(i-threefry.nStage, 0, 0, 0))
+            val r = sim.gen(Seq(i-threefry.nStage, 0, 0, 0))
             for (j <- 0 to 3) {
               val y = r(j)
               val x = threefry.io.output.rand(j).peek().litValue.toLong
