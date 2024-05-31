@@ -245,7 +245,7 @@ class ATan2Phase2Test extends AnyFlatSpec
             }
 
             val ref = new RealGeneric(spec, atan2(y.toDouble, x.toDouble))
-            assert((ref.value.toLong - z0d.toLong).abs < 4)
+            assert((ref.value.toLong - z0d.toLong).abs < 4, f"ref.value(${ref.value.toLong}%x) != actual(${z0d.toLong}%x, (x,y) = (${x.toDouble}, ${y.toDouble}))")
 
             assert(z2i == z0d, f"x = (${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman.toLong.toBinaryString}), " +
                                f"y = (${yidsgn}|${yidexp}(${yidexp - spec.exBias})|${yidman.toLong.toBinaryString}), " +
