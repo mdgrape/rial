@@ -82,10 +82,10 @@ class ACosPhase1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         val errf = zd - z0r.toDouble
         val erri = errorLSB(zi, z0r.toDouble).toInt
 
-        if(x.toDouble < 0) {
-          assert(zs._2, f"x(${x.toDouble}) < 0, z.2 should be true")
+        if(x.sgn == 1) {
+          assert(zs._2,  f"x(${x.toDouble}|${x.sgn},${x.ex},${x.man}) < 0, z.2 should be true")
         } else {
-          assert(!zs._2, f"x(${x.toDouble}) >= 0, z.2 should be false")
+          assert(!zs._2, f"x(${x.toDouble}|${x.sgn},${x.ex},${x.man}) >= 0, z.2 should be false")
         }
 
         if(x.ex == 0 || zi.ex == spec.exBias) {

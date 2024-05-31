@@ -99,7 +99,7 @@ class ACosPhase1Test extends AnyFlatSpec
             val xi  = generator(spec,r)
             val (z0r, xneg, special) = reference(xi)
 
-            if(xi.toDouble < 0.0) {assert(xneg)} else {assert(!xneg)}
+            if(xi.sgn == 1) {assert(xneg)} else {assert(!xneg)}
             if     (xi.toDouble ==  0.0) {assert(special == 0)}
             else if(xi.toDouble ==  1.0) {assert(special == 1)}
             else if(xi.toDouble == -1.0) {assert(special == 1)}
