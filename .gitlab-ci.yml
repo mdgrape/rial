@@ -39,9 +39,22 @@ test-rng:
     - sbt "testOnly Uniform01FullPipeTest"
     - sbt "testOnly BoxMullerTest"
 
-test-math:
+test-math-simple:
   stage: test
   script:
+    - sbt "testOnly InvSqrtSimTest"
+    - sbt "testOnly InvSqrtTest"
+    - sbt "testOnly SqrtSimTest"
+    - sbt "testOnly SqrtTest"
+    - sbt "testOnly ReciprocalSimTest"
+    - sbt "testOnly ReciprocalTest"
+
+test-math-trigonometric:
+  stage: test
+    - sbt "testOnly SinSimTest"
+    - sbt "testOnly SinTest"
+    - sbt "testOnly CosSimTest"
+    - sbt "testOnly CosTest"
     - sbt "testOnly ACosPhase1SimTest"
     - sbt "testOnly ACosPhase1Test"
     - sbt "testOnly ACosPhase2SimTest"
@@ -50,23 +63,15 @@ test-math:
     - sbt "testOnly ATan2Phase1Test"
     - sbt "testOnly ATan2Phase2SimTest"
     - sbt "testOnly ATan2Phase2Test"
-    - sbt "testOnly CosSimTest"
-    - sbt "testOnly CosTest"
+
+test-math-exponential:
     - sbt "testOnly ExpSimTest"
     - sbt "testOnly ExpTest"
-    - sbt "testOnly InvSqrtSimTest"
-    - sbt "testOnly InvSqrtTest"
     - sbt "testOnly LogSimTest"
     - sbt "testOnly LogTest"
-    - sbt "testOnly ReciprocalSimTest"
-    - sbt "testOnly ReciprocalTest"
     - sbt "testOnly ScaleMixtureGaussianSimTest"
     - sbt "testOnly ScaleMixtureGaussianTest"
     - sbt "testOnly SigmoidSimTest"
     - sbt "testOnly SigmoidTest"
-    - sbt "testOnly SinSimTest"
-    - sbt "testOnly SinTest"
     - sbt "testOnly SoftPlusSimTest"
     - sbt "testOnly SoftPlusTest"
-    - sbt "testOnly SqrtSimTest"
-    - sbt "testOnly SqrtTest"
