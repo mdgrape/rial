@@ -54,7 +54,7 @@ object ATan2Phase2Sim {
     if(special == 1) {
       return RealGeneric.nan(x.spec)
     } else if (special == 2) { // zero
-      return new RealGeneric(x.spec, ysgnUnit * 0)
+      return new RealGeneric(x.spec, ysgn, 0, 0)
     } else if (special == 3) { // pi
       return new RealGeneric(x.spec, ysgnUnit * Pi)
     } else if (special == 4) { // pi/2

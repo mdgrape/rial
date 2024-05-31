@@ -742,7 +742,7 @@ class ATan2Phase2PostProcess(
   val z0 = MuxCase(zNormal, Seq(
       (special === ATan2SpecialValue.zNormal    ) -> zNormal,
       (special === ATan2SpecialValue.zNaN       ) -> Cat(0.U(1.W), nan   .ex.U(exW.W), nan       .man.toBigInt.U(manW.W)),
-      (special === ATan2SpecialValue.zZero      ) -> Cat(0.U(1.W), zero  .ex.U(exW.W), zero      .man.toBigInt.U(manW.W)),
+      (special === ATan2SpecialValue.zZero      ) -> Cat(zSgn, zero      .ex.U(exW.W), zero      .man.toBigInt.U(manW.W)),
       (special === ATan2SpecialValue.zPi        ) -> Cat(zSgn, pi        .ex.U(exW.W), pi        .man.toBigInt.U(manW.W)),
       (special === ATan2SpecialValue.zHalfPi    ) -> Cat(zSgn, halfPi    .ex.U(exW.W), halfPi    .man.toBigInt.U(manW.W)),
       (special === ATan2SpecialValue.zQuarterPi ) -> Cat(zSgn, quarterPi .ex.U(exW.W), quarterPi .man.toBigInt.U(manW.W)),
