@@ -87,6 +87,8 @@ class SinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
           }
         } else if (x0.isNaN) {
           assert(zi.isNaN)
+        } else if (x.ex == 0) {
+          assert(zi.ex == 0 && x.sgn == zi.sgn)
         } else {
           if(erri.abs > tolerance) {
             val xsgn = bit(spec.W-1, x.value).toInt
