@@ -188,7 +188,7 @@ object SinCosSim {
     }
     if(yex == 0) {
       assert(yman == SafeLong(0), f"yex == 0, but yman == ${yman}")
-      return new RealGeneric(spec, 0, 0, 0)
+      return new RealGeneric(spec, zSgn, 0, 0)
     }
 
     val ymanW1   = yman + (SafeLong(1) << manW)
