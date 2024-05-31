@@ -628,9 +628,9 @@ object RealGeneric {
     if (ex<=0) {
       // subnormal should be considered later
       // keep sign of zero
-      SafeLong((sgn&1L) << (spec.W-1))
+      SafeLong(sgn&1L) << (spec.W-1)
     } else if (ex>=maskI(spec.exW)) {// Inf
-      ( maskI(spec.exW+(sgn&1))<<spec.manW )
+      ( maskI(spec.exW+(sgn&1)) << spec.manW )
     } else {
       (man & maskSL(spec.manW))+ ( SafeLong( ex + ((sgn&1)<<spec.exW) ) << spec.manW )
     }
@@ -643,7 +643,7 @@ object RealGeneric {
     if (x == 0.0) {
       val (sgn,exD,manD) = unpackDouble(x)
       if(sgn == 1) {
-        SafeLong(1 << (spec.W-1))
+        SafeLong(1) << (spec.W-1)
       } else {
         SafeLong(0)
       }
