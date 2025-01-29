@@ -21,6 +21,12 @@ test-fixed:
     - sbt "testOnly FloatToFixedTest"
     - sbt "testOnly ScaledFixedToFloatTest"
 
+test-ecc:
+  stage: test
+  script:
+    - sbt "testOnly CRC16Test"
+    - sbt "testOnly FletchersChecksumTest"
+
 test-rng:
   stage: test
   script:
