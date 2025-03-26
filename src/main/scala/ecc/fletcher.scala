@@ -72,20 +72,16 @@ class Fletcher(
     })
   })
 
-  val d = splitIntoElems(io.in.bits)
+  val d = VecInit(splitIntoElems(io.in.bits))
   val n = d.length
 
-  val maxAn = ((1 << elemW) - 1) * n
   val maxBn = ((1 << elemW) - 1) * (n * (n+1)) / 2
-  val anW = log2Ceil(maxAn+1)
   val bnW = log2Ceil(maxBn+1)
-
-  val an = VecInit(d.map(_.pad(anW))).reduceTree(_+_)
   val bn = VecInit(d.zipWithIndex.map{
     case(v, i) => { (v * (d.length-i).U).pad(bnW) }
   }).reduceTree(_+_)
 
-  val amod0 = VecInit(splitIntoElems(an)).reduceTree(modsum(_,_))
+  val amod0 = d.reduceTree(modsum(_,_))
   val bmod0 = VecInit(splitIntoElems(bn)).reduceTree(modsum(_,_))
 
   val amod = Mux(amod0 === mod.U, 0.U(elemW.W), amod0)
