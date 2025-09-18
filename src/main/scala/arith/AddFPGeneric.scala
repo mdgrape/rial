@@ -17,6 +17,35 @@ import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig._
 import rial.util.DebugControlSlave
 
+/** Generic Floating-Point Adder.
+ *
+ * It takes `x` and `y` and returns `z` as `z = x + y`.
+ *
+ * {{{
+ * class AddFPGeneric(...) extends Module {
+ *   val io = IO(new Bundle{
+ *     val x = Input(UInt(xSpec.W.W))
+ *     val y = Input(UInt(ySpec.W.W))
+ *     val z = Output(UInt(zSpec.W.W))
+ *   })
+ *   //...
+ * }
+ * }}}
+ *
+ * For settings, see [[rial.arith.RealSpec]], [[rial.arith.RoundSpec]], and
+ * [[rial.util.PipelineStageConfig]]
+ *
+ * @constructor create a chisel Module
+ * @param xSpec          floating point spec of the left hand side input
+ * @param ySpec          floating point spec of the right hand side input
+ * @param zSpec          floating point spec of the output
+ * @param roundSpec      rounding algorithm
+ * @param stage          number of pipeline stages in this module.
+ * @param enableDebug
+ *   add some additional printf and assertions. by default, false.
+ * @param useParallelLZA
+ *   do LZA for faster latency. by default, false.
+ */
 class AddFPGeneric(
   xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, // Input / Output floating spec
   roundSpec : RoundSpec, // Rounding spec
