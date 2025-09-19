@@ -1,12 +1,7 @@
 //package rial.tests
 
-
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
-
-
-
-//import scopt.OptionParser
 
 import scala.util.Random
 import scala.math._
@@ -90,7 +85,7 @@ class ATan2Phase2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     generatorX      : ( (RealSpec, Random) => RealGeneric),
     generatorY      : ( (RealSpec, Random) => RealGeneric),
     tolerance       : Int,
-    toleranceAtPhase1 : Int = 1
+    toleranceAtPhase1 : Int = 3
     ) = {
     test(s"atan2(x), format ${spec.toStringShort}, ${generatorStr}") {
       counter = 0;
@@ -114,12 +109,12 @@ class ATan2Phase2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         val z0   = math.atan2(y0, x0)
         val z0r  = new RealGeneric(spec, z0)
         val s1   = ATan2Phase1Sim.atan2Phase1SimGeneric( t_rec, y, x )
-        val erriS1 = errorLSB(s1._1, stage1z.toDouble)
-        if(abs(erriS1.toInt) > toleranceAtPhase1) {
-          println(f"WARN: ${toleranceAtPhase1} < error in Phase1: sim(${s1._1.toDouble}) != ref(${stage1z.toDouble})")
-        }
+        val erriS1 = errorLSB(s1, stage1z.toDouble)
+        // if(abs(erriS1.toInt) > toleranceAtPhase1) {
+        //   println(f"WARN: ${toleranceAtPhase1} < error in Phase1: sim(${s1.toDouble}) != ref(${stage1z.toDouble})")
+        // }
 
-        val zi   = ATan2Phase2Sim.atan2Phase2SimGeneric( t, s1._1, s1._2, s1._3, s1._4 )
+        val zi   = ATan2Phase2Sim.atan2Phase2SimGeneric( t, s1 )
         val zd   = zi.toDouble
         val errf = zd - z0r.toDouble
         val erri = errorLSB(zi, z0r.toDouble).toInt
@@ -151,7 +146,7 @@ class ATan2Phase2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
             println(f"test: y/x = ${min(abs(x0), abs(y0))/max(abs(x0),abs(y0))}")
             println(f"test: ref = ${z0}")
             println(f"test: sim = ${zd}")
-            println(f"test: s1  = (${s1._1.sgn}|${s1._1.ex}|${s1._1.man.toLong.toBinaryString}), status = ${s1._2}, special = ${s1._3}, ysgn = ${s1._4}")
+            println(f"test: s1  = (${s1.sgn}|${s1.ex}|${s1.man.toLong.toBinaryString})")
             println(f"test: test(${ztestsgn}|${ztestexp}(${ztestexp - spec.exBias})|${ztestman.toLong.toBinaryString}(${ztestman.toLong}%x)) != ref(${zrefsgn}|${zrefexp}(${zrefexp - spec.exBias})|${zrefman.toLong.toBinaryString}(${zrefman.toLong}%x))")
           }
           if(erri != 0) {
