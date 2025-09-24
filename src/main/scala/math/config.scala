@@ -1,0 +1,323 @@
+package rial.math
+
+import chisel3._
+import chisel3.util._
+
+import rial.arith._
+import rial.util.PipelineStageConfig
+import rial.util.PipelineStageConfig._
+
+import scala.math.exp
+import scala.collection.mutable.ArrayBuffer
+
+/* Enumerator to represent which function is used in [[rial.math.MathFunctions]]. */
+object FuncKind extends Enumeration {
+  type FuncKind = Value
+  val Sqrt, InvSqrt, Reciprocal, Sin, Cos, ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Exp, Log, Sigmoid, SoftPlus, ScaleMixtureGaussian = Value
+
+  /** Returns enum name (e.g. FuncKind.Sqrt -> "Sqrt").
+   */
+  def getString(fn: FuncKind): String = {
+    fn match {
+      case Sqrt => "Sqrt"
+      case InvSqrt => "InvSqrt"
+      case Reciprocal => "Reciprocal"
+      case Sin => "Sin"
+      case Cos => "Cos"
+      case ACosPhase1 => "ACosPhase1"
+      case ACosPhase2 => "ACosPhase2"
+      case ATan2Phase1 => "ATan2Phase1"
+      case ATan2Phase2 => "ATan2Phase2"
+      case Exp => "Exp"
+      case Log => "Log"
+      case Sigmoid => "Sigmoid"
+      case SoftPlus => "SoftPlus"
+      case ScaleMixtureGaussian => "ScaleMixtureGaussian"
+    }
+  }
+
+  /** (Internal use) Returns true if `fn` requires preprocess-multiplier.
+   */
+  def needPreMult(fn: FuncKind): Boolean = {
+    fn == Exp || fn == Sin || fn == Cos || fn == ScaleMixtureGaussian
+  }
+
+  /** (Internal use) Returns true if `fn` requires postprocess-multiplier.
+   */
+  def needPostMult(fn: FuncKind): Boolean = {
+    fn == ACosPhase2 || fn == ATan2Phase1 || fn == ATan2Phase2 ||
+    fn == Log || fn == Sin || fn == Cos || fn == ScaleMixtureGaussian
+  }
+
+  /** Returns list of funcs required to execute that function.
+   */
+  def requiredFuncs(fn: FuncKind): Seq[FuncKind] = {
+    fn match {
+      case Sqrt                 => Seq(Sqrt)
+      case InvSqrt              => Seq(InvSqrt)
+      case Reciprocal           => Seq(Reciprocal)
+      case Sin                  => Seq(Sin)
+      case Cos                  => Seq(Cos)
+      case ACosPhase1           => Seq(ACosPhase1, Sqrt)
+      case ACosPhase2           => Seq(ACosPhase2)
+      case ATan2Phase1          => Seq(ATan2Phase1, Reciprocal)
+      case ATan2Phase2          => Seq(ATan2Phase2)
+      case Exp                  => Seq(Exp)
+      case Log                  => Seq(Log)
+      case Sigmoid              => Seq(Sigmoid)
+      case SoftPlus             => Seq(SoftPlus)
+      case ScaleMixtureGaussian => Seq(ScaleMixtureGaussian)
+    }
+  }
+
+  /** Returns list of funcs that are required by specified functions.
+   */
+  def normalize(funcs: Seq[FuncKind]): Seq[FuncKind] = {
+    funcs.map(f => requiredFuncs(f)).reduce(_++_).distinct.sorted
+  }
+}
+
+
+/** A Config class for [[rial.math.MathFunctions]] Module.
+ *
+ *  @constructor create a new MathFuncConfig.
+ *  @param funcs the list of functions that should be supported.
+ */
+class MathFuncConfig(
+  val funcs: Seq[FuncKind.FuncKind],
+  val scaleMixtureGaussianSigma: Option[(Double, Double)] = None,
+) {
+
+  assert(funcs.length > 0, "At least one function should be supported")
+
+  import FuncKind._
+
+  /** Checks if a function is supported.
+   *
+   *  @param fn An enumerator of the function.
+   *  @return true if the function is supported. false if not.
+   */
+  def has(fn: FuncKind): Boolean = {
+    funcs.exists(_==fn)
+  }
+
+  if(has(ACosPhase1) || has(ACosPhase2)) {
+    assert(has(ACosPhase1) && has(ACosPhase2), "ACos requires both phase 1 and 2.")
+    assert(has(Sqrt), """
+      | Since acosPhase1 uses sqrt table, we auto-generate sqrt.
+      | In principle, we can remove this assumption, but the implementation will
+      | be painful and redundant.
+      """.stripMargin)
+  }
+  if(has(ATan2Phase1) || has(ATan2Phase2)) {
+    assert(has(ATan2Phase1) && has(ATan2Phase2), "ATan2 requires both phase 1 and 2.")
+    assert(has(Reciprocal), """
+      | Since atan2Phase1 uses reciprocal table, we auto-generate reciprocal.
+      | In principle, we can remove this assumption, but the implementation will
+      | be painful and redundant.
+      """.stripMargin)
+  }
+  if(has(ScaleMixtureGaussian)) {
+    assert(scaleMixtureGaussianSigma.isDefined)
+  }
+
+  // ---------------------------------------------------------------------------
+
+  /** (Internal use) Determines bit widths of the polynomial coefficients of
+   *  the function.
+   *
+   *  @return bit width of polynomial coefficients of the function per order.
+   */
+  def getCBits(fn: FuncKind, spec: RealSpec, polySpec: PolynomialSpec): Seq[Int] = {
+    fn match {
+      case Sqrt        => SqrtTableCoeff       .getCBits(spec, polySpec)
+      case InvSqrt     => InvSqrtTableCoeff    .getCBits(spec, polySpec)
+      case Reciprocal  => ReciprocalTableCoeff .getCBits(spec, polySpec)
+      case Sin         => SinCosTableCoeff     .getCBits(spec, polySpec)
+      case Cos         => SinCosTableCoeff     .getCBits(spec, polySpec)
+      case ACosPhase1  => SqrtTableCoeff       .getCBits(spec, polySpec)
+      case ACosPhase2  => ACosTableCoeff       .getCBits(spec, polySpec)
+      case ATan2Phase1 => ReciprocalTableCoeff .getCBits(spec, polySpec)
+      case ATan2Phase2 => ATan2Phase2TableCoeff.getCBits(spec, polySpec)
+      case Exp         => ExpTableCoeff        .getCBits(spec, polySpec)
+      case Log         => LogTableCoeff        .getCBits(spec, polySpec)
+      case Sigmoid     => SigmoidTableCoeff    .getCBits(spec, polySpec)
+      case SoftPlus    => SoftPlusTableCoeff   .getCBits(spec, polySpec)
+      case ScaleMixtureGaussian => {
+        val (sA, sB) = scaleMixtureGaussianSigma.get
+        ScaleMixtureGaussianTableCoeff.getCBits(sA, sB, spec, polySpec)
+      }
+    }
+  }
+
+  /** (Internal use) Determines the bit width of the temporary used to calculate
+   *  polynomial.
+   *
+   *  @return bit width of temporary used in the polynomial of the function.
+   */
+  def getCalcW(fn: FuncKind, spec: RealSpec, polySpec: PolynomialSpec): Seq[Int] = {
+    fn match {
+      case Sqrt        => SqrtTableCoeff       .getCalcW(spec, polySpec)
+      case InvSqrt     => InvSqrtTableCoeff    .getCalcW(spec, polySpec)
+      case Reciprocal  => ReciprocalTableCoeff .getCalcW(spec, polySpec)
+      case Sin         => SinCosTableCoeff     .getCalcW(spec, polySpec)
+      case Cos         => SinCosTableCoeff     .getCalcW(spec, polySpec)
+      case ACosPhase1  => SqrtTableCoeff       .getCalcW(spec, polySpec)
+      case ACosPhase2  => ACosTableCoeff       .getCalcW(spec, polySpec)
+      case ATan2Phase1 => ReciprocalTableCoeff .getCalcW(spec, polySpec)
+      case ATan2Phase2 => ATan2Phase2TableCoeff.getCalcW(spec, polySpec)
+      case Exp         => ExpTableCoeff        .getCalcW(spec, polySpec)
+      case Log         => LogTableCoeff        .getCalcW(spec, polySpec)
+      case Sigmoid     => SigmoidTableCoeff    .getCalcW(spec, polySpec)
+      case SoftPlus    => SoftPlusTableCoeff   .getCalcW(spec, polySpec)
+      case ScaleMixtureGaussian => {
+        val (sA, sB) = scaleMixtureGaussianSigma.get
+        ScaleMixtureGaussianTableCoeff.getCalcW(sA, sB, spec, polySpec)
+      }
+    }
+  }
+
+  // --------------------------------------------------------------------------
+
+  /** The width of UInt to represent function select signal.
+   */
+  val signalW = log2Up(1 + funcs.length) // None + [funcs..]
+
+  /** Returns function select signal. It starts from 1.
+   *  If the passed function is not supported, fails.
+   *
+   *  @param fn An enumerator of the function
+   *  @return the signal that corresponds to the function
+   */
+  def signal(fn: FuncKind): UInt = {
+    assert(has(fn), f"function `${FuncKind.getString(fn)}` is currently not supported")
+    (funcs.indexWhere(_==fn) + 1).U(signalW.W)
+  }
+
+  /** Returns function select signal that runs no function.
+   *
+   *  @return the signal that corresponds to no function.
+   */
+  def signalNone(): UInt = {
+    0.U(signalW.W)
+  }
+
+  def getString: String = {
+    funcs.map(fn => FuncKind.getString(fn)).mkString("[", ", ", "]")
+  }
+}
+
+/** Factory for [[rial.math.MathFuncConfig]].
+ */
+object MathFuncConfig {
+  import FuncKind._
+
+  /** Defines simple functions that does not require multipliers.
+   */
+  val simple = new MathFuncConfig(Seq(
+    Sqrt, InvSqrt, Reciprocal
+  ))
+
+  /** Defines standard math functions that are frequently used.
+   */
+  val standard = new MathFuncConfig(Seq(
+    Sqrt, InvSqrt, Reciprocal, Sin, Cos,
+    ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2,
+    Exp, Log
+  ))
+
+  /** Defines all the supported math functions including too task-specific ones.
+   */
+  val all = new MathFuncConfig(Seq(
+    Sqrt, InvSqrt, Reciprocal, Sin, Cos,
+    ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Exp, Log,
+    Sigmoid, SoftPlus, ScaleMixtureGaussian),
+    Some((exp(-1.0), exp(-6.0))
+  ))
+}
+
+/** Config class to set pipeline stages in a [[rial.math.MathFunctions]] module.
+ *
+ * Overview:
+ *
+ * {{{
+ * //             .--preStage    .--tableCalcGap .-- calcPostGap
+ * //             |      .--preCalcGap   .--calcStage    .--postStage
+ * //         ____|____  |       |  _____|_____  |  _____|_____
+ * //        '         ' '       ' '           ' ' '           '
+ * //       .----.-.----.-.-----.-.-----.-.-----.-.-----.-.-----.
+ * //       |    |v|    |v|table|v|Calc1|v|Calc2|v|     |v|     |
+ * // in -> |Pre1| |Pre2| :-----'-'-----'-'-----: |Post1| |Post2| -> out
+ * //       |    | |    | |      non-table      | |     | |     |
+ * //       '----'-'----'-'---------------------'-'-----'-'-----'
+ * }}}
+ *
+ * TODO: consider setting nStage for each function. (like, sqrt does not need
+ *       multiple cycles in its preprocess, but sincos may need.)
+ *
+ * @constructor create a new MathFuncConfig.
+ * @param preStage     pipeline stages of preprocess.
+ * @param calcStage    pipeline stages of table/polynomial and non-table path.
+ * @param postStage    pipeline stages of postprocess.
+ * @param postMulStage pipeline stages of multiplier in postprocess. should be smaller than postStage.
+ * @param preCalcGap   if true, add register between preprocess and calculation stage
+ * @param tableCalcGap if true, add register between table and calculation stage (+1 to calcStage for OtherPath)
+ * @param calcPostGap  if true, add register between calculation and postprocess stage
+ *
+ */
+class MathFuncPipelineConfig(
+  val preStage:     PipelineStageConfig,
+  val preMulStage:  PipelineStageConfig,
+  val calcStage:    PipelineStageConfig,
+  val postStage:    PipelineStageConfig,
+  val postMulStage: PipelineStageConfig,
+  val preCalcGap:   Boolean,
+  val tableCalcGap: Boolean,
+  val calcPostGap:  Boolean,
+  ) {
+
+  assert(preMulStage.total <= preStage.total,
+    "preStage includes preMulStage, so should be larger than preMulStage.")
+  assert(postMulStage.total <= postStage.total,
+    "postStage includes postMulStage, so should be larger than postMulStage.")
+
+  /** Calculates the total latency in clock cycles.
+   */
+  def total = {
+    preStage.total +
+    calcStage.total +
+    postStage.total +
+    (if(preCalcGap)   {1} else {0}) +
+    (if(tableCalcGap) {1} else {0}) +
+    (if(calcPostGap)  {1} else {0})
+  }
+  /** Generates a string that represents the current config.
+   */
+  def getString = {
+    f"pre:${preStage.total}(mul=${preMulStage.total}), " +
+    f"calc:${calcStage.total}, " +
+    f"post:${postStage.total}(mul=${postMulStage.total})" +
+    (if(preCalcGap){" pre/c"} else {""}) +
+    (if(tableCalcGap){" t/c"} else {""}) +
+    (if(calcPostGap){" c/post"} else {""})
+  }
+}
+
+/** Factory for [[rial.math.MathFuncPipelineConfig]].
+ */
+object MathFuncPipelineConfig {
+
+  /** constructs a config corresponding to the single cycle mathfunc.
+   */
+  def none = {
+    new MathFuncPipelineConfig(
+      PipelineStageConfig.none,
+      PipelineStageConfig.none,
+      PipelineStageConfig.none,
+      PipelineStageConfig.none,
+      PipelineStageConfig.none,
+      false,
+      false,
+      false)
+  }
+}
