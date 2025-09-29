@@ -388,14 +388,16 @@ class MathFunctions(
     fn -> WireDefault(0.U.asTypeOf(new RoundingNonTableOutput(spec)))
   }).toMap
 
-  roundingPost.get.io.en     := roundingPostEn    .values.reduceOption(_||_).getOrElse(false.B)
-  roundingPost.get.io.zother := roundingPostZother.values.zip(roundingPostEn.values).map(ze => {
-    Mux(ze._2, ze._1, 0.U.asTypeOf(ze._1))
-  }).reduceOption( (l, r) => {
-    (l.asUInt | r.asUInt).asTypeOf(new RoundingNonTableOutput(spec))
-  }).getOrElse( 0.U.asTypeOf(new RoundingNonTableOutput(spec)) )
+  if(roundingPost.isDefined) {
+    roundingPost.get.io.en     := roundingPostEn    .values.reduceOption(_||_).getOrElse(false.B)
+    roundingPost.get.io.zother := roundingPostZother.values.zip(roundingPostEn.values).map(ze => {
+      Mux(ze._2, ze._1, 0.U.asTypeOf(ze._1))
+    }).reduceOption( (l, r) => {
+      (l.asUInt | r.asUInt).asTypeOf(new RoundingNonTableOutput(spec))
+    }).getOrElse( 0.U.asTypeOf(new RoundingNonTableOutput(spec)) )
 
-  roundingPost.get.io.zres   := polynomialResultCPGapReg
+    roundingPost.get.io.zres   := polynomialResultCPGapReg
+  }
 
   // ==========================================================================
   // Output float.
