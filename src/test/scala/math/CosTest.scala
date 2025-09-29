@@ -159,6 +159,8 @@ class CosTest extends AnyFlatSpec
   val adrWFP32 = 8
   val extraBitsFP32 = 3
 
+  val cosOnly = new MathFuncConfig(Seq(Sin, Cos))
+
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r,
     "Test Within (-2pi, -pi)",     generateRealWithin(-2.0*Pi,-1.0*Pi,_,_))
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, MathFuncPipelineConfig.none, n, r,
@@ -210,7 +212,8 @@ class CosTest extends AnyFlatSpec
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
     "Test special value", generateSpecialValues(_,_))
 
-  val cosOnly = new MathFuncConfig(Seq(Cos))
+  // ---------------------------------------------------------------------------
+  // sincos only
 
   runtest(RealSpec.Float32Spec, nOrderFP32, adrWFP32, extraBitsFP32, complexPipeline, n, r,
     "Test Within (-2pi, -pi)",     generateRealWithin(-2.0*Pi,-1.0*Pi,_,_), cosOnly)
