@@ -6,8 +6,10 @@ package rial.math
 
 import scala.language.reflectiveCalls
 import scala.math._
+
 import chisel3._
 import chisel3.util._
+
 import rial.table._
 import rial.util._
 import rial.util.RialChiselUtil._
@@ -61,7 +63,7 @@ class DecomposeReal(val spec: RealSpec) extends Module {
  * - sincos requires x * 1/pi
  * - exp    requires x * log2(e)
  *
- * To reduce area of polynomial stage, those share one multiplier.
+ * To reduce area of polynomial stage, those funcs share one multiplier.
  *
  */
 class PreProcMultiplier(
@@ -108,7 +110,7 @@ class PreProcMultiplier(
  * - log(x~1)  approximates log(x)/(1-x)  in polynomial, so z = polynomial * (1-x)
  * - log(x!=1) approximates log2(x)       in polynomial, so z = polynomial * ln2
  *
- * To reduce area of polynomial stage, those share one multiplier.
+ * To reduce area of polynomial stage, those funcs share one multiplier.
  *
  */
 class PostProcMultiplier(
@@ -273,6 +275,7 @@ class MathFunctions(
   // The values of PC/CP registers can be used as if those are the output of
   // Preprocess/Calculation stage, respectively.
   // If nStages are zero, then it becomes a wire.
+
   val selPCReg     = ShiftRegister(io.sel,      nPreStage)
   val selPCGapReg  = ShiftRegister(selPCReg,    pcGap)
   val selCPReg     = ShiftRegister(selPCGapReg, tcGap + nCalcStage)
@@ -284,8 +287,10 @@ class MathFunctions(
   val xdecCPGapReg = ShiftRegister(xdecCPReg,         cpGap)
 
   val ydecomp = if(hasY) { Some(Module(new DecomposeReal(spec))) } else {None}
+  val yAbsLarger = WireDefault(false.B)
   if(hasY) {
     ydecomp.get.io.real := io.y.get
+    yAbsLarger := io.x(spec.W-2, 0) < io.y.get(spec.W-2, 0) // cmp without sign bit
   }
 
   val ydecPCReg    = WireDefault(0.U.asTypeOf(new DecomposedRealOutput(spec)))
@@ -293,11 +298,21 @@ class MathFunctions(
   val ydecCPReg    = WireDefault(0.U.asTypeOf(new DecomposedRealOutput(spec)))
   val ydecCPGapReg = WireDefault(0.U.asTypeOf(new DecomposedRealOutput(spec)))
 
+  val yAbsLargerPCReg    = WireDefault(false.B)
+  val yAbsLargerPCGapReg = WireDefault(false.B)
+  val yAbsLargerCPReg    = WireDefault(false.B)
+  val yAbsLargerCPGapReg = WireDefault(false.B)
+
   if(hasY) {
     ydecPCReg    := ShiftRegister(ydecomp.get.io.decomp, nPreStage)
     ydecPCGapReg := ShiftRegister(ydecPCReg,             pcGap)
     ydecCPReg    := ShiftRegister(ydecPCGapReg,          tcGap + nCalcStage)
     ydecCPGapReg := ShiftRegister(ydecCPReg,             cpGap)
+
+    yAbsLargerPCReg    = ShiftRegister(yAbsLarger,         nPreStage)
+    yAbsLargerPCGapReg = ShiftRegister(yAbsLargerPCReg,    pcGap)
+    yAbsLargerCPReg    = ShiftRegister(yAbsLargerPCGapReg, tcGap + nCalcStage)
+    yAbsLargerCPGapReg = ShiftRegister(yAbsLargerCPReg,    cpGap)
   }
 
   // ==========================================================================
@@ -306,7 +321,9 @@ class MathFunctions(
   val polynomialEval = Module(new PolynomialEval(spec, polySpec, maxCbit, stage.calcStage))
 
   val tableCoeffWidth = maxCbit.reduce(_+_)
-  val polynomialCoefs = fncfg.funcs.map( fn => { fn -> WireDefault(0.U(tableCoeffWidth.W)) }).toMap
+  val polynomialCoefs = fncfg.funcs.map( fn => {
+    fn -> WireDefault(0.U(tableCoeffWidth.W))
+  }).toMap
 
   val polynomialCoef = ShiftRegister(polynomialCoefs.values.reduce(_|_), tcGap)
   polynomialEval.io.coeffs := polynomialCoef.asTypeOf(new TableCoeffInput(maxCbit))
@@ -332,11 +349,11 @@ class MathFunctions(
   // if there is no function that requires PreProcMultiplier, the map will be empty.
   // we don't need to use Option here.
   val preProcMultEn  = fncfg.funcs.filter(fn => needPreMult(fn)).map(fn => { fn -> WireDefault(false.B) }).toMap
-  val preProcMultLhs = fncfg.funcs.filter(fn => needPreMult(fn)).map(fn => { fn -> WireDefault(0.U(preProcMultiplier.get.lhsW.W)) }).toMap
-  val preProcMultRhs = fncfg.funcs.filter(fn => needPreMult(fn)).map(fn => { fn -> WireDefault(0.U((1+manW).W)) }).toMap
+  val preProcMultLhs = fncfg.funcs.filter(fn => needPreMult(fn)).map(fn => { fn -> WireDefault(0.U.asTypeOf(preProcMultiplier.get.io.lhs) }).toMap
+  val preProcMultRhs = fncfg.funcs.filter(fn => needPreMult(fn)).map(fn => { fn -> WireDefault(0.U.asTypeOf(preProcMultiplier.get.io.rhs) }).toMap
 
   if(preProcMultiplier.isDefined) {
-    preProcMultiplier.get.io.en  := preProcMultEn .values.reduce(_|_)
+    preProcMultiplier.get.io.en  := preProcMultEn .values.reduce(_||_)
     preProcMultiplier.get.io.lhs := preProcMultLhs.values.reduce(_|_)
     preProcMultiplier.get.io.rhs := preProcMultRhs.values.reduce(_|_)
   }
@@ -349,34 +366,36 @@ class MathFunctions(
   } else {None}
 
   val postProcMultEn  = fncfg.funcs.filter(fn => needPostMult(fn)).map( fn => { fn -> WireDefault(false.B) }).toMap
-  val postProcMultLhs = fncfg.funcs.filter(fn => needPostMult(fn)).map( fn => { fn -> WireDefault(0.U((1+polySpec.fracW).W)) }).toMap
-  val postProcMultRhs = fncfg.funcs.filter(fn => needPostMult(fn)).map( fn => { fn -> WireDefault(0.U((1+manW).W)) }).toMap
+  val postProcMultLhs = fncfg.funcs.filter(fn => needPostMult(fn)).map( fn => { fn -> WireDefault(0.U.asTypeOf(postProcMultiplier.get.io.lhs) }).toMap
+  val postProcMultRhs = fncfg.funcs.filter(fn => needPostMult(fn)).map( fn => { fn -> WireDefault(0.U.asTypeOf(postProcMultiplier.get.io.rhs) }).toMap
 
   if(postProcMultiplier.isDefined) {
-    postProcMultiplier.get.io.en  := postProcMultEn .values.reduce(_|_)
+    postProcMultiplier.get.io.en  := postProcMultEn .values.reduce(_||_)
     postProcMultiplier.get.io.lhs := postProcMultLhs.values.reduce(_|_)
     postProcMultiplier.get.io.rhs := postProcMultRhs.values.reduce(_|_)
   }
 
   // ==========================================================================
-  // default postproc
+  // default postproc (just rounding)
 
-  val roundingPost = Module(new RoundingPostProcess(spec, polySpec, stage.postStage))
+  val roundingPost = if(fncfg.funcs.exists(fn => {fn == Sqrt || fn == InvSqrt || fn == Reciprocal || fn == ACosPhase1})) {
+    Some(Module(new RoundingPostProcess(spec, polySpec, stage.postStage)))
+  } else {None}
 
   val roundingPostFuncs  = fncfg.funcs.filter(fn => {fn == Sqrt || fn == InvSqrt || fn == Reciprocal || fn == ACosPhase1})
   val roundingPostEn     = roundingPostFuncs.map( fn => {fn -> WireDefault(false.B)} ).toMap
   val roundingPostZother = roundingPostFuncs.map( fn => {
     fn -> WireDefault(0.U.asTypeOf(new RoundingNonTableOutput(spec)))
-  } ).toMap
+  }).toMap
 
-  roundingPost.io.en     := roundingPostEn.values.reduceOption(_||_).getOrElse(false.B)
-  roundingPost.io.zother := roundingPostZother.values.zip(roundingPostEn.values).map(ze => {
-    enableIf(ze._2, ze._1)
+  roundingPost.get.io.en     := roundingPostEn    .values.reduceOption(_||_).getOrElse(false.B)
+  roundingPost.get.io.zother := roundingPostZother.values.zip(roundingPostEn.values).map(ze => {
+    Mux(ze._2, ze._1, 0.U.asTypeOf(ze._1))
   }).reduceOption( (l, r) => {
     (l.asUInt | r.asUInt).asTypeOf(new RoundingNonTableOutput(spec))
   }).getOrElse( 0.U.asTypeOf(new RoundingNonTableOutput(spec)) )
 
-  roundingPost.io.zres   := polynomialResultCPGapReg
+  roundingPost.get.io.zres   := polynomialResultCPGapReg
 
   // ==========================================================================
   // Output float.
@@ -384,6 +403,7 @@ class MathFunctions(
   // later we will insert a value to the map.
 
   val zs = fncfg.funcs.map( fn => { fn -> WireDefault(0.U(spec.W.W)) }).toMap
+
   io.z := zs.values.reduce(_|_)
 
   // ==========================================================================
