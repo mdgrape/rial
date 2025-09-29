@@ -536,7 +536,12 @@ class MathFunctions(
 
     recPre.io.en  := (io.sel === fncfg.signal(Reciprocal)) ||
                      (io.sel === fncfg.signal(ATan2Phase1))
-    recPre.io.x   := Mux(recUseY, ydecomp.get.io.decomp, xdecomp.io.decomp)
+
+    if(fncfg.has(ATan2Phase1)) {
+      recPre.io.x := Mux(recUseY, ydecomp.get.io.decomp, xdecomp.io.decomp)
+    } else {
+      recPre.io.x := xdecomp.io.decomp
+    }
 
     if(order != 0) {
       polynomialDxs.get(Reciprocal) := recPre.io.dx.get
