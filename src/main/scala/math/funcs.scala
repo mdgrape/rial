@@ -309,10 +309,10 @@ class MathFunctions(
     ydecCPReg    := ShiftRegister(ydecPCGapReg,          tcGap + nCalcStage)
     ydecCPGapReg := ShiftRegister(ydecCPReg,             cpGap)
 
-    yAbsLargerPCReg    = ShiftRegister(yAbsLarger,         nPreStage)
-    yAbsLargerPCGapReg = ShiftRegister(yAbsLargerPCReg,    pcGap)
-    yAbsLargerCPReg    = ShiftRegister(yAbsLargerPCGapReg, tcGap + nCalcStage)
-    yAbsLargerCPGapReg = ShiftRegister(yAbsLargerCPReg,    cpGap)
+    yAbsLargerPCReg    := ShiftRegister(yAbsLarger,         nPreStage)
+    yAbsLargerPCGapReg := ShiftRegister(yAbsLargerPCReg,    pcGap)
+    yAbsLargerCPReg    := ShiftRegister(yAbsLargerPCGapReg, tcGap + nCalcStage)
+    yAbsLargerCPGapReg := ShiftRegister(yAbsLargerCPReg,    cpGap)
   }
 
   // ==========================================================================
@@ -349,8 +349,8 @@ class MathFunctions(
   // if there is no function that requires PreProcMultiplier, the map will be empty.
   // we don't need to use Option here.
   val preProcMultEn  = fncfg.funcs.filter(fn => needPreMult(fn)).map(fn => { fn -> WireDefault(false.B) }).toMap
-  val preProcMultLhs = fncfg.funcs.filter(fn => needPreMult(fn)).map(fn => { fn -> WireDefault(0.U.asTypeOf(preProcMultiplier.get.io.lhs) }).toMap
-  val preProcMultRhs = fncfg.funcs.filter(fn => needPreMult(fn)).map(fn => { fn -> WireDefault(0.U.asTypeOf(preProcMultiplier.get.io.rhs) }).toMap
+  val preProcMultLhs = fncfg.funcs.filter(fn => needPreMult(fn)).map(fn => { fn -> WireDefault(0.U.asTypeOf(preProcMultiplier.get.io.lhs)) }).toMap
+  val preProcMultRhs = fncfg.funcs.filter(fn => needPreMult(fn)).map(fn => { fn -> WireDefault(0.U.asTypeOf(preProcMultiplier.get.io.rhs)) }).toMap
 
   if(preProcMultiplier.isDefined) {
     preProcMultiplier.get.io.en  := preProcMultEn .values.reduce(_||_)
@@ -366,8 +366,8 @@ class MathFunctions(
   } else {None}
 
   val postProcMultEn  = fncfg.funcs.filter(fn => needPostMult(fn)).map( fn => { fn -> WireDefault(false.B) }).toMap
-  val postProcMultLhs = fncfg.funcs.filter(fn => needPostMult(fn)).map( fn => { fn -> WireDefault(0.U.asTypeOf(postProcMultiplier.get.io.lhs) }).toMap
-  val postProcMultRhs = fncfg.funcs.filter(fn => needPostMult(fn)).map( fn => { fn -> WireDefault(0.U.asTypeOf(postProcMultiplier.get.io.rhs) }).toMap
+  val postProcMultLhs = fncfg.funcs.filter(fn => needPostMult(fn)).map( fn => { fn -> WireDefault(0.U.asTypeOf(postProcMultiplier.get.io.lhs)) }).toMap
+  val postProcMultRhs = fncfg.funcs.filter(fn => needPostMult(fn)).map( fn => { fn -> WireDefault(0.U.asTypeOf(postProcMultiplier.get.io.rhs)) }).toMap
 
   if(postProcMultiplier.isDefined) {
     postProcMultiplier.get.io.en  := postProcMultEn .values.reduce(_||_)
@@ -407,13 +407,252 @@ class MathFunctions(
   io.z := zs.values.reduce(_|_)
 
   // ==========================================================================
-  // ACos
+  // math func tables, non-table special values, and pre/post process
+
+  // --------------------------------------------------------------------------
+  // sqrt
+  //
+  // some part of sqrt are shared with acos and invsqrt.
+  // acos requires sqrt itself, but invsqrt does not.
+
+  // for acos
+  val sqrtTableAddr = Map(
+    Sqrt       -> WireDefault(0.U((1+polySpec.adrW).W)),
+    ACosPhase1 -> WireDefault(0.U((1+polySpec.adrW).W))
+  )
+  val sqrtOtherX = Map(
+    ACosPhase1 -> WireDefault(0.U.asTypeOf(xdecPCGapReg))
+  )
+
+  // for invsqrt
+  val sqrtPreAdrPCGapReg = WireDefault(0.U((1+polySpec.adrW).W))
+
+  if(fncfg.has(Sqrt)) {
+
+    val sqrtPre   = Module(new SqrtPreProcess (spec, polySpec, stage.preStage))
+    val sqrtTab   = Module(new SqrtTableCoeff (spec, polySpec, maxCbit))
+    val sqrtOther = Module(new SqrtOtherPath  (spec, polySpec, otherStage))
+
+    sqrtPre.io.en := io.sel === fncfg.signal(Sqrt) ||
+                     io.sel === fncfg.signal(InvSqrt)
+    sqrtPre.io.x  := xdecomp.io.decomp
+
+    sqrtPreAdrPCGapReg := ShiftRegister(sqrtPre.io.adr, pcGap)
+    if(order != 0) {
+      polynomialDxs.get(Sqrt) := sqrtPre.io.dx.get
+      if(fncfg.has(InvSqrt)) {
+        polynomialDxs.get(InvSqrt) := sqrtPre.io.dx.get
+      }
+    }
+
+    // ------ Preprocess-Calculate ------
+
+    sqrtTableAddr(Sqrt) := sqrtPreAdrPCGapReg
+
+    sqrtTab.io.en  := selPCGapReg === fncfg.signal(Sqrt) ||
+                      selPCGapReg === fncfg.signal(ACosPhase1)
+    sqrtTab.io.adr := sqrtTableAddr.values.reduce(_|_)
+
+    polynomialCoefs(Sqrt) := sqrtTab.io.cs.asUInt
+    if(fncfg.has(ACosPhase1)) {
+      polynomialCoefs(ACosPhase1) := sqrtTab.io.cs.asUInt
+    }
+
+    sqrtOther.io.x := Mux(selPCGapReg === fncfg.signal(Sqrt),
+      xdecPCGapReg, sqrtOtherX(ACosPhase1))
+
+    // redundant...
+    roundingPostEn(Sqrt)     := selCPGapReg === fncfg.signal(Sqrt)
+    roundingPostZother(Sqrt) := ShiftRegister(sqrtOther.io.zother, cpGap)
+    zs(Sqrt)                 := roundingPost.get.io.z
+
+    if(fncfg.has(ACosPhase1)) {
+      roundingPostEn(ACosPhase1)     := selCPGapReg === fncfg.signal(ACosPhase1)
+      roundingPostZother(ACosPhase1) := ShiftRegister(sqrtOther.io.zother, cpGap)
+      zs(ACosPhase1) := roundingPost.get.io.z
+    }
+
+    // after preprocess
+    when(selPCReg =/= fncfg.signal(Sqrt) && selPCReg =/= fncfg.signal(InvSqrt)) {
+      assert(sqrtPre.io.adr === 0.U)
+      assert(sqrtPre.io.dx.getOrElse(0.U) === 0.U)
+    }
+    when(selPCGapReg =/= fncfg.signal(Sqrt)) {
+      assert(sqrtTab.io.cs.asUInt === 0.U || selPCGapReg === fncfg.signal(ACosPhase1))
+    }
+  }
+
+  // ----------------------------------------------------------------------
+  // invsqrt
+
+  if(fncfg.has(InvSqrt)) {
+
+    // preprocess is same as sqrt. if sqrt is not supported, we add it here
+    if( ! fncfg.has(Sqrt)) {
+      val sqrtPre = Module(new SqrtPreProcess (spec, polySpec, stage.preStage))
+
+      sqrtPre.io.en := io.sel === fncfg.signal(InvSqrt)
+      sqrtPre.io.x  := xdecomp.io.decomp
+
+      sqrtPreAdrPCGapReg := ShiftRegister(sqrtPre.io.adr, pcGap)
+      if(order != 0) {
+        polynomialDxs.get(InvSqrt) := sqrtPre.io.dx.get
+      }
+    }
+
+    val invsqrtTab   = Module(new InvSqrtTableCoeff (spec, polySpec, maxCbit))
+    val invsqrtOther = Module(new InvSqrtOtherPath  (spec, polySpec, otherStage))
+
+    invsqrtTab.io.en  := selPCGapReg === fncfg.signal(InvSqrt)
+    invsqrtTab.io.adr := sqrtPreAdrPCGapReg
+
+    polynomialCoefs(InvSqrt) := invsqrtTab.io.cs.asUInt
+
+    invsqrtOther.io.x := xdecPCGapReg
+
+    roundingPostEn(InvSqrt)     := selCPGapReg === fncfg.signal(InvSqrt)
+    roundingPostZother(InvSqrt) := ShiftRegister(invsqrtOther.io.zother, cpGap)
+
+    zs(InvSqrt) := roundingPost.get.io.z
+
+    when(selPCGapReg =/= fncfg.signal(InvSqrt)) {
+      assert(invsqrtTab.io.cs.asUInt === 0.U)
+    }
+  }
+
+  // ----------------------------------------------------------------------
+  // reciprocal
+
+  // for atan2
+  val recTabCs = WireDefault(0.U.asTypeOf(new TableCoeffInput(maxCbit)))
+
+  if(fncfg.has(Reciprocal)) {
+    val recPre   = Module(new ReciprocalPreProcess (spec, polySpec, stage.preStage))
+    val recTab   = Module(new ReciprocalTableCoeff (spec, polySpec, maxCbit))
+    val recOther = Module(new ReciprocalOtherPath  (spec, polySpec, otherStage))
+
+    // atan2 uses reciprocal 1/max(x,y) to calculate min(x,y)/max(x,y).
+    val recUseY = (io.sel === fncfg.signal(ATan2Phase1)) && yAbsLarger
+
+    recPre.io.en  := (io.sel === fncfg.signal(Reciprocal)) ||
+                     (io.sel === fncfg.signal(ATan2Phase1))
+    recPre.io.x   := Mux(recUseY, ydecomp.get.io.decomp, xdecomp.io.decomp)
+
+    if(order != 0) {
+      polynomialDxs.get(Reciprocal) := recPre.io.dx.get
+
+      if(fncfg.has(ATan2Phase1)) {
+        polynomialDxs.get(ATan2Phase1) := recPre.io.dx.get
+      }
+    }
+
+    // ------ Preprocess-Calculate ------
+    recTab.io.en  := (selPCGapReg === fncfg.signal(Reciprocal)) ||
+                     (selPCGapReg === fncfg.signal(ATan2Phase1))
+    recTab.io.adr := ShiftRegister(recPre.io.adr, pcGap)
+
+    polynomialCoefs(Reciprocal) := recTab.io.cs.asUInt
+
+    if(fncfg.has(ATan2Phase1)) {
+      polynomialCoefs(ATan2Phase1) := recTab.io.cs.asUInt
+    }
+
+    recOther.io.x := xdecPCGapReg
+
+    roundingPostEn    (Reciprocal) := selCPGapReg === fncfg.signal(Reciprocal)
+    roundingPostZother(Reciprocal) := ShiftRegister(recOther.io.zother, cpGap)
+
+    zs(Reciprocal) := roundingPost.get.io.z
+
+    when(selPCReg =/= fncfg.signal(Reciprocal) && selPCReg =/= fncfg.signal(ATan2Phase1)) {
+      assert(recPre.io.adr === 0.U)
+      assert(recPre.io.dx.getOrElse(0.U) === 0.U)
+    }
+    when(selPCGapReg =/= fncfg.signal(Reciprocal) && selPCGapReg =/= fncfg.signal(ATan2Phase1)) {
+      assert(recTab.io.cs.asUInt === 0.U)
+    }
+  }
+
+  // ----------------------------------------------------------------------
+  // sin/cos
+
+  if(fncfg.has(Sin) || fncfg.has(Cos)) {
+    assert(fncfg.has(Sin) && fncfg.has(Cos))
+
+    val preProcIsSin = io.sel === fncfg.signal(Sin)
+    preProcMultEn (Sin) := preProcIsSin
+    preProcMultLhs(Sin) := enableIf(preProcIsSin, SinCosPreMulArgs.lhs(spec, preProcMultiplier.get.lhsW))
+    preProcMultRhs(Sin) := enableIf(preProcIsSin, Cat(1.U(1.W), xdecomp.io.decomp.man))
+
+    val preProcIsCos = io.sel === fncfg.signal(Cos)
+    preProcMultEn (Cos) := preProcIsCos
+    preProcMultLhs(Cos) := enableIf(preProcIsCos, SinCosPreMulArgs.lhs(spec, preProcMultiplier.get.lhsW))
+    preProcMultRhs(Cos) := enableIf(preProcIsCos, Cat(1.U(1.W), xdecomp.io.decomp.man))
+
+
+    val sincosPre   = Module(new SinCosPreProcess (spec, polySpec,
+      PipelineStageConfig.atOut(nPreStage - nPreMulStage)))
+    val sincosTab   = Module(new SinCosTableCoeff (spec, polySpec, maxCbit))
+    val sincosPost  = Module(new SinCosPostProcess(spec, polySpec,
+      PipelineStageConfig.atOut(nPostStage - nPostMulStage)))
+
+    sincosPre.io.en    := ShiftRegister(io.sel === fncfg.signal(Sin) ||
+                                        io.sel === fncfg.signal(Cos), nPreMulStage)
+    sincosPre.io.isSin := ShiftRegister(io.sel === fncfg.signal(Sin), nPreMulStage)
+    sincosPre.io.x     := ShiftRegister(xdecomp.io.decomp,            nPreMulStage)
+    sincosPre.io.prod  := SinCosPreMulArgs.prod(spec, preProcMultiplier.get.io.out)
+
+    sincosTab.io.en  := (selPCGapReg === fncfg.signal(Sin)) ||
+                        (selPCGapReg === fncfg.signal(Cos))
+    sincosTab.io.adr := ShiftRegister(sincosPre.io.adr, pcGap)
+
+    if(order != 0) {
+      polynomialDxs.get(Sin) := sincosPre.io.dx.get
+      polynomialDxs.get(Cos) := sincosPre.io.dx.get
+    }
+    polynomialCoefs(Sin) := sincosTab.io.cs.asUInt
+    polynomialCoefs(Cos) := sincosTab.io.cs.asUInt
+
+    val preOut = ShiftRegister(sincosPre.io.out, pcGap + tcGap + nCalcStage + cpGap)
+
+    assert(postProcMultiplier.isDefined, "Sin/Cos requires post-proc multiplier")
+
+    val isSin = (selCPGapReg === fncfg.signal(Sin))
+    postProcMultEn(Sin)  := isSin
+    postProcMultLhs(Sin) := enableIf(isSin, Cat(1.U(1.W), polynomialResultCPGapReg))
+    postProcMultRhs(Sin) := enableIf(isSin, Cat(1.U(1.W), preOut.yman))
+
+    val isCos = (selCPGapReg === fncfg.signal(Cos))
+    postProcMultEn(Cos)  := isCos
+    postProcMultLhs(Cos) := enableIf(isCos, Cat(1.U(1.W), polynomialResultCPGapReg))
+    postProcMultRhs(Cos) := enableIf(isCos, Cat(1.U(1.W), preOut.yman))
+
+    sincosPost.io.en     := ShiftRegister(selCPGapReg === fncfg.signal(Sin) ||
+                                          selCPGapReg === fncfg.signal(Cos), nPostMulStage)
+    sincosPost.io.pre    := ShiftRegister(preOut, nPostMulStage)
+    sincosPost.io.zman0  := postProcMultiplier.get.io.out
+    sincosPost.io.zexInc := postProcMultiplier.get.io.exInc
+
+    zs(Sin) := sincosPost.io.z
+    zs(Cos) := sincosPost.io.z
+
+    when(selPCReg =/= fncfg.signal(Sin) && selPCReg =/= fncfg.signal(Cos)) {
+      assert(sincosPre.io.adr === 0.U)
+      assert(sincosPre.io.dx.getOrElse(0.U) === 0.U)
+    }
+    when(selPCGapReg =/= fncfg.signal(Sin) && selPCGapReg =/= fncfg.signal(Cos)) {
+      assert(sincosTab.io.cs.asUInt === 0.U)
+    }
+  }
+
+  // ----------------------------------------------------------------------
+  // acos
+  //
+  // acos phase1 uses sqrt table.
 
   if(fncfg.has(ACosPhase1) || fncfg.has(ACosPhase2)) {
-    assert(fncfg.signal(ACosPhase1) =/= 0.U)
-    assert(fncfg.signal(ACosPhase2) =/= 0.U)
 
-    val acosFlagReg = Reg(new ACosFlags())
+    val acosFlagReg = RegInit(0.U.asTypeOf(new ACosFlags()))
 
     val acos1Pre  = Module(new ACosPhase1PreProcess(spec, polySpec, stage.preStage))
     val acos2Pre  = Module(new ACosPhase2PreProcess(spec, polySpec, stage.preStage))
@@ -421,7 +660,8 @@ class MathFunctions(
     val acosPost  = Module(new ACosPostProcess(spec, polySpec,
       PipelineStageConfig.atOut(nPostStage - nPostMulStage)))
 
-    val acos1PreAdrPCGapReg = ShiftRegister(acos1Pre.io.adr, pcGap)
+    sqrtTableAddr(ACosPhase1) := ShiftRegister(acos1Pre.io.adr, pcGap)
+    sqrtOtherX   (ACosPhase1) := ShiftRegister(acos1Pre.io.y,   pcGap)
 
     acos1Pre.io.en := io.sel === fncfg.signal(ACosPhase1)
     acos1Pre.io.x  := xdecomp.io.decomp
@@ -469,278 +709,16 @@ class MathFunctions(
       assert(acos2Pre.io.adr === 0.U)
       assert(acos2Pre.io.dx.getOrElse(0.U) === 0.U)
     }
-
     when(selPCGapReg =/= fncfg.signal(ACosPhase2)) {
       assert(acosTab.io.cs.asUInt === 0.U)
     }
-
-    // --------------------------------------------------------------------------
-    // sqrt
-
-    val sqrtPre   = Module(new SqrtPreProcess (spec, polySpec, stage.preStage))
-    val sqrtTab   = Module(new SqrtTableCoeff (spec, polySpec, maxCbit))
-    val sqrtOther = Module(new SqrtOtherPath  (spec, polySpec, otherStage))
-
-    val sqrtPreAdrPCGapReg = ShiftRegister(sqrtPre.io.adr, pcGap)
-
-    if(fncfg.has(InvSqrt)) {
-      sqrtPre.io.en := io.sel === fncfg.signal(Sqrt) || io.sel === fncfg.signal(InvSqrt)
-    } else {
-      sqrtPre.io.en := io.sel === fncfg.signal(Sqrt)
-    }
-    sqrtPre.io.x   := xdecomp.io.decomp
-    if(order != 0) {
-      polynomialDxs.get(Sqrt) := sqrtPre.io.dx.get
-    }
-
-    // ------ Preprocess-Calculate ------
-
-    sqrtTab.io.en  := selPCGapReg === fncfg.signal(Sqrt) || selPCGapReg === fncfg.signal(ACosPhase1)
-    sqrtTab.io.adr := sqrtPreAdrPCGapReg | acos1PreAdrPCGapReg
-
-    // redundant...
-    polynomialCoefs(Sqrt)        := sqrtTab.io.cs.asUInt
-    polynomialCoefs(ACosPhase1)  := sqrtTab.io.cs.asUInt
-
-    sqrtOther.io.x := Mux(selPCGapReg === fncfg.signal(Sqrt), xdecPCGapReg, ShiftRegister(acos1Pre.io.y, pcGap))
-
-    // redundant...
-    roundingPostEn(Sqrt)       := selCPGapReg === fncfg.signal(Sqrt)
-    roundingPostEn(ACosPhase1) := selCPGapReg === fncfg.signal(ACosPhase1)
-    roundingPostZother(Sqrt)       := ShiftRegister(sqrtOther.io.zother, cpGap)
-    roundingPostZother(ACosPhase1) := ShiftRegister(sqrtOther.io.zother, cpGap)
-
-    zs(ACosPhase1)  := roundingPost.io.z
-    zs(Sqrt)        := roundingPost.io.z
-
-    // after preprocess
-    if(fncfg.has(InvSqrt)) {
-      when(selPCReg =/= fncfg.signal(Sqrt) && selPCReg =/= fncfg.signal(InvSqrt)) {
-        assert(sqrtPre.io.adr === 0.U)
-        assert(sqrtPre.io.dx.getOrElse(0.U) === 0.U)
-      }
-    } else {
-      when(selPCReg =/= fncfg.signal(Sqrt)) {
-        assert(sqrtPre.io.adr === 0.U)
-        assert(sqrtPre.io.dx.getOrElse(0.U) === 0.U)
-      }
-    }
-    when(selPCGapReg =/= fncfg.signal(Sqrt)) {
-      assert(sqrtTab.io.cs.asUInt === 0.U || selPCGapReg === fncfg.signal(ACosPhase1))
-    }
-
-    if(fncfg.has(InvSqrt)) {
-      // ----------------------------------------------------------------------
-      // invsqrt
-      val invsqrtTab   = Module(new InvSqrtTableCoeff (spec, polySpec, maxCbit))
-      val invsqrtOther = Module(new InvSqrtOtherPath  (spec, polySpec, otherStage))
-
-      // (preprocess is same as sqrt)
-
-      if(order != 0) {
-        // redundant...
-        polynomialDxs.get(InvSqrt) := sqrtPre.io.dx.get
-      }
-
-      invsqrtTab.io.en  := selPCGapReg === fncfg.signal(InvSqrt)
-      invsqrtTab.io.adr := sqrtPreAdrPCGapReg
-
-      polynomialCoefs(InvSqrt) := invsqrtTab.io.cs.asUInt
-
-      invsqrtOther.io.x := xdecPCGapReg
-
-      roundingPostEn(InvSqrt)     := selCPGapReg === fncfg.signal(InvSqrt)
-      roundingPostZother(InvSqrt) := ShiftRegister(invsqrtOther.io.zother, cpGap)
-
-      zs(InvSqrt) := roundingPost.io.z
-
-      when(selPCGapReg =/= fncfg.signal(InvSqrt)) {
-        assert(invsqrtTab.io.cs.asUInt === 0.U)
-      }
-    }
   }
 
-  // ==========================================================================
-  // sqrt w/o acos
-
-  if( ! fncfg.has(ACosPhase1) && ! fncfg.has(ACosPhase2) && fncfg.has(Sqrt)) {
-    // --------------------------------------------------------------------------
-    // sqrt
-
-    val sqrtPre   = Module(new SqrtPreProcess (spec, polySpec, stage.preStage))
-    val sqrtTab   = Module(new SqrtTableCoeff (spec, polySpec, maxCbit))
-    val sqrtOther = Module(new SqrtOtherPath  (spec, polySpec, otherStage))
-
-    val sqrtPreAdrPCGapReg = ShiftRegister(sqrtPre.io.adr, pcGap)
-
-    if(fncfg.has(InvSqrt)) {
-      sqrtPre.io.en  := io.sel === fncfg.signal(Sqrt) || io.sel === fncfg.signal(InvSqrt)
-    } else {
-      sqrtPre.io.en  := io.sel === fncfg.signal(Sqrt)
-    }
-
-    sqrtPre.io.x   := xdecomp.io.decomp
-    if(order != 0) {
-      polynomialDxs.get(Sqrt) := sqrtPre.io.dx.get
-    }
-
-    // ------ Preprocess-Calculate ------
-
-    sqrtTab.io.en  := selPCGapReg === fncfg.signal(Sqrt)
-    sqrtTab.io.adr := sqrtPreAdrPCGapReg
-
-    // redundant...
-    polynomialCoefs(Sqrt)        := sqrtTab.io.cs.asUInt
-
-    sqrtOther.io.x := xdecPCGapReg
-
-    roundingPostEn(Sqrt)     := selCPGapReg === fncfg.signal(Sqrt)
-    roundingPostZother(Sqrt) := ShiftRegister(sqrtOther.io.zother, cpGap)
-
-    zs(Sqrt) := roundingPost.io.z
-
-    if(fncfg.has(InvSqrt)) {
-      when(selPCReg =/= fncfg.signal(Sqrt) && selPCReg =/= fncfg.signal(InvSqrt)) {
-        assert(sqrtPre.io.adr === 0.U)
-        assert(sqrtPre.io.dx.getOrElse(0.U) === 0.U)
-      }
-    } else {
-      when(selPCReg =/= fncfg.signal(Sqrt)) {
-        assert(sqrtPre.io.adr === 0.U)
-        assert(sqrtPre.io.dx.getOrElse(0.U) === 0.U)
-      }
-    }
-    when(selPCGapReg =/= fncfg.signal(Sqrt)) {
-      assert(sqrtTab.io.cs.asUInt === 0.U)
-    }
-
-    if(fncfg.has(InvSqrt)) {
-      // --------------------------------------------------------------------------
-      // invsqrt
-      val invsqrtTab   = Module(new InvSqrtTableCoeff (spec, polySpec, maxCbit))
-      val invsqrtOther = Module(new InvSqrtOtherPath  (spec, polySpec, otherStage))
-
-      // (preprocess is same as sqrt)
-
-      if(order != 0) {
-        // redundant...
-        polynomialDxs.get(InvSqrt) := sqrtPre.io.dx.get
-      }
-
-      invsqrtTab.io.en  := selPCGapReg === fncfg.signal(InvSqrt)
-      invsqrtTab.io.adr := sqrtPreAdrPCGapReg
-
-      polynomialCoefs(InvSqrt) := invsqrtTab.io.cs.asUInt
-
-      invsqrtOther.io.x := xdecPCGapReg
-
-      roundingPostEn(InvSqrt)     := selCPGapReg === fncfg.signal(InvSqrt)
-      roundingPostZother(InvSqrt) := ShiftRegister(invsqrtOther.io.zother, cpGap)
-
-      zs(InvSqrt) := roundingPost.io.z
-
-      when(selPCGapReg =/= fncfg.signal(InvSqrt)) {
-        assert(invsqrtTab.io.cs.asUInt === 0.U)
-      }
-    }
-  }
-
-  // invsqrt w/o sqrt
-  if( ! fncfg.has(ACosPhase1) && ! fncfg.has(ACosPhase2) && ! fncfg.has(Sqrt) && fncfg.has(InvSqrt)) {
-    // --------------------------------------------------------------------------
-    // invsqrt
-    val sqrtPre      = Module(new SqrtPreProcess (spec, polySpec, stage.preStage))
-    val invsqrtTab   = Module(new InvSqrtTableCoeff (spec, polySpec, maxCbit))
-    val invsqrtOther = Module(new InvSqrtOtherPath  (spec, polySpec, otherStage))
-
-    val sqrtPreAdrPCGapReg = ShiftRegister(sqrtPre.io.adr, pcGap)
-
-    sqrtPre.io.en  := io.sel === fncfg.signal(InvSqrt)
-    sqrtPre.io.x   := xdecomp.io.decomp
-
-    if(order != 0) {
-      // redundant...
-      polynomialDxs.get(InvSqrt) := sqrtPre.io.dx.get
-    }
-
-    invsqrtTab.io.en  := selPCGapReg === fncfg.signal(InvSqrt)
-    invsqrtTab.io.adr := sqrtPreAdrPCGapReg
-
-    polynomialCoefs(InvSqrt) := invsqrtTab.io.cs.asUInt
-
-    invsqrtOther.io.x := xdecPCGapReg
-
-    roundingPostEn(InvSqrt)     := selCPGapReg === fncfg.signal(InvSqrt)
-    roundingPostZother(InvSqrt) := ShiftRegister(invsqrtOther.io.zother, cpGap)
-
-    zs(InvSqrt) := roundingPost.io.z
-
-    when(selPCReg =/= fncfg.signal(InvSqrt)) {
-      assert(sqrtPre.io.adr === 0.U)
-      assert(sqrtPre.io.dx.getOrElse(0.U) === 0.U)
-    }
-    when(selPCGapReg =/= fncfg.signal(InvSqrt)) {
-      assert(invsqrtTab.io.cs.asUInt === 0.U)
-    }
-  }
-
-  // ==========================================================================
+  // --------------------------------------------------------------------------
   // atan2
 
   if(fncfg.has(ATan2Phase1) || fncfg.has(ATan2Phase2)) {
     assert(fncfg.has(ATan2Phase1) && fncfg.has(ATan2Phase2) && fncfg.has(Reciprocal))
-
-    // -----------------------------------------------------------------------
-    // input y-related registers and signals
-
-
-    val yIsLarger = io.x(spec.W-2, 0) < io.y.get(spec.W-2, 0) // cmp without sign bit
-    val yIsLargerPCReg    = ShiftRegister(yIsLarger, nPreStage)
-    val yIsLargerPCGapReg = ShiftRegister(yIsLargerPCReg, pcGap)
-    val yIsLargerCPReg    = ShiftRegister(yIsLargerPCGapReg, tcGap + nCalcStage)
-    val yIsLargerCPGapReg = ShiftRegister(yIsLargerCPReg, cpGap)
-
-    // --------------------------------------------------------------------------
-    // reciprocal
-
-    val recPre   = Module(new ReciprocalPreProcess (spec, polySpec, stage.preStage))
-    val recTab   = Module(new ReciprocalTableCoeff (spec, polySpec, maxCbit))
-    val recOther = Module(new ReciprocalOtherPath  (spec, polySpec, otherStage))
-
-    // atan2 uses reciprocal 1/max(x,y) to calculate min(x,y)/max(x,y).
-    val recUseY = (io.sel === fncfg.signal(ATan2Phase1)) && yIsLarger
-
-    recPre.io.en  := (io.sel === fncfg.signal(Reciprocal)) || (io.sel === fncfg.signal(ATan2Phase1))
-    recPre.io.x   := Mux(recUseY, ydecomp.get.io.decomp, xdecomp.io.decomp)
-
-    if(order != 0) {
-      polynomialDxs.get(Reciprocal)  := recPre.io.dx.get
-    }
-
-    // ------ Preprocess-Calculate ------
-    recTab.io.en  := (selPCGapReg === fncfg.signal(Reciprocal)) ||
-                     (selPCGapReg === fncfg.signal(ATan2Phase1))
-    recTab.io.adr := ShiftRegister(recPre.io.adr, pcGap)
-
-    polynomialCoefs(Reciprocal) := recTab.io.cs.asUInt
-
-    recOther.io.x := xdecPCGapReg
-
-    roundingPostEn    (Reciprocal) := selCPGapReg === fncfg.signal(Reciprocal)
-    roundingPostZother(Reciprocal) := ShiftRegister(recOther.io.zother, cpGap)
-
-    zs(Reciprocal) := roundingPost.io.z
-
-    when(selPCReg =/= fncfg.signal(Reciprocal) && selPCReg =/= fncfg.signal(ATan2Phase1)) {
-      assert(recPre.io.adr === 0.U)
-      assert(recPre.io.dx.getOrElse(0.U) === 0.U)
-    }
-    when(selPCGapReg =/= fncfg.signal(Reciprocal) && selPCGapReg =/= fncfg.signal(ATan2Phase1)) {
-      assert(recTab.io.cs.asUInt === 0.U)
-    }
-
-    // --------------------------------------------------------------------------
-    // atan2
 
     val atan2Phase1Pre   = Module(new ATan2Phase1PreProcess (spec, polySpec, stage.preStage))
     val atan2Phase1Other = Module(new ATan2Phase1OtherPath  (spec, polySpec, otherStage))
@@ -752,21 +730,15 @@ class MathFunctions(
     atan2Phase1Pre.io.en := (io.sel === fncfg.signal(ATan2Phase1))
     atan2Phase1Pre.io.x  := xdecomp.io.decomp
     atan2Phase1Pre.io.y  := ydecomp.get.io.decomp
-    atan2Phase1Pre.io.yIsLarger := yIsLarger
-
-    if(order != 0) {
-      polynomialDxs.get(ATan2Phase1) := recPre.io.dx.get
-    }
+    atan2Phase1Pre.io.yIsLarger := yAbsLarger
 
     // ------ Preprocess-Calculate ------
     atan2Phase1Other.io.x  := xdecPCGapReg
     atan2Phase1Other.io.y  := ydecPCGapReg
-    atan2Phase1Other.io.yIsLarger := yIsLargerPCGapReg
-
-    polynomialCoefs(ATan2Phase1) := recTab.io.cs.asUInt
+    atan2Phase1Other.io.yIsLarger := yAbsLargerPCGapReg
 
     val isATan21 = selCPGapReg === fncfg.signal(ATan2Phase1)
-    val minxy    = Mux(yIsLargerCPGapReg, xdecCPGapReg, ydecCPGapReg)
+    val minxy    = Mux(yAbsLargerCPGapReg, xdecCPGapReg, ydecCPGapReg)
     val zother   = ShiftRegister(atan2Phase1Other.io.zother, cpGap)
 
     val atan2Phase1MultArgs = Module(new ATan2Phase1MultArgs(spec, polySpec, PipelineStageConfig.none))
@@ -835,7 +807,7 @@ class MathFunctions(
     val atan2FlagReg = Reg(new ATan2Flags())
     // the timing is at the cycle when atan2Phase1Pre completes
     when(selPCReg === fncfg.signal(ATan2Phase1)) {
-      atan2FlagReg.status  := Cat(yIsLargerPCReg, xdecPCReg.sgn)
+      atan2FlagReg.status  := Cat(yAbsLargerPCReg, xdecPCReg.sgn)
       atan2FlagReg.special := atan2Phase1Pre.io.special
       atan2FlagReg.ysgn    := ydecPCReg.sgn
     }
@@ -846,203 +818,12 @@ class MathFunctions(
     atan2Phase2Post.io.flags  := atan2FlagReg
   }
 
-  // ==========================================================================
-  // reciprocal w/o ATan2
-
-  if( ! fncfg.has(ATan2Phase1) && ! fncfg.has(ATan2Phase2) && fncfg.has(Reciprocal)) {
-
-    val recPre   = Module(new ReciprocalPreProcess (spec, polySpec, stage.preStage))
-    val recTab   = Module(new ReciprocalTableCoeff (spec, polySpec, maxCbit))
-    val recOther = Module(new ReciprocalOtherPath  (spec, polySpec, otherStage))
-
-    recPre.io.en  := io.sel === fncfg.signal(Reciprocal)
-    recPre.io.x   := xdecomp.io.decomp
-
-    if(order != 0) {
-      polynomialDxs.get(Reciprocal)  := recPre.io.dx.get
-    }
-
-    // ------ Preprocess-Calculate ------
-    recTab.io.en  := (selPCGapReg === fncfg.signal(Reciprocal))
-    recTab.io.adr := ShiftRegister(recPre.io.adr, pcGap)
-
-    polynomialCoefs(Reciprocal) := recTab.io.cs.asUInt
-
-    recOther.io.x := xdecPCGapReg
-
-    roundingPostEn    (Reciprocal) := selCPGapReg === fncfg.signal(Reciprocal)
-    roundingPostZother(Reciprocal) := ShiftRegister(recOther.io.zother, cpGap)
-
-    zs(Reciprocal) := roundingPost.io.z
-
-    when(selPCReg =/= fncfg.signal(Reciprocal)) {
-      assert(recPre.io.adr === 0.U)
-      assert(recPre.io.dx.getOrElse(0.U) === 0.U)
-    }
-    when(selPCGapReg =/= fncfg.signal(Reciprocal)) {
-      assert(recTab.io.cs.asUInt === 0.U)
-    }
-  }
-
-  // ==========================================================================
-  // sincos
-
-  if(fncfg.has(Sin) || fncfg.has(Cos)) {
-    val sincosPre   = Module(new SinCosPreProcess (spec, polySpec,
-      PipelineStageConfig.atOut(nPreStage - nPreMulStage)))
-    val sincosTab   = Module(new SinCosTableCoeff (spec, polySpec, maxCbit))
-    val sincosPost  = Module(new SinCosPostProcess(spec, polySpec,
-      PipelineStageConfig.atOut(nPostStage - nPostMulStage)))
-
-    if(fncfg.has(Sin)) {
-      val preProcIsSin = io.sel === fncfg.signal(Sin)
-      preProcMultEn(Sin)  := preProcIsSin
-      preProcMultLhs(Sin) := enableIf(preProcIsSin, SinCosPreMulArgs.lhs(spec, preProcMultiplier.get.lhsW))
-      preProcMultRhs(Sin) := enableIf(preProcIsSin, Cat(1.U(1.W), xdecomp.io.decomp.man))
-    }
-    if(fncfg.has(Cos)) {
-      val preProcIsCos = io.sel === fncfg.signal(Cos)
-      preProcMultEn(Cos)  := preProcIsCos
-      preProcMultLhs(Cos) := enableIf(preProcIsCos, SinCosPreMulArgs.lhs(spec, preProcMultiplier.get.lhsW))
-      preProcMultRhs(Cos) := enableIf(preProcIsCos, Cat(1.U(1.W), xdecomp.io.decomp.man))
-    }
-
-    if(fncfg.has(Sin) && fncfg.has(Cos)) {
-
-      sincosPre.io.en    := ShiftRegister(io.sel === fncfg.signal(Sin) || io.sel === fncfg.signal(Cos), nPreMulStage)
-      sincosPre.io.isSin := ShiftRegister(io.sel === fncfg.signal(Sin), nPreMulStage)
-      sincosPre.io.x     := ShiftRegister(xdecomp.io.decomp, nPreMulStage)
-      sincosPre.io.prod  := SinCosPreMulArgs.prod(spec, preProcMultiplier.get.io.out)
-
-      sincosTab.io.en  := (selPCGapReg === fncfg.signal(Sin)) ||
-                          (selPCGapReg === fncfg.signal(Cos))
-      sincosTab.io.adr := ShiftRegister(sincosPre.io.adr, pcGap)
-
-      if(order != 0) {
-        polynomialDxs.get(Sin) := sincosPre.io.dx.get
-        polynomialDxs.get(Cos) := sincosPre.io.dx.get
-      }
-      polynomialCoefs(Sin) := sincosTab.io.cs.asUInt
-      polynomialCoefs(Cos) := sincosTab.io.cs.asUInt
-
-      val preOut = ShiftRegister(sincosPre.io.out, pcGap + tcGap + nCalcStage + cpGap)
-
-      assert(postProcMultiplier.isDefined, "Sin/Cos requires post-proc multiplier")
-
-      val isSin = (selCPGapReg === fncfg.signal(Sin))
-      postProcMultEn(Sin)  := isSin
-      postProcMultLhs(Sin) := enableIf(isSin, Cat(1.U(1.W), polynomialResultCPGapReg))
-      postProcMultRhs(Sin) := enableIf(isSin, Cat(1.U(1.W), preOut.yman))
-
-      val isCos = (selCPGapReg === fncfg.signal(Cos))
-      postProcMultEn(Cos)  := isCos
-      postProcMultLhs(Cos) := enableIf(isCos, Cat(1.U(1.W), polynomialResultCPGapReg))
-      postProcMultRhs(Cos) := enableIf(isCos, Cat(1.U(1.W), preOut.yman))
-
-      sincosPost.io.en     := ShiftRegister(selCPGapReg === fncfg.signal(Sin) ||
-                                            selCPGapReg === fncfg.signal(Cos), nPostMulStage)
-      sincosPost.io.pre    := ShiftRegister(preOut, nPostMulStage)
-      sincosPost.io.zman0  := postProcMultiplier.get.io.out
-      sincosPost.io.zexInc := postProcMultiplier.get.io.exInc
-
-      zs(Sin) := sincosPost.io.z
-      zs(Cos) := sincosPost.io.z
-
-      when(selPCReg =/= fncfg.signal(Sin) && selPCReg =/= fncfg.signal(Cos)) {
-        assert(sincosPre.io.adr === 0.U)
-        assert(sincosPre.io.dx.getOrElse(0.U) === 0.U)
-      }
-      when(selPCGapReg =/= fncfg.signal(Sin) && selPCGapReg =/= fncfg.signal(Cos)) {
-        assert(sincosTab.io.cs.asUInt === 0.U)
-      }
-
-    } else if (fncfg.has(Sin)) {
-
-      sincosPre.io.en    := ShiftRegister(io.sel === fncfg.signal(Sin), nPreMulStage)
-      sincosPre.io.isSin := true.B
-      sincosPre.io.x     := ShiftRegister(xdecomp.io.decomp, nPreMulStage)
-      sincosPre.io.prod  := SinCosPreMulArgs.prod(spec, preProcMultiplier.get.io.out)
-
-      sincosTab.io.en  := selPCGapReg === fncfg.signal(Sin)
-      sincosTab.io.adr := ShiftRegister(sincosPre.io.adr, pcGap)
-
-      if(order != 0) {
-        polynomialDxs.get(Sin) := sincosPre.io.dx.get
-      }
-      polynomialCoefs(Sin) := sincosTab.io.cs.asUInt
-
-      val preOut = ShiftRegister(sincosPre.io.out, pcGap + tcGap + nCalcStage + cpGap)
-
-      assert(postProcMultiplier.isDefined, "Sin/Cos requires post-proc multiplier")
-
-      val isSin = (selCPGapReg === fncfg.signal(Sin))
-      postProcMultEn(Sin)  := isSin
-      postProcMultLhs(Sin) := enableIf(isSin, Cat(1.U(1.W), polynomialResultCPGapReg))
-      postProcMultRhs(Sin) := enableIf(isSin, Cat(1.U(1.W), preOut.yman))
-
-      sincosPost.io.en     := ShiftRegister(selCPGapReg === fncfg.signal(Sin), nPostMulStage)
-      sincosPost.io.pre    := ShiftRegister(preOut, nPostMulStage)
-      sincosPost.io.zman0  := postProcMultiplier.get.io.out
-      sincosPost.io.zexInc := postProcMultiplier.get.io.exInc
-
-      zs(Sin) := sincosPost.io.z
-
-      when(selPCReg =/= fncfg.signal(Sin)) {
-        assert(sincosPre.io.adr === 0.U)
-        assert(sincosPre.io.dx.getOrElse(0.U) === 0.U)
-      }
-      when(selPCGapReg =/= fncfg.signal(Sin)) {
-        assert(sincosTab.io.cs.asUInt === 0.U)
-      }
-
-    } else {
-
-      sincosPre.io.en    := ShiftRegister(io.sel === fncfg.signal(Cos), nPreMulStage)
-      sincosPre.io.isSin := false.B
-      sincosPre.io.x     := ShiftRegister(xdecomp.io.decomp, nPreMulStage)
-      sincosPre.io.prod  := SinCosPreMulArgs.prod(spec, preProcMultiplier.get.io.out)
-
-      sincosTab.io.en  := selPCGapReg === fncfg.signal(Cos)
-      sincosTab.io.adr := ShiftRegister(sincosPre.io.adr, pcGap)
-
-      if(order != 0) {
-        polynomialDxs.get(Cos) := sincosPre.io.dx.get
-      }
-      polynomialCoefs(Cos) := sincosTab.io.cs.asUInt
-
-      val preOut = ShiftRegister(sincosPre.io.out, pcGap + tcGap + nCalcStage + cpGap)
-
-      assert(postProcMultiplier.isDefined, "Sin/Cos requires post-proc multiplier")
-
-      val isCos = (selCPGapReg === fncfg.signal(Cos))
-      postProcMultEn(Cos)  := isCos
-      postProcMultLhs(Cos) := enableIf(isCos, Cat(1.U(1.W), polynomialResultCPGapReg))
-      postProcMultRhs(Cos) := enableIf(isCos, Cat(1.U(1.W), preOut.yman))
-
-      sincosPost.io.en     := ShiftRegister(selCPGapReg === fncfg.signal(Cos), nPostMulStage)
-      sincosPost.io.pre    := ShiftRegister(preOut, nPostMulStage)
-      sincosPost.io.zman0  := postProcMultiplier.get.io.out
-      sincosPost.io.zexInc := postProcMultiplier.get.io.exInc
-
-      zs(Cos) := sincosPost.io.z
-
-      when(selPCReg =/= fncfg.signal(Cos)) {
-        assert(sincosPre.io.adr === 0.U)
-        assert(sincosPre.io.dx.getOrElse(0.U) === 0.U)
-      }
-      when(selPCGapReg =/= fncfg.signal(Cos)) {
-        assert(sincosTab.io.cs.asUInt === 0.U)
-      }
-    }
-  }
-
-  // ==========================================================================
-  // exp
+  // --------------------------------------------------------------------------
 
   if(fncfg.has(Exp)) {
 
     val preProcIsExp = io.sel === fncfg.signal(Exp)
-    preProcMultEn(Exp)  := preProcIsExp
+    preProcMultEn (Exp) := preProcIsExp
     preProcMultLhs(Exp) := enableIf(preProcIsExp, ExpPreMulArgs.lhs(spec, preProcMultiplier.get.lhsW))
     preProcMultRhs(Exp) := enableIf(preProcIsExp, Cat(1.U(1.W), xdecomp.io.decomp.man))
 
@@ -1089,14 +870,12 @@ class MathFunctions(
       assert(expPre.io.adr === 0.U)
       assert(expPre.io.dx.getOrElse(0.U) === 0.U)
     }
-
     when(selPCGapReg =/= fncfg.signal(Exp)) {
       assert(expTab.io.cs.asUInt === 0.U)
     }
   }
 
-  // ==========================================================================
-  // log2/ln
+  // --------------------------------------------------------------------------
 
   if(fncfg.has(Log)) {
     val logPre   = Module(new LogPreProcess (spec, polySpec, stage.preStage))
@@ -1148,8 +927,7 @@ class MathFunctions(
     }
   }
 
-  // ==========================================================================
-  // the standard sigmoid
+  // --------------------------------------------------------------------------
 
   if(fncfg.has(Sigmoid)) {
     val sigmoidPre   = Module(new SigmoidPreProcess (spec, polySpec, stage.preStage))
@@ -1189,8 +967,7 @@ class MathFunctions(
     }
   }
 
-  // ==========================================================================
-  // softplus
+  // --------------------------------------------------------------------------
 
   if(fncfg.has(SoftPlus)) {
     val softplusPre   = Module(new SoftPlusPreProcess (spec, polySpec, stage.preStage))
@@ -1232,9 +1009,7 @@ class MathFunctions(
     }
   }
 
-
-  // ==========================================================================
-  // scale mixture gaussian
+  // --------------------------------------------------------------------------
 
   if(fncfg.has(ScaleMixtureGaussian)) {
     val (sgmA, sgmB) = fncfg.scaleMixtureGaussianSigma.get
