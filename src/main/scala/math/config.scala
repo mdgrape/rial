@@ -8,7 +8,7 @@ import rial.util.PipelineStageConfig
 import rial.util.PipelineStageConfig._
 
 import scala.math.exp
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer, HashMap}
 
 /* Enumerator to represent which function is used in [[rial.math.MathFunctions]]. */
 object FuncKind extends Enumeration {
@@ -24,8 +24,8 @@ object FuncKind extends Enumeration {
       case Reciprocal => "Reciprocal"
       case Sin => "Sin"
       case Cos => "Cos"
-      case ACosPhase1 => "ACosPhase1"
-      case ACosPhase2 => "ACosPhase2"
+      case ACosPhase1  => "ACosPhase1"
+      case ACosPhase2  => "ACosPhase2"
       case ATan2Phase1 => "ATan2Phase1"
       case ATan2Phase2 => "ATan2Phase2"
       case Exp => "Exp"
@@ -49,19 +49,22 @@ object FuncKind extends Enumeration {
     fn == Log || fn == Sin || fn == Cos || fn == ScaleMixtureGaussian
   }
 
-  /** Returns list of funcs required to execute that function.
+  /** Returns list of funcs required to support that function.
+   *
+   *  Some functions perform variable transformations to calculate more accurate
+   *  approximations, utilizing the approximation tables of other functions.
    */
   def requiredFuncs(fn: FuncKind): Seq[FuncKind] = {
     fn match {
       case Sqrt                 => Seq(Sqrt)
       case InvSqrt              => Seq(InvSqrt)
       case Reciprocal           => Seq(Reciprocal)
-      case Sin                  => Seq(Sin)
-      case Cos                  => Seq(Cos)
-      case ACosPhase1           => Seq(ACosPhase1, Sqrt)
-      case ACosPhase2           => Seq(ACosPhase2)
-      case ATan2Phase1          => Seq(ATan2Phase1, Reciprocal)
-      case ATan2Phase2          => Seq(ATan2Phase2)
+      case Sin                  => Seq(Sin, Cos)
+      case Cos                  => Seq(Sin, Cos)
+      case ACosPhase1           => Seq(ACosPhase1,  ACosPhase2, Sqrt)
+      case ACosPhase2           => Seq(ACosPhase1,  ACosPhase2, Sqrt)
+      case ATan2Phase1          => Seq(ATan2Phase1, ATan2Phase2, Reciprocal)
+      case ATan2Phase2          => Seq(ATan2Phase1, ATan2Phase2, Reciprocal)
       case Exp                  => Seq(Exp)
       case Log                  => Seq(Log)
       case Sigmoid              => Seq(Sigmoid)
@@ -77,7 +80,6 @@ object FuncKind extends Enumeration {
   }
 }
 
-
 /** A Config class for [[rial.math.MathFunctions]] Module.
  *
  *  @constructor create a new MathFuncConfig.
@@ -89,6 +91,10 @@ class MathFuncConfig(
 ) {
 
   assert(funcs.length > 0, "At least one function should be supported")
+  assert(funcs == FuncKind.normalize(funcs),
+    """| some function depends on each other. like, ATan2 reuqires Reciprocal
+       | function. do `normalize` before passing it.
+       |""".stripMargin)
 
   import FuncKind._
 
@@ -101,22 +107,6 @@ class MathFuncConfig(
     funcs.exists(_==fn)
   }
 
-  if(has(ACosPhase1) || has(ACosPhase2)) {
-    assert(has(ACosPhase1) && has(ACosPhase2), "ACos requires both phase 1 and 2.")
-    assert(has(Sqrt), """
-      | Since acosPhase1 uses sqrt table, we auto-generate sqrt.
-      | In principle, we can remove this assumption, but the implementation will
-      | be painful and redundant.
-      """.stripMargin)
-  }
-  if(has(ATan2Phase1) || has(ATan2Phase2)) {
-    assert(has(ATan2Phase1) && has(ATan2Phase2), "ATan2 requires both phase 1 and 2.")
-    assert(has(Reciprocal), """
-      | Since atan2Phase1 uses reciprocal table, we auto-generate reciprocal.
-      | In principle, we can remove this assumption, but the implementation will
-      | be painful and redundant.
-      """.stripMargin)
-  }
   if(has(ScaleMixtureGaussian)) {
     assert(scaleMixtureGaussianSigma.isDefined)
   }
@@ -180,18 +170,30 @@ class MathFuncConfig(
   // --------------------------------------------------------------------------
 
   /** The width of UInt to represent function select signal.
+   *
+   *  signal contains: `None ++ [funcs..] ++ Invalid`.
+   *  `io.sel` of each functions corresponds to non-zero index in `funcs`.
+   *  If `None` is given, it calculates nothing.
+   *  If `Invalid` is given, it calculates something invalid.
+   *
+   *  `Invalid` is introduced to make implementation easy. There is no sense in
+   *  sending `Invalid` as `io.sel` signal.
    */
-  val signalW = log2Up(1 + funcs.length) // None + [funcs..]
+  val signalW = log2Up(2 + funcs.length)
 
-  /** Returns function select signal. It starts from 1.
-   *  If the passed function is not supported, fails.
+  /** Returns function select signal.
+   *  It starts from `1`. `0` means "calc nothing".
+   *  If the passed function is not supported, it returns invalid value (`max+1`).
    *
    *  @param fn An enumerator of the function
    *  @return the signal that corresponds to the function
    */
   def signal(fn: FuncKind): UInt = {
-    assert(has(fn), f"function `${FuncKind.getString(fn)}` is currently not supported")
-    (funcs.indexWhere(_==fn) + 1).U(signalW.W)
+    if (has(fn)) {
+      (funcs.indexWhere(_==fn) + 1).U(signalW.W)
+    } else {
+      (funcs.length + 1).U(signalW.W)
+    }
   }
 
   /** Returns function select signal that runs no function.
@@ -321,3 +323,4 @@ object MathFuncPipelineConfig {
       false)
   }
 }
+
