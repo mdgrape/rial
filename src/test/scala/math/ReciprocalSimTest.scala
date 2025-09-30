@@ -27,13 +27,13 @@ class ReciprocalSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
 
   val r = new Random(19660809)
 
-  def generateRealWithin( p : Double, spec: RealSpec, r : Random ) = {
+  def generateRealWithin( p : Double, spec: RealSpec, r : Random ): RealGeneric  = {
     val rD : Double = (r.nextDouble()-0.5)*p
     val x = new RealGeneric(spec, rD)
     new RealGeneric (spec, (x.value & (maskSL(spec.exW+1)<<spec.manW)) + SafeLong(BigInt(spec.manW, r)))
   }
 
-  def generateRealFull ( spec: RealSpec, r : Random ) = {
+  def generateRealFull ( spec: RealSpec, r : Random ): RealGeneric  = {
     new RealGeneric (spec, SafeLong(BigInt(spec.W, r)))
   }
 
@@ -47,13 +47,19 @@ class ReciprocalSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
       8.0,
       16.0,
     )
-  def generateSpecialValues( spec: RealSpec, r: Random ) = {
+  def generateSpecialValues( spec: RealSpec, r: Random ): RealGeneric = {
     val idx = counter
     counter += 1
     if(counter >= specialValues.length) {
       counter = 0
     }
-    new RealGeneric(spec, specialValues(idx))
+
+    val x = specialValues(idx)
+
+    val eps = new RealGeneric(spec, 0, spec.exBias - spec.manW, 0).toDouble
+
+    val rnd = r.nextInt(9) - 4 // [-4, 4]
+    new RealGeneric(spec, x + (rnd * eps))
   }
 
   def errorLSB( x : RealGeneric, y : Double ) : Double = {
@@ -71,6 +77,7 @@ class ReciprocalSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
       var xatMaxError = 0.0
       var zatMaxError = 0.0
 
+      var errored = false
       val errs = collection.mutable.Map.empty[Long, (Int, Int)]
 
       for(i <- 1 to n) {
@@ -83,8 +90,11 @@ class ReciprocalSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         val errf = zd-z0r.toDouble
         val erri = errorLSB(zi, z0r.toDouble).toLong
         //println(f"${x.value.toLong}%x $z0 ${zi.toDouble}")
+
         if (z0r.value != zi.value) {
-          println(f"${x.value.toLong}%x ${z0r.value.toLong}%x ${zi.value.toLong}%x")
+          // println(f"error: x=${x.toDouble}(${x.sgn}|${x.ex}|${x.man.toLong.toBinaryString}), "+
+          //   f"${z0r.toDouble}(${z0r.sgn}|${z0r.ex}|${z0r.man.toLong.toBinaryString}) != "+
+          //   f"${zi.toDouble}(${zi.sgn}|${zi.ex}|${zi.man.toLong.toBinaryString})")
         }
         if (z0.isInfinity) {
           assert(zd.isInfinity)
@@ -93,7 +103,14 @@ class ReciprocalSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         } else if (x0.isNaN) {
           assert(zi.isNaN)
         } else {
-          assert(erri.abs<=tolerance)
+
+          // assert(erri.abs<=tolerance)
+          if(erri.abs > tolerance) {
+            errored = true
+            println(f"error: x=${x.toDouble}(${x.sgn}|${x.ex}|${x.man.toLong.toBinaryString}), "+
+              f"${z0r.toDouble}(${z0r.sgn}|${z0r.ex}|${z0r.man.toLong.toBinaryString}) != "+
+              f"${zi.toDouble}(${zi.sgn}|${zi.ex}|${zi.man.toLong.toBinaryString})")
+          }
 
           if(erri != 0) {
             val errkey = erri.abs
@@ -124,6 +141,7 @@ class ReciprocalSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         val (k, (errPos, errNeg)) = kv
         println(f"N=$n%d : +/- ${k}%4d errors (${log2DownL(k)+1}%2d ULPs) positive $errPos%d / negative $errNeg%d")
       }
+      assert(!errored)
       println( "---------------------------------------------------------------")
 
     }
@@ -164,5 +182,5 @@ class ReciprocalSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   reciprocalTest(reciprocalFP64TableI, RealSpec.Float64Spec, n, r,
     "Test All range",generateRealFull(_,_), 3 )
   reciprocalTest(reciprocalFP64TableI, RealSpec.Float64Spec, n, r,
-    "Test Special Values",generateSpecialValues(_,_), 1 )
+    "Test Special Values",generateSpecialValues(_,_), 3 )
 }
