@@ -99,7 +99,8 @@ class ATan2Phase2PreProcess(
   // --------------------------------------------------------------------------
   // remove flags from exponent and mantissa
 
-  val xex    = Cat(0.U(1.W), io.x.ex(exW-2, 0))
+  // if input encodes special value, we treat the input value as 0 in polynomial.
+  val xex    = Mux(flags.isSpecial, 0.U(exW.W), Cat(0.U(1.W), io.x.ex(exW-2, 0)))
   val xmanW1 = Cat(1.U(1.W), io.x.man(manW-1, 1), 0.U(1.W))
 
   val shiftW    = log2Up(1+manW)
