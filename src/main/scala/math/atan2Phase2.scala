@@ -261,20 +261,20 @@ class ATan2Phase2OtherPath(
 
   io.zother.zsgn := ShiftRegister(io.flags.ysgn, nStage)
   io.zother.zex  := ShiftRegister(MuxCase(defaultEx, Seq(
-    (io.flags.special === ATan2SpecialValue.zNaN)        -> maskL(exW).U(exW.W),
-    (io.flags.special === ATan2SpecialValue.zZero)       -> 0.U(exW.W),
-    (io.flags.special === ATan2SpecialValue.zPi)         -> pi.ex.U(exW.W),
-    (io.flags.special === ATan2SpecialValue.zHalfPi)     -> halfPi.ex.U(exW.W),
-    (io.flags.special === ATan2SpecialValue.zQuarterPi)  -> quarterPi.ex.U(exW.W),
-    (io.flags.special === ATan2SpecialValue.z3QuarterPi) -> quarter3Pi.ex.U(exW.W)
+    (io.flags.isSpecial && io.flags.special === ATan2SpecialValue.zNaN)        -> maskL(exW).U(exW.W),
+    (io.flags.isSpecial && io.flags.special === ATan2SpecialValue.zZero)       -> 0.U(exW.W),
+    (io.flags.isSpecial && io.flags.special === ATan2SpecialValue.zPi)         -> pi.ex.U(exW.W),
+    (io.flags.isSpecial && io.flags.special === ATan2SpecialValue.zHalfPi)     -> halfPi.ex.U(exW.W),
+    (io.flags.isSpecial && io.flags.special === ATan2SpecialValue.zQuarterPi)  -> quarterPi.ex.U(exW.W),
+    (io.flags.isSpecial && io.flags.special === ATan2SpecialValue.z3QuarterPi) -> quarter3Pi.ex.U(exW.W)
     )), nStage)
   io.zother.zman := ShiftRegister(MuxCase(defaultMan, Seq(
-    (io.flags.special === ATan2SpecialValue.zNaN)        -> Cat(1.U(1.W), 0.U((manW-1).W)),
-    (io.flags.special === ATan2SpecialValue.zZero)       -> 0.U(manW.W),
-    (io.flags.special === ATan2SpecialValue.zPi)         -> pi        .man.toBigInt.U(manW.W),
-    (io.flags.special === ATan2SpecialValue.zHalfPi)     -> halfPi    .man.toBigInt.U(manW.W),
-    (io.flags.special === ATan2SpecialValue.zQuarterPi)  -> quarterPi .man.toBigInt.U(manW.W),
-    (io.flags.special === ATan2SpecialValue.z3QuarterPi) -> quarter3Pi.man.toBigInt.U(manW.W)
+    (io.flags.isSpecial && io.flags.special === ATan2SpecialValue.zNaN)        -> Cat(1.U(1.W), 0.U((manW-1).W)),
+    (io.flags.isSpecial && io.flags.special === ATan2SpecialValue.zZero)       -> 0.U(manW.W),
+    (io.flags.isSpecial && io.flags.special === ATan2SpecialValue.zPi)         -> pi        .man.toBigInt.U(manW.W),
+    (io.flags.isSpecial && io.flags.special === ATan2SpecialValue.zHalfPi)     -> halfPi    .man.toBigInt.U(manW.W),
+    (io.flags.isSpecial && io.flags.special === ATan2SpecialValue.zQuarterPi)  -> quarterPi .man.toBigInt.U(manW.W),
+    (io.flags.isSpecial && io.flags.special === ATan2SpecialValue.z3QuarterPi) -> quarter3Pi.man.toBigInt.U(manW.W)
     )), nStage)
 }
 
