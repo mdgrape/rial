@@ -60,6 +60,7 @@ class ATan2Phase2PreProcess(
     val adr = Output(UInt(adrW.W))
     val dx  = if(order != 0) { Some(Output(UInt(dxW.W))) } else { None }
 
+    val xdecoded = new DecomposedRealOutput(spec)
     val flags = Output(new ATan2Flags)
   })
 
@@ -67,7 +68,7 @@ class ATan2Phase2PreProcess(
   // also, if x == 1, stage1 sets special value flag. so we can ignore the case.
 
   // --------------------------------------------------------------------------
-  // decode flags
+  // decode flags and x
 
   val flags = WireDefault(0.U.asTypeOf(new ATan2Flags))
 
@@ -76,7 +77,24 @@ class ATan2Phase2PreProcess(
   flags.isSpecial := io.x.ex === ((1 << exW) - 1).U
   flags.special   := io.x.man
 
-  io.flags := ShiftRegister(enableIf(io.en, flags), nStage)
+  val xdecoded = WireDefault(0.U.asTypeOf(new Bundle {
+    val sgn  = UInt(1.W)
+    val ex   = UInt(spec.exW.W)
+    val man  = UInt(spec.manW.W)
+    val zero = Bool()
+    val inf  = Bool()
+    val nan  = Bool()
+  }))
+
+  xdecoded.sgn  := 0.U
+  xdecoded.ex   := Cat(0.U(1.W), io.x.ex(exW-2, 0))
+  xdecoded.man  := Cat(io.x.man(manW-1, 1), 0.U(1.W))
+  xdecoded.zero := 0.U
+  xdecoded.inf  := 0.U
+  xdecoded.nan  := 0.U
+
+  io.flags    := ShiftRegister(enableIf(io.en, flags), nStage)
+  io.xdecoded := ShiftRegister(enableIf(io.en, xdecoded), nStage)
 
   // --------------------------------------------------------------------------
   // remove flags from exponent and mantissa

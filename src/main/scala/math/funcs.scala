@@ -789,23 +789,23 @@ class MathFunctions(
     atan2Phase2Tab.io.en  := (selPCGapReg === fncfg.signal(ATan2Phase2))
     atan2Phase2Tab.io.adr := ShiftRegister(atan2Phase2Pre.io.adr, pcGap)
 
-    atan2Phase2Other.io.x     := xdecPCGapReg
-    atan2Phase2Other.io.flags := ShiftRegister(atan2Phase2Pre.io.flags, pcGap)
+    atan2Phase2Other.io.x     := ShiftRegister(atan2Phase2Pre.io.xdecoded, pcGap)
+    atan2Phase2Other.io.flags := ShiftRegister(atan2Phase2Pre.io.flags,    pcGap)
 
     polynomialCoefs(ATan2Phase2) := atan2Phase2Tab.io.cs.asUInt
 
     val isATan22 = selCPGapReg === fncfg.signal(ATan2Phase2)
     postProcMultEn(ATan2Phase2)  := isATan22
     postProcMultLhs(ATan2Phase2) := enableIf(isATan22, Cat(polynomialResultCPGapReg, 0.U(1.W)))
-    postProcMultRhs(ATan2Phase2) := enableIf(isATan22, Cat(1.U(1.W), xdecCPGapReg.man))
+    postProcMultRhs(ATan2Phase2) := enableIf(isATan22, ShiftRegister(
+      Cat(1.U(1.W), atan2Phase2Pre.io.xdecoded.man), pcGap + nOtherStage + cpGap))
 
     atan2Phase2Post.io.en     := ShiftRegister(selCPGapReg === fncfg.signal(ATan2Phase2), nPostMulStage)
     atan2Phase2Post.io.zother := ShiftRegister(atan2Phase2Other.io.zother, cpGap + nPostMulStage)
     atan2Phase2Post.io.zman0  := postProcMultiplier.get.io.out
     atan2Phase2Post.io.zexInc := postProcMultiplier.get.io.exInc
-    atan2Phase2Post.io.x      := ShiftRegister(xdecCPGapReg, nPostMulStage)
-    atan2Phase2Post.io.flags  := ShiftRegister(atan2Phase2Pre.io.flags,
-      pcGap + nOtherStage + cpGap + nPostMulStage)
+    atan2Phase2Post.io.x      := ShiftRegister(atan2Phase2Pre.io.xdecoded, pcGap + nOtherStage + cpGap + nPostMulStage)
+    atan2Phase2Post.io.flags  := ShiftRegister(atan2Phase2Pre.io.flags,    pcGap + nOtherStage + cpGap + nPostMulStage)
 
     zs(ATan2Phase2) := atan2Phase2Post.io.z
 
