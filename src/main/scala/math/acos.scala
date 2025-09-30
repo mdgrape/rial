@@ -21,20 +21,19 @@ import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig._
 import rial.arith._
 
-import rial.math._
-
 // Calculate acos(x) if x is in range [-1, 1].
 // otherwise, 0 or pi for positive and negative x, respectively.
 //
-// Here, we calculate acos(x) by using the following two stages.
+// Here, we calculate acos(x) by using the following two phases.
 //
 // 1. x -> sqrt(1 - |x|)
 // 2. x -> acos(1 - x^2)
 //
-// acos(1 - sqrt(1-|x|)^2) = acos(1-(1-|x|)) = acos(|x|)
+// note that: `acos(1 - sqrt(1-|x|)^2) = acos(1-(1-|x|)) = acos(|x|)`.
 //
 // So, we have additional preprocess stage that calculates 1-|x|.
-//
+// Phase1 uses Phase1Pre/PostProcess and Sqrt table.
+// Phase2 uses the specific table that calculates acos(1 - x^2)
 
 // -------------------------------------------------------------------------
 //  _ __  _ __ ___ _ __  _ __ ___   ___ ___  ___ ___
@@ -43,121 +42,6 @@ import rial.math._
 // | .__/|_|  \___| .__/|_|  \___/ \___\___||___/___/
 // |_|            |_|
 // -------------------------------------------------------------------------
-
-object ACosSpecialValue {
-  val W = 2
-  val xZero    = 0.U(W.W)
-  val xOne     = 1.U(W.W)
-  val xNormal  = 2.U(W.W)
-  val xNaNInf  = 3.U(W.W)
-}
-
-class ACosFlags extends Bundle {
-  val xsgn    = UInt(1.W)
-  val special = UInt(ACosSpecialValue.W.W)
-}
-
-class ACosPhase1PreProcess(
-  val spec     : RealSpec,
-  val polySpec : PolynomialSpec,
-  val stage    : PipelineStageConfig,
-) extends Module {
-
-  val nStage = stage.total
-
-  val exW    = spec.exW
-  val manW   = spec.manW
-  val exBias = spec.exBias
-
-  val adrW   = polySpec.adrW
-  val fracW  = polySpec.fracW
-  val dxW    = polySpec.dxW
-  val order  = polySpec.order
-  val exAdrW = 1 // sqrt extra table address
-
-  val io = IO(new Bundle {
-    val en  = Input (UInt(1.W))
-    val x   = Flipped(new DecomposedRealOutput(spec))
-    val adr = Output(UInt((exAdrW+adrW).W))
-    val dx  = if(order != 0) { Some(Output(UInt(dxW.W))) } else { None }
-
-    // input to SqrtOtherPath
-    val y   = new DecomposedRealOutput(spec)
-    val special = Output(new ACosFlags())
-  })
-
-  val xsgn = enableIf(io.en, io.x.sgn)
-  val xex  = enableIf(io.en, io.x.ex )
-  val xman = enableIf(io.en, io.x.man)
-
-  val xLargerThan1 = xex >= exBias.U
-
-  // -------------------------------------------------------------------------
-  // calc 1 - |x|
-
-  val xShiftMax = (1+manW+2).U
-  val xShift0   = exBias.U(exW.W) - xex
-  val xShift    = Mux(xShiftMax < xShift0, xShiftMax, xShift0)
-
-  val xShifted = (Cat(1.U(1.W), xman, 0.U(2.W)) >> xShift)
-  val xSubtracted = Mux(xLargerThan1, 0.U, ~(xShifted(manW+2-1, 0)) +& 1.U)
-
-  val xNormalizeShift = PriorityEncoder(Reverse(xSubtracted))
-  val xNormalized     = (xSubtracted << xNormalizeShift)(1+manW+2-1, 0)
-
-//   printf("cir: xex            = %d\n", xex)
-//   printf("cir: xman           = %b\n", xman)
-//   printf("cir: xShift         = %d\n", xShift)
-//   printf("cir: xShifted       = %b\n", xShifted)
-//   printf("cir: xSub           = %b(W=%d)\n", xSubtracted, xSubtracted.getWidth.U)
-//   printf("cir: xNormalizeShift= %d\n", xNormalizeShift)
-//   printf("cir: xNormalized    = %b\n", xNormalized)
-  assert(xNormalized(1+manW+2-1) === 1.U || xNormalized === 0.U) // normalized or zero
-
-  val xRounded          = xNormalized(manW+1, 2) +& xNormalized(1)
-  val xRoundedMoreThan2 = xRounded(manW)
-  val xConvertedEx0  = exBias.U(exW.W) - xNormalizeShift + xRoundedMoreThan2
-  val xConvertedMan0 = xRounded(manW-1, 0)
-
-  val xConvertedEx  = Mux(io.x.zero || xConvertedEx0 === exBias.U, exBias.U(exW.W), Mux(xLargerThan1, 0.U, xConvertedEx0))
-  val xConvertedMan = Mux(io.x.zero || xConvertedEx0 === exBias.U, 0.U(manW.W),     Mux(xLargerThan1, 0.U, xConvertedMan0))
-
-  // -------------------------------------------------------------------------
-  // do the same thing as sqrt
-
-  val adr = enableIf(io.en, Cat(xConvertedEx(0), xConvertedMan(manW-1, dxW)))
-  io.adr := ShiftRegister(adr, nStage)
-
-  if(order != 0) {
-    val dx = enableIf(io.en, Cat(~xConvertedMan(dxW-1), xConvertedMan(dxW-2, 0)))
-    io.dx.get := ShiftRegister(dx, nStage)
-  }
-
-//   printf("cir: xConvertedEx  = %d\n", xConvertedEx )
-//   printf("cir: xConvertedMan = %b\n", xConvertedMan)
-
-  // pass 1-|x| to sqrtOtherPath
-  io.y.sgn  := ShiftRegister(enableIf(io.en, 0.U(1.W)),       nStage)
-  io.y.ex   := ShiftRegister(enableIf(io.en, xConvertedEx),  nStage)
-  io.y.man  := ShiftRegister(enableIf(io.en, xConvertedMan), nStage)
-  io.y.zero := ShiftRegister(enableIf(io.en, xLargerThan1),   nStage)
-  io.y.inf  := ShiftRegister(enableIf(io.en, io.x.inf),       nStage)
-  io.y.nan  := ShiftRegister(enableIf(io.en, io.x.nan),       nStage)
-
-  // -------------------------------------------------------------------------
-  // check if special value
-
-  val xNaNInf = io.x.inf || io.x.nan
-  val xZero   = io.x.zero || xConvertedEx0 === exBias.U
-  val specialFlag = Mux(xNaNInf,      ACosSpecialValue.xNaNInf,
-                    Mux(xZero,        ACosSpecialValue.xZero,
-                    Mux(xLargerThan1, ACosSpecialValue.xOne,
-                                      ACosSpecialValue.xNormal)))
-  io.special.special := ShiftRegister(enableIf(io.en, specialFlag), nStage)
-  io.special.xsgn := ShiftRegister(enableIf(io.en, xsgn), nStage)
-}
-
-// ============================================================================
 
 class ACosPhase2PreProcess(
   val spec     : RealSpec,
@@ -181,6 +65,9 @@ class ACosPhase2PreProcess(
     val x   = Flipped(new DecomposedRealOutput(spec))
     val adr = Output(UInt(adrW.W))
     val dx  = if(order != 0) { Some(Output(UInt(dxW.W))) } else { None }
+
+    // decoded flags
+    val flags = Output(new ACosFlags)
   })
 
   val xex  = enableIf(io.en, io.x.ex )
@@ -196,6 +83,13 @@ class ACosPhase2PreProcess(
     val dx = enableIf(io.en, Cat(~xAligned(dxW-1), xAligned(dxW-2, 0)))
     io.dx.get := ShiftRegister(dx, nStage)
   }
+
+  val flags = WireDefault(0.U.asTypeOf(new ACosFlags))
+  flags.isSpecial := io.x.ex === Fill(exW, 1.U(1.W))
+  flags.xsgn      := io.x.sgn
+  flags.flag      := Mux(io.x.man === Fill(manW, 1.U(1.W)), ACosSpecialValue.xNaNInf, io.x.man)
+
+  io.flags := ShiftRegister(flags, nStage)
 }
 
 // -------------------------------------------------------------------------
@@ -303,7 +197,7 @@ object ACosTableCoeff {
 // |_|                 |_|
 // -------------------------------------------------------------------------
 
-class ACosPostProcess(
+class ACosPhase2PostProcess(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -356,23 +250,25 @@ class ACosPostProcess(
   // -----------------------------------------------------------------------
   // check if z is special value
 
-  val special = io.flags.special
-  val xNaNInf = special === ACosSpecialValue.xNaNInf
-  val xZero   = special === ACosSpecialValue.xZero
-  val xOne    = special === ACosSpecialValue.xOne
-  // if x == 0, return half pi
-  // if x == 1, return 0 or pi
+  val xNaNInf   = io.flags.isSpecial && io.flags.flag === ACosSpecialValue.xNaNInf
+  val xZero     = io.flags.isSpecial && io.flags.flag === ACosSpecialValue.xZero
+  val xLargePos = io.flags.isSpecial && io.flags.flag === ACosSpecialValue.xLargePos
+  val xLargeNeg = io.flags.isSpecial && io.flags.flag === ACosSpecialValue.xLargeNeg
+
+  // if x ==  0, return half pi
+  // if x == +1, return 0
+  // if x == -1, return pi
   // if x == nan/inf, return nan
-  val zman = Mux(xNaNInf, Cat(1.U(1.W), 0.U((manW-1).W)),
-             Mux(xZero, realHalfPi.man.toBigInt.U(manW.W),
-             Mux(xOne && io.flags.xsgn === 0.U, 0.U(manW.W),
-             Mux(xOne && io.flags.xsgn === 1.U, realPi.man.toBigInt.U(manW.W),
+  val zman = Mux(xNaNInf,   Cat(1.U(1.W), 0.U((manW-1).W)),
+             Mux(xZero,     realHalfPi.man.toBigInt.U(manW.W),
+             Mux(xLargePos, 0.U(manW.W),
+             Mux(xLargeNeg, realPi.man.toBigInt.U(manW.W),
              Mux(io.flags.xsgn === 0.U, zMan0, zNegMan0)))))
 
-  val zex  = Mux(xNaNInf, Fill(exW, 1.U(1.W)),
-             Mux(xZero, realHalfPi.ex.U(exW.W),
-             Mux(xOne && io.flags.xsgn === 0.U, 0.U(exW.W),
-             Mux(xOne && io.flags.xsgn === 1.U, realPi.ex.U(exW.W),
+  val zex  = Mux(xNaNInf,   Fill(exW, 1.U(1.W)),
+             Mux(xZero,     realHalfPi.ex.U(exW.W),
+             Mux(xLargePos, 0.U(exW.W),
+             Mux(xLargeNeg, realPi.ex.U(exW.W),
              Mux(io.flags.xsgn === 0.U, zEx0, zNegEx0)))))
 
   val z = enableIf(io.en, Cat(0.U(1.W), zex, zman))
