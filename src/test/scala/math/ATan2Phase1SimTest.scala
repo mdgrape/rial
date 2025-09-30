@@ -189,6 +189,10 @@ class ATan2Phase1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   atan2Test(atan2FP32ReciprocalTableI, RealSpec.Float32Spec, n, r, "Test Within 0 < y/x <  2^-12, with large x", generateRealWithin(-pow(2.0,100), pow(2.0,100),_,_), generateRealWithin(0.0, pow(2.0, -12),_,_), 3)
   atan2Test(atan2FP32ReciprocalTableI, RealSpec.Float32Spec, n, r, "Test Within 0 > y/x > -2^-12, with large x", generateRealWithin(-pow(2.0,100), pow(2.0,100),_,_), generateRealWithin(-pow(2.0, -12),0.0,_,_), 3)
 
+  atan2Test(atan2FP32ReciprocalTableI, RealSpec.Float32Spec, n, r, "Test Within y/x ~ 1", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(0.999998, 1.000002,_,_), 3)
+
+
+
   val nOrderBF16 = 0
   val adrWBF16 = 7
   val extraBitsBF16 = 1
