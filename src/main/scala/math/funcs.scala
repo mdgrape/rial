@@ -425,6 +425,7 @@ class MathFunctions(
   val sqrtOtherX = Map(
     ACosPhase1 -> WireDefault(0.U.asTypeOf(xdecPCGapReg))
   )
+  val sqrtNonTableOutput = WireDefault(0.U.asTypeOf(new RoundingNonTableOutput(spec)))
 
   // for invsqrt
   val sqrtPreAdrPCGapReg = WireDefault(0.U((1+polySpec.adrW).W))
@@ -463,16 +464,12 @@ class MathFunctions(
     sqrtOther.io.x := Mux(selPCGapReg === fncfg.signal(Sqrt),
       xdecPCGapReg, sqrtOtherX(ACosPhase1))
 
-    // redundant...
-    roundingPostEn(Sqrt)     := selCPGapReg === fncfg.signal(Sqrt)
-    roundingPostZother(Sqrt) := ShiftRegister(sqrtOther.io.zother, cpGap)
-    zs(Sqrt)                 := roundingPost.get.io.z
+    sqrtNonTableOutput := ShiftRegister(sqrtOther.io.zother, cpGap)
 
-    if(fncfg.has(ACosPhase1)) {
-      roundingPostEn(ACosPhase1)     := selCPGapReg === fncfg.signal(ACosPhase1)
-      roundingPostZother(ACosPhase1) := ShiftRegister(sqrtOther.io.zother, cpGap)
-      zs(ACosPhase1) := roundingPost.get.io.z
-    }
+    roundingPostEn(Sqrt)     := selCPGapReg === fncfg.signal(Sqrt)
+    roundingPostZother(Sqrt) := sqrtNonTableOutput
+
+    zs(Sqrt) := roundingPost.get.io.z
 
     // after preprocess
     when(selPCReg =/= fncfg.signal(Sqrt) && selPCReg =/= fncfg.signal(InvSqrt)) {
@@ -659,24 +656,42 @@ class MathFunctions(
 
   if(fncfg.has(ACosPhase1) || fncfg.has(ACosPhase2)) {
 
-    val acosFlagReg = RegInit(0.U.asTypeOf(new ACosFlags()))
+    val acos1Pre  = Module(new ACosPhase1PreProcess (spec, polySpec, stage.preStage))
+    val acos1Post = Module(new ACosPhase1PostProcess(spec, polySpec, stage.postStage))
 
-    val acos1Pre  = Module(new ACosPhase1PreProcess(spec, polySpec, stage.preStage))
-    val acos2Pre  = Module(new ACosPhase2PreProcess(spec, polySpec, stage.preStage))
-    val acosTab   = Module(new ACosTableCoeff (spec, polySpec, maxCbit))
-    val acosPost  = Module(new ACosPostProcess(spec, polySpec,
-      PipelineStageConfig.atOut(nPostStage - nPostMulStage)))
+    acos1Pre.io.en := io.sel === fncfg.signal(ACosPhase1)
+    acos1Pre.io.x  := xdecomp.io.decomp
 
     sqrtTableAddr(ACosPhase1) := ShiftRegister(acos1Pre.io.adr, pcGap)
     sqrtOtherX   (ACosPhase1) := ShiftRegister(acos1Pre.io.y,   pcGap)
 
-    acos1Pre.io.en := io.sel === fncfg.signal(ACosPhase1)
-    acos1Pre.io.x  := xdecomp.io.decomp
+    if(order != 0) {
+      polynomialDxs.get(ACosPhase1) := acos1Pre.io.dx.get
+    }
+
+    acos1Post.io.en     := selCPGapReg === fncfg.signal(ACosPhase1)
+    acos1Post.io.zother := sqrtNonTableOutput
+    acos1Post.io.zres   := polynomialResultCPGapReg
+    acos1Post.io.flags  := ShiftRegister(acos1Pre.io.special, pcGap + nOtherStage + cpGap)
+
+    zs(ACosPhase1)  := acos1Post.io.z
+
+    when(selPCReg =/= fncfg.signal(ACosPhase1)) {
+      assert(acos1Pre.io.adr === 0.U)
+      assert(acos1Pre.io.dx.getOrElse(0.U) === 0.U)
+    }
+
+    // ------------------------------------------------------------------------
+
+    val acos2Pre  = Module(new ACosPhase2PreProcess (spec, polySpec, stage.preStage))
+    val acosTab   = Module(new ACosTableCoeff       (spec, polySpec, maxCbit))
+    val acos2Post = Module(new ACosPhase2PostProcess(spec, polySpec,
+      PipelineStageConfig.atOut(nPostStage - nPostMulStage)))
+
     acos2Pre.io.en := io.sel === fncfg.signal(ACosPhase2)
     acos2Pre.io.x  := xdecomp.io.decomp
 
     if(order != 0) {
-      polynomialDxs.get(ACosPhase1)  := acos1Pre.io.dx.get
       polynomialDxs.get(ACosPhase2)  := acos2Pre.io.dx.get
     }
 
@@ -694,24 +709,14 @@ class MathFunctions(
     postProcMultLhs(ACosPhase2) := enableIf(isACos2, Cat(1.U(1.W), polynomialResultCPGapReg))
     postProcMultRhs(ACosPhase2) := enableIf(isACos2, Cat(1.U(1.W), xdecCPGapReg.man))
 
-    acosPost.io.en     := ShiftRegister(selCPGapReg === fncfg.signal(ACosPhase2), nPostMulStage)
-    acosPost.io.flags  := acosFlagReg
-    acosPost.io.zex0   := ShiftRegister(xdecCPGapReg.ex, nPostMulStage)
-    acosPost.io.zman0  := postProcMultiplier.get.io.out
-    acosPost.io.exInc  := postProcMultiplier.get.io.exInc
+    acos2Post.io.en     := ShiftRegister(selCPGapReg === fncfg.signal(ACosPhase2), nPostMulStage)
+    acos2Post.io.flags  := ShiftRegister(acos2Pre.io.flags, pcGap + nOtherStage + cpGap + nPostMulStage)
+    acos2Post.io.zex0   := ShiftRegister(xdecCPGapReg.ex, nPostMulStage)
+    acos2Post.io.zman0  := postProcMultiplier.get.io.out
+    acos2Post.io.exInc  := postProcMultiplier.get.io.exInc
 
-    zs(ACosPhase2)  := acosPost.io.z
+    zs(ACosPhase2)  := acos2Post.io.z
 
-    when(selPCReg === fncfg.signal(ACosPhase1)) {
-      acosFlagReg := acos1Pre.io.special
-    }
-
-    // after preprocess
-    // XXX Since `PCReg`s are delayed by nPreStage, the timing is the same as acosPre output.
-    when(selPCReg =/= fncfg.signal(ACosPhase1)) {
-      assert(acos1Pre.io.adr === 0.U)
-      assert(acos1Pre.io.dx.getOrElse(0.U) === 0.U)
-    }
     when(selPCReg =/= fncfg.signal(ACosPhase2)) {
       assert(acos2Pre.io.adr === 0.U)
       assert(acos2Pre.io.dx.getOrElse(0.U) === 0.U)
