@@ -25,55 +25,82 @@ class ATan2Phase2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
 
   val r = new Random(123456789)
 
-  def generateRealWithin( from : Double, to : Double, spec: RealSpec, r : Random ) = {
+  def generateRealWithin( from : Double, to : Double, spec: RealSpec, idx: Int, r : Random ) = {
     val rD : Double = from + r.nextDouble() * (to - from)
     new RealGeneric(spec, rD)
   }
 
-  var counter = 0
   val specialValues = Seq(
       ( 1.0,  1.0),
       ( 1.0, -1.0),
       (-1.0,  1.0),
       (-1.0, -1.0),
 
+      ( 1.999999,  1.999999),
+      ( 1.999999, -1.999999),
+      (-1.999999,  1.999999),
+      (-1.999999, -1.999999),
+
+      ( 1.41421356,  1.0),
+      ( 1.41421356, -1.0),
+      (-1.41421356,  1.0),
+      (-1.41421356, -1.0),
+
+      ( 1.0,  1.41421356),
+      ( 1.0, -1.41421356),
+      (-1.0,  1.41421356),
+      (-1.0, -1.41421356),
+
+      ( 1.41421356,  1.41421356),
+      ( 1.41421356, -1.41421356),
+      (-1.41421356,  1.41421356),
+      (-1.41421356, -1.41421356),
+
+      ( 3.14159265,  3.14159265),
+      ( 3.14159265, -3.14159265),
+      (-3.14159265,  3.14159265),
+      (-3.14159265, -3.14159265),
+
       ( 100.0,  100.0),
       ( 100.0, -100.0),
       (-100.0,  100.0),
       (-100.0, -100.0),
 
-      (Double.PositiveInfinity,  1.0),
-      (Double.PositiveInfinity, -1.0),
-      (Double.NegativeInfinity,  1.0),
-      (Double.NegativeInfinity, -1.0),
+      (Double.PositiveInfinity,  3.1415926),
+      (Double.PositiveInfinity, -3.1415926),
+      (Double.NegativeInfinity,  3.1415926),
+      (Double.NegativeInfinity, -3.1415926),
 
-      ( 1.0, Double.PositiveInfinity),
-      (-1.0, Double.PositiveInfinity),
-      ( 1.0, Double.NegativeInfinity),
-      (-1.0, Double.NegativeInfinity),
+      ( 3.1415926, Double.PositiveInfinity),
+      (-3.1415926, Double.PositiveInfinity),
+      ( 3.1415926, Double.NegativeInfinity),
+      (-3.1415926, Double.NegativeInfinity),
 
       (Double.PositiveInfinity, Double.PositiveInfinity),
       (Double.PositiveInfinity, Double.NegativeInfinity),
       (Double.NegativeInfinity, Double.PositiveInfinity),
       (Double.NegativeInfinity, Double.NegativeInfinity),
     )
-  def generateSpecialValuesX( spec: RealSpec, r: Random ) = {
-    val idx = counter
-    counter += 1
-    if(counter >= specialValues.length) {
-      counter = 0
-    }
-    new RealGeneric(spec, specialValues(idx)._1)
-  }
-  def generateSpecialValuesY( spec: RealSpec, r: Random ) = {
-    val idx = counter
-    counter += 1
-    if(counter >= specialValues.length) {
-      counter = 0
-    }
-    new RealGeneric(spec, specialValues(idx)._2)
-  }
+  def generateSpecialValuesX( spec: RealSpec, idx: Int, r: Random ) = {
 
+    val i = idx % specialValues.length
+    val x = specialValues(i)._1
+
+    val eps = new RealGeneric(spec, 0, spec.exBias - spec.manW, 0).toDouble
+
+    val rnd = r.nextInt(5) - 2 // [-2, 2]
+    new RealGeneric(spec, x + (rnd * eps))
+  }
+  def generateSpecialValuesY( spec: RealSpec, idx: Int, r: Random ) = {
+
+    val i = idx % specialValues.length
+    val y = specialValues(i)._2
+
+    val eps = new RealGeneric(spec, 0, spec.exBias - spec.manW, 0).toDouble
+
+    val rnd = r.nextInt(5) - 2 // [-2, 2]
+    new RealGeneric(spec, y + (rnd * eps))
+  }
 
   def errorLSB( x : RealGeneric, y : Double ) : Double = {
     val err = x.toDouble - y
@@ -82,13 +109,12 @@ class ATan2Phase2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
 
   def atan2Test(t_rec : FuncTableInt, t : FuncTableInt, spec : RealSpec, n : Int, r : Random,
     generatorStr    : String,
-    generatorX      : ( (RealSpec, Random) => RealGeneric),
-    generatorY      : ( (RealSpec, Random) => RealGeneric),
+    generatorX      : ( (RealSpec, Int, Random) => RealGeneric),
+    generatorY      : ( (RealSpec, Int, Random) => RealGeneric),
     tolerance       : Int,
     toleranceAtPhase1 : Int = 3
     ) = {
     test(s"atan2(x), format ${spec.toStringShort}, ${generatorStr}") {
-      counter = 0;
       var maxError   = 0.0
       var xatMaxError = 0.0
       var yatMaxError = 0.0
@@ -97,8 +123,8 @@ class ATan2Phase2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
       val errs = collection.mutable.Map[Int, (Int, Int)]()
 
       for(i <- 1 to n) {
-        val x  = generatorX(spec,r)
-        val y  = generatorY(spec,r)
+        val x  = generatorX(spec,i,r)
+        val y  = generatorY(spec,i,r)
         val x0 = x.toDouble
         val y0 = y.toDouble
 
@@ -174,8 +200,8 @@ class ATan2Phase2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
       println(f"${generatorStr} Summary")
       if(maxError != 0.0) {
         println(f"N=$n%d : largest errors ${maxError.toInt}%d where the value is "
-              + f"${zatMaxError} != ${sin(xatMaxError)}, "
-              + f"diff = ${zatMaxError - sin(xatMaxError)}, x = ${xatMaxError}")
+              + f"${zatMaxError} != ${atan2(yatMaxError, xatMaxError)}, "
+              + f"diff = ${zatMaxError - atan2(yatMaxError, xatMaxError)}, x=${xatMaxError}, y=${yatMaxError}")
       }
       for(kv <- errs.toSeq.sortBy(_._1)) {
         val (k, (errPos, errNeg)) = kv
@@ -193,32 +219,32 @@ class ATan2Phase2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val atan2FP32ATanTableI       = ATan2Phase2Sim.atanTableGeneration(
         nOrderFP32, adrWFP32, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBitsFP32)
 
-  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within  2^24  < y/x <  inf",               generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin( pow(2.0,  24), pow(2.0, 128),_,_), 4)
-  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within -2^24  > y/x > -inf",               generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0, 128),-pow(2.0,  24),_,_), 4)
-  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within  2^24  < y/x <  inf with large x",  generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin( pow(2.0,  24), pow(2.0, 128),_,_), 4)
-  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within -2^24  > y/x > -inf with large x",  generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0, 128),-pow(2.0,  24),_,_), 4)
+  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within  2^24  < y/x <  inf",               generateRealWithin(-1.0,           1.0,          _,_,_), generateRealWithin( pow(2.0,  24), pow(2.0, 128),_,_,_), 4)
+  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within -2^24  > y/x > -inf",               generateRealWithin(-1.0,           1.0,          _,_,_), generateRealWithin(-pow(2.0, 128),-pow(2.0,  24),_,_,_), 4)
+  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within  2^24  < y/x <  inf with large x",  generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_,_), generateRealWithin( pow(2.0,  24), pow(2.0, 128),_,_,_), 4)
+  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within -2^24  > y/x > -inf with large x",  generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_,_), generateRealWithin(-pow(2.0, 128),-pow(2.0,  24),_,_,_), 4)
 
-  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within  2^12  < y/x <  2^24",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin( pow(2.0,  12), pow(2.0,  24),_,_), 4)
-  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within -2^12  > y/x > -2^24",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0,  24),-pow(2.0,  12),_,_), 4)
-  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within  2^12  < y/x <  2^24 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin( pow(2.0,  12), pow(2.0,  24),_,_), 4)
-  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within -2^12  > y/x > -2^24 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0,  24),-pow(2.0,  12),_,_), 4)
+  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within  2^12  < y/x <  2^24",              generateRealWithin(-1.0,           1.0,          _,_,_), generateRealWithin( pow(2.0,  12), pow(2.0,  24),_,_,_), 4)
+  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within -2^12  > y/x > -2^24",              generateRealWithin(-1.0,           1.0,          _,_,_), generateRealWithin(-pow(2.0,  24),-pow(2.0,  12),_,_,_), 4)
+  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within  2^12  < y/x <  2^24 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_,_), generateRealWithin( pow(2.0,  12), pow(2.0,  24),_,_,_), 4)
+  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within -2^12  > y/x > -2^24 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_,_), generateRealWithin(-pow(2.0,  24),-pow(2.0,  12),_,_,_), 4)
 
-  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within  1     < y/x <  2^12",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin( pow(2.0,   0), pow(2.0,  12),_,_), 4)
-  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within -1     > y/x > -2^12",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0,  12),-pow(2.0,   0),_,_), 4)
-  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within  1     < y/x <  2^12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin( pow(2.0,   0), pow(2.0,  12),_,_), 4)
-  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within -1     > y/x > -2^12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0,  12),-pow(2.0,   0),_,_), 4)
+  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within  1     < y/x <  2^12",              generateRealWithin(-1.0,           1.0,          _,_,_), generateRealWithin( pow(2.0,   0), pow(2.0,  12),_,_,_), 4)
+  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within -1     > y/x > -2^12",              generateRealWithin(-1.0,           1.0,          _,_,_), generateRealWithin(-pow(2.0,  12),-pow(2.0,   0),_,_,_), 4)
+  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within  1     < y/x <  2^12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_,_), generateRealWithin( pow(2.0,   0), pow(2.0,  12),_,_,_), 4)
+  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within -1     > y/x > -2^12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_,_), generateRealWithin(-pow(2.0,  12),-pow(2.0,   0),_,_,_), 4)
 
-  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within  2^-12 < y/x <  1",                 generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin( pow(2.0, -12), pow(2.0,   0),_,_), 4)
-  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within -2^-12 > y/x > -1",                 generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0,   0),-pow(2.0, -12),_,_), 4)
-  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within  2^-12 < y/x <  1 with large x",    generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin( pow(2.0, -12), pow(2.0,   0),_,_), 4)
-  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within -2^-12 > y/x > -1 with large x",    generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0,   0),-pow(2.0, -12),_,_), 4)
+  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within  2^-12 < y/x <  1",                 generateRealWithin(-1.0,           1.0,          _,_,_), generateRealWithin( pow(2.0, -12), pow(2.0,   0),_,_,_), 4)
+  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within -2^-12 > y/x > -1",                 generateRealWithin(-1.0,           1.0,          _,_,_), generateRealWithin(-pow(2.0,   0),-pow(2.0, -12),_,_,_), 4)
+  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within  2^-12 < y/x <  1 with large x",    generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_,_), generateRealWithin( pow(2.0, -12), pow(2.0,   0),_,_,_), 4)
+  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within -2^-12 > y/x > -1 with large x",    generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_,_), generateRealWithin(-pow(2.0,   0),-pow(2.0, -12),_,_,_), 4)
 
-  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within 0     < y/x <  2^-12",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(           0.0, pow(2.0, -12),_,_), 4)
-  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within 0     > y/x > -2^-12",              generateRealWithin(-1.0,           1.0,          _,_), generateRealWithin(-pow(2.0, -12),           0.0,_,_), 4)
-  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within 0     < y/x <  2^-12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(           0.0, pow(2.0, -12),_,_), 4)
-  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within 0     > y/x > -2^-12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_), generateRealWithin(-pow(2.0, -12),           0.0,_,_), 4)
+  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within 0     < y/x <  2^-12",              generateRealWithin(-1.0,           1.0,          _,_,_), generateRealWithin(           0.0, pow(2.0, -12),_,_,_), 4)
+  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within 0     > y/x > -2^-12",              generateRealWithin(-1.0,           1.0,          _,_,_), generateRealWithin(-pow(2.0, -12),           0.0,_,_,_), 4)
+  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within 0     < y/x <  2^-12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_,_), generateRealWithin(           0.0, pow(2.0, -12),_,_,_), 4)
+  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Within 0     > y/x > -2^-12 with large x", generateRealWithin(-pow(2.0, 100), pow(2.0, 100),_,_,_), generateRealWithin(-pow(2.0, -12),           0.0,_,_,_), 4)
 
-  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Special Values", generateSpecialValuesX(_,_), generateSpecialValuesY(_,_), 1)
+  atan2Test(atan2FP32ReciprocalTableI, atan2FP32ATanTableI, RealSpec.Float32Spec, n, r, "Test Special Values", generateSpecialValuesX(_,_,_), generateSpecialValuesY(_,_,_), 4)
 
   val nOrderBF16 = 0
   val adrWBF16 = 7
@@ -228,11 +254,11 @@ class ATan2Phase2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val atan2BF16ATanTableI       = ATan2Phase2Sim.atanTableGeneration(
         nOrderBF16, adrWBF16, RealSpec.BFloat16Spec.manW, RealSpec.BFloat16Spec.manW+extraBitsBF16)
 
-  atan2Test(atan2BF16ReciprocalTableI, atan2BF16ATanTableI, RealSpec.BFloat16Spec, n, r, "Test Within y/x > 2^24",      generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, 24), pow(2.0, 128),_,_), 3)
-  atan2Test(atan2BF16ReciprocalTableI, atan2BF16ATanTableI, RealSpec.BFloat16Spec, n, r, "Test Within y/x > 2^12",      generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, 12), pow(2.0, 24),_,_),  3)
-  atan2Test(atan2BF16ReciprocalTableI, atan2BF16ATanTableI, RealSpec.BFloat16Spec, n, r, "Test Within 1 < y/x < 2^12",  generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(1.0, pow(2.0, 8),_,_),            3)
-  atan2Test(atan2BF16ReciprocalTableI, atan2BF16ATanTableI, RealSpec.BFloat16Spec, n, r, "Test Within 2^-12 < y/x < 1", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, -12), 1.0,_,_),          7) // XXX
-  atan2Test(atan2BF16ReciprocalTableI, atan2BF16ATanTableI, RealSpec.BFloat16Spec, n, r, "Test Within y/x < 2^-12",     generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(0.0, pow(2.0, -12),_,_),          7) // XXX
+  atan2Test(atan2BF16ReciprocalTableI, atan2BF16ATanTableI, RealSpec.BFloat16Spec, n, r, "Test Within y/x > 2^24",      generateRealWithin(-1.0, 1.0,_,_,_), generateRealWithin(pow(2.0, 24),  pow(2.0, 128),_,_,_), 3)
+  atan2Test(atan2BF16ReciprocalTableI, atan2BF16ATanTableI, RealSpec.BFloat16Spec, n, r, "Test Within y/x > 2^12",      generateRealWithin(-1.0, 1.0,_,_,_), generateRealWithin(pow(2.0, 12),  pow(2.0, 24), _,_,_), 3)
+  atan2Test(atan2BF16ReciprocalTableI, atan2BF16ATanTableI, RealSpec.BFloat16Spec, n, r, "Test Within 1 < y/x < 2^12",  generateRealWithin(-1.0, 1.0,_,_,_), generateRealWithin(1.0,           pow(2.0, 8),  _,_,_), 3)
+  atan2Test(atan2BF16ReciprocalTableI, atan2BF16ATanTableI, RealSpec.BFloat16Spec, n, r, "Test Within 2^-12 < y/x < 1", generateRealWithin(-1.0, 1.0,_,_,_), generateRealWithin(pow(2.0, -12), 1.0,          _,_,_), 7) // XXX
+  atan2Test(atan2BF16ReciprocalTableI, atan2BF16ATanTableI, RealSpec.BFloat16Spec, n, r, "Test Within y/x < 2^-12",     generateRealWithin(-1.0, 1.0,_,_,_), generateRealWithin(0.0,           pow(2.0, -12),_,_,_), 7) // XXX
 
   // val float48Spec = new RealSpec(10, 511, 37)
   //
