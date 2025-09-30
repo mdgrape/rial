@@ -522,9 +522,6 @@ class MathFunctions(
   // ----------------------------------------------------------------------
   // reciprocal
 
-  // for atan2
-  val recTabCs = WireDefault(0.U.asTypeOf(new TableCoeffInput(maxCbit)))
-
   if(fncfg.has(Reciprocal)) {
     val recPre   = Module(new ReciprocalPreProcess (spec, polySpec, stage.preStage))
     val recTab   = Module(new ReciprocalTableCoeff (spec, polySpec, maxCbit))
@@ -767,8 +764,13 @@ class MathFunctions(
     atan2Phase1Post.io.zother := ShiftRegister(zother, nPostMulStage)
     atan2Phase1Post.io.zman0  := postProcMultiplier.get.io.out
     atan2Phase1Post.io.minxy  := ShiftRegister(minxy, nPostMulStage)
+    atan2Phase1Post.io.flags  := ShiftRegister(atan2Phase1Pre.io.flags,
+      pcGap + nOtherStage + cpGap + nPostMulStage)
 
     zs(ATan2Phase1) := atan2Phase1Post.io.z
+
+    // ------------------------------------------------------------------------
+    // phase2
 
     val atan2Phase2Pre   = Module(new ATan2Phase2PreProcess (spec, polySpec, stage.preStage))
     val atan2Phase2Tab   = Module(new ATan2Phase2TableCoeff (spec, polySpec, maxCbit))
@@ -786,7 +788,9 @@ class MathFunctions(
     // ------ Preprocess-Calculate ------
     atan2Phase2Tab.io.en  := (selPCGapReg === fncfg.signal(ATan2Phase2))
     atan2Phase2Tab.io.adr := ShiftRegister(atan2Phase2Pre.io.adr, pcGap)
-    atan2Phase2Other.io.x := xdecPCGapReg
+
+    atan2Phase2Other.io.x     := xdecPCGapReg
+    atan2Phase2Other.io.flags := ShiftRegister(atan2Phase2Pre.io.flags, pcGap)
 
     polynomialCoefs(ATan2Phase2) := atan2Phase2Tab.io.cs.asUInt
 
@@ -800,6 +804,8 @@ class MathFunctions(
     atan2Phase2Post.io.zman0  := postProcMultiplier.get.io.out
     atan2Phase2Post.io.zexInc := postProcMultiplier.get.io.exInc
     atan2Phase2Post.io.x      := ShiftRegister(xdecCPGapReg, nPostMulStage)
+    atan2Phase2Post.io.flags  := ShiftRegister(atan2Phase2Pre.io.flags,
+      pcGap + nOtherStage + cpGap + nPostMulStage)
 
     zs(ATan2Phase2) := atan2Phase2Post.io.z
 
@@ -810,24 +816,6 @@ class MathFunctions(
     when(selPCGapReg =/= fncfg.signal(ATan2Phase2)) {
       assert(atan2Phase2Tab.io.cs.asUInt === 0.U)
     }
-
-    // ------------------------------------------------------------------------
-    // atan related status register.
-    // atan2 stage1 must save some values until atan2 stage2. So, after the pre-
-    // process, it saves some flags to register.
-
-    val atan2FlagReg = Reg(new ATan2Flags())
-    // the timing is at the cycle when atan2Phase1Pre completes
-    when(selPCReg === fncfg.signal(ATan2Phase1)) {
-      atan2FlagReg.status  := Cat(yAbsLargerPCReg, xdecPCReg.sgn)
-      atan2FlagReg.special := atan2Phase1Pre.io.special
-      atan2FlagReg.ysgn    := ydecPCReg.sgn
-    }
-    // The register is updated only when atan2stage1 is executed. That means that
-    // we don't need to care about the timing here. ATan2Phase2 can only be
-    // executed after the Phase1 because it uses the result of stage1 as its input.
-    atan2Phase2Other.io.flags := atan2FlagReg
-    atan2Phase2Post.io.flags  := atan2FlagReg
   }
 
   // --------------------------------------------------------------------------
