@@ -86,7 +86,7 @@ class ScaleMixtureGaussianTest extends AnyFlatSpec
   ) = {
     val total = stage.total
     val pipeconfig = stage.getString
-    it should f"scaleMixtureGaussian(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr with ${fncfg.getString} " in {
+    it should f"SMG ($pipeconfig, ${spec.toStringShort}) $generatorStr with ${fncfg.getString} " in {
       test( new MathFunctions(fncfg, spec, nOrder, adrW, extraBits, stage, None, false, false)).
         withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
         {
