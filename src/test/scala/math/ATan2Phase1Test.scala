@@ -76,18 +76,22 @@ class ATan2Phase1Test extends AnyFlatSpec
           val nstage     = c.getStage
           val recTable   = ReciprocalSim.reciprocalTableGeneration(
             nOrder, adrW, spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit) )
-          val reference  = ATan2Phase1Sim.atan2Phase1SimGeneric(recTable, _, _, false)
+          val reference  = ATan2Phase1Sim.atan2Phase1SimGeneric(recTable, _, _)
 
           val q  = new Queue[(BigInt,BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
 //             println("-----------------------------")
+            val y_over_x = generatorYoverX(spec,r)
             val xi = generatorX(spec,r)
-            val yi = generatorYoverX(spec,r)
-            val z0r= reference(xi, yi)._1
+            val yi = xi.multiply(spec, RoundSpec.roundToEven, y_over_x)
+
+            val z0r = reference(yi, xi)
             q += ((xi.value.toBigInt, yi.value.toBigInt, z0r.value.toBigInt))
+
             c.io.sel.poke(fncfg.signal(ATan2Phase1))
-            c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
+            c.io.x    .poke(xi.value.toBigInt.U(spec.W.W))
             c.io.y.get.poke(yi.value.toBigInt.U(spec.W.W))
+
             val zi = c.io.z.peek().litValue.toBigInt
             if (i > nstage) {
               val (xid, yid, z0d) = q.dequeue()
