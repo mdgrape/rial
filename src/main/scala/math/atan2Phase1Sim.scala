@@ -26,14 +26,13 @@ import rial.arith._
 
 
 //
-// atan2 saves:
-// | 3    |2                   0|
-// | 1  0 |98...          1    0|
-// |sgn|     ex   |   man       |
-// |  st  |                |ysgn|
+// atan2-1 encodes...
+// - ysgn into sgn.
+// - state (x>0 && |x|>|y| etc, 2bit) into the MSB of the exponent and the LSB of the mantissa
 //
-
-
+// the MSB of the exponent will not be used if it is not a special value (then |x/y| < 1).
+// the LSB of the mantissa will be zeroed in phase2.
+//
 
 object ATan2Phase1Sim {
 
@@ -128,7 +127,7 @@ object ATan2Phase1Sim {
     val z3piover4 =  (xinf && yinf && xneg) || (x.ex == y.ex && x.man == y.man && xneg)
 
     if(znan) {
-      return new RealGeneric( spec, 0, maskI(spec.exW), (SafeLong(1) << (spec.manW-1)) )
+      return new RealGeneric( spec, ysgn, maskI(spec.exW), (SafeLong(1) << (spec.manW-1)) )
     } else if(zzero) {
       return new RealGeneric( spec, ysgn, maskI(spec.exW), 1 )
     } else if(zpi) {
@@ -202,9 +201,9 @@ object ATan2Phase1Sim {
 
     assert( (zEx >> (spec.exW-1)) == 0)
 
-    val zSgnEnc = atan2Status1
-    val zExEnc  = zEx | (atan2Status0 << (spec.exW-1))
-    val zManEnc = (zMan & ((SafeLong(1) << spec.manW) - 2)) + ysgn
+    val zSgnEnc = ysgn
+    val zExEnc  = zEx | (atan2Status1 << (spec.exW-1))
+    val zManEnc = (zMan & ((SafeLong(1) << spec.manW) - 2)) + atan2Status0
 
     val z = new RealGeneric(x.spec, zSgnEnc, zExEnc, zManEnc)
 

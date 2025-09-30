@@ -69,11 +69,11 @@ object ATan2Phase2Sim {
 
     val xsgn = 0
     val xex  = x.ex  & ((1 << (exW-1)) - 1) // remove the msb
-    val xman = x.man & ((1 <<    manW) - 2) // ignore the last bit
+    val xman = x.man & ((1 <<    manW) - 2) // ignore the last bit (set zero)
     val xmanW1 = xman + (1 << manW)
 
-    val status = (x.sgn << 1) | ((x.ex >> (exW-1)) & 1)
-    val ysgn = (x.man & 1).toInt
+    val status = (((x.ex >> (exW-1)) & 1) << 1) | (x.man & 1).toInt
+    val ysgn   = x.sgn
 
     assert((new RealGeneric(x.spec, xsgn, xex, xman)).toDouble <= 1.0)
 
