@@ -96,12 +96,12 @@ class ACosPhase2Test extends AnyFlatSpec
             spec.manW, spec.manW+extraBits, Some(maxCalcW), Some(maxCbit))
 
           val refacos1  = ACosPhase1Sim.acosPhase1SimGeneric(sqrtF32TableI, _ )
-          val refacos2  = ACosPhase2Sim.acosPhase2SimGeneric(acosF32TableI, _, _, _ )
+          val refacos2  = ACosPhase2Sim.acosPhase2SimGeneric(acosF32TableI, _ )
 
           for(i <- 1 to n) {
             val xi  = generator(spec,r)
-            val (z0r, xneg, special) = refacos1(xi)
-            val z1r = refacos2(z0r, xneg, special)
+            val z0r = refacos1(xi)
+            val z1r = refacos2(z0r)
 
             c.io.sel.poke(fncfg.signal(ACosPhase1))
             c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
@@ -113,9 +113,6 @@ class ACosPhase2Test extends AnyFlatSpec
               c.clock.step(1)
               c.io.sel.poke(fncfg.signalNone())
               c.io.x.poke(0.U(spec.W.W))
-              if(fncfg.has(ATan2Phase1)) {
-                c.io.y.get.poke(0.U(spec.W.W))
-              }
               for(j <- 1 until max(1, stage.total)) {
                 c.clock.step(1)
               }
@@ -134,18 +131,11 @@ class ACosPhase2Test extends AnyFlatSpec
 
             c.io.sel.poke(fncfg.signal(ACosPhase2))
             c.io.x.poke(z0i.value.toBigInt.U(spec.W.W))
-            if(fncfg.has(ATan2Phase1)) {
-              c.io.y.get.poke(0.U(spec.W.W))
-            }
-
 
             if(stage.total > 0) {
               c.clock.step(1)
               c.io.sel.poke(fncfg.signalNone())
               c.io.x.poke(0.U(spec.W.W))
-              if(fncfg.has(ATan2Phase1)) {
-                c.io.y.get.poke(0.U(spec.W.W))
-              }
               for(j <- 1 until max(1, stage.total)) {
                 c.clock.step(1)
               }
@@ -155,10 +145,12 @@ class ACosPhase2Test extends AnyFlatSpec
             c.clock.step(1)
 
             assert(z1i.value == z1r.value,
-              f"x = (${xi.sgn}|${xi.ex}(${xi.ex - spec.exBias})|${xi.man.toLong.toBinaryString})(${xi.toDouble}), " +
-              f"test(${z1i.sgn}|${z1i.ex}(${z1i.ex - spec.exBias})|${z1i.man.toLong.toBinaryString})(${z1i.toDouble}) != " +
-              f"ref (${z1r.sgn}|${z1r.ex}(${z1r.ex - spec.exBias})|${z1r.man.toLong.toBinaryString})(${z1r.toDouble}) should be " +
-              f"acos(${xi.toDouble}) = ${acos(xi.toDouble)}")
+              f"\nx     = (${xi.sgn}|${xi.ex}(${xi.ex - spec.exBias})|${xi.man.toLong.toBinaryString})(${xi.toDouble}), " +
+              f"\ntest1 = (${z0i.sgn}|${z0i.ex}(${z0i.ex - spec.exBias})|${z0i.man.toLong.toBinaryString})(${z0i.toDouble}), " +
+              f"\nref1  = (${z0r.sgn}|${z0r.ex}(${z0r.ex - spec.exBias})|${z0r.man.toLong.toBinaryString})(${z0r.toDouble}), " +
+              f"\ntest2 = (${z1i.sgn}|${z1i.ex}(${z1i.ex - spec.exBias})|${z1i.man.toLong.toBinaryString})(${z1i.toDouble}) != " +
+              f"\nref2  = (${z1r.sgn}|${z1r.ex}(${z1r.ex - spec.exBias})|${z1r.man.toLong.toBinaryString})(${z1r.toDouble}) should be " +
+              f"\nacos(${xi.toDouble}) = ${acos(xi.toDouble)}")
           }
         }
       }
