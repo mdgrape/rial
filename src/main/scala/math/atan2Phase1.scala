@@ -288,10 +288,8 @@ class ATan2Phase1PostProcess(
 
   val zSgnSpecial = io.flags.ysgn
   val zExSpecial  = Fill(exW, 1.U(1.W))
-  val zManSpecial = io.flags.special
-
-  assert(zex(exW-1) === 0.U)
-  assert(zex(exW-2) === 0.U)
+  val zManSpecial = Mux(io.flags.special === ATan2SpecialValue.zNaN,
+    Fill(manW, 1.U(1.W)), io.flags.special)
 
   val zSgnEncoded = io.flags.ysgn
   val zExEncoded  = Cat(io.flags.status(1), zex(exW-2, 0))
