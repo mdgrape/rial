@@ -199,7 +199,7 @@ object ATan2Phase1Sim {
     // -----------------------------------------------------------------------
     // encode: atan2Status(2bits -> sgn and ex.msb), ysgn (lsb of mantissa)
 
-    assert( (zEx >> (spec.exW-1)) == 0)
+    assert( zEx <= spec.exBias )
 
     val zSgnEnc = ysgn
     val zExEnc  = zEx | (atan2Status1 << (spec.exW-1))
