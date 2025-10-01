@@ -36,10 +36,15 @@ class ATan2Phase2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
       (-1.0,  1.0),
       (-1.0, -1.0),
 
-      ( 1.999999,  1.999999),
-      ( 1.999999, -1.999999),
-      (-1.999999,  1.999999),
-      (-1.999999, -1.999999),
+      ( 1.99999988,  1.99999988),
+      ( 1.99999988, -1.99999988),
+      (-1.99999988,  1.99999988),
+      (-1.99999988, -1.99999988),
+
+      ( 2.0,  2.0),
+      ( 2.0, -2.0),
+      (-2.0,  2.0),
+      (-2.0, -2.0),
 
       ( 1.41421356,  1.0),
       ( 1.41421356, -1.0),
@@ -86,7 +91,7 @@ class ATan2Phase2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     val i = idx % specialValues.length
     val x = specialValues(i)._1
 
-    val eps = new RealGeneric(spec, 0, spec.exBias - spec.manW, 0).toDouble
+    val eps = math.pow(2.0, -spec.manW)
 
     val rnd = r.nextInt(5) - 2 // [-2, 2]
     new RealGeneric(spec, x + (rnd * eps))
@@ -96,7 +101,7 @@ class ATan2Phase2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     val i = idx % specialValues.length
     val y = specialValues(i)._2
 
-    val eps = new RealGeneric(spec, 0, spec.exBias - spec.manW, 0).toDouble
+    val eps = math.pow(2.0, -spec.manW)
 
     val rnd = r.nextInt(5) - 2 // [-2, 2]
     new RealGeneric(spec, y + (rnd * eps))
