@@ -2,16 +2,10 @@ default:
   image: 10.5.6.16:5050/mdg5/rial:latest
 
 stages:
-  - build
   - test
-
-build:
-  stage: build
-  script:
-    - sbt compile
-    - make
 
 test-all:
   stage: test
   script:
+    - make
     - sbt -J-Xmx4G "test"
