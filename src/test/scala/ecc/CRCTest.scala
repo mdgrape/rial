@@ -65,7 +65,7 @@ class CRC16Test extends AnyFlatSpec
 
             val ref = crc16Soft(xin)
             assert(rem == ref, f"rem=0x${rem}%x, ref=0x${ref}%x, g=0x18005, xin=${xin.foldLeft(BigInt(0))( (u, l) => {(u << 16) | (l & 0xFFFF)})}%x")
-            println(f"rem=0x${rem}%x, ref=0x${ref}%x, g=0x18005, xin=${xin.foldLeft(BigInt(0))( (u, l) => {(u << 16) | (l & 0xFFFF)})}%x")
+            // println(f"rem=0x${rem}%x, ref=0x${ref}%x, g=0x18005, xin=${xin.foldLeft(BigInt(0))( (u, l) => {(u << 16) | (l & 0xFFFF)})}%x")
 
             c.io.x .poke(rem.U(16.W))
             c.io.ri.poke(rem.U(16.W))

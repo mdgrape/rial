@@ -81,8 +81,8 @@ class HTBoxMullerCosTest extends AnyFlatSpec
             val z0r = sin(2 * pi * xr)
             val z0  = new RealGeneric(spec, z0r)
 
-            println("============================================================")
-            println(f"x = ${xi}(-> ${x.toDouble}), cos(2pix) = ${cos(2 * Pi * xi)}(-> ${z0r})")
+            // println("============================================================")
+            // println(f"x = ${xi}(-> ${x.toDouble}), cos(2pix) = ${cos(2 * Pi * xi)}(-> ${z0r})")
 
             q += ((xi, z0.value.toLong))
 
