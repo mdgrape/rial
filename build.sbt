@@ -24,4 +24,4 @@ lazy val rial = (project in file("."))
     addCompilerPlugin("edu.berkeley.cs" % "chisel3-plugin" % "3.5.6" cross CrossVersion.full)
   )
 
-// Test / parallelExecution := false
+Test / parallelExecution := false

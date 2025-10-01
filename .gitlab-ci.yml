@@ -4,8 +4,83 @@ default:
 stages:
   - test
 
-test-all:
+test-arith:
+  stage: test
+  script:
+    - sbt "testOnly RealSimTest"
+    - sbt "testOnly AddFPTest"
+    - sbt "testOnly Add3opFPTest"
+    - sbt "testOnly MultFPTest"
+    - sbt "testOnly MultFPIntTest"
+    - sbt "testOnly FMAFPTest"
+
+test-fixed:
+  stage: test
+  script:
+    - sbt "testOnly FixedToFloatTest"
+    - sbt "testOnly FloatToFixedTest"
+    - sbt "testOnly ScaledFixedToFloatTest"
+
+test-ecc:
+  stage: test
+  script:
+    - sbt "testOnly CRC16Test"
+    - sbt "testOnly FletchersChecksumTest"
+
+test-rng:
   stage: test
   script:
     - make
-    - sbt -J-Xmx4G "test"
+    - sbt "testOnly ThreefryTest"
+    - sbt "testOnly ThreefryGeneratorTest"
+    - sbt "testOnly SquaresTest"
+    - sbt "testOnly Squares32GeneratorTest"
+    - sbt -J-Xmx4G "testOnly IrwinHallTest"
+    - sbt -J-Xmx4G "testOnly IrwinHallGeneratorTest"
+    - sbt "testOnly Uniform01OpenCloseTest"
+    - sbt "testOnly Uniform12Test"
+    - sbt "testOnly Uniform01Test"
+    - sbt "testOnly Uniform01FullTest"
+    - sbt "testOnly Uniform01FullPipeTest"
+    - sbt "testOnly BoxMullerTest"
+
+test-math-simple:
+  stage: test
+  script:
+    - sbt "testOnly InvSqrtSimTest"
+    - sbt "testOnly InvSqrtTest"
+    - sbt "testOnly SqrtSimTest"
+    - sbt "testOnly SqrtTest"
+    - sbt "testOnly ReciprocalSimTest"
+    - sbt "testOnly ReciprocalTest"
+
+test-math-trigonometric:
+  stage: test
+  script:
+    - sbt "testOnly SinSimTest"
+    - sbt "testOnly SinTest"
+    - sbt "testOnly CosSimTest"
+    - sbt "testOnly CosTest"
+    - sbt "testOnly ACosPhase1SimTest"
+    - sbt "testOnly ACosPhase1Test"
+    - sbt "testOnly ACosPhase2SimTest"
+    - sbt "testOnly ACosPhase2Test"
+    - sbt "testOnly ATan2Phase1SimTest"
+    - sbt "testOnly ATan2Phase1Test"
+    - sbt "testOnly ATan2Phase2SimTest"
+    - sbt "testOnly ATan2Phase2Test"
+
+test-math-exponential:
+  stage: test
+  script:
+    - sbt "testOnly ExpSimTest"
+    - sbt "testOnly ExpTest"
+    - sbt "testOnly LogSimTest"
+    - sbt "testOnly LogTest"
+    - sbt "testOnly ScaleMixtureGaussianSimTest"
+    - sbt "testOnly ScaleMixtureGaussianTest"
+    - sbt "testOnly SigmoidSimTest"
+    - sbt "testOnly SigmoidTest"
+    - sbt "testOnly SoftPlusSimTest"
+    - sbt "testOnly SoftPlusTest"
+
