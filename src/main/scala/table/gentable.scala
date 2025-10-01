@@ -330,10 +330,10 @@ trait FuncTable {
       else 0
     )
     val takeAbs = sign.map( x => (x!=3) && (signMode==2) )
-    println(f"//  sign Mode : $signMode")
-    println(f"//  sign  : "+s.mkString("", ", ", ""))
-    println(f"//  width : "+w.mkString("", ", ", ""))
-    println(f"//  absolute value : "+ takeAbs.mkString("", ", ", ""))
+    // println(f"//  sign Mode : $signMode")
+    // println(f"//  sign  : "+s.mkString("", ", ", ""))
+    // println(f"//  width : "+w.mkString("", ", ", ""))
+    // println(f"//  absolute value : "+ takeAbs.mkString("", ", ", ""))
     val wTotal = w.sum
     // combined, Vector of Vector
     val cmask = interval.map( iv =>
@@ -376,10 +376,10 @@ trait FuncTable {
       else 0
     )
     val takeAbs = sign.map( x => (x!=3) && (signMode==2) )
-    println(f"//  sign Mode : $signMode")
-    println(f"//  sign  : "+s.mkString("", ", ", ""))
-    println(f"//  width : "+w.mkString("", ", ", ""))
-    println(f"//  absolute value : "+ takeAbs.mkString("", ", ", ""))
+    // println(f"//  sign Mode : $signMode")
+    // println(f"//  sign  : "+s.mkString("", ", ", ""))
+    // println(f"//  width : "+w.mkString("", ", ", ""))
+    // println(f"//  absolute value : "+ takeAbs.mkString("", ", ", ""))
     // separate array
     (0 to nOrder).toSeq.map( i => {
       val mask = (1L<<w(i))-1
