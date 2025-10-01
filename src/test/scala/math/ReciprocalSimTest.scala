@@ -27,17 +27,16 @@ class ReciprocalSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
 
   val r = new Random(19660809)
 
-  def generateRealWithin( p : Double, spec: RealSpec, r : Random ): RealGeneric  = {
+  def generateRealWithin( p : Double, spec: RealSpec, i: Int,  r : Random ): RealGeneric  = {
     val rD : Double = (r.nextDouble()-0.5)*p
     val x = new RealGeneric(spec, rD)
     new RealGeneric (spec, (x.value & (maskSL(spec.exW+1)<<spec.manW)) + SafeLong(BigInt(spec.manW, r)))
   }
 
-  def generateRealFull ( spec: RealSpec, r : Random ): RealGeneric  = {
+  def generateRealFull ( spec: RealSpec, i: Int, r : Random ): RealGeneric  = {
     new RealGeneric (spec, SafeLong(BigInt(spec.W, r)))
   }
 
-  var counter = 0
   val specialValues = Seq(
       0.0,
      -0.0,
@@ -47,12 +46,8 @@ class ReciprocalSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
       8.0,
       16.0,
     )
-  def generateSpecialValues( spec: RealSpec, r: Random ): RealGeneric = {
-    val idx = counter
-    counter += 1
-    if(counter >= specialValues.length) {
-      counter = 0
-    }
+  def generateSpecialValues( spec: RealSpec, i: Int, r: Random ): RealGeneric = {
+    val idx = i % specialValues.length
 
     val x = specialValues(idx)
 
@@ -69,10 +64,9 @@ class ReciprocalSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   }
 
   def reciprocalTest(t: FuncTableInt, spec : RealSpec, n : Int, r : Random,
-    generatorStr : String, generator : ( (RealSpec, Random) => RealGeneric),
+    generatorStr : String, generator : ( (RealSpec, Int, Random) => RealGeneric),
     tolerance: Int) = {
     test(s"1/x, format ${spec.toStringShort}, ${generatorStr}") {
-      counter = 0
 
       var maxError   = 0.0
       var xatMaxError = 0.0
@@ -82,7 +76,7 @@ class ReciprocalSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
       val errs = collection.mutable.Map.empty[Long, (Int, Int)]
 
       for(i <- 1 to n) {
-        val x  = generator(spec,r)
+        val x  = generator(spec, i, r)
         val x0 = x.toDouble
         val z0 = 1.0/x0
         val z0r = new RealGeneric(spec, z0)
@@ -151,37 +145,37 @@ class ReciprocalSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   val reciprocalF32TableI = ReciprocalSim.reciprocalTableGeneration( 2, 8, 23, 23+2 )
 
   reciprocalTest(reciprocalF32TableI, RealSpec.Float32Spec, n, r,
-    "Test Within (-128,128)",generateRealWithin(128.0,_,_), 1)
+    "Test Within (-128,128)",generateRealWithin(128.0,_,_,_), 1)
   reciprocalTest(reciprocalF32TableI, RealSpec.Float32Spec, n, r,
-    "Test All range",generateRealFull(_,_), 1 )
+    "Test All range",generateRealFull(_,_,_), 1 )
   reciprocalTest(reciprocalF32TableI, RealSpec.Float32Spec, n, r,
-    "Test Special Values",generateSpecialValues(_,_), 1 )
+    "Test Special Values",generateSpecialValues(_,_,_), 1 )
 
   val reciprocalBF16TableI = ReciprocalSim.reciprocalTableGeneration( 0, 7, 7, 7 )
 
   reciprocalTest(reciprocalBF16TableI, RealSpec.BFloat16Spec, n, r,
-    "Test Within (-128,128)",generateRealWithin(128.0,_,_), 1)
+    "Test Within (-128,128)",generateRealWithin(128.0,_,_,_), 1)
   reciprocalTest(reciprocalBF16TableI, RealSpec.BFloat16Spec, n, r,
-    "Test All range",generateRealFull(_,_), 1 )
+    "Test All range",generateRealFull(_,_,_), 1 )
   reciprocalTest(reciprocalBF16TableI, RealSpec.BFloat16Spec, n, r,
-    "Test Special Values",generateSpecialValues(_,_), 1 )
+    "Test Special Values",generateSpecialValues(_,_,_), 1 )
 
   val float48Spec = new RealSpec(10, 511, 37)
   val reciprocalFP48TableI = ReciprocalSim.reciprocalTableGeneration(3, 10, 37, 37+2 )
 
   reciprocalTest(reciprocalFP48TableI, float48Spec, n, r,
-    "Test Within (-128,128)",generateRealWithin(128.0,_,_), 1)
+    "Test Within (-128,128)",generateRealWithin(128.0,_,_,_), 1)
   reciprocalTest(reciprocalFP48TableI, float48Spec, n, r,
-    "Test All range",generateRealFull(_,_), 1 )
+    "Test All range",generateRealFull(_,_,_), 1 )
   reciprocalTest(reciprocalFP48TableI, float48Spec, n, r,
-    "Test Special Values",generateSpecialValues(_,_), 1 )
+    "Test Special Values",generateSpecialValues(_,_,_), 1 )
 
   val reciprocalFP64TableI = ReciprocalSim.reciprocalTableGeneration(3, 12, 52, 52+2 )
 
   reciprocalTest(reciprocalFP64TableI, RealSpec.Float64Spec, n, r,
-    "Test Within (-128,128)",generateRealWithin(128.0,_,_), 3) // XXX 3!
+    "Test Within (-128,128)",generateRealWithin(128.0,_,_,_), 3) // XXX 3!
   reciprocalTest(reciprocalFP64TableI, RealSpec.Float64Spec, n, r,
-    "Test All range",generateRealFull(_,_), 3 )
+    "Test All range",generateRealFull(_,_,_), 3 )
   reciprocalTest(reciprocalFP64TableI, RealSpec.Float64Spec, n, r,
-    "Test Special Values",generateSpecialValues(_,_), 3 )
+    "Test Special Values",generateSpecialValues(_,_,_), 3 )
 }
