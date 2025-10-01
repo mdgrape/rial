@@ -56,10 +56,11 @@ class ReciprocalSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
 
     val x = specialValues(idx)
 
-    val eps = new RealGeneric(spec, 0, spec.exBias - spec.manW, 0).toDouble
-
+    val eps = math.pow(2.0, -spec.manW)
     val rnd = r.nextInt(9) - 4 // [-4, 4]
-    new RealGeneric(spec, x + (rnd * eps))
+    val x1 = x + (rnd * eps)
+    // println(f"special value = ${x1}")
+    new RealGeneric(spec, x1)
   }
 
   def errorLSB( x : RealGeneric, y : Double ) : Double = {
