@@ -85,6 +85,10 @@ test-math-exponential:
     - sbt "testOnly ExpTest"
     - sbt "testOnly LogSimTest"
     - sbt "testOnly LogTest"
+
+test-task-specific-funcs:
+  stage: test
+  script:
     - sbt "testOnly ScaleMixtureGaussianSimTest"
     - sbt "testOnly ScaleMixtureGaussianTest"
     - sbt "testOnly SigmoidSimTest"
