@@ -97,12 +97,9 @@ class ACosPhase1Test extends AnyFlatSpec
           val q  = new Queue[(BigInt,BigInt)]
           for(i <- 1 to n+nstage) {
             val xi  = generator(spec,r)
-            val (z0r, xneg, special) = reference(xi)
+            val z0r = reference(xi)
 
-            if(xi.sgn == 1) {assert(xneg)} else {assert(!xneg)}
-            if     (xi.toDouble ==  0.0) {assert(special == 0)}
-            else if(xi.toDouble ==  1.0) {assert(special == 1)}
-            else if(xi.toDouble == -1.0) {assert(special == 1)}
+            assert(xi.sgn == z0r.sgn)
 
             q += ((xi.value.toBigInt,z0r.value.toBigInt))
             c.io.sel.poke(fncfg.signal(ACosPhase1))
@@ -127,16 +124,21 @@ class ACosPhase1Test extends AnyFlatSpec
               val z0dexp = slice(spec.manW, spec.exW, z0d)
               val z0dman = z0d & maskSL(spec.manW)
 
-              val rxid = new RealGeneric(spec, xid)
-              val rz0d = new RealGeneric(spec, z0d)
-              val rzi  = new RealGeneric(spec, zi)
-
               if (zi != z0d) {
+                val rxid = new RealGeneric(spec, xid)
+                val rz0d = new RealGeneric(spec, z0d)
+                val rzi  = new RealGeneric(spec, zi)
                 println(f"x = ${rxid.sgn}|${rxid.ex}(${rxid.ex - spec.exBias})|${rxid.man}(${rxid.toDouble})")
                 println(f"z = ${rz0d.sgn}|${rz0d.ex}(${rz0d.ex - spec.exBias})|${rz0d.man}(${rz0d.toDouble}), should be ${sqrt(1.0 - abs(rxid.toDouble))}")
                 println(f"c = ${rzi .sgn}|${rzi .ex}(${rzi .ex - spec.exBias})|${rzi .man}(${rzi .toDouble})")
               }
-              assert(zi == z0d, f"x = (${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman.toLong.toBinaryString}), test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString}) != ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})")
+
+              if(z0dexp == maskI(spec.exW)) { // nan boxing
+                assert(ziman == z0dman,
+                  f"x = (${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman.toLong.toBinaryString}), test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString}) != ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})")
+              } else {
+                assert(zi == z0d, f"x = (${xidsgn}|${xidexp}(${xidexp - spec.exBias})|${xidman.toLong.toBinaryString}), test(${zisgn}|${ziexp}(${ziexp - spec.exBias})|${ziman.toLong.toBinaryString}) != ref(${z0dsgn}|${z0dexp}(${z0dexp - spec.exBias})|${z0dman.toLong.toBinaryString})")
+              }
             }
           }
         }

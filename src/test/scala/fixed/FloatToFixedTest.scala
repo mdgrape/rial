@@ -52,7 +52,7 @@ class FloatToFixedTest extends AnyFlatSpec
           val delta  = pow(2.0, -fracW)
           val nstage = c.getStage
           val gen = generateRealWithin(range,_,_)
-          println(f"Test Within (-${range}, ${range})")
+          // println(f"Test Within (-${range}, ${range})")
           for(i <- 1 to n+nstage) {
             val x0 = gen(xSpec, r).toDouble
             val z  = (x0 / delta).toLong

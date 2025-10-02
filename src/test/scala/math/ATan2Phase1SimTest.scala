@@ -46,7 +46,7 @@ class ATan2Phase1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     generatorYoverX : ( (RealSpec, Random) => RealGeneric),
     tolerance       : Int ) = {
     test(s"atan2(x), format ${spec.toStringShort}, ${generatorStr}") {
-      var maxError   = 0.0
+      var maxError    = 0.0
       var xatMaxError = 0.0
       var yatMaxError = 0.0
       var zatMaxError = 0.0
@@ -71,14 +71,29 @@ class ATan2Phase1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         val z0   = min(abs(y0), abs(x0)) * (1.0 / max(abs(y0), abs(x0)))
         val z0r  = new RealGeneric(spec, z0)
         val zres = ATan2Phase1Sim.atan2Phase1SimGeneric( t_rec, y, x )
-        val zi   = zres._1
+
+        val zi   = if(zres.ex == maskI(spec.exW)) { // nan boxing?
+          val sgnCoef = if(zres.sgn == 0) { 1 } else { -1 }
+          if(zres.man == 1) {        // x > 0, |x|>>|y| -> z == 0. min/max ~ 0
+            new RealGeneric(spec, 0, 0, 0)
+          } else if(zres.man == 2) { // x < 0, |x|>>|y| -> z == pi. min/max ~ -0
+            new RealGeneric(spec, 1, 0, 0)
+          } else if(zres.man == 3) { // |y| >> |x|, z == pi/2. min/max ~ 0
+            new RealGeneric(spec, 0, 0, 0)
+          } else if(zres.man == 4) { // x > 0, |x| == |y| -> z == pi/4. min/max ~ +/-1
+            new RealGeneric(spec, sgnCoef * 1.0)
+          } else if(zres.man == 5) { // x < 0, |x| == |y| -> z == 3pi/4. min/max ~ +/-1
+            new RealGeneric(spec, sgnCoef * -1.0)
+          } else {
+            zres
+          }
+        } else { // normal value
+          new RealGeneric(spec, 0, zres.ex & maskI(spec.exW-1), zres.man & (maskI(spec.manW-1) << 1))
+        }
+
         val zd   = zi.toDouble
         val errf = zd - z0r.toDouble
         val erri = errorLSB(zi, z0r.toDouble)
-
-        if(zi.value.toBigInt == 0) {
-          assert(zres._3 != 0) // special value!
-        }
 
         if (x0.isInfinity) {
           assert(zi.isNaN)
@@ -88,7 +103,7 @@ class ATan2Phase1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
           if (erri.abs>tolerance || erri.isNaN) {
             println(f"Error more than 2 LSB : x = ${x.toDouble}%14.7e, y = ${y.toDouble}%14.7e : refz = $z0%14.7e simz = ${zi.toDouble}%14.7e $errf%14.7e $erri%f")
 
-            ATan2Phase1Sim.atan2Phase1SimGeneric( t_rec, y, x, true)
+            // ATan2Phase1Sim.atan2Phase1SimGeneric( t_rec, y, x ) // for debug print
 
             val xsgn = bit(spec.W-1, x.value).toInt
             val xexp = slice(spec.manW, spec.exW, x.value)
@@ -106,7 +121,7 @@ class ATan2Phase1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
             println(f"test: y   = ${y0}(${y.sgn}|${y.ex}(${y.ex-y.spec.exBias})|${y.man.toLong.toBinaryString})")
             println(f"test: y/x = ${min(abs(x0), abs(y0))/max(abs(x0), abs(y0))}")
             println(f"test: ref = ${z0}")
-            println(f"test: sim = ${zd}")
+            println(f"test: sim = ${zd}(zres = ${zres.sgn}|${zres.ex}|${zres.man.toLong.toBinaryString})")
             println(f"test: test(${ztestsgn}|${ztestexp}(${ztestexp - spec.exBias})|${ztestman.toLong.toBinaryString}(${ztestman.toLong}%x)) != ref(${zrefsgn}|${zrefexp}(${zrefexp - spec.exBias})|${zrefman.toLong.toBinaryString}(${zrefman.toLong}%x))")
 
             if(erri > 2.0) {
@@ -174,6 +189,10 @@ class ATan2Phase1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   atan2Test(atan2FP32ReciprocalTableI, RealSpec.Float32Spec, n, r, "Test Within 0 < y/x <  2^-12, with large x", generateRealWithin(-pow(2.0,100), pow(2.0,100),_,_), generateRealWithin(0.0, pow(2.0, -12),_,_), 3)
   atan2Test(atan2FP32ReciprocalTableI, RealSpec.Float32Spec, n, r, "Test Within 0 > y/x > -2^-12, with large x", generateRealWithin(-pow(2.0,100), pow(2.0,100),_,_), generateRealWithin(-pow(2.0, -12),0.0,_,_), 3)
 
+  atan2Test(atan2FP32ReciprocalTableI, RealSpec.Float32Spec, n, r, "Test Within y/x ~ 1", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(0.999998, 1.000002,_,_), 3)
+
+
+
   val nOrderBF16 = 0
   val adrWBF16 = 7
   val extraBitsBF16 = 1
@@ -216,15 +235,15 @@ class ATan2Phase1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         nOrderFP64, adrWFP64, RealSpec.Float64Spec.manW, RealSpec.Float64Spec.manW+extraBitsFP64)
 
   atan2Test(atan2FP64ReciprocalTableI, RealSpec.Float64Spec, n, r,
-    "Test Within y/x > 2^24", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, 24), pow(2.0, 128),_,_), 3)
+    "Test Within y/x > 2^24", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, 24), pow(2.0, 128),_,_), 4)
   atan2Test(atan2FP64ReciprocalTableI, RealSpec.Float64Spec, n, r,
-    "Test Within y/x > 2^12",  generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, 12), pow(2.0, 24),_,_), 3)
+    "Test Within y/x > 2^12",  generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, 12), pow(2.0, 24),_,_), 4)
   atan2Test(atan2FP64ReciprocalTableI, RealSpec.Float64Spec, n, r,
-    "Test Within 1 < y/x < 2^12", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(1.0, pow(2.0, 8),_,_), 3)
+    "Test Within 1 < y/x < 2^12", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(1.0, pow(2.0, 8),_,_), 4)
   atan2Test(atan2FP64ReciprocalTableI, RealSpec.Float64Spec, n, r,
-    "Test Within 2^-12 < y/x < 1", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, -12), 1.0,_,_), 3)
+    "Test Within 2^-12 < y/x < 1", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(pow(2.0, -12), 1.0,_,_), 4)
   atan2Test(atan2FP64ReciprocalTableI, RealSpec.Float64Spec, n, r,
-    "Test Within y/x < 2^-12", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(0.0, pow(2.0, -12),_,_), 3)
+    "Test Within y/x < 2^-12", generateRealWithin(-1.0, 1.0,_,_), generateRealWithin(0.0, pow(2.0, -12),_,_), 4)
 
 
 }

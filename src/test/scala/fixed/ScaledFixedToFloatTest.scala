@@ -52,7 +52,7 @@ class ScaledFixedToFloatTest extends AnyFlatSpec
           val nstage = c.getStage
           val gen_x = generateRealWithin(xrange,_,_)
           val gen_y = generateRealWithin(yrange,_,_)
-          println(f"Test x within (-${xrange}, ${xrange})")
+          // println(f"Test x within (-${xrange}, ${xrange})")
           for(i <- 1 to n+nstage) {
             val x0 = gen_x(zSpec, r).toDouble / delta
             val xi = if(x0 >= 0) {
@@ -65,7 +65,7 @@ class ScaledFixedToFloatTest extends AnyFlatSpec
             val z  = new RealGeneric(zSpec, ((x0.toLong * delta) * y.toDouble))
             val zi0 = (z.value.toLong & maskL(zSpec.W)).toBigInt
 
-            println(f"x = ${xi}(${x0 * delta}), y = ${y.toDouble}, z = ${z.toDouble}")
+            // println(f"x = ${xi}(${x0 * delta}), y = ${y.toDouble}, z = ${z.toDouble}")
 
             q += ((xi,yi,zi0))
             c.io.x.poke(xi.U(xSpec.W.W))

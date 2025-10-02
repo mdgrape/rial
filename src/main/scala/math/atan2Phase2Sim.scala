@@ -28,11 +28,7 @@ import rial.arith._
 object ATan2Phase2Sim {
 
   // Since atan2-stage1 calculates min(x,y)/max(x,y), so it assumes x <= 1.
-  def atan2Phase2SimGeneric(
-    t : FuncTableInt, x : RealGeneric, status: Int, special: Int, ysgn: Int
-    ): RealGeneric = {
-
-    assert(x.toDouble <= 1.0)
+  def atan2Phase2SimGeneric(t : FuncTableInt, x : RealGeneric): RealGeneric = {
 
 //     println("==================================================")
 
@@ -50,33 +46,49 @@ object ATan2Phase2Sim {
     // ------------------------------------------------------------------------
     // check special values
 
-    val ysgnUnit = if(ysgn == 0) {1} else {-1}
-    if(special == 1) {
-      return RealGeneric.nan(x.spec)
-    } else if (special == 2) { // zero
-      return new RealGeneric(x.spec, ysgn, 0, 0)
-    } else if (special == 3) { // pi
-      return new RealGeneric(x.spec, ysgnUnit * Pi)
-    } else if (special == 4) { // pi/2
-      return new RealGeneric(x.spec, ysgnUnit * Pi * 0.5)
-    } else if (special == 5) { // pi/4
-      return new RealGeneric(x.spec, ysgnUnit * Pi * 0.25)
-    } else if (special == 6) { // 3pi/4
-      return new RealGeneric(x.spec, ysgnUnit * Pi * 0.75)
+    if(x.ex == maskI(exW)) { // NaN Boxing
+      val sgnCoef = if(x.sgn == 0) {1} else {-1}
+
+      if(x.man == 1) { // z == 0
+        return new RealGeneric(x.spec, x.sgn, 0, 0)
+      } else if(x.man == 2) { // z == pi
+        return new RealGeneric(x.spec, sgnCoef * Pi)
+      } else if(x.man == 3) { // z == pi/2
+        return new RealGeneric(x.spec, sgnCoef * Pi * 0.5)
+      } else if(x.man == 4) { // z == pi/4
+        return new RealGeneric(x.spec, sgnCoef * Pi * 0.25)
+      } else if(x.man == 5) { // z == 3pi/4
+        return new RealGeneric(x.spec, sgnCoef * Pi * 0.75)
+      } else {
+        return RealGeneric.nan(x.spec)
+      }
     }
+
+    // ------------------------------------------------------------------------
+    // decode states
+
+    val xsgn = 0
+    val xex  = x.ex  & ((1 << (exW-1)) - 1) // remove the msb
+    val xman = x.man & ((1 <<    manW) - 2) // ignore the last bit (set zero)
+    val xmanW1 = xman + (1 << manW)
+
+    val status = (((x.ex >> (exW-1)) & 1) << 1) | (x.man & 1).toInt
+    val ysgn   = x.sgn
+
+    assert((new RealGeneric(x.spec, xsgn, xex, xman)).toDouble <= 1.0)
 
     // ------------------------------------------------------------------------
     // atan(x)/x table
 
-    val xShift0 = (exBias - x.ex)
+    val xShift0 = (exBias - xex)
     val xShift  = Seq(xShift0, manW+1).min
-    val xFixed  = x.manW1 >> xShift
+    val xFixed  = ( xmanW1 | 1 ) >> xShift
 
     // The case where x == 1, that means that x == y in atan2(x,y), corresponds
     // to the 5- or 6-th special case.
     assert(0 < xShift0, f"xShift = ${xShift}")
 
-    val (resManW1, resEx) = if(x.ex <= exBias + calcLinearThreshold(manW)) {
+    val (resManW1, resEx) = if(xex <= exBias + calcLinearThreshold(manW)) {
 
       // without this check, polynomial become larger than (not equal to) 1...
       (SafeLong(1) << fracW, 0)
@@ -93,7 +105,7 @@ object ATan2Phase2Sim {
         t.interval(adr).eval(d.toLong, dxbp)
       }
 
-      assert(res0 < (SafeLong(1) << fracW),
+      assert(res0 <= (SafeLong(1) << fracW),
              f"xFixed = ${xFixed}, res0 = ${res0} > (1<<fracW) = ${SafeLong(1)<<fracW}")
 
       (SafeLong(res0) << 1, -1)
@@ -103,14 +115,14 @@ object ATan2Phase2Sim {
     // calc x * atan(x)/x
     //          ^^^^^^^^^ this term is calculated by polynomial
 
-    val atanProd = resManW1 * x.manW1
+    val atanProd = resManW1 * xmanW1
     val atanProdMoreThan2 = bit((fracW+1)+(manW+1)-1, atanProd).toInt
     val atanRoundBit = fracW + atanProdMoreThan2
     val atanRound = roundBySpec(RoundSpec.roundToEven, atanRoundBit, atanProd)
     val atanRoundMoreThan2 = bit(manW+1, atanRound).toInt
 
     val atanMan = slice(0, manW, atanRound >> atanRoundMoreThan2)
-    val atanEx  = x.ex + resEx + atanProdMoreThan2 + atanRoundMoreThan2
+    val atanEx  = xex + resEx + atanProdMoreThan2 + atanRoundMoreThan2
 
 //     println(f"atan2Phase2Sim: atanEx  = ${atanEx }(${atanEx - exBias})")
 //     println(f"atan2Phase2Sim: atanMan = ${atanMan.toLong.toBinaryString}(${atanMan})")

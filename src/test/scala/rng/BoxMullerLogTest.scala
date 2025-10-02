@@ -65,8 +65,8 @@ class HTBoxMullerLogTest extends AnyFlatSpec
             val z0r = -2 * log(xr)
             val z0  = new RealGeneric(spec, z0r)
 
-            println("============================================================")
-            println(f"x = ${xi}, -2log(x) = ${z0r}")
+            // println("============================================================")
+            // println(f"x = ${xi}, -2log(x) = ${z0r}")
 
             q += ((xi, z0.value.toLong))
 

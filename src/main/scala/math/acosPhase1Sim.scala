@@ -33,7 +33,8 @@ import rial.arith._
 object ACosPhase1Sim {
   def acosPhase1SimGeneric(
     tSqrt: FuncTableInt, x: RealGeneric
-  ) : (RealGeneric, Boolean, Int) = { // neg flag, special flag (0: x==0, 1: |x|==1, 2: otherwise)
+  ) : RealGeneric = {
+
     val spec   = x.spec
     val exW    = spec.exW
     val manW   = spec.manW
@@ -42,9 +43,7 @@ object ACosPhase1Sim {
     val extraBits = tSqrt.bp - manW
     assert(extraBits == tSqrt.bp - manW)
 
-    val negFlag = x.sgn == 1
-    val specialFlag =
-      if (x.ex == 0) {0} else if(x.ex == exBias && x.man == 0) { 1 } else { 2 }
+    val zsgn = x.sgn
 
 //     println(f"x = ${x.sgn}|${x.ex}(${x.ex - exBias})|${x.man.toLong.toBinaryString}")
 //     println(f"x = ${x.toDouble}, sqrt(1-|x|) = ${scala.math.sqrt(1.0 - scala.math.abs(x.toDouble)) }")
@@ -52,14 +51,28 @@ object ACosPhase1Sim {
     // ------------------------------------------------------------------------
     // special value handling
 
-    if(x.isNaN) {
-      return (RealGeneric.nan(spec), negFlag, specialFlag)
+    // special values (represented by NaN boxing).
+    // if the MSB of the mantissa is 1, it is NaN. if 0, it is special values.
+    // since it uses NaN boxing, flag=0 is used by inf.
+    // - 1: x ==  0, y == pi/2
+    // - 2: x >=  1, y == +0
+    // - 3: x <= -1, y == pi
+    //
+    if(x.isNaN) { // acos(nan) = nan
+      return new RealGeneric(spec, zsgn, maskI(spec.exW), (1 << (spec.manW-1)))
     }
-    if(x.isInfinite) {
-      return (RealGeneric.nan(spec), negFlag, specialFlag)
+    if(x.isInfinite) { // acos(inf) = nan
+      return new RealGeneric(spec, zsgn, maskI(spec.exW), (1 << (spec.manW-1)))
     }
-    if(exBias <= x.ex) { // 1 <= |x|. round to x == 1
-      return (new RealGeneric(spec, 0.0), negFlag, 1)
+    if(x.ex == 0) { // acos(0) = pi/2
+      return new RealGeneric(spec, zsgn, maskI(spec.exW), 1)
+    }
+    if(exBias <= x.ex) { // 1 <= |x|. round to x == +/- 1. retval will be 0 or pi.
+      if(x.sgn == 0) {
+        return new RealGeneric(spec, zsgn, maskI(spec.exW), 2) // acos(1) = 0
+      } else {
+        return new RealGeneric(spec, zsgn, maskI(spec.exW), 3) // acos(-1) = pi
+      }
     }
 
     assert(x.ex < exBias)
@@ -101,9 +114,10 @@ object ACosPhase1Sim {
     // 1 - |x| is in (0, 1].
 
     if (xConvertedEx == exBias) {
-      // 1 - |x| == 1.
+      // 1 - |x| == 1. |x| ~ 0
       assert(xConvertedMan == 0, f"xConvertedMan = ${xConvertedMan.toLong.toBinaryString}")
-      return (new RealGeneric(spec, 1.0), negFlag, /* 1 - |x| == 1 means x ~ 0*/ 0)
+
+      return new RealGeneric(spec, zsgn, maskI(spec.exW), 1) // acos(0) = pi/2
     }
 
     val y = new RealGeneric(x.spec, 0, xConvertedEx, xConvertedMan)
@@ -115,7 +129,7 @@ object ACosPhase1Sim {
     // use the same calc/postproc phase as sqrt.
     val sqrt = SqrtSim.sqrtSimGeneric(tSqrt, y)
 
-    return (sqrt, negFlag, specialFlag)
+    return new RealGeneric(spec, zsgn, sqrt.ex, sqrt.man)
   }
 
   def calcExAdrW(spec: RealSpec): Int = {

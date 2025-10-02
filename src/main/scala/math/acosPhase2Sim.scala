@@ -25,15 +25,15 @@ import rial.arith.RealGeneric
 import rial.arith.Rounding._
 import rial.arith._
 
-// 1. x -> sqrt(1 - |x|)
-// 2. x -> acos(1 - x^2)
+// 1. x -> sqrt(1 - |x|) = y
+// 2. y -> acos(1 - y^2)
 //
 // acos(1 - sqrt(1-|x|)^2) = acos(1-(1-|x|)) = acos(|x|)
 //
 object ACosPhase2Sim {
   def acosPhase2SimGeneric(
-    tACos: FuncTableInt, x: RealGeneric, xneg: Boolean, special: Int
-  ): RealGeneric = { // special flag (0: x==0, 1: |x|==1, 2: otherwise)
+    tACos: FuncTableInt, x: RealGeneric
+  ): RealGeneric = {
     val spec   = x.spec
     val exW    = spec.exW
     val manW   = spec.manW
@@ -46,27 +46,22 @@ object ACosPhase2Sim {
     // ------------------------------------------------------------------------
     // special value handling
 
-    if(x.isNaN) {
-      return RealGeneric.nan(spec)
-    }
-    if(x.isInfinite) {
-      return RealGeneric.nan(spec)
-    }
-
-    if (special == 0) { // if x == 0 {return pi/2}
-      return new RealGeneric(x.spec, Pi * 0.5)
-    } else if (special == 1) {
-      if (xneg) { // acos(-1)
-        return new RealGeneric(x.spec, Pi)
-      } else {
+    if(x.ex == maskI(spec.exW)) { //
+      if(x.man == 1) { // x == 0, y == pi/2
+        return new RealGeneric(x.spec, Pi * 0.5)
+      } else if (x.man == 2) { // x >= +1, y == +0
         return new RealGeneric(x.spec, 0.0)
+      } else if (x.man == 3) { // x <= -1, y == pi
+        return new RealGeneric(x.spec, Pi)
+      } else { // normal nan.
+        return RealGeneric.nan(spec)
       }
     }
 
 //     println(f"x = ${x.sgn}|${x.ex}(${ex})|${man.toLong.toBinaryString}")
 //     println(f"x = ${x.toDouble}, acos(x) = ${acos(x.toDouble)}")
 
-    assert(0.0 <= x.toDouble && x.toDouble <= 1.0, f"0.0 <= x(${x.toDouble}) <= 1.0")
+    assert(0.0 <= abs(x.toDouble) && abs(x.toDouble) <= 1.0, f"0.0 <= abs(x(${x.toDouble})) <= 1.0")
 
     // ------------------------------------------------------------------------
     // calc `acos(1-x^2)/x - 1` by table. then multiply x at the postprocess.
@@ -98,7 +93,7 @@ object ACosPhase2Sim {
     val rhsEx = x.ex
     val zEx = lhsEx + rhsEx - exBias + zMoreThan2 + zMoreThan2AfterRound
 
-    if (!xneg) {
+    if (x.sgn == 0) {
       return new RealGeneric(x.spec, 0, zEx, slice(0, manW, zManW1))
     }
 

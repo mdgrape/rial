@@ -72,28 +72,45 @@ class ACosPhase1SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         val x  = generator(spec,r)
         val x0 = x.toDouble
 
+        // ref
         val xref = if (x.toDouble > 1.0) { 1.0 } else if (x.toDouble < -1.0) { -1.0 } else { x.toDouble }
-        val z0  = sqrt(1.0 - abs(xref))
-        val z0r = new RealGeneric(spec, z0)
+        val z0   = sqrt(1.0 - abs(xref))
+        val z0r  = new RealGeneric(spec, z0)
 
-        val zs   = ACosPhase1Sim.acosPhase1SimGeneric( tSqrt, x )
-        val zi   = zs._1
+        // actual
+        val zs  = ACosPhase1Sim.acosPhase1SimGeneric( tSqrt, x )
+
+        // expand special value NaN Boxing
+        val zi = if(zs.ex == maskI(spec.exW)) {
+          if(zs.man == 1) { // x == 0
+            new RealGeneric(spec, 1.0)
+          } else if (zs.man == 2) { // x >= 1 -> x == 1
+            new RealGeneric(spec, 0.0)
+          } else if (zs.man == 3) { // x <= -1 -> x == -1
+            new RealGeneric(spec, 0.0)
+          } else {
+            new RealGeneric(spec, 0, zs.ex, zs.man) // make z positive
+          }
+        } else {
+          new RealGeneric(spec, 0, zs.ex, zs.man) // make z positive
+        }
+
         val zd   = zi.toDouble
         val errf = zd - z0r.toDouble
         val erri = errorLSB(zi, z0r.toDouble).toInt
 
         if(x.sgn == 1) {
-          assert(zs._2,  f"x(${x.toDouble}|${x.sgn},${x.ex},${x.man}) < 0, z.2 should be true")
+          assert(zs.sgn == 1, f"x(${x.toDouble}|${x.sgn},${x.ex},${x.man}) < 0, z(${zs.toDouble}|${zs.sgn},${zs.ex},${zs.man}) should be negative")
         } else {
-          assert(!zs._2, f"x(${x.toDouble}|${x.sgn},${x.ex},${x.man}) >= 0, z.2 should be false")
+          assert(zs.sgn == 0, f"x(${x.toDouble}|${x.sgn},${x.ex},${x.man}) >= 0, z(${zs.toDouble}|${zs.sgn},${zs.ex},${zs.man}) should be positive")
         }
 
-        if(x.ex == 0 || zi.ex == spec.exBias) {
-          assert(zs._3 == 0, f"x = ${x.toDouble}")
-        } else if(x.ex >= spec.exBias && !x.isNaN && !x.isInfinite) {
-          assert(zs._3 == 1, f"x = ${x.toDouble}")
-        } else {
-          assert(zs._3 == 2, f"x = ${x.toDouble}")
+        if(x.ex == 0) {
+          assert(zs.ex == maskI(spec.exW) && zs.man == 1, f"x(${x.toDouble}) == 0, so z(${zs.toDouble}|${zs.sgn},${zs.ex},${zs.man}) should be NaN + 1")
+        } else if(x.ex >= spec.exBias && x.sgn == 0 && !x.isNaN && !x.isInfinite) {
+          assert(zs.ex == maskI(spec.exW) && zs.man == 2, f"x(${x.toDouble}) >= 1, so z(${zs.toDouble}|${zs.sgn},${zs.ex},${zs.man}) should be NaN + 2")
+        } else if(x.ex >= spec.exBias && x.sgn == 1 && !x.isNaN && !x.isInfinite) {
+          assert(zs.ex == maskI(spec.exW) && zs.man == 3, f"x(${x.toDouble}) <= -1, so z(${zs.toDouble}|${zs.sgn},${zs.ex},${zs.man}) should be NaN + 3")
         }
 
         if (z0r.isNaN) {

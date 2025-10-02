@@ -80,20 +80,23 @@ class ACosPhase2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         } else {
           x.toDouble
         }
+
         val stage1z = new RealGeneric(spec, sqrt(1.0 - abs(xref)))
 
         val z0   = math.acos(xref)
         val z0r  = new RealGeneric(spec, z0)
 
         val s1   = ACosPhase1Sim.acosPhase1SimGeneric( tSqrt, x )
-        val erriS1 = errorLSB(s1._1, stage1z.toDouble)
+
+        // phase1 uses sign bit as input sign flag.
+        val erriS1 = errorLSB(new RealGeneric(spec, 0, s1.ex, s1.man), stage1z.toDouble)
 
         if(abs(erriS1.toInt) > toleranceAtPhase1) {
-          println(f"WARN: ${toleranceAtPhase1} < error in Phase1: sim(${s1._1.toDouble}) != ref(${stage1z.toDouble})")
+          println(f"WARN: ${toleranceAtPhase1} < error in Phase1: sim(${s1.toDouble}) != ref(${stage1z.toDouble})")
         }
         assert(abs(erriS1.toInt) <= toleranceAtPhase1)
 
-        val zi   = ACosPhase2Sim.acosPhase2SimGeneric( tACos, s1._1, s1._2, s1._3 )
+        val zi   = ACosPhase2Sim.acosPhase2SimGeneric( tACos, s1 )
         val zd   = zi.toDouble
         val errf = zd - z0r.toDouble
         val erri = errorLSB(zi, z0r.toDouble).toInt
@@ -119,7 +122,7 @@ class ACosPhase2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
             println(f"test: x   = ${x0}")
             println(f"test: ref = ${z0}")
             println(f"test: sim = ${zd}")
-            println(f"test: s1  = (${s1._1.sgn}|${s1._1.ex}|${s1._1.man.toLong.toBinaryString}), xneg = ${s1._2}, special = ${s1._3}")
+            println(f"test: s1  = (${s1.sgn}|${s1.ex}|${s1.man.toLong.toBinaryString})")
             println(f"test: test(${ztestsgn}|${ztestexp}(${ztestexp - spec.exBias})|${ztestman.toLong.toBinaryString}(${ztestman.toLong}%x)) != ref(${zrefsgn}|${zrefexp}(${zrefexp - spec.exBias})|${zrefman.toLong.toBinaryString}(${zrefman.toLong}%x))")
           }
           if(erri != 0) {
@@ -133,7 +136,7 @@ class ACosPhase2SimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
               errs(errkey) = (errs(errkey)._1, errs(errkey)._2 + 1)
             }
           }
-          assert(erri.abs<=tolerance)
+          assert(erri.abs<=tolerance) // ?
 
           if (maxError < erri.abs) {
             maxError = erri.abs

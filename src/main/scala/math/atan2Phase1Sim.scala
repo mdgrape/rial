@@ -24,18 +24,31 @@ import rial.arith.RealGeneric
 import rial.arith.Rounding._
 import rial.arith._
 
+
+//
+// atan2-1 encodes...
+// - ysgn into sgn.
+// - state (x>0 && |x|>|y| etc, 2bit) into the MSB of the exponent and the LSB of the mantissa
+//
+// the MSB of the exponent will not be used if it is not a special value (then |x/y| < 1).
+// the LSB of the mantissa will be zeroed in phase2.
+//
+
 object ATan2Phase1Sim {
 
-  def atan2Phase1SimGeneric( t_rec : FuncTableInt, y : RealGeneric, x : RealGeneric,
-    printDebug: Boolean = false):
-    (RealGeneric, Int, Int, Int) = { // (z, ATan2Status, ATan2SpecialValue, ysgn)
+  // (z, ATan2Status, ATan2SpecialValue, ysgn)
+  def atan2Phase1SimGeneric(
+    t_rec : FuncTableInt, y : RealGeneric, x : RealGeneric
+  ): RealGeneric = {
 
 //     println("==================================================")
     assert(x.spec == y.spec)
 
-    val exW    = x.spec.exW
-    val manW   = x.spec.manW
-    val exBias = x.spec.exBias
+    val spec = x.spec
+
+    val exW    = spec.exW
+    val manW   = spec.manW
+    val exBias = spec.exBias
 
     val fracW     = t_rec.bp
     val extraBits = fracW - manW
@@ -55,37 +68,54 @@ object ATan2Phase1Sim {
 //     println(f"y = ${y.sgn}|${y.ex}(${y.ex-exBias})|${y.man.toLong.toBinaryString}")
 //     println(f"ATan2Phase1Sim: x = ${x.toDouble}, y = ${y.toDouble}, atan2(y, x) = ${atan2(y.toDouble, x.toDouble)}")
 
-    val yIsLarger = slice(0, x.spec.W-1, x.value) < slice(0, x.spec.W-1, y.value)
+    val xySameMan = x.man == y.man
 
-    val minex = Seq(x.ex, y.ex).min
-    val maxex = Seq(x.ex, y.ex).max
+    val yIsLarger = slice(0, spec.W-1, x.value) < slice(0, spec.W-1, y.value)
+
+    val minxy = if (yIsLarger) { x } else { y }
+    val maxxy = if (yIsLarger) { y } else { x }
+
+    val minex = minxy.ex
+    val maxex = maxxy.ex
+
     val diffexDec = if(yIsLarger) {
-      if(y.man > x.man){1} else {0}
+      if(y.man > x.man) {1} else {0}
     } else {
-      if(x.man > y.man){1} else {0}
+      if(x.man > y.man) {1} else {0}
     }
 
-    val zex0 = if (maxex == maskI(exW) && minex == maskI(exW)) {exBias}
-          else if((maxex == maskI(exW) && minex != maskI(exW)) || minex == 0) {0}
-          else {minex - maxex - diffexDec + exBias}
+    val zex0 = if (maxex == maskI(exW) && minex == maskI(exW)) {
+      exBias
+    } else if((maxex == maskI(exW) && minex != maskI(exW)) || minex == 0) {
+      0
+    } else {
+      minex - maxex - diffexDec + exBias
+    }
 
     val zEx  = if(zex0 < 0) {0} else {zex0}
     val zeroed = (zEx == 0)
 
-    if(printDebug) {
-      println(f"x = ${xsgn}|${x.ex}|${x.man.toLong.toBinaryString}")
-      println(f"y = ${ysgn}|${y.ex}|${y.man.toLong.toBinaryString}")
-      println(f"minex = ${minex}")
-      println(f"minex = ${maxex}")
-      println(f"exdec = ${diffexDec}")
-      println(f"zex0  = ${zex0}")
-      println(f"zex   = ${zEx}")
-    }
+    // println(f"x = ${xsgn}|${x.ex}|${x.man.toLong.toBinaryString}")
+    // println(f"y = ${ysgn}|${y.ex}|${y.man.toLong.toBinaryString}")
+    // println(f"minex = ${minex}")
+    // println(f"minex = ${maxex}")
+    // println(f"exdec = ${diffexDec}")
+    // println(f"zex0  = ${zex0}")
+    // println(f"zex   = ${zEx}")
 
     val tooLargeX = (zeroed && !yIsLarger) || ( xinf && !yinf) || (!xzero &&  yzero)
     val tooLargeY = (zeroed &&  yIsLarger) || (!xinf &&  yinf) || ( xzero && !yzero)
 
 //     println(f"ATan2Phase1Sim: yIsLarger = ${yIsLarger}")
+
+    // ------------------------------------------------------------------------
+
+    val atan2Status = (if(yIsLarger) {2+x.sgn} else {x.sgn})
+    val atan2Status0 = (atan2Status >> 0) & 1
+    val atan2Status1 = (atan2Status >> 1) & 1
+
+    // ------------------------------------------------------------------------
+    // special values (nan boxing)
 
     val xpos = x.sgn == 0
     val xneg = x.sgn == 1
@@ -96,33 +126,32 @@ object ATan2Phase1Sim {
     val z1piover4 =  (xinf && yinf && xpos) || (x.ex == y.ex && x.man == y.man && xpos)
     val z3piover4 =  (xinf && yinf && xneg) || (x.ex == y.ex && x.man == y.man && xneg)
 
-    val atan2Status       = (if(yIsLarger) {2+x.sgn} else {x.sgn})
-    val atan2SpecialValue = if (znan)      { 1 }
-                       else if (zzero)     { 2 }
-                       else if (zpi)       { 3 }
-                       else if (zhalfpi)   { 4 }
-                       else if (z1piover4) { 5 }
-                       else if (z3piover4) { 6 }
-                       else                { 0 }
-
-    val minxy = if (yIsLarger) { x } else { y }
-    val maxxy = if (yIsLarger) { y } else { x }
-
-    val xySameMan = x.man == y.man
+    if(znan) {
+      return new RealGeneric( spec, ysgn, maskI(spec.exW), (SafeLong(1) << (spec.manW-1)) )
+    } else if(zzero) {
+      return new RealGeneric( spec, ysgn, maskI(spec.exW), 1 )
+    } else if(zpi) {
+      return new RealGeneric( spec, ysgn, maskI(spec.exW), 2 )
+    } else if(zhalfpi) {
+      return new RealGeneric( spec, ysgn, maskI(spec.exW), 3 )
+    } else if(z1piover4) {
+      return new RealGeneric( spec, ysgn, maskI(spec.exW), 4 )
+    } else if(z3piover4) {
+      return new RealGeneric( spec, ysgn, maskI(spec.exW), 5 )
+    }
 
     // ------------------------------------------------------------------------
     // reciprocal table
 
-    val maxxyMan0 = maxxy.man == 0
-
     val recMan = if (t_rec.nOrder==0) {
       val adr = maxxy.man.toInt
-//       println(f"sim: atan2-1: rec adr = ${adr.toBinaryString}")
-      val res = if (maxxy.man==0) {
+
+      val res = if (maxxy.man == 0) {
         0L
       } else {
         t_rec.interval(adr).eval(0L, 0).toLong
       }
+//       println(f"sim: atan2-1: rec adr = ${adr.toBinaryString}")
 //       println(f"sim: atan2-1: rec res = ${res.toBinaryString}")
       res
     } else {
@@ -130,7 +159,7 @@ object ATan2Phase1Sim {
       val dxbp = manW-adrW-1
       val d    = (SafeLong(1)<<dxbp) - slice(0, manW-adrW, maxxy.man)-1
       val adr  = maskI(adrW)-slice(manW-adrW, adrW, maxxy.man).toInt
-      if (maxxyMan0) {
+      if (maxxy.man == 0) {
         0L
       } else {
         t_rec.interval(adr).eval(d.toLong, dxbp).toLong
@@ -161,16 +190,24 @@ object ATan2Phase1Sim {
     val zSgn = 0
     val zMan = if(zEx == 0 || xySameMan) {
       SafeLong(0)
-    } else if(maxxyMan0) {
+    } else if(maxxy.man == 0) {
       minxy.man
     } else {
       zMan0
     }
 
-    val z = new RealGeneric(x.spec, zSgn, zEx, zMan)
+    // -----------------------------------------------------------------------
+    // encode: atan2Status(2bits -> sgn and ex.msb), ysgn (lsb of mantissa)
+
+    assert( zEx <= spec.exBias )
+
+    val zSgnEnc = ysgn
+    val zExEnc  = zEx | (atan2Status1 << (spec.exW-1))
+    val zManEnc = (zMan & ((SafeLong(1) << spec.manW) - 2)) + atan2Status0
+
+    val z = new RealGeneric(x.spec, zSgnEnc, zExEnc, zManEnc)
 
 //     println(f"sim: atan2-1: z = (${zSgn}|${zEx}(${zEx-exBias})|${zMan.toBinaryString}) (${z.toDouble}) should be (${min(x.toDouble, y.toDouble) / max(x.toDouble, y.toDouble)})")
-
-    (z, atan2Status, atan2SpecialValue, ysgn)
+    z
   }
 }

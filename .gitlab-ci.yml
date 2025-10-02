@@ -54,17 +54,25 @@ test-math-simple:
     - sbt "testOnly ReciprocalSimTest"
     - sbt "testOnly ReciprocalTest"
 
-test-math-trigonometric:
+test-math-sincos:
   stage: test
   script:
     - sbt "testOnly SinSimTest"
     - sbt "testOnly SinTest"
     - sbt "testOnly CosSimTest"
     - sbt "testOnly CosTest"
+
+test-math-acos:
+  stage: test
+  script:
     - sbt "testOnly ACosPhase1SimTest"
     - sbt "testOnly ACosPhase1Test"
     - sbt "testOnly ACosPhase2SimTest"
     - sbt "testOnly ACosPhase2Test"
+
+test-math-atan2:
+  stage: test
+  script:
     - sbt "testOnly ATan2Phase1SimTest"
     - sbt "testOnly ATan2Phase1Test"
     - sbt "testOnly ATan2Phase2SimTest"
@@ -77,9 +85,14 @@ test-math-exponential:
     - sbt "testOnly ExpTest"
     - sbt "testOnly LogSimTest"
     - sbt "testOnly LogTest"
+
+test-task-specific-funcs:
+  stage: test
+  script:
     - sbt "testOnly ScaleMixtureGaussianSimTest"
     - sbt "testOnly ScaleMixtureGaussianTest"
     - sbt "testOnly SigmoidSimTest"
     - sbt "testOnly SigmoidTest"
     - sbt "testOnly SoftPlusSimTest"
     - sbt "testOnly SoftPlusTest"
+
