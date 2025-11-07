@@ -35,6 +35,29 @@ import chisel3.util._
 // if 0 <= x <= 254, mod255(x) == x. note that mod255(0xff) == 0
 //
 
+/** Fletcher's checksum calculator
+ *
+ * {{{
+ * class Fletcher(...) extends Module {
+ *   val io = IO(new Bundle{
+ *     val in  = Input(new Bundle {
+ *       val valid = Bool()
+ *       val bits  = UInt(inputW.W)
+ *     })
+ *     val out = Output(new Bundle {
+ *       val valid = Bool()
+ *       val bits  = UInt(checksumW.W)
+ *     })
+ *   })
+ *   //...
+ * }
+ * }}}
+ *
+ * @constructor construct Fletcher module
+ * @param checksumW checksum width. if 16, use Fletcher-16.
+ * @param inputW    input width. if it is not a multiple of checksumW/2, the input will be extended with zero (zero-padding)
+ * @param latency   latency of this module.
+ */
 class Fletcher(
   checksumW: Int, // if 16, use Fletcher-16.
   inputW:    Int, // if not a multiple of checksumW/2, it will be 0-padded.

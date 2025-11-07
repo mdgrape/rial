@@ -11,6 +11,8 @@ import scala.math._
 import chisel3._
 import chisel3.util._
 
+/** Utility functions for CRC
+ */
 object CRC {
 
   def getOrder(g: BigInt, n: Int) : Int = { if (g==0) n else getOrder(g>>1, n+1) }
@@ -18,22 +20,30 @@ object CRC {
   def calcCRC(x: BigInt, g: BigInt ) : BigInt = {
     val n = getOrder(g,-1) // Order of generation polynomial : width of g = n+1
     val w = getOrder(x,0)    // bit width of x
-    ( w-1 to 0 by -1).foldLeft(x<<n)( (z, i) => 
+    ( w-1 to 0 by -1).foldLeft(x<<n)( (z, i) =>
       if (z.testBit(i+n)) { z ^ (g<<i) } else z )
   }
 
 }
 
 
-//
-// Stateless CRC module 
-//   g : coefficients of generator polynomial (with highest order)
-//   w : Width of input
-//
-//   x  : input 
-//   ri : reminder in
-//   ro : reminder out
-//
+/** Stateless CRC calculator
+ *
+ * {{{
+ * class CRCcore(...) extends Module {
+ *   val io = IO(new Bundle{
+ *     val x  = Input(UInt(w.W))  // input
+ *     val ri = Input(UInt(n.W))  // reminder input
+ *     val ro = Output(UInt(n.W)) // reminder output
+ *   })
+ *   //...
+ * }
+ * }}}
+ *
+ * @constructor construct CRCcore module
+ * @param g     coefficients of generator polynomial (with highest order)
+ * @param w     Width of input
+ */
 class CRCcore ( g : BigInt, w : Int ) extends Module {
 
   val n = CRC.getOrder(g, -1) // polynomial order
@@ -62,7 +72,7 @@ class CRCcore ( g : BigInt, w : Int ) extends Module {
 
   // bitMask(p) : if bit q is 1, y(q) is involved in xor list in r(p)
   val bitMask = (0 to n-1).map( p =>
-    (0 to w-1).foldLeft(BigInt(0))( (z, q) => 
+    (0 to w-1).foldLeft(BigInt(0))( (z, q) =>
       if (r(q).testBit(p)) { z + (BigInt(1)<<q) } else z ) )
 
   val rv = VecInit(
@@ -71,13 +81,15 @@ class CRCcore ( g : BigInt, w : Int ) extends Module {
   io.ro := rv.asUInt
 }
 
-// Parity
+/** Specialization of CRCcore for parity
+ */
 object CRCcoreGen_1_32 extends App {
   (new chisel3.stage.ChiselStage).execute(args,
     Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new CRCcore(3, 32)) ) )
 }
 
-// CRC16_IBM
+/** Specialization of CRCcore for CRC16_IBM (0x1_8005)
+ */
 object CRCcoreGen_16_16 extends App {
   (new chisel3.stage.ChiselStage).execute(args,
     Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new CRCcore(0x18005, 16)) ) )
