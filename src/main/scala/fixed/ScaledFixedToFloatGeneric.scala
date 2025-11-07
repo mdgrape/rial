@@ -16,6 +16,28 @@ import rial.util.RialChiselUtil._
 import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig._
 
+
+/** Calculate Fixed * Float and convert it into another Float.
+ *
+ * {{{
+ * class ScaledFixedToFloatGeneric(...) extends Module {
+ *   val io = IO(new Bundle{
+ *     val x = Input (UInt(xSpec.W.W))
+ *     val y = Input (UInt(w.W)) // defined only if `yintW` is defined
+ *     val z = Output(UInt(zSpec.W.W))
+ *   })
+ *   //...
+ * }
+ * }}}
+ *
+ * It takes a fixedpoint `x` and floating point `y` and returns a floating point `z = x * y`.
+ *
+ * @param xSpec spec of the input fixed point number.
+ * @param ySpec spec of the input floating point number.
+ * @param zSpec spec of the output floating point number.
+ * @param roundSpec rounding algorithm.
+ * @param stage latency of this module.
+ */
 class ScaledFixedToFloatGeneric(
   xSpec : FixedSpec, ySpec : RealSpec, zSpec : RealSpec, // Input / Output floating spec
   roundSpec : RoundSpec, // Rounding spec

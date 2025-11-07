@@ -18,6 +18,17 @@ import rial.util.PipelineStageConfig._
 
 /** Fixed point number -> floating point number.
  *
+ * {{{
+ * class FixedToFloatGeneric(...) extends Module {
+ *   val io = IO(new Bundle{
+ *     val x = Input (UInt(xSpec.W.W))
+ *     val y = Input (UInt(w.W)) // defined only if `yintW` is defined
+ *     val z = Output(UInt(zSpec.W.W))
+ *   })
+ *   //...
+ * }
+ * }}}
+ *
  * First input is the input fixed point number.
  * Second input (optional) is the current fraction width.
  * If yintW is not given (be `None`), it uses xSpec.fracW that will be hard-coded.
