@@ -6,6 +6,8 @@ import com.sun.jna.NativeLibrary
 import com.sun.jna.Pointer
 import java.nio._
 
+/** C library interface for testing.
+ */
 object crial {
 
   val lib=NativeLibrary.getInstance("./lib/libcrial.so")
