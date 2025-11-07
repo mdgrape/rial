@@ -2,8 +2,10 @@ package rial.util
 
 import scala.language.implicitConversions
 
+/** Enumerator for pipeline stage strategy. */
 sealed trait PipelineStageStrategy 
 
+/** List of available pipeline stage strategies. */
 object PipelineStageStrategy {
   case object none    extends PipelineStageStrategy
   case object default extends PipelineStageStrategy
@@ -12,6 +14,14 @@ object PipelineStageStrategy {
   case object specify extends PipelineStageStrategy
 }
 
+/** Pipeline stage configuration
+ *
+ * For simplification and customizability, we basically use a single
+ * `ShiftRegister` when specifying latency of a module, leaving the specific
+ * register location to optimizations such as register balancing / retiming.
+ *
+ * Normally, it is constructed by [[rial.util.PipelineStageConfig.atOut]].
+ */
 class PipelineStageConfig (
   strategy : PipelineStageStrategy,
   position : Seq[Int] ) {
@@ -46,6 +56,7 @@ class PipelineStageConfig (
 
 }
 
+/** Constructor shorthands for PipelineStageConfig */
 object PipelineStageConfig {
   implicit def default(n: Int ) : PipelineStageConfig = {
     new PipelineStageConfig( PipelineStageStrategy.default, Seq[Int](n) )
@@ -75,6 +86,3 @@ object PipelineStageConfig {
     new PipelineStageConfig
   }
 }
-
-
-
