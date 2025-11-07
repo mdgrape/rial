@@ -13,6 +13,16 @@ import rial.util.ScalaUtil._
 import java.lang.Math.scalb
 import java.nio.LongBuffer
 
+/** Floating point settings.
+ *
+ * @constructor create a floating point spec.
+ * @param exW              exponent width.
+ * @param exBias           exponent bias.
+ * @param manW             mantissa width.
+ * @param disableSign      disable sign bit. everything is positive (false by default)
+ * @param disableNaN       disable NaN. assumes all the input are valid (false by default)
+ * @param disableSubnormal disable subnormal numbers. true by default.
+ */
 class RealSpec (
   val exW    : Int,
   val exBias : Int,
@@ -38,6 +48,8 @@ class RealSpec (
     }
 }
 
+/** Default specs for famous floating point numbers.
+ */
 object RealSpec {
   val Float64Spec = new RealSpec(11, 0x3FF, 52, false, false, true)
   val Float32Spec = new RealSpec(8, 0x7F, 23, false, false, true)
@@ -45,12 +57,8 @@ object RealSpec {
   val BFloat16Spec = new RealSpec(8, 0x7F, 7, false, false, true)
 }
 
-//
-// Again we do not use type generics for shift operators here...
-//
-// class RealGeneric
-//   this uses SafeLong for representation
-//
+/** Software emulation of floating point arithmetic.
+ */
 class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
 
   def this( spec : RealSpec, s : Int, e : Int, m : SafeLong ) = {
@@ -618,6 +626,8 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
 
 }
 
+/** Utility functions for software floating point emulation
+ */
 object RealGeneric {
   def zero(spec : RealSpec, sgn: Int = 0) : RealGeneric = { new RealGeneric(spec, sgn, 0, SafeLong(0)) }
   def nan(spec : RealSpec) : RealGeneric = { new RealGeneric(spec, 0, maskI(spec.exW), SafeLong(1)<<(spec.manW-1)) }

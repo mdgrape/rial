@@ -21,21 +21,20 @@ import rial.util.DebugControlSlave
  *
  * It takes `x` and `y` and returns `z` as `z = x + y`.
  *
+ * All the input/output floating-point spec are configurable through [[rial.arith.RealSpec]].
+ *
  * {{{
  * class AddFPGeneric(...) extends Module {
  *   val io = IO(new Bundle{
- *     val x = Input(UInt(xSpec.W.W))
- *     val y = Input(UInt(ySpec.W.W))
+ *     val x = Input (UInt(xSpec.W.W))
+ *     val y = Input (UInt(ySpec.W.W))
  *     val z = Output(UInt(zSpec.W.W))
  *   })
  *   //...
  * }
  * }}}
  *
- * For settings, see [[rial.arith.RealSpec]], [[rial.arith.RoundSpec]], and
- * [[rial.util.PipelineStageConfig]]
- *
- * @constructor create a chisel Module
+ * @constructor create a chisel Module AddFPGeneric
  * @param xSpec          floating point spec of the left hand side input
  * @param ySpec          floating point spec of the right hand side input
  * @param zSpec          floating point spec of the output
@@ -45,6 +44,12 @@ import rial.util.DebugControlSlave
  *   add some additional printf and assertions. by default, false.
  * @param useParallelLZA
  *   do LZA for faster latency. by default, false.
+ *
+ * For parameters, see also:
+ * @see [[rial.arith.RealSpec]]
+ * @see [[rial.arith.RoundSpec]]
+ * @see [[rial.util.PipelineStageConfig]]
+ *
  */
 class AddFPGeneric(
   xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, // Input / Output floating spec
@@ -358,12 +363,20 @@ class AddFPGeneric(
   dbgPrintf("x=%x y=%x z=%x\n", io.x, io.y, io.z)
 }
 
+/** Specialization of AddFPGeneric for FP64.
+ *
+ * @see [[rial.arith.AddFPGeneric]]
+ */
 class AddFP64( stage : PipelineStageConfig )
     extends AddFPGeneric( RealSpec.Float64Spec,
       RealSpec.Float64Spec,  RealSpec.Float64Spec,
       RoundSpec.roundToEven, stage) {
 }
 
+/** AddFP64 generator.
+ *
+ * @see [[rial.arith.AddFPGeneric]]
+ */
 object AddFP64_driver extends App {
   (new chisel3.stage.ChiselStage).execute(args,
     Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new AddFP64(PipelineStageConfig.none)) ) )

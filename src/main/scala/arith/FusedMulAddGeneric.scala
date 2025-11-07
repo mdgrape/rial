@@ -17,9 +17,38 @@ import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig._
 import rial.util.DebugControlSlave
 
-//
-// w <= x * y + z
-//
+/** Generic Floating-Point Fused Multiply-Adder.
+ *
+ * It takes `x`, `y`, `z` and returns `w` as `w = x * y + z`.
+ *
+ * {{{
+ * class FusedMulAddFPGeneric(...) extends Module {
+ *   val io = IO(new Bundle{
+ *     val x = Input (UInt(xSpec.W.W))
+ *     val y = Input (UInt(ySpec.W.W))
+ *     val z = Input (UInt(zSpec.W.W))
+ *     val w = Output(UInt(wSpec.W.W))
+ *   })
+ *   //...
+ * }
+ * }}}
+ *
+ * @constructor create a chisel Module AddFPGeneric
+ * @param xSpec          floating point spec of the first input
+ * @param ySpec          floating point spec of the second input
+ * @param zSpec          floating point spec of the third input
+ * @param wSpec          floating point spec of the output
+ * @param roundSpec      rounding algorithm
+ * @param stage          number of pipeline stages in this module.
+ * @param enableDebug
+ *   add some additional printf and assertions. by default, false.
+ *
+ * For parameters, see also:
+ * @see [[rial.arith.RealSpec]]
+ * @see [[rial.arith.RoundSpec]]
+ * @see [[rial.util.PipelineStageConfig]]
+ *
+ */
 class FusedMulAddFPGeneric(
   xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, wSpec : RealSpec,
   roundSpec : RoundSpec,
@@ -477,12 +506,20 @@ class FusedMulAddFPGeneric(
   dbgPrintf("x=%x y=%x z=%x, w=%x\n", io.x, io.y, io.z, io.w)
 }
 
+/** specialization of FusedMulAddFPGeneric for FP64.
+ *
+ * @see [[rial.arith.FusedMulAddFPGeneric]]
+ */
 class FusedMulAddFP64( stage : PipelineStageConfig )
     extends FusedMulAddFPGeneric( RealSpec.Float64Spec,
       RealSpec.Float64Spec,  RealSpec.Float64Spec, RealSpec.Float64Spec,
       RoundSpec.roundToEven, stage) {
 }
 
+/** FusedMulAddFP64 generator.
+ *
+ * @see [[rial.arith.FusedMulAddFPGeneric]]
+ */
 object FusedMulAddFP64_driver extends App {
   (new chisel3.stage.ChiselStage).execute(args,
     Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new FusedMulAddFP64(PipelineStageConfig.none)) ) )

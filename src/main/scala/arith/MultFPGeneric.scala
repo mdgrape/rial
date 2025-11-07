@@ -14,8 +14,37 @@ import rial.util._
 import rial.util.RialChiselUtil._
 import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig._
-//import rial.arith._
 
+/** Generic Floating-Point Multiplier.
+ *
+ * It takes `x` and `y` and returns `z` as `z = x * y`.
+ *
+ * All the input/output floating-point spec are configurable through [[rial.arith.RealSpec]].
+ *
+ * {{{
+ * class MultFPGeneric(...) extends Module {
+ *   val io = IO(new Bundle{
+ *     val x = Input (UInt(xSpec.W.W))
+ *     val y = Input (UInt(ySpec.W.W))
+ *     val z = Output(UInt(zSpec.W.W))
+ *   })
+ *   //...
+ * }
+ * }}}
+ *
+ * @constructor create a chisel Module MultFPGeneric
+ * @param xSpec          floating point spec of the left hand side input
+ * @param ySpec          floating point spec of the right hand side input
+ * @param zSpec          floating point spec of the output
+ * @param roundSpec      rounding algorithm
+ * @param stage          number of pipeline stages in this module.
+ *
+ * For parameters, see also:
+ * @see [[rial.arith.RealSpec]]
+ * @see [[rial.arith.RoundSpec]]
+ * @see [[rial.util.PipelineStageConfig]]
+ *
+ */
 class MultFPGeneric(
   xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, // Input / Output floating spec
   roundSpec : RoundSpec, // Rounding spec
@@ -128,6 +157,10 @@ class MultFPGeneric(
   //printf("x=%x y=%x z=%x\n", io.x, io.y, io.z)
 }
 
+/** Specialization of MultFPGeneric for FP64.
+ *
+ * @see [[rial.arith.MultFPGeneric]]
+ */
 class MultFP64( stage : PipelineStageConfig )
     extends MultFPGeneric( RealSpec.Float64Spec,
       RealSpec.Float64Spec,  RealSpec.Float64Spec,

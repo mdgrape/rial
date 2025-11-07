@@ -4,8 +4,14 @@ import scala.math._
 import spire.math.SafeLong
 import spire.implicits._
 
+/** Enumerator to select Rounding Algorithm.
+ *
+ * `object` defines available rounding algorithms.
+ */
 sealed trait RoundSpec
 
+/** Enumerator to select Rounding Algorithm.
+ */
 object RoundSpec {
   case object round          extends RoundSpec
   case object roundToEven    extends RoundSpec
@@ -25,6 +31,8 @@ object RoundSpec {
 //
 // So, it seems to be better to define for Int/Long/BigInt separately...
 
+/** Rounding functions for software emulator
+ */
 object Rounding {
 
   ////////////////////////////////////////////////////////////////////////
