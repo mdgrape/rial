@@ -31,7 +31,7 @@ import rial.math._
 // |_|            |_|
 // -------------------------------------------------------------------------
 
-class ReciprocalPreProcess(
+private[rial] class ReciprocalPreProcess(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -71,7 +71,7 @@ class ReciprocalPreProcess(
 //  \__\__,_|_.__/|_|\___|  \___\___/ \___|_| |_|
 // -------------------------------------------------------------------------
 
-class ReciprocalTableCoeff(
+private[rial] class ReciprocalTableCoeff(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val maxCbit  : Seq[Int], // max coeff width among all math funcs
@@ -131,7 +131,7 @@ class ReciprocalTableCoeff(
     io.cs := enableIf(io.en, coeffs)
   }
 }
-object ReciprocalTableCoeff {
+private[rial] object ReciprocalTableCoeff {
   def getCBits(
     spec:     RealSpec,
     polySpec: PolynomialSpec
@@ -176,7 +176,7 @@ object ReciprocalTableCoeff {
 // -------------------------------------------------------------------------
 
 // No pathway other than table interpolation. just calculate ex and sgn.
-class ReciprocalOtherPath(
+private[rial] class ReciprocalOtherPath(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,

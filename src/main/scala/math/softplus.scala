@@ -29,7 +29,7 @@ import rial.math._
 // |_|            |_|
 // -------------------------------------------------------------------------
 
-class SoftPlusPreProcessOutput(val spec: RealSpec) extends Bundle {
+private[rial] class SoftPlusPreProcessOutput(val spec: RealSpec) extends Bundle {
   val xsgn   = Output(UInt(1.W))
   val xlarge = Output(Bool())
   val zzero  = Output(Bool()) // x = -inf
@@ -37,7 +37,7 @@ class SoftPlusPreProcessOutput(val spec: RealSpec) extends Bundle {
   val znan   = Output(Bool()) // x = nan
 }
 
-class SoftPlusPreProcess(
+private[rial] class SoftPlusPreProcess(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -106,7 +106,7 @@ class SoftPlusPreProcess(
 //  \__\__,_|_.__/|_|\___|  \___\___/ \___|_| |_|
 // -------------------------------------------------------------------------
 
-class SoftPlusTableCoeff(
+private[rial] class SoftPlusTableCoeff(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val maxCbit  : Seq[Int], // max coeff width among all math funcs
@@ -223,7 +223,7 @@ class SoftPlusTableCoeff(
   }
 }
 
-object SoftPlusTableCoeff {
+private[rial] object SoftPlusTableCoeff {
   def getCBits(
     spec:     RealSpec,
     polySpec: PolynomialSpec
@@ -273,7 +273,7 @@ object SoftPlusTableCoeff {
 // |_|                 |_|
 // -------------------------------------------------------------------------
 
-class SoftPlusPostProcess(
+private[rial] class SoftPlusPostProcess(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,

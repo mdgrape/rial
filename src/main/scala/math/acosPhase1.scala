@@ -45,7 +45,7 @@ import rial.arith._
 // |_|            |_|
 // -------------------------------------------------------------------------
 
-object ACosSpecialValue {
+private[rial] object ACosSpecialValue {
   val width     = 2
   val xNaNInf   = 0.U(width.W) // x == nan/inf, acos(x) == nan
   val xZero     = 1.U(width.W) // x ==  0,      acos(x) == pi/2
@@ -53,13 +53,13 @@ object ACosSpecialValue {
   val xLargeNeg = 3.U(width.W) // x <= -1,      acos(x) == pi
 }
 
-class ACosFlags extends Bundle {
+private[rial] class ACosFlags extends Bundle {
   val isSpecial = Bool()
   val xsgn      = UInt(1.W)
   val flag      = UInt(ACosSpecialValue.width.W)
 }
 
-class ACosPhase1PreProcess(
+private[rial] class ACosPhase1PreProcess(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -179,7 +179,7 @@ class ACosPhase1PreProcess(
 // |_|                 |_|
 // -------------------------------------------------------------------------
 
-class ACosPhase1PostProcess(
+private[rial] class ACosPhase1PostProcess(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,

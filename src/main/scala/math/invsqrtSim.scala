@@ -20,7 +20,7 @@ import rial.util.ScalaUtil._
 import rial.arith.RealSpec
 import rial.arith.RealGeneric
 
-object InvSqrtSim {
+private[rial] object InvSqrtSim {
 
   // [1, 4) -> (1/2, 1]
   def invsqrtSimGeneric( t : FuncTableInt, x: RealGeneric ) : RealGeneric = {

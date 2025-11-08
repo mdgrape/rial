@@ -25,7 +25,7 @@ import rial.arith.RealGeneric
 import rial.arith.Rounding._
 import rial.arith._
 
-object SinCosSim {
+private[rial] object SinCosSim {
 
   def sincosSimGeneric(
     isSin: Boolean,

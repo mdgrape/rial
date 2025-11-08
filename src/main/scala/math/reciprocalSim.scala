@@ -19,7 +19,7 @@ import rial.util.ScalaUtil._
 import rial.arith.RealSpec
 import rial.arith.RealGeneric
 
-object ReciprocalSim {
+private[rial] object ReciprocalSim {
 
   def reciprocalSimGeneric( t : FuncTableInt, x: RealGeneric ) : RealGeneric = {
 

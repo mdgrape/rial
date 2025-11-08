@@ -30,7 +30,7 @@ import rial.arith._
 //
 // acos(1 - sqrt(1-|x|)^2) = acos(1-(1-|x|)) = acos(|x|)
 //
-object ACosPhase2Sim {
+private[rial] object ACosPhase2Sim {
   def acosPhase2SimGeneric(
     tACos: FuncTableInt, x: RealGeneric
   ): RealGeneric = {

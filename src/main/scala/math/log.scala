@@ -41,7 +41,7 @@ import rial.arith.FloatChiselUtil
 // calculate table addresses.
 // (ln2/1-x/x-1) will be calculated in OtherPath, in parallel with polynomial.
 //
-class LogPreProcess(
+private[rial] class LogPreProcess(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -91,7 +91,7 @@ class LogPreProcess(
 //  \__\__,_|_.__/|_|\___|  \___\___/ \___|_| |_|
 // -------------------------------------------------------------------------
 
-class LogTableCoeff(
+private[rial] class LogTableCoeff(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val maxCbit  : Seq[Int], // max coeff width among all math funcs
@@ -247,7 +247,7 @@ class LogTableCoeff(
   }
 }
 
-object LogTableCoeff {
+private[rial] object LogTableCoeff {
   def getCBits(
     spec:     RealSpec,
     polySpec: PolynomialSpec
@@ -326,7 +326,7 @@ object LogTableCoeff {
 //                                                    ^^^^^^^^^^^^   ^^^^^
 //                                                    table approx   constant
 //
-class LogNonTableOutput(val spec: RealSpec, val polySpec: PolynomialSpec) extends Bundle {
+private[rial] class LogNonTableOutput(val spec: RealSpec, val polySpec: PolynomialSpec) extends Bundle {
   val zsgn  = Output(UInt(1.W))
   val znan  = Output(Bool())
   val zinf  = Output(Bool())
@@ -342,7 +342,7 @@ class LogNonTableOutput(val spec: RealSpec, val polySpec: PolynomialSpec) extend
   val zintShift = Output(UInt(log2Up(spec.exW).W)) // for default table
 }
 
-class LogOtherPath(
+private[rial] class LogOtherPath(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -441,7 +441,7 @@ class LogOtherPath(
 // |_|                 |_|
 // -------------------------------------------------------------------------
 
-class LogMultArgs(
+private[rial] class LogMultArgs(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -487,7 +487,7 @@ class LogMultArgs(
 }
 
 
-class LogPostProcess(
+private[rial] class LogPostProcess(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,

@@ -23,7 +23,7 @@ import rial.util.PipelineStageConfig._
  *  @constructor create a new TableCoeffInput.
  *  @param cbit bitwidths of coefficients.
  */
-class TableCoeffInput( val cbit: Seq[Int] ) extends Bundle {
+private[rial] class TableCoeffInput( val cbit: Seq[Int] ) extends Bundle {
   val cs = Input(MixedVec(cbit.map{w => UInt(w.W)}))
 }
 

@@ -21,7 +21,7 @@ import rial.arith.RealGeneric
 import rial.arith.Rounding._
 import rial.arith._
 
-object ScaleMixtureGaussianSim {
+private[rial] object ScaleMixtureGaussianSim {
 
   // let
   //   1/sgm'^2 = (sgmA^2 - sgmB^2) / sgmA^2sgmB^2

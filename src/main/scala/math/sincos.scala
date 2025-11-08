@@ -51,7 +51,7 @@ import rial.math._
 // |_|            |_|
 // -------------------------------------------------------------------------
 
-object SinCosPreMulArgs {
+private[rial] object SinCosPreMulArgs {
   def lhsW(spec: RealSpec): Int = {
     1 + spec.manW + Seq(spec.manW+1, 12).max
   }
@@ -80,7 +80,7 @@ object SinCosPreMulArgs {
 
 // this contains x/pi rounded into [0, 2) and zsgn.
 // zsgn can be calculated from x/pi.
-class SinCosPreProcessOutput(val spec: RealSpec) extends Bundle {
+private[rial] class SinCosPreProcessOutput(val spec: RealSpec) extends Bundle {
   val znan = Output(Bool())
   val zone = Output(Bool())
   val zsgn = Output(UInt(1.W))
@@ -88,7 +88,7 @@ class SinCosPreProcessOutput(val spec: RealSpec) extends Bundle {
   val yman = Output(UInt(spec.manW.W))
 }
 
-class SinCosPreProcess(
+private[rial] class SinCosPreProcess(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -285,7 +285,7 @@ class SinCosPreProcess(
 //  \__\__,_|_.__/|_|\___|  \___\___/ \___|_| |_|
 // -------------------------------------------------------------------------
 
-class SinCosTableCoeff(
+private[rial] class SinCosTableCoeff(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val maxCbit  : Seq[Int], // max coeff width among all math funcs
@@ -343,7 +343,7 @@ class SinCosTableCoeff(
   }
 }
 
-object SinCosTableCoeff {
+private[rial] object SinCosTableCoeff {
   def getCBits(
     spec:     RealSpec,
     polySpec: PolynomialSpec
@@ -405,7 +405,7 @@ object SinCosTableCoeff {
 // |_|                 |_|
 // -------------------------------------------------------------------------
 
-class SinCosPostProcess(
+private[rial] class SinCosPostProcess(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig

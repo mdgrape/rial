@@ -20,7 +20,7 @@ import rial.util.ScalaUtil._
 import rial.arith.RealSpec
 import rial.arith.RealGeneric
 
-object SoftPlusSim {
+private[rial] object SoftPlusSim {
 
   def softplusSimGeneric(
     ts : Seq[FuncTableInt], x: RealGeneric

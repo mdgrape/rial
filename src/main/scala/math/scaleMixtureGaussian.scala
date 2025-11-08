@@ -31,7 +31,7 @@ import rial.arith._
 // |_|            |_|
 // -------------------------------------------------------------------------
 
-class ScaleMixtureGaussianPreProcess(
+private[rial] class ScaleMixtureGaussianPreProcess(
   val sgmA:      Double,
   val sgmB:      Double,
   val spec:      RealSpec, // Input / Output floating spec
@@ -89,7 +89,7 @@ class ScaleMixtureGaussianPreProcess(
 // -------------------------------------------------------------------------
 //
 //
-class ScaleMixtureGaussianTableCoeff(
+private[rial] class ScaleMixtureGaussianTableCoeff(
   val sgmA:      Double,
   val sgmB:      Double,
   val spec     : RealSpec,
@@ -147,7 +147,7 @@ class ScaleMixtureGaussianTableCoeff(
   }
 }
 
-object ScaleMixtureGaussianTableCoeff {
+private[rial] object ScaleMixtureGaussianTableCoeff {
   def getCBits(
     sgmA:     Double,
     sgmB:     Double,
@@ -204,7 +204,7 @@ object ScaleMixtureGaussianTableCoeff {
 //
 
 // PreProcMultiplier argument (1/sgmA^2)
-object ScaleMixtureGaussianPreMulArgs {
+private[rial] object ScaleMixtureGaussianPreMulArgs {
   def lhsW(spec: RealSpec): Int = {
     1 + spec.manW
   }
@@ -231,7 +231,7 @@ object ScaleMixtureGaussianPreMulArgs {
   }
 }
 
-class ScaleMixtureGaussianOtherPath(
+private[rial] class ScaleMixtureGaussianOtherPath(
   val sgmA:     Double,
   val sgmB:     Double,
   val spec:     RealSpec, // Input / Output floating spec
@@ -296,7 +296,7 @@ class ScaleMixtureGaussianOtherPath(
 
 
 // at the postprocess, we multiply (x/sgmA^2) and (polynomial+1).
-class ScaleMixtureGaussianPostMulArgs(
+private[rial] class ScaleMixtureGaussianPostMulArgs(
   val sgmA:     Double,
   val sgmB:     Double,
   val spec:     RealSpec, // Input / Output floating spec
@@ -358,7 +358,7 @@ class ScaleMixtureGaussianPostMulArgs(
   io.z0ex := z0ex
 }
 
-class ScaleMixtureGaussianPostProcess(
+private[rial] class ScaleMixtureGaussianPostProcess(
   val sgmA:     Double,
   val sgmB:     Double,
   val spec     : RealSpec, // Input / Output floating spec

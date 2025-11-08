@@ -25,7 +25,7 @@ import rial.arith.RealGeneric
 import rial.arith.Rounding._
 import rial.arith._
 
-object ATan2Phase2Sim {
+private[rial] object ATan2Phase2Sim {
 
   // Since atan2-stage1 calculates min(x,y)/max(x,y), so it assumes x <= 1.
   def atan2Phase2SimGeneric(t : FuncTableInt, x : RealGeneric): RealGeneric = {

@@ -27,7 +27,7 @@ import rial.math._
  *
  * @param spec A [[rial.arith.RealSpec]] corresponding to the input floating point number.
  */
-class DecomposedRealOutput(val spec: RealSpec) extends Bundle {
+private[rial] class DecomposedRealOutput(val spec: RealSpec) extends Bundle {
   val sgn  = Output(UInt(1.W))
   val ex   = Output(UInt(spec.exW.W))
   val man  = Output(UInt(spec.manW.W))
@@ -40,7 +40,7 @@ class DecomposedRealOutput(val spec: RealSpec) extends Bundle {
  *
  * @param spec A [[rial.arith.RealSpec]] corresponding to the input floating point number.
  */
-class DecomposeReal(val spec: RealSpec) extends Module {
+private[rial] class DecomposeReal(val spec: RealSpec) extends Module {
   val io = IO(new Bundle {
     val real   = Input(UInt(spec.W.W))
     val decomp = new DecomposedRealOutput(spec)
@@ -66,7 +66,7 @@ class DecomposeReal(val spec: RealSpec) extends Module {
  * To reduce area of polynomial stage, those funcs share one multiplier.
  *
  */
-class PreProcMultiplier(
+private[rial] class PreProcMultiplier(
   val realSpec: RealSpec,
   val roundSpec: RoundSpec,
   val polySpec: PolynomialSpec,
@@ -113,7 +113,7 @@ class PreProcMultiplier(
  * To reduce area of polynomial stage, those funcs share one multiplier.
  *
  */
-class PostProcMultiplier(
+private[rial] class PostProcMultiplier(
   val realSpec: RealSpec,
   val roundSpec: RoundSpec,
   val polySpec: PolynomialSpec,

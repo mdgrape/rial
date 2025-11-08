@@ -26,7 +26,7 @@ import rial.arith._
 // ATan2 Phase1 calculates min(x,y)/max(x,y).
 //       Phase2 calculates atan(min(x,y)/max(x,y)) +/- constant.
 
-object ATan2Status {
+private[rial] object ATan2Status {
   val width = 2
   val xIsPosIsLarger  = 0.U(width.W) // ysgn *   atan(|y/x|)      .. x>0, |x|>|y|
   val xIsNegIsLarger  = 1.U(width.W) // ysgn * (-atan(|y/x|)+pi)  .. x<0, |x|>|y|
@@ -38,7 +38,7 @@ object ATan2Status {
 //
 // we assume that, if x < 1.0, the 2 bit at the MSB side of the exponent is not
 // used (the MSB of the exBias is zero, like 0b0111_1111).
-object ATan2SpecialValue {
+private[rial] object ATan2SpecialValue {
   val width = 3
   val zNormal     = 0.U(width.W) // normal
   val zZero       = 1.U(width.W) // |x| >> |y|, x > 0 : atan2(y,x) = zero
@@ -48,7 +48,7 @@ object ATan2SpecialValue {
   val z3QuarterPi = 5.U(width.W) // |x| == |y|, x < 0 : atan2(y,x) = (+/-) 3pi/4
   val zNaN        = 7.U(width.W) // x or y is nan.
 }
-class ATan2Flags extends Bundle {
+private[rial] class ATan2Flags extends Bundle {
   val isSpecial = Bool()
   val special   = UInt(ATan2SpecialValue.width.W)
   val status    = UInt(ATan2Status.width.W)
@@ -66,7 +66,7 @@ class ATan2Flags extends Bundle {
 // Phase1 preprocess only checks the special cases.
 // Phase1 calculates |min(x,y)|/|max(x,y)|, so ReciprocalPreProcess is re-used.
 //
-class ATan2Phase1PreProcess(
+private[rial] class ATan2Phase1PreProcess(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig
@@ -149,13 +149,13 @@ class ATan2Phase1PreProcess(
 //                                               |_|
 // -------------------------------------------------------------------------
 
-class ATan2Phase1NonTableOutput(val spec: RealSpec) extends Bundle {
+private[rial] class ATan2Phase1NonTableOutput(val spec: RealSpec) extends Bundle {
   val zex       = Output(UInt(spec.exW.W)) // sign of min(x,y)/max(x,y)
   val maxXYMan0 = Output(Bool())           // max(x,y).man === 0.U
   val xySameMan = Output(Bool())
 }
 
-class ATan2Phase1OtherPath(
+private[rial] class ATan2Phase1OtherPath(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -211,7 +211,7 @@ class ATan2Phase1OtherPath(
 
 // Phase1: takes 1/max(x, y) and min(x, y), returns min(x, y) / max(x, y)
 
-class ATan2Phase1MultArgs(
+private[rial] class ATan2Phase1MultArgs(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -245,7 +245,7 @@ class ATan2Phase1MultArgs(
   io.rhs := enableIf(io.en, Cat(1.U(1.W), io.minxy.man))
 }
 
-class ATan2Phase1PostProcess(
+private[rial] class ATan2Phase1PostProcess(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,

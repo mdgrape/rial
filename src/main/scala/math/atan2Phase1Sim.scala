@@ -34,7 +34,7 @@ import rial.arith._
 // the LSB of the mantissa will be zeroed in phase2.
 //
 
-object ATan2Phase1Sim {
+private[rial] object ATan2Phase1Sim {
 
   // (z, ATan2Status, ATan2SpecialValue, ysgn)
   def atan2Phase1SimGeneric(
