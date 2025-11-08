@@ -305,7 +305,7 @@ private[rial] class FuncTableIntervalInt (iv : FuncTableIntervalDouble, val floa
   
 }
 
-trait FuncTable {
+private[rial] trait FuncTable {
   val nOrder : Int
   val sign : Seq[Int]
   val cbit : Seq[Int]
