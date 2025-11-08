@@ -52,10 +52,10 @@ private[rial] class FuncTableIntervalDouble (
   def coeff(n : Int) = { c(n) }
 
   def getMinMax(order : Int) = {
-    def deriv( x : Double ) = { 
+    def deriv( x : Double ) = {
       evalDerivNorm( x, order)
     }
-    def func( x : Double ) = { 
+    def func( x : Double ) = {
       evalNorm( x, nOrder-order)
     }
     if (nOrder==0) {
@@ -64,14 +64,14 @@ private[rial] class FuncTableIntervalDouble (
       ( abs(c.last), abs(c.last) )
     } else {
       estimateMinMax.getMinMaxDouble( func, deriv, -1.0, 1.0 )
-    } 
+    }
   }
 
   def getAbsMax(order : Int) = {
-    def deriv( x : Double ) = { 
+    def deriv( x : Double ) = {
       evalDerivNorm( x, order)
     }
-    def func( x : Double ) = { 
+    def func( x : Double ) = {
       evalNorm( x, nOrder-order)
     }
     if (nOrder==0) {
@@ -81,7 +81,7 @@ private[rial] class FuncTableIntervalDouble (
     } else {
       val minmax = estimateMinMax.getMinMaxDouble( func, deriv, -1.0, 1.0 )
       max(abs(minmax._1),abs(minmax._2))
-    } 
+    }
   }
 
   // Calculate relative scale to final value
@@ -243,7 +243,7 @@ private[rial] class FuncTableIntervalInt (iv : FuncTableIntervalDouble, val floa
     if ((d < -1.0)||(d>=1.0)) {
       println(f"ERROR (${this.getClass.getName}) : Range error: x=$x%f, xMin=${xMin}%f, w=${w}%f dx=$d%f")
       0.0
-    } else { 
+    } else {
       val dx : Long = scalb(d, dxBP).toLong
       val z = eval( dx, dxBP, checkOverflow ).toDouble
       if (floating) {
@@ -255,10 +255,10 @@ private[rial] class FuncTableIntervalInt (iv : FuncTableIntervalDouble, val floa
   }
 
   def checkWidth( dxBp : Int, order : Int) = {
-    def deriv( x : Long ) = { 
+    def deriv( x : Long ) = {
       evalDeriv( x, dxBp, order)
     }
-    def func( x : Long ) = { 
+    def func( x : Long ) = {
       eval( x, dxBp, true, nOrder-order)
     }
     var width  = cbit(nOrder-order)
@@ -302,7 +302,7 @@ private[rial] class FuncTableIntervalInt (iv : FuncTableIntervalDouble, val floa
   } else {
     (iv.c.map( x => round(scalb(x, bp)).toLong ).zip(cbit), 0)
   }
-  
+
 }
 
 private[rial] trait FuncTable {
@@ -393,7 +393,7 @@ private[rial] trait FuncTable {
       (z, w(i))
     } )
   }
-  
+
   //   signMode=0 : always include sign bit
   //   signMode=1 : 2's complement and no sign bit (if possible)
   //   signMode=2 : absolute and no sign bit (if possible)
@@ -623,7 +623,7 @@ mdg_table_integer_conversion_coulomb
     // c in [1,2)     -> Nprecision - Ntable + 1bit
     // c in [1/4,1/2) -> Nprecision - Ntable - 1bit
     // Here, we always include sign bit, so plus 1.
-    t->cbit[i] = ilogb(cabsmax*one) + 1 + 1;  
+    t->cbit[i] = ilogb(cabsmax*one) + 1 + 1;
 
     if(MDG_DEBUG_FLAG)fprintf(stderr, "Min: %le Max: %le Absmax : %le Nbit : %d sign: %d\n",
 	    cmin, cmax, cabsmax, t->cbit[i], t->sign[i]);
@@ -650,7 +650,7 @@ mdg_table_integer_conversion_float
   t->floating=1;
   //  int cbit_total=0;
   int n=t->norder+1;
-  // check whether sign of each coefficient changes 
+  // check whether sign of each coefficient changes
   int *sign = t->sign;
   for(int i=0;i<n;++i) sign[i]=2;
   for(int j=0;j<t->nentries;++j) {
@@ -682,13 +682,13 @@ mdg_table_integer_conversion_float
       }
     }
     if(MDG_DEBUG_FLAG)fprintf(stderr, "cmax %f at %d\n",cmax,imax);
-    
+
     // note : if c0==-2^k, it will fit in k+1 bits, but here k+2 bits will be used.
     int c0exp = ilogb(cmax); // 2^e <= c0 < 2^(e+1)
     // scale by 2^(nprec-1-e) (without sign case)
     int shift = nprec-c0exp;
     t->exp[j] = -shift;
-    
+
     for(int i=0;i<=t->norder;++i) {
       double cn = *cp;
       cn = scalbn(cn, shift);
@@ -814,9 +814,9 @@ mdg_table_plot(int n, int ylog, double (*f)(double), mdg_func_table *t)
   if (ylog) fprintf(fp,"set nologscale y\n");
   fprintf(fp,"plot file index 0 using 1:4 with steps lt rgb 'black' t 'Theoretical relative'\n");
   fprintf(fp,"pause -1\n");
-  
+
   fclose(fp);
-  
+
 }
 
  */

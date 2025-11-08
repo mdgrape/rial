@@ -175,6 +175,6 @@ private[rial] object GenGenericMain extends App {
       }
     }
     // Plot
-    
+
   }
 }

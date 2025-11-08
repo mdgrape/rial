@@ -1,7 +1,7 @@
 //
 //  nonbond_functions.c
-//  
-//  Library of nonbond functions 
+//
+//  Library of nonbond functions
 //  used in MDG4A chip
 //
 //  Copyright (c) 2016 by Makoto Taiji/RIKEN QBiC
@@ -130,7 +130,7 @@ private[rial] object NonbondFunctions {
   // Soft core (potential linear exploration from 1/r)
 
   def coulombCfSoftcorePotential (r0 : Double) (r: Double) = {
-    if (r>=r0) 1.0/r 
+    if (r>=r0) 1.0/r
     else 1.0/r0 - (r-r0)/(r0*r0)
   }
 
