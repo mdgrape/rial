@@ -60,8 +60,10 @@ private[rial] class DecomposeReal(val spec: RealSpec) extends Module {
  *  (fracW+1) * (manW+1) -> manW
  *
  * Some of the functions require multiplication at postprocess, like:
- * - sincos requires x * 1/pi
- * - exp    requires x * log2(e)
+ * <ul>
+ *   <li> `sincos` requires `x * 1/pi   ` </li>
+ *   <li> `exp   ` requires `x * log2(e)` </li>
+ * </ul>
  *
  * To reduce area of polynomial stage, those funcs share one multiplier.
  *
@@ -100,15 +102,17 @@ private[rial] class PreProcMultiplier(
 
 
 /** A module to multiply polynomial result and a coefficient.
- *  (fracW+1) * (manW+1) -> manW
  *
  * Some of the functions require multiplication at postprocess, like:
- * - sincos    approximates sin(x)/x      in polynomial, so z = polynomial * x
- * - acos      approximates acos(1-x^2)/x in polynomial, so z = polynomial * x
- * - atan2-1   approximates 1/max(x,y),   in polynomial, so z = polynomial * min(x,y)
- * - atan2-2   approximates atan(x)/x     in polynomial, so z = polynomial * x
- * - log(x~1)  approximates log(x)/(1-x)  in polynomial, so z = polynomial * (1-x)
- * - log(x!=1) approximates log2(x)       in polynomial, so z = polynomial * ln2
+ *
+ * <ul>
+ *   <li> `sin/cos  ` approximates `sin(x)/x     ` in polynomial, so `z = polynomial * x       ` </li>
+ *   <li> `acos     ` approximates `acos(1-x^2)/x` in polynomial, so `z = polynomial * x       ` </li>
+ *   <li> `atan2-1  ` approximates `1/max(x,y),  ` in polynomial, so `z = polynomial * min(x,y)` </li>
+ *   <li> `atan2-2  ` approximates `atan(x)/x    ` in polynomial, so `z = polynomial * x       ` </li>
+ *   <li> `log(x~1) ` approximates `log(x)/(1-x) ` in polynomial, so `z = polynomial * (1-x)   ` </li>
+ *   <li> `log(x!=1)` approximates `log2(x)      ` in polynomial, so `z = polynomial * ln2     ` </li>
+ * </ul>
  *
  * To reduce area of polynomial stage, those funcs share one multiplier.
  *
@@ -1083,19 +1087,23 @@ class MathFunctions(
   }
 }
 
+/** A specialization of MathFunctions for Float32 with all the available functions. */
 class MathFuncUnitFP32( stage : MathFuncPipelineConfig )
     extends MathFunctions(MathFuncConfig.all, RealSpec.Float32Spec, 2, 8, 3, stage) {
 }
 
+/** A driver of MathFuncUnitFP32. */
 object MathFuncUnitFP32_driver extends App {
   (new chisel3.stage.ChiselStage).execute(args,
     Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new MathFuncUnitFP32(MathFuncPipelineConfig.none)) ) )
 }
 
+/** A specialization of MathFunctions for BrainFloat16 with all the available functions. */
 class MathFuncUnitBF16( stage : MathFuncPipelineConfig )
     extends MathFunctions(MathFuncConfig.all, RealSpec.BFloat16Spec, 0, 7, 1, stage) {
 }
 
+/** A driver of MathFuncUnitBF16. */
 object MathFuncUnitBF16_driver extends App {
   (new chisel3.stage.ChiselStage).execute(args,
     Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new MathFuncUnitBF16(MathFuncPipelineConfig.none)) ) )

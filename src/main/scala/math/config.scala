@@ -10,10 +10,37 @@ import rial.util.PipelineStageConfig._
 import scala.math.exp
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 
-/* Enumerator to represent which function is used in [[rial.math.MathFunctions]]. */
+/** Enumerator to represent which function is used in [[rial.math.MathFunctions]]. */
 object FuncKind extends Enumeration {
   type FuncKind = Value
-  val Sqrt, InvSqrt, Reciprocal, Sin, Cos, ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Exp, Log, Sigmoid, SoftPlus, ScaleMixtureGaussian = Value
+
+  /** sqrt(x) */
+  val Sqrt        = Value
+  /** 1 / sqrt(x) */
+  val InvSqrt     = Value
+  /** 1 / x */
+  val Reciprocal  = Value
+  /** sin(x) */
+  val Sin         = Value
+  /** cos(x) */
+  val Cos         = Value
+  /** acos(x) is calculated in 2 phases. it represents the first phase of acos */
+  val ACosPhase1  = Value
+  /** acos(x) is calculated in 2 phases. it represents the second phase of acos */
+  val ACosPhase2  = Value
+  /** atan2(y, x) is calculated in 2 phases. it represents the second phase of atan2 */
+  val ATan2Phase1 = Value
+  /** atan2(y, x) is calculated in 2 phases. it represents the second phase of atan2 */
+  val ATan2Phase2 = Value
+  /** exp(x) */
+  val Exp         = Value
+  /** log(x). base e. */
+  val Log         = Value
+  /** 1 / (1+exp(-x)) */
+  val Sigmoid     = Value
+  /** log(1 + exp(x)) */
+  val SoftPlus    = Value
+  val ScaleMixtureGaussian = Value
 
   /** Returns enum name (e.g. FuncKind.Sqrt -> "Sqrt").
    */
@@ -81,9 +108,10 @@ object FuncKind extends Enumeration {
 }
 
 /** A Config class for [[rial.math.MathFunctions]] Module.
- *
+
  *  @constructor create a new MathFuncConfig.
  *  @param funcs the list of functions that should be supported.
+ *  @param ScaleMixtureGaussianSigma sigmaA and sigmaB for ScaleMixtureGaussian.
  */
 class MathFuncConfig(
   val funcs: Seq[FuncKind.FuncKind],
@@ -181,12 +209,22 @@ class MathFuncConfig(
    */
   val signalW = log2Up(2 + funcs.length)
 
-  /** Returns function select signal.
-   *  It starts from `1`. `0` means "calc nothing".
-   *  If the passed function is not supported, it returns invalid value (`max+1`).
+  /** Returns function select signal to be passed to [[rial.math.MathFunction]].
    *
-   *  @param fn An enumerator of the function
-   *  @return the signal that corresponds to the function
+   * {{{
+   * val mathfunc = Module(new MathFunction(...))
+   *
+   * when(doSqrt) {
+   *   mathfunc.io.sel := MathFuncConfig.signal(FuncKind.Sqrt)
+   * }.otherwise {
+   *   mathfunc.io.sel := MathFuncConfig.signalNone
+   * }
+   * }}}
+   *
+   * If the passed function is not supported, it returns invalid value (`max+1`).
+   *
+   * @param fn An enumerator of the function
+   * @return the signal that corresponds to the function
    */
   def signal(fn: FuncKind): UInt = {
     if (has(fn)) {
@@ -198,7 +236,7 @@ class MathFuncConfig(
 
   /** Returns function select signal that runs no function.
    *
-   *  @return the signal that corresponds to no function.
+   *  @return the signal that corresponds to "no function".
    */
   def signalNone(): UInt = {
     0.U(signalW.W)
@@ -214,13 +252,33 @@ class MathFuncConfig(
 object MathFuncConfig {
   import FuncKind._
 
-  /** Defines simple functions that does not require multipliers.
+  /** Defines simple functions that does not require multiplier in preprocess / postprocess.
+   *
+   * includes:
+   * <ul>
+   *   <li> sqrt       </li>
+   *   <li> invsqrt    </li>
+   *   <li> reciprocal </li>
+   * </ul>
    */
   val simple = new MathFuncConfig(Seq(
     Sqrt, InvSqrt, Reciprocal
   ))
 
   /** Defines standard math functions that are frequently used.
+   *
+   * includes:
+   * <ul>
+   *   <li> sqrt       </li>
+   *   <li> invsqrt    </li>
+   *   <li> reciprocal </li>
+   *   <li> sin        </li>
+   *   <li> cos        </li>
+   *   <li> acos       </li>
+   *   <li> atan2      </li>
+   *   <li> exp        </li>
+   *   <li> log        </li>
+   * </ul>
    */
   val standard = new MathFuncConfig(Seq(
     Sqrt, InvSqrt, Reciprocal, Sin, Cos,
@@ -229,6 +287,11 @@ object MathFuncConfig {
   ))
 
   /** Defines all the supported math functions including too task-specific ones.
+   *
+   * includes:
+   * <ul>
+   *   <li> everything. </li>
+   * </ul>
    */
   val all = new MathFuncConfig(Seq(
     Sqrt, InvSqrt, Reciprocal, Sin, Cos,
@@ -253,9 +316,6 @@ object MathFuncConfig {
  * //       |    | |    | |      non-table      | |     | |     |
  * //       '----'-'----'-'---------------------'-'-----'-'-----'
  * }}}
- *
- * TODO: consider setting nStage for each function. (like, sqrt does not need
- *       multiple cycles in its preprocess, but sincos may need.)
  *
  * @constructor create a new MathFuncConfig.
  * @param preStage     pipeline stages of preprocess.
