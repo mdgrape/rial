@@ -1,5 +1,5 @@
 //
-// Estimate Min / Max 
+// Estimate Min / Max
 //   Copyright (C) 2019 Makoto Taiji, RIKEN BDR
 //
 package rial.table
@@ -15,7 +15,7 @@ import java.lang.Math.scalb
 //       -> at xMin or xMax
 //     * deriv(xMin) and deriv(xMax) have the different sign
 //       -> at xMin or xMax or where deriv(x)==0
-object estimateMinMax {
+private[rial] object estimateMinMax {
   def solveL( f : Long => Long, xMin : Long, xMax : Long) : Long = {
     // via bisection,
     // assume f(xMin) * f(xMax) < 0
@@ -90,5 +90,5 @@ object estimateMinMax {
       (min0, max0)
     }
   }
-  
+
 }

@@ -16,7 +16,7 @@ import rial.table.NonbondFunctions._
 import scala.reflect.runtime.universe
 import scala.tools.reflect.ToolBox
 
-object GenGenericMain extends App {
+private[rial] object GenGenericMain extends App {
   val allargs = args.mkString(" ")
 
   def compile[A](code: String): (Map[String, Any]) => A = {

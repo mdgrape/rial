@@ -17,7 +17,7 @@ import scala.math._
 import java.lang.Math
 import org.apache.commons.math3.special.Erf._
 
-object NonbondFunctions {
+private[rial] object NonbondFunctions {
 
   ////////////////////////////////////////////////////////////////////////
   // Ewald normal

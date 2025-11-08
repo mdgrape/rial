@@ -1,9 +1,8 @@
 package rial.table
 
 import scala.math._
-//
-//
-object Chebyshev {
+
+private[rial] object Chebyshev {
 
   // Fit function by Chebyshev
   // size of c: norder+1
