@@ -36,7 +36,7 @@ import rial.util.ScalaUtil._
 // case x = 1.0:
 //   return 0.0
 //
-class HTBoxMullerLogPreProc(
+private[rial] class HTBoxMullerLogPreProc(
   val cfg: HTBoxMullerConfig
 ) extends Module {
 
@@ -67,7 +67,7 @@ class HTBoxMullerLogPreProc(
   }
 }
 
-object HTBoxMullerLog2TableCoeff{
+private[rial] object HTBoxMullerLog2TableCoeff{
 
   def genTable(
     polySpec: PolynomialSpec,
@@ -105,7 +105,7 @@ object HTBoxMullerLog2TableCoeff{
   }
 }
 
-object HTBoxMullerLnTableCoeff{
+private[rial] object HTBoxMullerLnTableCoeff{
 
   def genTable(
     polySpec: PolynomialSpec,
@@ -146,7 +146,7 @@ object HTBoxMullerLnTableCoeff{
   }
 }
 
-class HTBoxMullerLog2TableCoeff(
+private[rial] class HTBoxMullerLog2TableCoeff(
   val cfg: HTBoxMullerConfig
 ) extends Module {
 
@@ -224,7 +224,7 @@ class HTBoxMullerLog2TableCoeff(
   }
 }
 
-class HTBoxMullerLnTableCoeff(
+private[rial] class HTBoxMullerLnTableCoeff(
   val cfg: HTBoxMullerConfig
 ) extends Module {
 
@@ -309,7 +309,7 @@ class HTBoxMullerLnTableCoeff(
 //   otherwise, polynomial result is in (0.0, 1.0) and -ex-1 becomes the integer
 //   part. then we normalize -ex-1+zres and multiply it with 2ln2.
 //
-class HTBoxMullerLog2PostProcess(
+private[rial] class HTBoxMullerLog2PostProcess(
   val cfg: HTBoxMullerConfig
 ) extends Module {
 
@@ -386,7 +386,7 @@ class HTBoxMullerLog2PostProcess(
 //   polynomial calculates -ln(x)/(1-x) - 1 to fit it in [0.0, 1.0).
 //   so we need to add hidden bit to zres, round it, and multiply with 2(1-x).
 //
-class HTBoxMullerLnPostProcess(
+private[rial] class HTBoxMullerLnPostProcess(
   val cfg: HTBoxMullerConfig
 ) extends Module {
 
@@ -427,7 +427,7 @@ class HTBoxMullerLnPostProcess(
   io.z := ShiftRegister(z, nStage)
 }
 
-class HTBoxMullerLogMultiplier(
+private[rial] class HTBoxMullerLogMultiplier(
   val cfg: HTBoxMullerConfig,
 ) extends Module {
 
@@ -496,7 +496,7 @@ class HTBoxMullerLogMultiplier(
 //    +-> -ln(x)/(1-x)      ---mux--> mul -> -2ln(x)
 //    '-> 2(1-x)            -'
 //
-class HTBoxMullerLog(
+private[rial] class HTBoxMullerLog(
   val cfg: HTBoxMullerConfig
 ) extends Module {
 

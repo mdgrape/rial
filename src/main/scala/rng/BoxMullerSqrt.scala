@@ -18,7 +18,7 @@ import rial.math._
 
 // -------------------------------------------------------------------------
 
-class HTBoxMullerSqrt(
+private[rial] class HTBoxMullerSqrt(
   val cfg: HTBoxMullerConfig
 ) extends Module {
 

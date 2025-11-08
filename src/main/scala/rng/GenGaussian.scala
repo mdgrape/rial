@@ -41,7 +41,7 @@ import rial.util.ScalaUtil._
 // problem.
 //
 
-class BoxMullerSinCos2PiPreProcessOutput(val rndW: Int, val spec: RealSpec) extends Bundle {
+private[rial] class BoxMullerSinCos2PiPreProcessOutput(val rndW: Int, val spec: RealSpec) extends Bundle {
   val zone     = Output(Bool())
   val zsgn     = Output(UInt(1.W))
   val zzero    = Output(Bool())
@@ -49,7 +49,7 @@ class BoxMullerSinCos2PiPreProcessOutput(val rndW: Int, val spec: RealSpec) exte
   val xAligned = Output(UInt((rndW-2).W))
 }
 
-object BoxMullerSinCos2PiTableCoeff {
+private[rial] object BoxMullerSinCos2PiTableCoeff {
   def genTable(
     polySpec: PolynomialSpec
   ): FuncTableInt = {
@@ -77,7 +77,7 @@ object BoxMullerSinCos2PiTableCoeff {
   }
 }
 
-class BoxMullerSinCos2PiPreProc(
+private[rial] class BoxMullerSinCos2PiPreProc(
     rndW: Int,      // width of input fixedpoint
     spec: RealSpec, // output width
     polySpec: PolynomialSpec,
@@ -190,7 +190,7 @@ class BoxMullerSinCos2PiPreProc(
   io.out.xAligned := ShiftRegister(xAligned, nStage)
 }
 
-class BoxMullerSinCos2PiPostProc(
+private[rial] class BoxMullerSinCos2PiPostProc(
     rndW: Int,      // width of input fixedpoint
     spec: RealSpec, // output width
     polySpec: PolynomialSpec,
@@ -247,7 +247,7 @@ class BoxMullerSinCos2PiPostProc(
 // x = [0, 1).
 //
 
-object BoxMullerLogTableCoeff {
+private[rial] object BoxMullerLogTableCoeff {
 
   // for x in [0.5, 1). 1-x will be in (0, 0.5] and -2log2(1-x) is in [2, inf).
   // we can gain enough precision.
@@ -317,7 +317,7 @@ object BoxMullerLogTableCoeff {
   }
 }
 
-class BoxMullerLogPreProcessOutput(val rndW: Int, val spec: RealSpec) extends Bundle {
+private[rial] class BoxMullerLogPreProcessOutput(val rndW: Int, val spec: RealSpec) extends Bundle {
   val zzero  = Output(Bool())
   val useLn  = Output(Bool()) // true means ln table is used (x < 0.5).
   val x      = Output(UInt((rndW-1).W)) // if x < 0.5, ln(1-x)/x is approximated and later we multiply x with this.
@@ -329,7 +329,7 @@ class BoxMullerLogPreProcessOutput(val rndW: Int, val spec: RealSpec) extends Bu
 // let y = 1-x. y = 2^yex * 1.yman.
 // table calculates log2(1.yman).
 //
-class BoxMullerLogPreProc(
+private[rial] class BoxMullerLogPreProc(
   rndW: Int,      // width of input fixedpoint
   spec: RealSpec, // output width
   polySpec: PolynomialSpec,
@@ -474,7 +474,7 @@ class BoxMullerLogPreProc(
 //
 // (|yex| - log2(1.yman)) * log_e(2) = (xShift + 1 - log2(1.yman)) * log_e(2).
 //
-class BoxMullerLogPostProc(
+private[rial] class BoxMullerLogPostProc(
     rndW: Int,      // width of input fixedpoint
     spec: RealSpec, // output width
     polySpec: PolynomialSpec,
@@ -526,11 +526,11 @@ class BoxMullerLogPostProc(
 // calc sqrt: FP -> FP. almost the same as math/sqrt.
 //
 
-class BoxMullerSqrtPreProcessOutput(val rndW: Int, val spec: RealSpec) extends Bundle {
+private[rial] class BoxMullerSqrtPreProcessOutput(val rndW: Int, val spec: RealSpec) extends Bundle {
   val zex = Output(UInt(spec.exW.W)) // if zex == 0, then the result is zero.
 }
 
-class BoxMullerSqrtPreProc(
+private[rial] class BoxMullerSqrtPreProc(
     rndW: Int,      // width of input fixedpoint
     spec: RealSpec, // output width
     polySpec: PolynomialSpec,
@@ -596,7 +596,7 @@ class BoxMullerSqrtPreProc(
   }
 }
 
-class BoxMullerSqrtPostProc(
+private[rial] class BoxMullerSqrtPostProc(
     rndW: Int,      // width of input fixedpoint
     spec: RealSpec, // output width
     polySpec: PolynomialSpec,
@@ -672,7 +672,7 @@ object BoxMullerPipelineConfig {
   }
 }
 
-object BoxMullerSinCos2PiPostProcMulArgs {
+private[rial] object BoxMullerSinCos2PiPostProcMulArgs {
   def lhsW(rndW: Int, spec: RealSpec, polySpec: PolynomialSpec): Int = {
     rndW-2
   }
@@ -680,7 +680,7 @@ object BoxMullerSinCos2PiPostProcMulArgs {
     polySpec.fracW
   }
 }
-class BoxMullerSinCos2PiPostProcMulArgs(
+private[rial] class BoxMullerSinCos2PiPostProcMulArgs(
   rndW: Int,
   spec: RealSpec,
   polySpec: PolynomialSpec,
@@ -716,7 +716,7 @@ class BoxMullerSinCos2PiPostProcMulArgs(
   io.rhs := pad(zres    , rhsOutW)
 }
 
-object BoxMullerLogPostProcMulArgs {
+private[rial] object BoxMullerLogPostProcMulArgs {
   def lhsW(rndW: Int, spec: RealSpec, polySpec: PolynomialSpec): Int = {
     val xShiftW  = log2Up(rndW - 2)
     val xexLog2W = xShiftW + 1
@@ -729,7 +729,7 @@ object BoxMullerLogPostProcMulArgs {
     Seq(spec.manW+1, polySpec.fracW+1).max
   }
 }
-class BoxMullerLogPostProcMulArgs(
+private[rial] class BoxMullerLogPostProcMulArgs(
   rndW: Int,
   spec: RealSpec,
   polySpec: PolynomialSpec,
@@ -833,7 +833,7 @@ class BoxMullerLogPostProcMulArgs(
   io.zex := zex0
 }
 
-class BoxMullerPostProcMultiplier(
+private[rial] class BoxMullerPostProcMultiplier(
   rndW: Int,
   spec: RealSpec,
   polySpec: PolynomialSpec,

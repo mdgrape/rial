@@ -14,7 +14,7 @@ import rial.util.RialChiselUtil._
 import rial.util.ScalaUtil._
 
 // sin/cos(2piy)
-class HTBoxMullerSinCos2PiPreProc(
+private[rial] class HTBoxMullerSinCos2PiPreProc(
   val cfg: HTBoxMullerConfig,
   val isSin: Boolean
 ) extends Module {
@@ -90,7 +90,7 @@ class HTBoxMullerSinCos2PiPreProc(
   }
 }
 
-object HTBoxMullerSinCos2PiTableCoeff {
+private[rial] object HTBoxMullerSinCos2PiTableCoeff {
   def genTable(
     polySpec: PolynomialSpec
   ): FuncTableInt = {
@@ -119,7 +119,7 @@ object HTBoxMullerSinCos2PiTableCoeff {
   }
 }
 
-class HTBoxMullerSinCos2PiTableCoeff(
+private[rial] class HTBoxMullerSinCos2PiTableCoeff(
   val cfg: HTBoxMullerConfig
 ) extends Module {
 
@@ -190,7 +190,7 @@ class HTBoxMullerSinCos2PiTableCoeff(
 }
 
 
-class HTBoxMullerSinCos2PiOtherPath(
+private[rial] class HTBoxMullerSinCos2PiOtherPath(
   val cfg: HTBoxMullerConfig,
   val isSin: Boolean
 ) extends Module {
@@ -314,7 +314,7 @@ class HTBoxMullerSinCos2PiOtherPath(
   }
 }
 
-class HTBoxMullerSinCos2PiPostProcess(
+private[rial] class HTBoxMullerSinCos2PiPostProcess(
   val cfg: HTBoxMullerConfig
 ) extends Module {
 
@@ -358,7 +358,7 @@ class HTBoxMullerSinCos2PiPostProcess(
   io.z := ShiftRegister(z, nStage)
 }
 
-class HTBoxMullerSinCos2Pi(
+private[rial] class HTBoxMullerSinCos2Pi(
   val cfg: HTBoxMullerConfig,
   val isSin: Boolean
 ) extends Module {

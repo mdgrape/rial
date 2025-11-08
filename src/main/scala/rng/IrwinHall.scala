@@ -91,7 +91,7 @@ class IrwinHall(
   io.output.rnd   := fpconv.io.output.rnd
 }
 
-class IrwinHallTreeSumNode(n: Int, w: Int) extends Module {
+private[rial] class IrwinHallTreeSumNode(n: Int, w: Int) extends Module {
 
   val m = (n+1) / 2
 
@@ -127,7 +127,7 @@ class IrwinHallTreeSumNode(n: Int, w: Int) extends Module {
   io.output.rnds  := zReg
 }
 
-class IrwinHallFPConverter(
+private[rial] class IrwinHallFPConverter(
   spec: RealSpec, rndW: Int
 ) extends Module {
 
