@@ -3,7 +3,7 @@ package rial.util
 import scala.language.implicitConversions
 
 /** Enumerator for pipeline stage strategy. */
-sealed trait PipelineStageStrategy 
+sealed trait PipelineStageStrategy
 
 /** List of available pipeline stage strategies. */
 object PipelineStageStrategy {
