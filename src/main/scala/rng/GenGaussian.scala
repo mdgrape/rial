@@ -647,11 +647,16 @@ private[rial] class BoxMullerSqrtPostProc(
 // |____/ \___/_/\_\    |_|  |_|\__,_|_|_|\___|_|
 //
 
+/** pipeline stage config for Box-Muller module.
+ *
+ * basically the same as [[rial.math.MathFuncPipelineConfig]].
+ *
+ */
 class BoxMullerPipelineConfig(
   val preStage:    PipelineStageConfig, // clock cycles in preprocess
   val calcStage:   PipelineStageConfig, // clock cycles in table/polynomial and non-table path
   val postStage:   PipelineStageConfig, // clock cycles in postprocess
-  ) {
+) {
   def total = {
     preStage.total +
     calcStage.total +
@@ -878,13 +883,29 @@ private[rial] class BoxMullerPostProcMultiplier(
   io.exInc := ShiftRegister(zexInc, nStage)
 }
 
+/** Generates geussian random number using Box-Muller method.
+ *
+ * It reuses Sin/Cos polynomial module in two pathes, so throughput is 1/2.
+ *
+ * {{{
+ * class BoxMuller(...) extends Module {
+ *   val io = IO(new Bundle {
+ *     val consume = Output(Bool()) // it consumes x.
+ *     val valid   = Output(Bool()) // output z is valid.
+ *     val x = Input(UInt(rndW.W))
+ *     val z = Output(UInt(spec.W.W))
+ *   })
+ * }
+ * }}}
+ *
+ */
 class BoxMuller(
-    rndW: Int,      // width of input fixedpoint
-    spec: RealSpec, // output width
-    polySpec: PolynomialSpec,
-    roundSpec: RoundSpec,
-    stage: BoxMullerPipelineConfig = BoxMullerPipelineConfig.none
-  ) extends Module {
+  rndW: Int,      // width of input fixedpoint
+  spec: RealSpec, // output width
+  polySpec: PolynomialSpec,
+  roundSpec: RoundSpec,
+  stage: BoxMullerPipelineConfig = BoxMullerPipelineConfig.none
+) extends Module {
 
   val order  = polySpec.order
 
@@ -898,8 +919,8 @@ class BoxMuller(
   val manW   = spec.manW
   val exBias = spec.exBias
 
+  // TODO: halt when random number are not needed
   val io = IO(new Bundle {
-    // TODO: halt when random number are not needed
     val consume = Output(Bool()) // it consumes the current random number input
     val valid   = Output(Bool()) // the z is valid gaussian random number output
 

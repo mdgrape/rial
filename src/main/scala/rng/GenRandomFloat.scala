@@ -11,12 +11,30 @@ import chisel3.util._
 import rial.arith._
 import rial.util._
 
-// generate Float in [1, 2).
+/** generate Float in [1, 2).
+ *
+ * It sets random bits into the mantissa part.
+ *
+ * {{{
+ * class GenRandomFloat12(...) extends Module {
+ *   val io = IO(new Bundle {
+ *     val rnds = Input(Vec(nRndInt, UInt(rndW.W)))
+ *     val z    = Output(UInt(spec.W.W))
+ *   })
+ *   // ...
+ * }
+ * }}}
+ *
+ * @constructor    create a chisel Module.
+ * @param rndW     input random number bit width.
+ * @param spec     output floating-point spec.
+ * @param stage    pipeline stages.
+ */
 class GenRandomFloat12(
   rndW: Int, // random number width
   spec: RealSpec,
   stage: PipelineStageConfig
-  ) extends Module {
+) extends Module {
 
   def getParam = { (rndW, spec, stage) }
 
@@ -43,16 +61,36 @@ class GenRandomFloat12(
   io.z := ShiftRegister(z, nStage)
 }
 
-// generate Float in [0, 1) based on a uniform distribution of integer.
-//
-// Since bits in a random number vector is a multiple of the width of a random
-// integer, the precision of resulting FP increases a bit compared to the case
-// when we simply do `GenRandomFloat12 - 1.0`.
+/** generate Float in [0, 1) based on a uniform distribution of integer.
+ *
+ * It requires input random number bit width larger than mantissa width.
+ * After determining mantissa, we will have `rndW-manW` bits. This module
+ * uses these bits to determine the exponent.
+ *
+ * For example, let's say you have 32bit random number and want to generate
+ * float32, you can use 9 bits to determine exponent.
+ * The resluting FP covers a bit finer range compared to the case of `[1,2) - 1`.
+ *
+ * {{{
+ * class GenRandomFloat01(...) {
+ *   val io = IO(new Bundle {
+ *     val rnds = Input(Vec(nRndInt, UInt(rndW.W)))
+ *     val z    = Output(UInt(spec.W.W))
+ *   })
+ *   // ...
+ * }
+ * }}}
+ *
+ * @constructor    create a chisel Module.
+ * @param rndW     input random number bit width.
+ * @param spec     output floating-point spec.
+ * @param stage    pipeline stages.
+ */
 class GenRandomFloat01(
   rndW: Int, // random number width
   spec: RealSpec,
   stage: PipelineStageConfig
-  ) extends Module {
+) extends Module {
 
   def getParam = { (rndW, spec, stage) }
 
@@ -89,13 +127,31 @@ class GenRandomFloat01(
   io.z := ShiftRegister(z, nStage)
 }
 
-// generate Float in [0, 1).
-// This generates all the possible normalized numbers in [0, 1).
+/** generate Float in [0, 1).
+ *
+ * This generates all the possible normalized numbers in [0, 1).
+ * To do that, it requires a lot more random bits.
+ *
+ * {{{
+ * class GenRandomFloat01Full(...) {
+ *   val io = IO(new Bundle {
+ *     val rnds = Input(Vec(nRndInt, UInt(rndW.W)))
+ *     val z    = Output(UInt(spec.W.W))
+ *   })
+ *   // ...
+ * }
+ * }}}
+ *
+ * @constructor    create a chisel Module.
+ * @param rndW     input random number bit width.
+ * @param spec     output floating-point spec.
+ * @param stage    pipeline stages.
+ */
 class GenRandomFloat01Full(
   rndW: Int, // random number width
   spec: RealSpec,
   stage: PipelineStageConfig
-  ) extends Module {
+) extends Module {
 
   def getParam = { (rndW, spec, stage) }
 
@@ -144,12 +200,33 @@ class GenRandomFloat01Full(
   io.z := ShiftRegister(z, nStage)
 }
 
-// generate Float in [0, 1).
-// This generates all the possible normalized numbers in [0, 1).
+/** generate Float in [0, 1).
+ *
+ * This generates all the possible normalized numbers in [0, 1).
+ * To do that, it requires a lot more random bits.
+ *
+ * It does not require multiple random numbers at a time but takes multiple
+ * cycles to generate one floating-point number.
+ *
+ * {{{
+ * class GenRandomFloat01FullPipe(...) {
+ *   val io = IO(new Bundle {
+ *     val rnd   = Input(UInt(rndW.W))
+ *     val valid = Output(Bool())
+ *     val z     = Output(UInt(spec.W.W))
+ *   })
+ *   // ...
+ * }
+ * }}}
+ *
+ * @constructor    create a chisel Module.
+ * @param rndW     input random number bit width.
+ * @param spec     output floating-point spec.
+ */
 class GenRandomFloat01FullPipe(
   rndW: Int, // random number width
   spec: RealSpec,
-  ) extends Module {
+) extends Module {
 
   def getParam = { (rndW, spec) }
 

@@ -8,9 +8,30 @@ import scala.language.reflectiveCalls
 import chisel3._
 import chisel3.util._
 
-//
-// take random number from Threefry using ready/valid interface
-//
+/** Implementation of another counter-based RNG: Squares
+ *
+ * This implementation is based on  B. Widynski (2022)
+ *
+ * It keeps key and count inside the module and sequentially generates random
+ * number.
+ *
+ * {{{
+ * class Squares32Generator(...) extends Moudle {
+ *   val io = IO(new Bundle {
+ *     val initialized = Output(Bool())
+ *     val init = new Bundle {
+ *       val en    = Input(Bool())
+ *       val key   = Input(UInt(64.W))
+ *       val count = Input(UInt(64.W))
+ *     }
+ *     val rand = Decoupled(UInt(32.W))
+ *   })
+ *   // ...
+ * }
+ * }}}
+ *
+ * @constructor create a chisel Module. No parameter.
+ */
 class Squares32Generator() extends Module {
 
   val io = IO(new Bundle {
@@ -58,7 +79,33 @@ class Squares32Generator() extends Module {
   outQ.io.enq.bits  := rng.io.output.rand
 }
 
-
+/** Fully pipelined implementation of Squares32, no loop
+ *
+ * It generates random number from input key and count.
+ * It does not have internal state.
+ *
+ * {{{
+ * class Squares32(...) extends Moudle {
+ *   val io = IO(new Bundle {
+ *     val en = Input(Bool())
+ *                                      
+ *     val input = new Bundle {
+ *       val valid = Input (Bool())
+ *       val key   = Input (UInt(64.W))
+ *       val count = Input (UInt(64.W))
+ *     }
+ *                                      
+ *     val output = new Bundle {
+ *       val valid = Output(Bool())
+ *       val rand  = Output(UInt(32.W))
+ *     }
+ *   })
+ *   // ...
+ * }
+ * }}}
+ *
+ * @constructor create a chisel Module.
+ */
 class Squares32 extends Module {
 
   def nStage = 4
@@ -118,7 +165,7 @@ class Squares32 extends Module {
   io.output.rand  := stage3.io.output.z(31, 0)
 }
 
-class Squares32RNGStage extends Module {
+private[rial] class Squares32RNGStage extends Module {
 
   val io = IO(new Bundle {
     val en = Input(Bool())

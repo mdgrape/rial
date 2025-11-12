@@ -19,19 +19,25 @@ import rial.util.ScalaUtil._
 //   io.in.y -> [i2f] -> [sin] -----------> [mul] -> io.out.z2
 //                    -> [cos] ----------->
 //
+
+/** Configuration of High-Throughput Box-Muller random number generator.
+ *
+ * basically the same as [[rial.math.MathFuncPipelineConfig]]
+ *
+ */
 case class HTBoxMullerConfig(
-  val rndW:          Int,                 // input int width
-  val realSpec:      RealSpec,            // output real width
-  val polySpec:      PolynomialSpec,      // polynomial eval spec
-  val int2floatStge: PipelineStageConfig, // Float01OpenCloseFromOneUInt stages
-  val polyPreStage:  PipelineStageConfig, // polynomial eval preproc stages
-  val polyCalcStage: PipelineStageConfig, // polynomial eval func calc stages
-  val polyPostStage: PipelineStageConfig, // polynomial eval postproc stages
-  val i2fPolyGap:    Boolean,             // register between i2f/polynomial
-  val preCalcGap:    Boolean,             // register between preproc/calc
-  val tableCalcGap:  Boolean,             // register between table/calc
-  val calcPostGap:   Boolean,             // register between calc/postproc
-  val mulStage:      PipelineStageConfig, // multiplier config
+  val rndW:          Int,                 /** input int width                    */
+  val realSpec:      RealSpec,            /** output real width                  */
+  val polySpec:      PolynomialSpec,      /** polynomial eval spec               */
+  val int2floatStge: PipelineStageConfig, /** Float01OpenCloseFromOneUInt stages */
+  val polyPreStage:  PipelineStageConfig, /** polynomial eval preproc stages     */
+  val polyCalcStage: PipelineStageConfig, /** polynomial eval func calc stages   */
+  val polyPostStage: PipelineStageConfig, /** polynomial eval postproc stages    */
+  val i2fPolyGap:    Boolean,             /** register between i2f/polynomial    */
+  val preCalcGap:    Boolean,             /** register between preproc/calc      */
+  val tableCalcGap:  Boolean,             /** register between table/calc        */
+  val calcPostGap:   Boolean,             /** register between calc/postproc     */
+  val mulStage:      PipelineStageConfig, /** multiplier config                  */
 ) {
   val i2fGap = if(i2fPolyGap)  {1} else {0}
   val pcGap = if(preCalcGap)   {1} else {0}
@@ -45,6 +51,35 @@ case class HTBoxMullerConfig(
 
 // ----------------------------------------------------------------------------
 
+/** High-Throughput Box-Muller random number generator.
+ *
+ * It uses polynomial approximations of math functions to calculate Box-Muller
+ * algorithm. It is fully pipelined without any stall but take much more
+ * resources compared to other Modules.
+ *
+ * {{{
+ * class HTBoxMuller(...) extends Module {
+ *   val io = IO(new Bundle {
+ *     val in = new Bundle {
+ *       val ready = Output(Bool())
+ *       val valid = Input(Bool())
+ *       val x     = Input(UInt(cfg.rndW.W))
+ *       val y     = Input(UInt(cfg.rndW.W))
+ *     }
+ *     val out = new Bundle {
+ *       val ready = Input(Bool())
+ *       val valid = Output(Bool())
+ *       val z1    = Output(UInt(cfg.realSpec.W.W))
+ *       val z2    = Output(UInt(cfg.realSpec.W.W))
+ *     }
+ *   })
+ * }
+ * }}}
+ *
+ * @constructor    create a chisel Module.
+ * @param cfg      HTBoxMullerConfig.
+ *
+ */
 class HTBoxMuller(
   val cfg: HTBoxMullerConfig
 ) extends Module {

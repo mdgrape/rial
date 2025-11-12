@@ -10,9 +10,33 @@ import scala.language.reflectiveCalls
 import chisel3._
 import chisel3.util._
 
-//
-// take random number from Threefry using ready/valid interface
-//
+/** 128 bit (4x 32bit) Threeefry RNG.
+ *
+ * This implementation is based on J. K. Salomon et al (2011).
+ *
+ * It keeps key and count inside the module and sequentially generates random
+ * number.
+ *
+ * {{{
+ * class Threefry4x32Generator(...) extends Moudle {
+ *   val io = IO(new Bundle {
+ *     val initialized = Output(Bool())
+ *     val init = new Bundle {
+ *       val en    = Input(Bool())              
+ *       val key   = Input(Vec(4, UInt(32.W)))
+ *       val count = Input(Vec(4, UInt(32.W)))
+ *     }
+ *     val rand = Decoupled(Vec(4, UInt(32.W)))
+ *   })
+ *   // ...
+ * }
+ * }}}
+ *
+ * @constructor    create a chisel Module.
+ * @param r        Number of rotations (20, by default)
+ * @param rotStage Insert pipeline stage every rotStage rotation
+ *
+ */
 class Threefry4x32Generator(
   r: Int = 20,
   rotStage: Int = 0,
@@ -81,9 +105,33 @@ class Threefry4x32Generator(
   //   rng.io.output.rand(0), rng.io.output.rand(1), rng.io.output.rand(2), rng.io.output.rand(3))
 }
 
-// Fully pipelined implementation, no loop
-// r : Number of rotations
-// rotStage : Insert pipeline stage every rotStage rotation
+/** Fully pipelined implementation of threefry, no loop
+ *
+ * It generates random number from input key and count.
+ * It does not have internal state.
+ * {{{
+ * class Threefry4_32(...) extends Moudle {
+ *   val io = IO(new Bundle {
+ *     val en    = Input(Bool())
+ *     val input = new Bundle {
+ *       val valid = Input(Bool())
+ *       val key   = Input(Vec(4, UInt(32.W)))
+ *       val count = Input(Vec(4, UInt(32.W)))
+ *     }
+ *     val output = new Bundle {
+ *       val valid = Output(Bool())
+ *       val rand  = Output(Vec(4, UInt(32.W)))
+ *     }
+ *   })
+ *   // ...
+ * }
+ * }}}
+ *
+ * @constructor    create a chisel Module.
+ * @param r        Number of rotations (20, by default)
+ * @param rotStage Insert pipeline stage every rotStage rotation
+ *
+ */
 class Threefry4_32(
   r: Int = 20,
   rotStage: Int = 0
@@ -199,6 +247,10 @@ class Threefry4_32(
   io.output.rand  := x(r)
 }
 
+/** Threefry4_32 generator.
+ *
+ * @see [[rial.rng.Threefry4_32]]
+ */
 object Threefry4_32Driver extends App {
   (new chisel3.stage.ChiselStage).execute(args,
       Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new Threefry4_32(20,2)))

@@ -7,30 +7,45 @@ import chisel3.util._
 import rial.arith._
 import rial.util._
 
-// generate Float in [0, 1] using one uint by Downey's method.
-//
-// In case of UInt(32.W) -> BFloat(1, 8, 7):
-// -> man: 7 bits, downey: 1 bit, ex = 24 bits
-//
-// In case of UInt(32.W) -> Float32(1, 8, 23):
-// -> man: 23 bits, downey: 1 bit, ex = 8 bits
-//
-// In case of UInt(64.W) -> Float32(1, 8, 23):
-// -> man: 23 bits, downey: 1 bit, ex = 40 bits
-//
-// In case of UInt(128.W) -> Float32(1, 8, 23):
-// -> man: 23 bits, downey: 1 bit, ex = 104 bits
-//
-// rndEx = 1xxx..x -> zex = exBias-1 (0.5~1.0) (+ rndDowney (0.5 or 1.0))
-//         01xx..x -> zex = exBias-2 (1/4~1/2)
-//         0000..1 -> zex = exBias-rndExW
-//         0000..0 -> zex = something like a subnormal number.
-//
+/** generate Float in [0, 1] using one uint by Downey's method.
+ *
+ * {{{
+ * class GenRandomFloat01Close(...) extends Module {
+ *   val io = IO(new Bundle {
+ *     val rnd = Input(UInt(rndW.W))
+ *     val z   = Output(UInt(spec.W.W))
+ *   })
+ *   // ...
+ * }
+ * }}}
+ *
+ * @constructor    create a chisel Module.
+ * @param rndW     input random number bit width.
+ * @param spec     output floating-point spec.
+ * @param stage    pipeline stages.
+ */
 class GenRandomFloat01Close(
   rndW: Int, // random number width
   spec: RealSpec,
   stage: PipelineStageConfig
 ) extends Module {
+
+  // In case of UInt(32.W) -> BFloat(1, 8, 7):
+  // -> man: 7 bits, downey: 1 bit, ex = 24 bits
+  // 
+  // In case of UInt(32.W) -> Float32(1, 8, 23):
+  // -> man: 23 bits, downey: 1 bit, ex = 8 bits
+  // 
+  // In case of UInt(64.W) -> Float32(1, 8, 23):
+  // -> man: 23 bits, downey: 1 bit, ex = 40 bits
+  // 
+  // In case of UInt(128.W) -> Float32(1, 8, 23):
+  // -> man: 23 bits, downey: 1 bit, ex = 104 bits
+  // 
+  // rndEx = 1xxx..x -> zex = exBias-1 (0.5~1.0) (+ rndDowney (0.5 or 1.0))
+  //         01xx..x -> zex = exBias-2 (1/4~1/2)
+  //         0000..1 -> zex = exBias-rndExW
+  //         0000..0 -> zex = something like a subnormal number.
 
   val nStage = stage.total
 

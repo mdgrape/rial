@@ -8,6 +8,22 @@ import scala.language.reflectiveCalls
 import chisel3._
 import chisel3.util._
 
+/** generate approx-gaussian random number based on Irwin-Hall distribution.
+ *
+ * It has Queue inside it to make it easy to use.
+ * {{{
+ * class IrwinHallGenerator(...) extends Moudle {
+ *   val io = IO(new Bundle {
+ *     val input  = Flipped(Decoupled(Input(Vec(12, UInt(rndW.W)))))
+ *     val output = Decoupled(UInt(spec.W.W))
+ *   })
+ *   // ...
+ * }
+ * }}}
+ * @constructor create a chisel Module.
+ * @param spec  floating-point spec to generate.
+ * @param rndW  input random number bit width. It requires 12x rng at a time.
+ */
 class IrwinHallGenerator(
   val spec: RealSpec = RealSpec.Float32Spec,
   val rndW: Int = 32
@@ -20,10 +36,10 @@ class IrwinHallGenerator(
 
   val rng = Module(new IrwinHall(spec, rndW))
 
-  val inQ = Module(new Queue(Vec(12, UInt(rndW.W)), 1, pipe=true, flow=false))
+  val inQ = Module(new Queue(Vec(12, UInt(rndW.W)), 2))
   inQ.io.enq <> io.input
 
-  val outQ = Module(new Queue(UInt(spec.W.W), 1, pipe=true, flow=false))
+  val outQ = Module(new Queue(UInt(spec.W.W), 2))
   io.output <> outQ.io.deq
 
   // if outQ is ready, then we can keep output from rng. push rng pipe forward.
@@ -38,6 +54,31 @@ class IrwinHallGenerator(
   outQ.io.enq.bits  := rng.io.output.rnd
 }
 
+/** generate approx-gaussian random number based on Irwin-Hall distribution.
+ *
+ * It generates a random floating-point value in a constant latency.
+ *
+ * {{{
+ * class IrwinHall(...) extends Moudle {
+ *   val io = IO(new Bundle {
+ *     val en    = Input(Bool())
+ *     val input = new Bundle {
+ *       val valid = Input(Bool())
+ *       val rnds  = Input(Vec(12, UInt(rndW.W)))
+ *     }
+ *     val output = new Bundle {
+ *       val valid = Output(Bool())
+ *       val rnd   = Output(UInt(spec.W.W))
+ *     }
+ *   })
+ *   // ...
+ * }
+ * }}}
+ *
+ * @constructor create a chisel Module.
+ * @param spec  floating-point spec to generate.
+ * @param rndW  input random number bit width. It requires 12x rng at a time.
+ */
 class IrwinHall(
   spec: RealSpec = RealSpec.Float32Spec,
   rndW: Int = 32
