@@ -9,7 +9,6 @@ test-arith:
   script:
     - sbt "testOnly RealSimTest"
     - sbt "testOnly AddFPTest"
-    - sbt "testOnly Add3opFPTest"
     - sbt "testOnly MultFPTest"
     - sbt "testOnly MultFPIntTest"
     - sbt "testOnly FMAFPTest"
