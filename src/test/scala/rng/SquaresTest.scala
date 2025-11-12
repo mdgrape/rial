@@ -1,3 +1,5 @@
+package rial.tests
+
 import org.scalatest._
 
 import scala.collection.mutable.Queue

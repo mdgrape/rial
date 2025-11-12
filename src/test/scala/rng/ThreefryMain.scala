@@ -1,6 +1,6 @@
 // See README.md for license details.
 //
-// package rial.rng
+// package rial.tests
 //
 // import chisel3._
 // import scopt.OptionParser
