@@ -24,13 +24,29 @@ object FuncKind extends Enumeration {
   val Sin         = Value
   /** cos(x) */
   val Cos         = Value
-  /** acos(x) is calculated in 2 phases. it represents the first phase of acos */
+  /** the 1st phase of acos(x).
+   *
+   * `acos` is calculated in 2 phases.
+   * the second phase takes the result of the first phase.
+   */
   val ACosPhase1  = Value
-  /** acos(x) is calculated in 2 phases. it represents the second phase of acos */
+  /** the 2nd phase of acos(x).
+   *
+   * `acos` is calculated in 2 phases.
+   * the second phase takes the result of the first phase.
+   */
   val ACosPhase2  = Value
-  /** atan2(y, x) is calculated in 2 phases. it represents the second phase of atan2 */
+  /** the 1st phase of atan2(y,x).
+   *
+   * `atan2` is calculated in 2 phases.
+   * the second phase takes the result of the first phase.
+   */
   val ATan2Phase1 = Value
-  /** atan2(y, x) is calculated in 2 phases. it represents the second phase of atan2 */
+  /** the 2nd phase of atan2(y,x).
+   *
+   * `atan2` is calculated in 2 phases.
+   * the second phase takes the result of the first phase.
+   */
   val ATan2Phase2 = Value
   /** exp(x) */
   val Exp         = Value
@@ -101,6 +117,12 @@ object FuncKind extends Enumeration {
   }
 
   /** Returns list of funcs that are required by specified functions.
+   *
+   * Some functions requires others. For example, sin and cos shares polynomial
+   * table, so Sin requires Cos and Cos requires Sin. Also, the first phase of
+   * acos and atan2 requires other math functions, so they requires others.
+   * this function lists all the functions required to support the given list
+   * of functions.
    */
   def normalize(funcs: Seq[FuncKind]): Seq[FuncKind] = {
     funcs.map(f => requiredFuncs(f)).reduce(_++_).distinct.sorted
