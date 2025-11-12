@@ -21,6 +21,8 @@ import rial.util.PipelineStageConfig._
  *
  * All the input/output floating-point spec are configurable through [[rial.arith.RealSpec]].
  *
+ * The latency of this module can be configured via [[rial.util.PipelineStageConfig]].
+ *
  * {{{
  * class MultFPGeneric(...) extends Module {
  *   val io = IO(new Bundle{
