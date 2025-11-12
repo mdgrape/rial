@@ -209,7 +209,7 @@ class MathFuncConfig(
    */
   val signalW = log2Up(2 + funcs.length)
 
-  /** Returns function select signal to be passed to [[rial.math.MathFunction]].
+  /** Returns function select signal to be passed to [[rial.math.MathFunctions]].
    *
    * {{{
    * val mathfunc = Module(new MathFunction(...))
