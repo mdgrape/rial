@@ -7,24 +7,24 @@ stages:
 test-arith:
   stage: test
   script:
-    - sbt "testOnly RealSimTest"
-    - sbt "testOnly AddFPTest"
-    - sbt "testOnly MultFPTest"
-    - sbt "testOnly MultFPIntTest"
-    - sbt "testOnly FMAFPTest"
+    - sbt "testOnly rial.tests.RealSimTest"
+    - sbt "testOnly rial.tests.AddFPTest"
+    - sbt "testOnly rial.tests.MultFPTest"
+    - sbt "testOnly rial.tests.MultFPIntTest"
+    - sbt "testOnly rial.tests.FMAFPTest"
 
 test-fixed:
   stage: test
   script:
-    - sbt "testOnly FixedToFloatTest"
-    - sbt "testOnly FloatToFixedTest"
-    - sbt "testOnly ScaledFixedToFloatTest"
+    - sbt "testOnly rial.tests.FixedToFloatTest"
+    - sbt "testOnly rial.tests.FloatToFixedTest"
+    - sbt "testOnly rial.tests.ScaledFixedToFloatTest"
 
 test-ecc:
   stage: test
   script:
-    - sbt "testOnly CRC16Test"
-    - sbt "testOnly FletchersChecksumTest"
+    - sbt "testOnly rial.tests.CRC16Test"
+    - sbt "testOnly rial.tests.FletchersChecksumTest"
 
 test-rng:
   stage: test

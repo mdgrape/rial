@@ -1,4 +1,6 @@
 
+package rial.tests
+
 import org.scalatest._
 
 import chisel3._

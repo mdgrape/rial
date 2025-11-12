@@ -1,3 +1,4 @@
+package rial.tests
 
 
 import org.scalatest.funsuite.AnyFunSuite
