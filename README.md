@@ -2,4 +2,4 @@
 
 ## LICENSING TERMS
 
-Copyright (C) RIKEN Makoto Taiji 2020
+Copyright (C) RIKEN Makoto Taiji and Toru Niina 2020
