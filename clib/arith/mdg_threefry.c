@@ -3,6 +3,7 @@
     for Scala interface
 */
 #include <stdint.h>
+#include <stdlib.h>
 #include "mdg_threefry.h"
 #include "Random123/threefry.h"
 
