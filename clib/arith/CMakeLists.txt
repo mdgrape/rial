@@ -6,6 +6,7 @@ set(CMAKE_C_STANDARD_REQUIRED True)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 add_library(arith_objs OBJECT fpmd.c mt.c random.c scale.c mdg_threefry.c)
+target_link_libraries(arith_objs PUBLIC random123_lib)
 
 target_include_directories(arith_objs PRIVATE . ../include ../table)
 
