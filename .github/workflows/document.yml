@@ -23,14 +23,12 @@ jobs:
       - name: Build Webpage
         run: |
             sbt doc
-            ls target/
-            ls target/scala-2.12/
-            ls target/scala-2.12/api
+            cp -r target/scala-2.12/api docs
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
-          publish_dir: ./target/scala-2.12/api/
+          publish_dir: ./docs/
           force_orphan: true
           commit_message: ${{ github.event.head_commit.message }}
