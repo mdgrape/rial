@@ -169,7 +169,23 @@ private[rial] class PostProcMultiplier(
  * number, z. Only ATan2 uses both x and y. Others just ignores y.
  *
  * {{{
- * val math = Module(new MathFunctions(...))
+ * class MathFunctions(
+ *   val fncfg: MathFuncConfig,
+ *   val spec : RealSpec,
+ *   // ...
+ * ) extends Module {
+ *   val io = IO(new Bundle {
+ *     val sel = Input(UInt(fncfg.signalW.W))
+ *     val x   = Input (UInt(spec.W.W))
+ *     val y   = if(hasY) {Some(Input(UInt(spec.W.W)))} else {None}
+ *     val z   = Output(UInt(spec.W.W))
+ *   })
+ * }}}
+ *
+ * Example usage:
+ *
+ * {{{
+ * val math = Module(new MathFunctions(fncfg, ...))
  * math.io.sel := fncfg.signal(Sqrt)
  * math.io.x   := x.asUInt
  * io.result := math.io.z
