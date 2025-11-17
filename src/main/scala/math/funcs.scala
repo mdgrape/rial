@@ -169,6 +169,13 @@ private[rial] class PostProcMultiplier(
  * number, z. Only ATan2 uses both x and y. Others just ignores y.
  *
  * {{{
+ * val math = Module(new MathFunctions(...))
+ * math.io.sel := fncfg.signal(Sqrt)
+ * math.io.x   := x.asUInt
+ * io.result := math.io.z
+ * }}}
+ *
+ * {{{
  * //                                     table/Calc
  * //                                          |
  * //                .------.  _  .---------.  _  .------------.
