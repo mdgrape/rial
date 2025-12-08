@@ -14,7 +14,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <math.h>
-#include "nonbond_functions.h"
+#include "table/nonbond_functions.h"
 
 ////////////////////////////////////////////////////////////////////////
 // Ewald normal

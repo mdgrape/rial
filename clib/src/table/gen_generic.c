@@ -8,9 +8,9 @@
 #include <math.h>
 #include <dlfcn.h>
 
-#include "gentable.h"
+#include "table/gentable.h"
 int MDG_DEBUG_FLAG;	//Added (Komatsu) I hope no side effect happen due to this addition.
-#include "fpmd.h"	//Added (Komatsu) for debug
+#include "arith/fpmd.h"	//Added (Komatsu) for debug
 
 //double log2(double x) { return log(x)*M_LOG2E; }
 

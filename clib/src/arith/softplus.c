@@ -3,7 +3,7 @@
 #include <math.h>
 #include <stdint.h>
 
-#include "softplus.h"
+#include "arith/softplus.h"
 
 /** @file softplus.c */
 

@@ -8,9 +8,9 @@
 #include <math.h>
 
 #include "defs.h"
-#include "gentable.h"
-#include "gen_funcev.h"
-#include "fpmd.h"	//Added (Komatsu) for debug
+#include "table/gentable.h"
+#include "table/gen_funcev.h"
+#include "arith/fpmd.h"	//Added (Komatsu) for debug
 
 //int MDG_DEBUG_FLAG;
 

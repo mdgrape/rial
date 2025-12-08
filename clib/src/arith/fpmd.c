@@ -29,9 +29,9 @@
 #include <math.h>
 #include <inttypes.h>
 #include "defs.h"
-#include "fpmd.h"
-#include "gentable.h"
-#include "gen_funcev.h"
+#include "arith/fpmd.h"
+#include "table/gentable.h"
+#include "table/gen_funcev.h"
 //#include "md.h"
 
 int B_MDG_CHECK=0;
@@ -172,9 +172,9 @@ polynomial_withsign32(int adr, int d, int dbit, int norder, int adrmax,
   return s;
 }
 
-#include "rinv.h"
-#include "rinv3.h"
-#include "r2sqrt.h"
+#include "arith/rinv.h"
+#include "arith/rinv3.h"
+#include "arith/r2sqrt.h"
 
 static const uint32_t sqrt2=47453133; 
 
@@ -967,7 +967,7 @@ mdg_vdw_sigma_sum(uint32_t si, uint32_t sj) {
   return z;
 }
 
-#include "inv_table.h"
+#include "arith/inv_table.h"
 /**
    @brief van der Waals combination rule for sigma - inverse si+sj
    @param[in] sij  in floating, 23-bit mantissa and 5-bit exponent, no sign
