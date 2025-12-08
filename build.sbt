@@ -21,7 +21,12 @@ lazy val rial = (project in file("."))
       "-Xcheckinit",
       "-P:chiselplugin:genBundleElements"
       ),
-    addCompilerPlugin("edu.berkeley.cs" % "chisel3-plugin" % "3.5.6" cross CrossVersion.full)
+    addCompilerPlugin("edu.berkeley.cs" % "chisel3-plugin" % "3.5.6" cross CrossVersion.full),
+    // fix jar file name that is used by rial-jni
+    artifactName := {
+      (sv: ScalaVersion, module: ModuleID, artifact: Artifact) => "rial.jar"
+    }
   )
+
 
 Test / parallelExecution := false
