@@ -136,4 +136,16 @@ private[rial] object ACosPhase2Sim {
     tableD.addRange(0.0, 1.0, 1<<adrW) // this makes resulting table adrW+1
     new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
   }
+
+  private val acosDefaultFP32TableI = acosTableGeneration( 2, 8, 23, 23+3 )
+
+  /** acos-2 simulation with the default configuration (2, 8, 3)
+   */
+  def acosPhase2DefaultFP32(x: Float): Float = {
+    acosPhase2SimGeneric(
+      acosDefaultFP32TableI,
+      RealGeneric.fromFloat(RealSpec.Float32Spec, x)
+    ).toFloat
+  }
+
 }

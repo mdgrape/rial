@@ -210,4 +210,17 @@ private[rial] object ATan2Phase1Sim {
 //     println(f"sim: atan2-1: z = (${zSgn}|${zEx}(${zEx-exBias})|${zMan.toBinaryString}) (${z.toDouble}) should be (${min(x.toDouble, y.toDouble) / max(x.toDouble, y.toDouble)})")
     z
   }
+
+  private val reciprocalDefaultFP32TableI =
+    ReciprocalSim.reciprocalTableGeneration( 2, 8, 23, 23+3 )
+
+  /** atan2-1 simulation with the default configuration (2, 8, 3)
+   */
+  def atan2Phase1DefaultFP32(y: Float, x: Float): Float = {
+    atan2Phase1SimGeneric(
+      reciprocalDefaultFP32TableI,
+      RealGeneric.fromFloat(RealSpec.Float32Spec, y),
+      RealGeneric.fromFloat(RealSpec.Float32Spec, x)
+    ).toFloat
+  }
 }

@@ -105,7 +105,7 @@ object SqrtSim {
     new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
   }
 
-  private val sqrtDefaultFP32TableI = SqrtSim.sqrtTableGeneration( 2, 8, 23, 23+3 )
+  private val sqrtDefaultFP32TableI = sqrtTableGeneration( 2, 8, 23, 23+3 )
 
   /** sqrt simulation with the default configuration (2, 8, 3)
    */

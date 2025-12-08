@@ -235,4 +235,15 @@ private[rial] object ATan2Phase2Sim {
     new FuncTableInt(tableD, fracW, calcWidthSetting, cbitSetting)
   }
 
+  private val atan2DefaultFP32TableI = atanTableGeneration( 2, 8, 23, 23+3 )
+
+  /** atan2-2 simulation with the default configuration (2, 8, 3)
+   */
+  def atan2Phase2DefaultFP32(x: Float): Float = {
+    atan2Phase2SimGeneric(
+      atan2DefaultFP32TableI,
+      RealGeneric.fromFloat(RealSpec.Float32Spec, x)
+    ).toFloat
+  }
+
 }
