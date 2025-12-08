@@ -1,5 +1,5 @@
-#ifndef __MDG_THREEFRY_H
-#define __MDG_THREEFRY_H
+#ifndef RIAL_CLIB_MDG_THREEFRY_H
+#define RIAL_CLIB_MDG_THREEFRY_H
 
 #include "Random123/threefry.h"
 

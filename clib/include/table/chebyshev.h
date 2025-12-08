@@ -1,5 +1,5 @@
-#ifndef __CHEBYSHEV_H
-#define __CHEBYSHEV_H
+#ifndef RIAL_CLIB_CHEBYSHEV_H
+#define RIAL_CLIB_CHEBYSHEV_H
 
 #ifdef __cplusplus
 extern "C" {

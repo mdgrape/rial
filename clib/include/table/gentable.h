@@ -1,5 +1,5 @@
-#ifndef __GENTABLE_H
-#define __GENTABLE_H
+#ifndef RIAL_CLIB_GENTABLE_H
+#define RIAL_CLIB_GENTABLE_H
 
 #include <stdint.h>
 

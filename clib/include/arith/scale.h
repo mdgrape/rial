@@ -1,5 +1,7 @@
-#ifndef __SCALE_H
-#define __SCALE_H
+#ifndef RIAL_CLIB_SCALE_H
+#define RIAL_CLIB_SCALE_H
+
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {

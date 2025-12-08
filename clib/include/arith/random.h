@@ -1,5 +1,5 @@
-#ifndef __RANDOM_H
-#define __RANDOM_H
+#ifndef RIAL_CLIB_RANDOM_H
+#define RIAL_CLIB_RANDOM_H
 #include <stdint.h>
 /* random.c */
 #ifdef __cplusplus

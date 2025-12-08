@@ -1,5 +1,5 @@
-#ifndef __NONBOND_FUNCTIONS_H
-#define __NONBOND_FUNCTIONS_H
+#ifndef RIAL_CLIB_NONBOND_FUNCTIONS_H
+#define RIAL_CLIB_NONBOND_FUNCTIONS_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -38,7 +38,7 @@ extern "C" {
 
   double mdg_coulomb_gromacs_softcore_potential(double r, double sigma);
   double mdg_coulomb_gromacs_softcore_force(double r, double sigma);
-  
+
   double mdg_lj_potential(double x);
   double mdg_lj_force(double x);
 

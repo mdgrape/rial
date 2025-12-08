@@ -1,5 +1,5 @@
-#ifndef __SOFTPLUS_H
-#define __SOFTPLUS_H
+#ifndef RIAL_CLIB_SOFTPLUS_H
+#define RIAL_CLIB_SOFTPLUS_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -11,7 +11,7 @@ extern "C" {
   double rial_softplus_parabolic_deriv(double x, double a);
   double rial_softplus_quadratic(double x, double a);
   double rial_softplus_quadratic_deriv(double x, double a);
-  
+
 #ifdef __cplusplus
 }
 #endif

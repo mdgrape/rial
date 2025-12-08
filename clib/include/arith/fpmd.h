@@ -1,5 +1,5 @@
-#ifndef __FPMD_H
-#define __FPMD_H
+#ifndef RIAL_CLIB_FPMD_H
+#define RIAL_CLIB_FPMD_H
 
 #include "table/gentable.h"
 

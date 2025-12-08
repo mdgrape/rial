@@ -1,5 +1,5 @@
-#ifndef __GEN_FUNCEV_H
-#define __GEN_FUNCEV_H
+#ifndef RIAL_CLIB_GEN_FUNCEV_H
+#define RIAL_CLIB_GEN_FUNCEV_H
 
 #include "gentable.h"
 
@@ -18,7 +18,7 @@ extern "C" {
   extern const int mdg_funcev_coulomb_table_width[4];
   extern const int mdg_funcev_coulomb_calc_width[4];
   extern const int mdg_funcev_coulomb_table_bit_div;
-  
+
 #define MDG_FUNCEV_VDW_BP 25
 #define MDG_FUNCEV_VDW_NORDER 3
   // In the followintg setting,
@@ -33,7 +33,7 @@ extern "C" {
   extern const int mdg_funcev_vdw_calc_width[4];
   extern const int mdg_funcev_vdw_table_bit_div;
   extern const int mdg_funcev_vdw_table_exp_width;
-  
+
   void mdg_gentable_funcev_coulomb(mdg_func_table *t, double (*func)(double), const char *name);
   int mdg_pack_funcev_table(mdg_func_table *t, int n, const int *width, int packwidth, uint64_t *packed);
   void mdg_gentable_funcev_vdw(mdg_func_table *t, double (*func)(double), const char *name);

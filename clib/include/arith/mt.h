@@ -1,5 +1,5 @@
-#ifndef MT_H
-#define MT_H
+#ifndef RIAL_CLIB_MT_H
+#define RIAL_CLIB_MT_H
 #include <stdint.h>
 
 /* mt.c */
