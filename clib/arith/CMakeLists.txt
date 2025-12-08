@@ -1,12 +1,6 @@
-cmake_minimum_required(VERSION 3.10)
-
-set(CMAKE_C_STANDARD 11)
-set(CMAKE_C_STANDARD_REQUIRED True)
-
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
-add_library(arith_objs OBJECT fpmd.c mt.c random.c scale.c mdg_threefry.c)
-target_link_libraries(arith_objs PUBLIC random123_lib)
-
-target_include_directories(arith_objs PRIVATE . ../include ../table)
-
+add_library(crial_arith OBJECT fpmd.c mt.c random.c scale.c mdg_threefry.c)
+target_link_libraries(crial_arith PUBLIC random123_lib)
+target_include_directories(crial_arith PRIVATE
+    "${PROJECT_SOURCE_DIR}/include"
+    "${PROJECT_SOURCE_DIR}/arith"
+    "${PROJECT_SOURCE_DIR}/table")
