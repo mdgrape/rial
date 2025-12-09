@@ -40,18 +40,13 @@ std::optional<std::string> JVMManager::initialize()
     JavaVMInitArgs vm_args;
     std::array<JavaVMOption, 1> options;
 
-    const std::string jarpath("-Djava.class.path=" RIAL_JAR_PATH);
-    std::vector<char> jarpath_raw(jarpath.size()+1, '\0');
-    for(std::size_t i=0; i<jarpath.size(); ++i)
-    {
-        jarpath_raw.at(i) = jarpath.at(i);
-    }
-    options.at(0).optionString = jarpath_raw.data();
+    std::string jarpath("-Djava.class.path=" RIAL_JAR_PATH);
+    options.at(0).optionString = jarpath.data();
 
     vm_args.version  = JNI_VERSION_1_8;
     vm_args.nOptions = 1;
     vm_args.options  = options.data();
-    vm_args.ignoreUnrecognized = false;
+    vm_args.ignoreUnrecognized = JNI_FALSE;
 
     jint rc = JNI_CreateJavaVM(&jvm_, (void**)&env_, &vm_args);
     if(rc == JNI_OK)
@@ -68,7 +63,7 @@ std::optional<std::string> JVMManager::initialize()
     // -----------------------------------------------------------------------
     // find funcs from library
 
-    const auto find_func = [this](const std::string& objname,
+    const auto find_func = [this, &jarpath](const std::string& objname,
         const std::string& funcname, const std::string& funcsig,
         std::pair<jobject, jmethodID>& result
     ) -> std::optional<std::string> {
@@ -79,28 +74,33 @@ std::optional<std::string> JVMManager::initialize()
         const auto obj_class = this->env_->FindClass(objpath.c_str());
         if(obj_class == nullptr)
         {
+            this->env_->ExceptionDescribe();
             this->env_->ExceptionClear();
-            return "FindClass failed with: "s + objpath;
+            return "FindClass failed with: "s + objpath + ", jarpath=" + jarpath;
         }
 
         const auto module_field = this->env_->GetStaticFieldID(obj_class, "MODULE$", Lobjpath.c_str());
         if(module_field == nullptr)
         {
+            this->env_->ExceptionDescribe();
             this->env_->ExceptionClear();
-            return "GetStaticFieldID failed with: "s + Lobjpath;
+            return "GetStaticFieldID failed with: "s + Lobjpath + ", jarpath=" + jarpath;
         }
 
         const auto instance = this->env_->GetStaticObjectField(obj_class, module_field);
         if(instance == nullptr)
         {
+            this->env_->ExceptionDescribe();
             this->env_->ExceptionClear();
-            return "GetStaticObjectField failed with: "s + objname;
+            return "GetStaticObjectField failed with: "s + objname + ", jarpath=" + jarpath;
         }
 
         const auto func_method = this->env_->GetMethodID(obj_class, funcname.c_str(), funcsig.c_str());
         if(func_method == nullptr)
         {
-            return "GetMethodID failed with: "s + funcname + " : "s + funcsig;
+            this->env_->ExceptionDescribe();
+            this->env_->ExceptionClear();
+            return "GetMethodID failed with: "s + funcname + " : "s + funcsig + ", jarpath=" + jarpath;
         }
 
         result = std::make_pair(instance, func_method);
