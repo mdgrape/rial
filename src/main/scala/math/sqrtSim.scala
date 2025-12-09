@@ -20,7 +20,9 @@ import rial.util.ScalaUtil._
 import rial.arith.RealSpec
 import rial.arith.RealGeneric
 
-private[rial] object SqrtSim {
+/** An interface for software simulator
+ */
+object SqrtSim {
 
   // [1, 4) -> [1, 2)
   def sqrtSimGeneric( t : FuncTableInt, x: RealGeneric ) : RealGeneric = {
@@ -103,9 +105,17 @@ private[rial] object SqrtSim {
     new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
   }
 
-  val sqrtF32TableI = SqrtSim.sqrtTableGeneration( 2, 8, 23, 23+2 )
-  val sqrtF32Sim = sqrtSimGeneric(sqrtF32TableI, _ )
+  private val sqrtDefaultFP32TableI = sqrtTableGeneration( 2, 8, 23, 23+3 )
 
-  val sqrtBF16TableI = SqrtSim.sqrtTableGeneration( 0, 7, 7, 7 )
-  val sqrtBF16Sim = sqrtSimGeneric(sqrtBF16TableI, _ )
+  /** sqrt simulation with the default configuration (2, 8, 3)
+   */
+  def sqrtDefaultFP32(x: Float): Float = {
+    sqrtSimGeneric(
+      sqrtDefaultFP32TableI,
+      RealGeneric.fromFloat(RealSpec.Float32Spec, x)
+    ).toFloat
+  }
+
+  private val sqrtDefaultBF16TableI = SqrtSim.sqrtTableGeneration( 0, 7, 7, 7 )
+  private val sqrtDefaultBF16Sim    = sqrtSimGeneric(sqrtDefaultBF16TableI, _ )
 }

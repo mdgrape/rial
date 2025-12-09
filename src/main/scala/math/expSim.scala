@@ -196,4 +196,15 @@ private[rial] object ExpSim {
     tableD.addRange(0.0, 1.0, 1<<adrW)
     new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
   }
+
+  private val expDefaultFP32TableI = expTableGeneration( 2, 8, 23, 23+3 )
+
+  /** exp simulation with the default configuration (2, 8, 3)
+   */
+  def expDefaultFP32(x: Float): Float = {
+    expSimGeneric(
+      expDefaultFP32TableI,
+      RealGeneric.fromFloat(RealSpec.Float32Spec, x)
+    ).toFloat
+  }
 }
