@@ -46,19 +46,15 @@ class JVMManager
     // ------------------------------------------------------------------------
     // supported funcs
 
-    float call_sqrt       (float x)          const { return checked_call(FuncSqrt, x); }
-    float call_invsqrt    (float x)          const { return checked_call(FuncInvsqrt, x); }
+    float call_sqrt       (float x)          const { return checked_call(FuncSqrt,       x); }
+    float call_invsqrt    (float x)          const { return checked_call(FuncInvsqrt,    x); }
     float call_reciprocal (float x)          const { return checked_call(FuncReciprocal, x); }
-    float call_sin        (float x)          const { return checked_call(FuncSin, x); }
-    float call_cos        (float x)          const { return checked_call(FuncCos, x); }
-    float call_acosPhase1 (float x)          const { return checked_call(FuncAcosPhase1, x); }
-    float call_acosPhase2 (float x)          const { return checked_call(FuncAcosPhase2, x); }
-    float call_acos       (float x)          const { return call_acosPhase2(call_acosPhase1(x)); }
-    float call_atan2Phase1(float y, float x) const { return checked_call(FuncAtan2Phase1, y, x); }
-    float call_atan2Phase2(float x)          const { return checked_call(FuncAtan2Phase2, x); }
-    float call_atan2      (float y, float x) const { return call_atan2Phase2(call_atan2Phase1(y, x)); }
-    float call_exp        (float x)          const { return checked_call(FuncExp, x); }
-    float call_log        (float x)          const { return checked_call(FuncLog, x); }
+    float call_sin        (float x)          const { return checked_call(FuncSin,        x); }
+    float call_cos        (float x)          const { return checked_call(FuncCos,        x); }
+    float call_acos       (float x)          const { return checked_call(FuncAcos,       x); }
+    float call_atan2      (float y, float x) const { return checked_call(FuncAtan2,   y, x); }
+    float call_exp        (float x)          const { return checked_call(FuncExp,        x); }
+    float call_log        (float x)          const { return checked_call(FuncLog,        x); }
 
   private:
 
@@ -74,10 +70,8 @@ class JVMManager
             "reciprocal"s,
             "sin"s,
             "cos"s,
-            "acosPhase1"s,
-            "acosPhase2"s,
-            "atan2Phase1"s,
-            "atan2Phase2"s,
+            "acos"s,
+            "atan2"s,
             "exp"s,
             "log"s
         }};
@@ -97,18 +91,16 @@ class JVMManager
     JNIEnv* env_;
 
     // list of currently supported funcs (to cache java ref)
-    constexpr static std::size_t FuncSqrt        =  0;
-    constexpr static std::size_t FuncInvsqrt     =  1;
-    constexpr static std::size_t FuncReciprocal  =  2;
-    constexpr static std::size_t FuncSin         =  3;
-    constexpr static std::size_t FuncCos         =  4;
-    constexpr static std::size_t FuncAcosPhase1  =  5;
-    constexpr static std::size_t FuncAcosPhase2  =  6;
-    constexpr static std::size_t FuncAtan2Phase1 =  7;
-    constexpr static std::size_t FuncAtan2Phase2 =  8;
-    constexpr static std::size_t FuncExp         =  9;
-    constexpr static std::size_t FuncLog         = 10;
-    constexpr static std::size_t NFunc           = 11; // size
+    constexpr static std::size_t FuncSqrt       = 0;
+    constexpr static std::size_t FuncInvsqrt    = 1;
+    constexpr static std::size_t FuncReciprocal = 2;
+    constexpr static std::size_t FuncSin        = 3;
+    constexpr static std::size_t FuncCos        = 4;
+    constexpr static std::size_t FuncAcos       = 5;
+    constexpr static std::size_t FuncAtan2      = 6;
+    constexpr static std::size_t FuncExp        = 7;
+    constexpr static std::size_t FuncLog        = 8;
+    constexpr static std::size_t NFunc          = 9; // size
     std::array<std::pair<jobject, jmethodID>, NFunc> funcs_;
 
     std::mutex mutex_;

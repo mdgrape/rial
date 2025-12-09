@@ -6,7 +6,6 @@
 
 #include <array>
 #include <string>
-#include <vector>
 
 namespace rial
 {
@@ -112,10 +111,8 @@ std::optional<std::string> JVMManager::initialize()
     if(auto r = find_func("ReciprocalSim",  "reciprocalDefaultFP32",  "(F)F",  this->funcs_.at(FuncReciprocal ))) {return r;}
     if(auto r = find_func("SinCosSim",      "sinDefaultFP32",         "(F)F",  this->funcs_.at(FuncSin        ))) {return r;}
     if(auto r = find_func("SinCosSim",      "cosDefaultFP32",         "(F)F",  this->funcs_.at(FuncCos        ))) {return r;}
-    if(auto r = find_func("ACosPhase1Sim",  "acosPhase1DefaultFP32",  "(F)F",  this->funcs_.at(FuncAcosPhase1 ))) {return r;}
-    if(auto r = find_func("ACosPhase2Sim",  "acosPhase2DefaultFP32",  "(F)F",  this->funcs_.at(FuncAcosPhase2 ))) {return r;}
-    if(auto r = find_func("ATan2Phase1Sim", "atan2Phase1DefaultFP32", "(FF)F", this->funcs_.at(FuncAtan2Phase1))) {return r;}
-    if(auto r = find_func("ATan2Phase2Sim", "atan2Phase2DefaultFP32", "(F)F",  this->funcs_.at(FuncAtan2Phase2))) {return r;}
+    if(auto r = find_func("ACosPhase2Sim",  "acosDefaultFP32",        "(F)F",  this->funcs_.at(FuncAcos       ))) {return r;}
+    if(auto r = find_func("ATan2Phase2Sim", "atan2DefaultFP32",       "(FF)F", this->funcs_.at(FuncAtan2      ))) {return r;}
     if(auto r = find_func("ExpSim",         "expDefaultFP32",         "(F)F",  this->funcs_.at(FuncExp        ))) {return r;}
     if(auto r = find_func("LogSim",         "logDefaultFP32",         "(F)F",  this->funcs_.at(FuncLog        ))) {return r;}
 
