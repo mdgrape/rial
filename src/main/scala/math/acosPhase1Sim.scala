@@ -143,4 +143,6 @@ private[rial] object ACosPhase1Sim {
     SqrtSim.sqrtTableGeneration(
       order, adrW, manW, fracW, calcWidthSetting, cbitSetting)
   }
+
+  val sqrtDefaultFP32TableI = sqrtTableGeneration( 2, 8, 23, 23+3 )
 }

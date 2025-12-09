@@ -1,5 +1,5 @@
 default:
-  image: 10.5.6.16:5050/mdg5/rial:latest
+  image: 10.5.6.16:5050/mdg5/chipenv:verilator4
 
 stages:
   - test
@@ -95,3 +95,15 @@ test-task-specific-funcs:
     - sbt "testOnly rial.tests.SoftPlusSimTest"
     - sbt "testOnly rial.tests.SoftPlusTest"
 
+test-rialcpp:
+  stage: test
+  script:
+    - sbt assembly
+    - cd jni
+    - cmake -B ./build
+    - cmake --build ./build
+    - cmake --install ./build
+    - cd test
+    - cmake -B ./build
+    - cmake --build ./build
+    - ./build/main | tail

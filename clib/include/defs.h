@@ -1,5 +1,5 @@
-#ifndef __DEFS_H
-#define __DEFS_H
+#ifndef RIAL_CLIB_DEFS_H
+#define RIAL_CLIB_DEFS_H
 
 #include <stdint.h>
 

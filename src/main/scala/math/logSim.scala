@@ -309,4 +309,19 @@ private[rial] object LogSim {
 
     return new RealGeneric(x.spec, zsgn, lnex, lnman)
   }
+
+  private val logNormalDefaultFP32TableI = logNormalTableGeneration       ( RealSpec.Float32Spec, 2, 8, 3 )
+  private val logSmlPosDefaultFP32TableI = logSmallPositiveTableGeneration( RealSpec.Float32Spec, 2, 8, 3 )
+  private val logSmlNegDefaultFP32TableI = logSmallNegativeTableGeneration( RealSpec.Float32Spec, 2, 8, 3 )
+
+  /** sqrt simulation with the default configuration (2, 8, 3)
+   */
+  def logDefaultFP32(x: Float): Float = {
+    logSimGeneric(
+      logNormalDefaultFP32TableI,
+      logSmlPosDefaultFP32TableI,
+      logSmlNegDefaultFP32TableI,
+      RealGeneric.fromFloat(RealSpec.Float32Spec, x)
+    ).toFloat
+  }
 }

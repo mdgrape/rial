@@ -19,7 +19,7 @@ import rial.util.ScalaUtil._
 import rial.arith.RealSpec
 import rial.arith.RealGeneric
 
-private[rial] object ReciprocalSim {
+object ReciprocalSim {
 
   def reciprocalSimGeneric( t : FuncTableInt, x: RealGeneric ) : RealGeneric = {
 
@@ -98,9 +98,18 @@ private[rial] object ReciprocalSim {
     new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting  )
   }
 
-  val reciprocalF32TableI = ReciprocalSim.reciprocalTableGeneration( 2, 8, 23, 23+2 )
-  val reciprocalF32Sim = reciprocalSimGeneric(reciprocalF32TableI, _ )
+  private val reciprocalDefaultFP32TableI =
+    ReciprocalSim.reciprocalTableGeneration( 2, 8, 23, 23+3 )
 
-  val reciprocalBF16TableI = ReciprocalSim.reciprocalTableGeneration( 0, 7, 7, 7 )
-  val reciprocalBF16Sim = reciprocalSimGeneric( reciprocalBF16TableI, _ )
+  /** sqrt simulation with the default configuration (2, 8, 3)
+   */
+  def reciprocalDefaultFP32(x: Float): Float = {
+    reciprocalSimGeneric(
+      reciprocalDefaultFP32TableI,
+      RealGeneric.fromFloat(RealSpec.Float32Spec, x)
+    ).toFloat
+  }
+
+  private val reciprocalBF16TableI = ReciprocalSim.reciprocalTableGeneration( 0, 7, 7, 7 )
+  private val reciprocalBF16Sim = reciprocalSimGeneric( reciprocalBF16TableI, _ )
 }

@@ -272,4 +272,23 @@ private[rial] object SinCosSim {
     tableD.addRange(0.0, 1.0, 1<<adrW)
     new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
   }
+
+  private val sincosDefaultFP32TableI = sincosTableGeneration( 2, 8, 23, 23+3 )
+
+  /** sin simulation with the default configuration (2, 8, 3)
+   */
+  def sinDefaultFP32(x: Float): Float = {
+    sincosSimGeneric(true,
+      sincosDefaultFP32TableI,
+      RealGeneric.fromFloat(RealSpec.Float32Spec, x)
+    ).toFloat
+  }
+  /** cos simulation with the default configuration (2, 8, 3)
+   */
+  def cosDefaultFP32(x: Float): Float = {
+    sincosSimGeneric(false,
+      sincosDefaultFP32TableI,
+      RealGeneric.fromFloat(RealSpec.Float32Spec, x)
+    ).toFloat
+  }
 }

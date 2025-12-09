@@ -20,7 +20,7 @@ import rial.util.ScalaUtil._
 import rial.arith.RealSpec
 import rial.arith.RealGeneric
 
-private[rial] object InvSqrtSim {
+object InvSqrtSim {
 
   // [1, 4) -> (1/2, 1]
   def invsqrtSimGeneric( t : FuncTableInt, x: RealGeneric ) : RealGeneric = {
@@ -123,9 +123,17 @@ private[rial] object InvSqrtSim {
     new FuncTableInt( tableD, fracW, calcWidthSetting, cbitSetting )
   }
 
-  val invsqrtF32TableI = InvSqrtSim.invsqrtTableGeneration( 2, 8, 23, 23+2 )
-  val invsqrtF32Sim = invsqrtSimGeneric(invsqrtF32TableI, _ )
+  private val invsqrtDefaultFP32TableI = InvSqrtSim.invsqrtTableGeneration( 2, 8, 23, 23+3 )
 
-  val invsqrtBF16TableI = InvSqrtSim.invsqrtTableGeneration( 0, 7, 7, 7 )
-  val invsqrtBF16Sim = invsqrtSimGeneric(invsqrtBF16TableI, _ )
+  /** sqrt simulation with the default configuration (2, 8, 3)
+   */
+  def invsqrtDefaultFP32(x: Float): Float = {
+    invsqrtSimGeneric(
+      invsqrtDefaultFP32TableI,
+      RealGeneric.fromFloat(RealSpec.Float32Spec, x)
+    ).toFloat
+  }
+
+  private val invsqrtBF16TableI = InvSqrtSim.invsqrtTableGeneration( 0, 7, 7, 7 )
+  private val invsqrtBF16Sim = invsqrtSimGeneric(invsqrtBF16TableI, _ )
 }

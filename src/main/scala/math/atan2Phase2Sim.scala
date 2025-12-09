@@ -235,4 +235,23 @@ private[rial] object ATan2Phase2Sim {
     new FuncTableInt(tableD, fracW, calcWidthSetting, cbitSetting)
   }
 
+  private val reciprocalDefaultFP32TableI =
+    ReciprocalSim.reciprocalTableGeneration( 2, 8, 23, 23+3 )
+  private val atan2DefaultFP32TableI = atanTableGeneration( 2, 8, 23, 23+3 )
+
+  /** atan2 simulation with the default configuration (2, 8, 3)
+   */
+  def atan2DefaultFP32(y: Float, x: Float): Float = {
+    // DO NOT split phase1 and phase2. phase1 encodes some special-case values
+    // as NaN-boxing, but when the resulting bits are converted to builtin
+    // Float, the information will be lost and you just get NaN.
+    atan2Phase2SimGeneric(
+      atan2DefaultFP32TableI,
+      ATan2Phase1Sim.atan2Phase1SimGeneric(
+        reciprocalDefaultFP32TableI,
+        RealGeneric.fromFloat(RealSpec.Float32Spec, y),
+        RealGeneric.fromFloat(RealSpec.Float32Spec, x)
+      )
+    ).toFloat
+  }
 }
