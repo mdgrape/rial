@@ -117,12 +117,12 @@ private[rial] class ATan2Phase1PreProcess(
 
   val xpos      = io.x.sgn === 0.U
   val xneg      = io.x.sgn === 1.U
-  val zzero     = tooLargeX && xpos
+  val zzero     =(tooLargeX && xpos) || (io.x.zero && io.y.zero)
   val zpi       = tooLargeX && xneg
   val zhalfpi   = tooLargeY
   val z1piover4 = samexy && xpos
   val z3piover4 = samexy && xneg
-  val znan      = (io.x.nan || io.y.nan) || (io.x.zero && io.y.zero)
+  val znan      = (io.x.nan || io.y.nan)
 
   val flags = WireDefault(0.U.asTypeOf(new ATan2Flags))
   flags.isSpecial := znan || zzero || zpi || zhalfpi || z1piover4 || z3piover4

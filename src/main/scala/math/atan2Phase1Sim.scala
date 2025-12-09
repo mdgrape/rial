@@ -119,8 +119,8 @@ private[rial] object ATan2Phase1Sim {
 
     val xpos = x.sgn == 0
     val xneg = x.sgn == 1
-    val znan      =  (xnan ||  ynan) || (xzero && yzero)
-    val zzero     = tooLargeX && xpos
+    val znan      = (xnan ||  ynan)
+    val zzero     =(tooLargeX && xpos) || (xzero && yzero)
     val zpi       = tooLargeX && xneg
     val zhalfpi   = tooLargeY
     val z1piover4 =  (xinf && yinf && xpos) || (x.ex == y.ex && x.man == y.man && xpos)
