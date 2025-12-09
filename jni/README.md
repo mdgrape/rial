@@ -2,15 +2,15 @@
 
 it binds the following software simulation functions to c++.
 
-- `float sqrt       (float x)         ;`
-- `float invsqrt    (float x)         ;`
-- `float reciprocal (float x)         ;`
-- `float sin        (float x)         ;`
-- `float cos        (float x)         ;`
-- `float acos       (float x)         ;`
-- `float atan2      (float y, float x);`
-- `float exp        (float x)         ;`
-- `float log        (float x)         ;`
+- `float rial::sqrt      (float x)         ;`
+- `float rial::invsqrt   (float x)         ;`
+- `float rial::reciprocal(float x)         ;`
+- `float rial::sin       (float x)         ;`
+- `float rial::cos       (float x)         ;`
+- `float rial::acos      (float x)         ;`
+- `float rial::atan2     (float y, float x);`
+- `float rial::exp       (float x)         ;`
+- `float rial::log       (float x)         ;`
 
 Currently, the configurations (e.g. table addrW, extraBits) are fixed.
 So the result might be different from customized MathFunctions instance.
