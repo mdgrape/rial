@@ -1,5 +1,5 @@
-#ifndef RIAL_JNI_MATH_HPP
-#define RIAL_JNI_MATH_HPP
+#ifndef RIALCPP_MATH_HPP
+#define RIALCPP_MATH_HPP
 
 namespace rial
 {
@@ -19,4 +19,4 @@ float exp        (float x)         ;
 float log        (float x)         ;
 
 } // rial
-#endif//RIAL_JNI_MATH_HPP
+#endif//RIALCPP_MATH_HPP

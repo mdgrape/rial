@@ -1,5 +1,5 @@
-#ifndef RIAL_JNI_JVM_MANAGER_HPP
-#define RIAL_JNI_JVM_MANAGER_HPP
+#ifndef RIALCPP_JVM_MANAGER_HPP
+#define RIALCPP_JVM_MANAGER_HPP
 
 #include <jni.h>
 
@@ -117,4 +117,4 @@ class JVMManager
 
 } // detail
 } // rial
-#endif // MATHFUNCTION_H
+#endif // RIALCPP_JVM_MANAGER_HPP

@@ -1,5 +1,5 @@
-#include "rial/JVMManager.hpp"
-#include "rial/math.hpp"
+#include "rialcpp/JVMManager.hpp"
+#include "rialcpp/math.hpp"
 
 namespace rial
 {

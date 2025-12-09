@@ -1,4 +1,4 @@
-#include "rial/JVMManager.hpp"
+#include "rialcpp/JVMManager.hpp"
 
 #ifndef RIAL_JAR_PATH
 #error "RIAL_JAR_PATH must be defined"
