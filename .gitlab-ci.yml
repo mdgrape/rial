@@ -5,96 +5,96 @@ default:
 stages:
   - test
 
-# test-arith:
-#   stage: test
-#   script:
-#     - sbt "testOnly rial.tests.RealSimTest"
-#     - sbt "testOnly rial.tests.AddFPTest"
-#     - sbt "testOnly rial.tests.MultFPTest"
-#     - sbt "testOnly rial.tests.MultFPIntTest"
-#     - sbt "testOnly rial.tests.FMAFPTest"
-#
-# test-fixed:
-#   stage: test
-#   script:
-#     - sbt "testOnly rial.tests.FixedToFloatTest"
-#     - sbt "testOnly rial.tests.FloatToFixedTest"
-#     - sbt "testOnly rial.tests.ScaledFixedToFloatTest"
-#
-# test-ecc:
-#   stage: test
-#   script:
-#     - sbt "testOnly rial.tests.CRC16Test"
-#     - sbt "testOnly rial.tests.FletchersChecksumTest"
-#
-# test-rng:
-#   stage: test
-#   script:
-#     - make
-#     - sbt "testOnly rial.tests.ThreefryTest"
-#     - sbt "testOnly rial.tests.ThreefryGeneratorTest"
-#     - sbt "testOnly rial.tests.SquaresTest"
-#     - sbt "testOnly rial.tests.Squares32GeneratorTest"
-#     - sbt -J-Xmx4G "testOnly rial.tests.IrwinHallTest"
-#     - sbt -J-Xmx4G "testOnly rial.tests.IrwinHallGeneratorTest"
-#     - sbt "testOnly rial.testsUniform01OpenCloseTest"
-#     - sbt "testOnly rial.testsUniform12Test"
-#     - sbt "testOnly rial.testsUniform01Test"
-#     - sbt "testOnly rial.testsUniform01FullTest"
-#     - sbt "testOnly rial.testsUniform01FullPipeTest"
-#     - sbt "testOnly rial.testsBoxMullerTest"
-#
-# test-math-simple:
-#   stage: test
-#   script:
-#     - sbt "testOnly rial.tests.InvSqrtSimTest"
-#     - sbt "testOnly rial.tests.InvSqrtTest"
-#     - sbt "testOnly rial.tests.SqrtSimTest"
-#     - sbt "testOnly rial.tests.SqrtTest"
-#     - sbt "testOnly rial.tests.ReciprocalSimTest"
-#     - sbt "testOnly rial.tests.ReciprocalTest"
-#
-# test-math-sincos:
-#   stage: test
-#   script:
-#     - sbt "testOnly rial.tests.SinSimTest"
-#     - sbt "testOnly rial.tests.SinTest"
-#     - sbt "testOnly rial.tests.CosSimTest"
-#     - sbt "testOnly rial.tests.CosTest"
-#
-# test-math-acos:
-#   stage: test
-#   script:
-#     - sbt "testOnly rial.tests.ACosPhase1SimTest"
-#     - sbt "testOnly rial.tests.ACosPhase1Test"
-#     - sbt "testOnly rial.tests.ACosPhase2SimTest"
-#     - sbt "testOnly rial.tests.ACosPhase2Test"
-#
-# test-math-atan2:
-#   stage: test
-#   script:
-#     - sbt "testOnly rial.tests.ATan2Phase1SimTest"
-#     - sbt "testOnly rial.tests.ATan2Phase1Test"
-#     - sbt "testOnly rial.tests.ATan2Phase2SimTest"
-#     - sbt "testOnly rial.tests.ATan2Phase2Test"
-#
-# test-math-exponential:
-#   stage: test
-#   script:
-#     - sbt "testOnly rial.tests.ExpSimTest"
-#     - sbt "testOnly rial.tests.ExpTest"
-#     - sbt "testOnly rial.tests.LogSimTest"
-#     - sbt "testOnly rial.tests.LogTest"
-#
-# test-task-specific-funcs:
-#   stage: test
-#   script:
-#     - sbt "testOnly rial.tests.ScaleMixtureGaussianSimTest"
-#     - sbt "testOnly rial.tests.ScaleMixtureGaussianTest"
-#     - sbt "testOnly rial.tests.SigmoidSimTest"
-#     - sbt "testOnly rial.tests.SigmoidTest"
-#     - sbt "testOnly rial.tests.SoftPlusSimTest"
-#     - sbt "testOnly rial.tests.SoftPlusTest"
+test-arith:
+  stage: test
+  script:
+    - sbt "testOnly rial.tests.RealSimTest"
+    - sbt "testOnly rial.tests.AddFPTest"
+    - sbt "testOnly rial.tests.MultFPTest"
+    - sbt "testOnly rial.tests.MultFPIntTest"
+    - sbt "testOnly rial.tests.FMAFPTest"
+
+test-fixed:
+  stage: test
+  script:
+    - sbt "testOnly rial.tests.FixedToFloatTest"
+    - sbt "testOnly rial.tests.FloatToFixedTest"
+    - sbt "testOnly rial.tests.ScaledFixedToFloatTest"
+
+test-ecc:
+  stage: test
+  script:
+    - sbt "testOnly rial.tests.CRC16Test"
+    - sbt "testOnly rial.tests.FletchersChecksumTest"
+
+test-rng:
+  stage: test
+  script:
+    - make
+    - sbt "testOnly rial.tests.ThreefryTest"
+    - sbt "testOnly rial.tests.ThreefryGeneratorTest"
+    - sbt "testOnly rial.tests.SquaresTest"
+    - sbt "testOnly rial.tests.Squares32GeneratorTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.IrwinHallTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.IrwinHallGeneratorTest"
+    - sbt "testOnly rial.testsUniform01OpenCloseTest"
+    - sbt "testOnly rial.testsUniform12Test"
+    - sbt "testOnly rial.testsUniform01Test"
+    - sbt "testOnly rial.testsUniform01FullTest"
+    - sbt "testOnly rial.testsUniform01FullPipeTest"
+    - sbt "testOnly rial.testsBoxMullerTest"
+
+test-math-simple:
+  stage: test
+  script:
+    - sbt "testOnly rial.tests.InvSqrtSimTest"
+    - sbt "testOnly rial.tests.InvSqrtTest"
+    - sbt "testOnly rial.tests.SqrtSimTest"
+    - sbt "testOnly rial.tests.SqrtTest"
+    - sbt "testOnly rial.tests.ReciprocalSimTest"
+    - sbt "testOnly rial.tests.ReciprocalTest"
+
+test-math-sincos:
+  stage: test
+  script:
+    - sbt "testOnly rial.tests.SinSimTest"
+    - sbt "testOnly rial.tests.SinTest"
+    - sbt "testOnly rial.tests.CosSimTest"
+    - sbt "testOnly rial.tests.CosTest"
+
+test-math-acos:
+  stage: test
+  script:
+    - sbt "testOnly rial.tests.ACosPhase1SimTest"
+    - sbt "testOnly rial.tests.ACosPhase1Test"
+    - sbt "testOnly rial.tests.ACosPhase2SimTest"
+    - sbt "testOnly rial.tests.ACosPhase2Test"
+
+test-math-atan2:
+  stage: test
+  script:
+    - sbt "testOnly rial.tests.ATan2Phase1SimTest"
+    - sbt "testOnly rial.tests.ATan2Phase1Test"
+    - sbt "testOnly rial.tests.ATan2Phase2SimTest"
+    - sbt "testOnly rial.tests.ATan2Phase2Test"
+
+test-math-exponential:
+  stage: test
+  script:
+    - sbt "testOnly rial.tests.ExpSimTest"
+    - sbt "testOnly rial.tests.ExpTest"
+    - sbt "testOnly rial.tests.LogSimTest"
+    - sbt "testOnly rial.tests.LogTest"
+
+test-task-specific-funcs:
+  stage: test
+  script:
+    - sbt "testOnly rial.tests.ScaleMixtureGaussianSimTest"
+    - sbt "testOnly rial.tests.ScaleMixtureGaussianTest"
+    - sbt "testOnly rial.tests.SigmoidSimTest"
+    - sbt "testOnly rial.tests.SigmoidTest"
+    - sbt "testOnly rial.tests.SoftPlusSimTest"
+    - sbt "testOnly rial.tests.SoftPlusTest"
 
 test-rialcpp:
   stage: test
