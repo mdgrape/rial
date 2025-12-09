@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #include "defs.h"
-#include "scale.h"
+#include "arith/scale.h"
 
 /** @file scale.c */
 

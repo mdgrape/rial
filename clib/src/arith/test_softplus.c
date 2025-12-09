@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include "softplus.h"
+#include "arith/softplus.h"
 
 int
 main(int argc, char *argv[]) {

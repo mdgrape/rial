@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#include "ecc.h"
+#include "arith/ecc.h"
 
 static int ecctable_64[] = {
   0xC2 ^ 0x0c,

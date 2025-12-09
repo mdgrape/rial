@@ -4,7 +4,7 @@
 */
 #include <stdint.h>
 #include <stdlib.h>
-#include "mdg_threefry.h"
+#include "arith/mdg_threefry.h"
 #include "Random123/threefry.h"
 
 mdg_threefry4x32_t * mdg_threefry4x32_init(uint32_t * count, uint32_t * key) {

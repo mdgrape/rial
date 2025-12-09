@@ -1,7 +1,7 @@
-#ifndef __FPMD_H
-#define __FPMD_H
+#ifndef RIAL_CLIB_FPMD_H
+#define RIAL_CLIB_FPMD_H
 
-#include "gentable.h"
+#include "table/gentable.h"
 
 #ifdef __cplusplus
 extern "C" {

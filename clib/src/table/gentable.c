@@ -9,9 +9,9 @@
 #include <inttypes.h>
 
 #include "defs.h"
-#include "gentable.h"
+#include "table/gentable.h"
 
-#include "chebyshev.h"
+#include "table/chebyshev.h"
 
 extern int B_MDG_CHECK;
 extern int MDG_DEBUG_FLAG;

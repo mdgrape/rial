@@ -1,10 +1,10 @@
 /*
     Random Number Generator
 */
-#include "math.h"
+#include <math.h>
 #include "defs.h"
-#include "mt.h"
-#include "random.h"
+#include "arith/mt.h"
+#include "arith/random.h"
 
 uint64_t mdg_genrand64()
 {
