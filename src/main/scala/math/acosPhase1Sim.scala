@@ -144,14 +144,5 @@ private[rial] object ACosPhase1Sim {
       order, adrW, manW, fracW, calcWidthSetting, cbitSetting)
   }
 
-  private val sqrtDefaultFP32TableI = SqrtSim.sqrtTableGeneration( 2, 8, 23, 23+3 )
-
-  /** acos-1 simulation with the default configuration (2, 8, 3)
-   */
-  def acosPhase1DefaultFP32(x: Float): Float = {
-    acosPhase1SimGeneric(
-      sqrtDefaultFP32TableI,
-      RealGeneric.fromFloat(RealSpec.Float32Spec, x)
-    ).toFloat
-  }
+  val sqrtDefaultFP32TableI = sqrtTableGeneration( 2, 8, 23, 23+3 )
 }

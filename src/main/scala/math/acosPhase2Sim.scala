@@ -139,12 +139,18 @@ private[rial] object ACosPhase2Sim {
 
   private val acosDefaultFP32TableI = acosTableGeneration( 2, 8, 23, 23+3 )
 
-  /** acos-2 simulation with the default configuration (2, 8, 3)
+  /** acos simulation with the default configuration (2, 8, 3)
    */
-  def acosPhase2DefaultFP32(x: Float): Float = {
+  def acosDefaultFP32(x: Float): Float = {
+    // DO NOT split phase1 and phase2. phase1 encodes some special-case values
+    // as NaN-boxing, but when the resulting bits are converted to builtin
+    // Float, the information will be lost and you just get NaN.
     acosPhase2SimGeneric(
       acosDefaultFP32TableI,
-      RealGeneric.fromFloat(RealSpec.Float32Spec, x)
+      ACosPhase1Sim.acosPhase1SimGeneric(
+        ACosPhase1Sim.sqrtDefaultFP32TableI,
+        RealGeneric.fromFloat(RealSpec.Float32Spec, x)
+      )
     ).toFloat
   }
 
