@@ -69,12 +69,24 @@ test-math-acos:
     - sbt "testOnly rial.tests.ACosPhase2SimTest"
     - sbt "testOnly rial.tests.ACosPhase2Test"
 
-test-math-atan2:
+test-math-atan2-1-sim:
   stage: test
   script:
     - sbt "testOnly rial.tests.ATan2Phase1SimTest"
+
+test-math-atan2-1:
+  stage: test
+  script:
     - sbt "testOnly rial.tests.ATan2Phase1Test"
+
+test-math-atan2-2-sim:
+  stage: test
+  script:
     - sbt "testOnly rial.tests.ATan2Phase2SimTest"
+
+test-math-atan2-2:
+  stage: test
+  script:
     - sbt "testOnly rial.tests.ATan2Phase2Test"
 
 test-math-exponential:
