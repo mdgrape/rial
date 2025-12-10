@@ -117,11 +117,18 @@ private[rial] object ATan2Phase1Sim {
     // ------------------------------------------------------------------------
     // special values (nan boxing)
 
+    //        y, x
+    // atan2(+0,+0) = +0
+    // atan2(+0,-0) = +pi
+    // atan2(-0,+0) = -0
+    // atan2(-0,-0) = -pi
+    val zerozero = xzero && yzero
+
     val xpos = x.sgn == 0
     val xneg = x.sgn == 1
     val znan      = (xnan ||  ynan)
-    val zzero     =(tooLargeX && xpos) || (xzero && yzero)
-    val zpi       = tooLargeX && xneg
+    val zzero     = (tooLargeX && xpos) || (zerozero && xpos)
+    val zpi       = (tooLargeX && xneg) || (zerozero && xneg)
     val zhalfpi   = tooLargeY
     val z1piover4 =  (xinf && yinf && xpos) || (x.ex == y.ex && x.man == y.man && xpos)
     val z3piover4 =  (xinf && yinf && xneg) || (x.ex == y.ex && x.man == y.man && xneg)
