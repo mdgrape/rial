@@ -28,8 +28,8 @@ import rial.arith._
 
 private[rial] object ATan2Status {
   val width = 2
-  val xIsPosIsLarger  = 0.U(width.W) // ysgn *   atan(|y/x|)      .. x>0, |x|>|y|
-  val xIsNegIsLarger  = 1.U(width.W) // ysgn * (-atan(|y/x|)+pi)  .. x<0, |x|>|y|
+  val xIsPosIsLarger  = 0.U(width.W) // ysgn *       atan(|y/x|)  .. x>0, |x|>|y|
+  val xIsNegIsLarger  = 1.U(width.W) // ysgn * (pi  -atan(|y/x|)) .. x<0, |x|>|y|
   val xIsPosIsSmaller = 2.U(width.W) // ysgn * (pi/2-atan(|x/y|)) .. x>0, |x|<|y|
   val xIsNegIsSmaller = 3.U(width.W) // ysgn * (pi/2+atan(|x/y|)) .. x<0, |x|<|y|
 }
@@ -40,7 +40,7 @@ private[rial] object ATan2Status {
 // used (the MSB of the exBias is zero, like 0b0111_1111).
 private[rial] object ATan2SpecialValue {
   val width = 3
-  val zNormal     = 0.U(width.W) // normal
+  val zNormal     = 0.U(width.W) // normal atan2
   val zZero       = 1.U(width.W) // |x| >> |y|, x > 0 : atan2(y,x) = zero
   val zPi         = 2.U(width.W) // |x| >> |y|, x < 0 : atan2(y,x) = pi
   val zHalfPi     = 3.U(width.W) // |y| >> |x|        : atan2(y,x) = (+/-) pi/2
@@ -115,14 +115,21 @@ private[rial] class ATan2Phase1PreProcess(
 
   val samexy    = io.x.ex === io.y.ex && io.x.man === io.y.man && !io.x.nan && !io.y.nan
 
+  //        y, x
+  // atan2(+0,+0) = +0
+  // atan2(+0,-0) = +pi
+  // atan2(-0,+0) = -0
+  // atan2(-0,-0) = -pi
+  val zerozero  = io.x.zero && io.y.zero
+
   val xpos      = io.x.sgn === 0.U
   val xneg      = io.x.sgn === 1.U
-  val zzero     = tooLargeX && xpos
-  val zpi       = tooLargeX && xneg
+  val zzero     = (tooLargeX && xpos) || (zerozero && xpos)
+  val zpi       = (tooLargeX && xneg) || (zerozero && xneg)
   val zhalfpi   = tooLargeY
   val z1piover4 = samexy && xpos
   val z3piover4 = samexy && xneg
-  val znan      = (io.x.nan || io.y.nan) || (io.x.zero && io.y.zero)
+  val znan      = (io.x.nan || io.y.nan)
 
   val flags = WireDefault(0.U.asTypeOf(new ATan2Flags))
   flags.isSpecial := znan || zzero || zpi || zhalfpi || z1piover4 || z3piover4
