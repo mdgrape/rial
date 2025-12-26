@@ -43,7 +43,7 @@ import rial.arith._
 // |_|            |_|
 // -------------------------------------------------------------------------
 
-private[rial] class ACosPhase2PreProcess(
+class ACosPhase2PreProcess(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -100,7 +100,7 @@ private[rial] class ACosPhase2PreProcess(
 //  \__\__,_|_.__/|_|\___|  \___\___/ \___|_| |_|
 // -------------------------------------------------------------------------
 
-private[rial] class ACosTableCoeff(
+class ACosTableCoeff(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val maxCbit  : Seq[Int], // max coeff width among all math funcs
@@ -153,7 +153,7 @@ private[rial] class ACosTableCoeff(
     io.cs := enableIf(io.en, coeffs)
   }
 }
-private[rial] object ACosTableCoeff {
+object ACosTableCoeff {
   def getCBits(
     spec:     RealSpec,
     polySpec: PolynomialSpec
@@ -197,7 +197,7 @@ private[rial] object ACosTableCoeff {
 // |_|                 |_|
 // -------------------------------------------------------------------------
 
-private[rial] class ACosPhase2PostProcess(
+class ACosPhase2PostProcess(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,

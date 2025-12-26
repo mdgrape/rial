@@ -29,7 +29,7 @@ import rial.math._
 // |_|            |_|
 // -------------------------------------------------------------------------
 
-private[rial] class SigmoidPreProcessOutput(val spec: RealSpec) extends Bundle {
+class SigmoidPreProcessOutput(val spec: RealSpec) extends Bundle {
   val xsgn  = Output(UInt(1.W))
   val xzero = Output(Bool())
   val zone  = Output(Bool())
@@ -37,7 +37,7 @@ private[rial] class SigmoidPreProcessOutput(val spec: RealSpec) extends Bundle {
   val znan  = Output(Bool())
 }
 
-private[rial] class SigmoidPreProcess(
+class SigmoidPreProcess(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -105,7 +105,7 @@ private[rial] class SigmoidPreProcess(
 //  \__\__,_|_.__/|_|\___|  \___\___/ \___|_| |_|
 // -------------------------------------------------------------------------
 
-private[rial] class SigmoidTableCoeff(
+class SigmoidTableCoeff(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val maxCbit  : Seq[Int], // max coeff width among all math funcs
@@ -176,7 +176,7 @@ private[rial] class SigmoidTableCoeff(
   }
 }
 
-private[rial] object SigmoidTableCoeff {
+object SigmoidTableCoeff {
   def getCBits(
     spec:     RealSpec,
     polySpec: PolynomialSpec
@@ -220,7 +220,7 @@ private[rial] object SigmoidTableCoeff {
 // |_|                 |_|
 // -------------------------------------------------------------------------
 
-private[rial] class SigmoidPostProcess(
+class SigmoidPostProcess(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,

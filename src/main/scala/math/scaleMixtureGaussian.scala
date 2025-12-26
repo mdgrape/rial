@@ -31,7 +31,7 @@ import rial.arith._
 // |_|            |_|
 // -------------------------------------------------------------------------
 
-private[rial] class ScaleMixtureGaussianPreProcess(
+class ScaleMixtureGaussianPreProcess(
   val sgmA:      Double,
   val sgmB:      Double,
   val spec:      RealSpec, // Input / Output floating spec
@@ -89,7 +89,7 @@ private[rial] class ScaleMixtureGaussianPreProcess(
 // -------------------------------------------------------------------------
 //
 //
-private[rial] class ScaleMixtureGaussianTableCoeff(
+class ScaleMixtureGaussianTableCoeff(
   val sgmA:      Double,
   val sgmB:      Double,
   val spec     : RealSpec,
@@ -147,7 +147,7 @@ private[rial] class ScaleMixtureGaussianTableCoeff(
   }
 }
 
-private[rial] object ScaleMixtureGaussianTableCoeff {
+object ScaleMixtureGaussianTableCoeff {
   def getCBits(
     sgmA:     Double,
     sgmB:     Double,
@@ -204,7 +204,7 @@ private[rial] object ScaleMixtureGaussianTableCoeff {
 //
 
 // PreProcMultiplier argument (1/sgmA^2)
-private[rial] object ScaleMixtureGaussianPreMulArgs {
+object ScaleMixtureGaussianPreMulArgs {
   def lhsW(spec: RealSpec): Int = {
     1 + spec.manW
   }
@@ -231,7 +231,7 @@ private[rial] object ScaleMixtureGaussianPreMulArgs {
   }
 }
 
-private[rial] class ScaleMixtureGaussianOtherPath(
+class ScaleMixtureGaussianOtherPath(
   val sgmA:     Double,
   val sgmB:     Double,
   val spec:     RealSpec, // Input / Output floating spec
@@ -296,7 +296,7 @@ private[rial] class ScaleMixtureGaussianOtherPath(
 
 
 // at the postprocess, we multiply (x/sgmA^2) and (polynomial+1).
-private[rial] class ScaleMixtureGaussianPostMulArgs(
+class ScaleMixtureGaussianPostMulArgs(
   val sgmA:     Double,
   val sgmB:     Double,
   val spec:     RealSpec, // Input / Output floating spec
@@ -358,7 +358,7 @@ private[rial] class ScaleMixtureGaussianPostMulArgs(
   io.z0ex := z0ex
 }
 
-private[rial] class ScaleMixtureGaussianPostProcess(
+class ScaleMixtureGaussianPostProcess(
   val sgmA:     Double,
   val sgmB:     Double,
   val spec     : RealSpec, // Input / Output floating spec

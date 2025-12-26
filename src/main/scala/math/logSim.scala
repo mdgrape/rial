@@ -33,7 +33,7 @@ import rial.arith._
 // no taylor expansion needed.
 //
 
-private[rial] object LogSim {
+object LogSim {
 
   def logNormalTableGeneration(spec: RealSpec,
     order:     Int =  2,

@@ -15,7 +15,7 @@ import chisel3._
 import chisel3.util._
 import rial.util.ScalaUtil._
 
-private[rial] class FuncTableIntervalDouble (
+class FuncTableIntervalDouble (
   f : Double => Double,
   val nOrder: Int,
   val xMin  : Double,
@@ -95,7 +95,7 @@ private[rial] class FuncTableIntervalDouble (
   }
 }
 
-private[rial] class FuncTableDouble (f : Double => Double, val nOrder : Int) {
+class FuncTableDouble (f : Double => Double, val nOrder : Int) {
   var interval = new Array[FuncTableIntervalDouble](0)
 
   def nInterval = interval.length
@@ -172,7 +172,7 @@ private[rial] class FuncTableDouble (f : Double => Double, val nOrder : Int) {
 
 }
 
-private[rial] class FuncTableIntervalInt (iv : FuncTableIntervalDouble, val floating: Boolean, val cbit : Seq[Int], val bp : Int = 0 ) {
+class FuncTableIntervalInt (iv : FuncTableIntervalDouble, val floating: Boolean, val cbit : Seq[Int], val bp : Int = 0 ) {
 
   //c.foreach(x => println(f"${x._1}%h"))
   val xMin   = iv.xMin
@@ -305,7 +305,7 @@ private[rial] class FuncTableIntervalInt (iv : FuncTableIntervalDouble, val floa
 
 }
 
-private[rial] trait FuncTable {
+trait FuncTable {
   val nOrder : Int
   val sign : Seq[Int]
   val cbit : Seq[Int]
@@ -492,7 +492,7 @@ private[rial] trait FuncTable {
   }
 }
 
-private[rial] class FuncTableInt (t: FuncTableDouble, val bp: Int,
+class FuncTableInt (t: FuncTableDouble, val bp: Int,
     // if provided, use this as calcWidth and cbit, respectively.
     calcWidthSetting: Option[Seq[Int]] = None,
     cbitSetting: Option[Seq[Int]] = None
@@ -552,7 +552,7 @@ private[rial] class FuncTableInt (t: FuncTableDouble, val bp: Int,
 
 // Currently, always add sign bits
 // cbitGiven must include sign bits
-private[rial] class FuncTableFloat (t: FuncTableDouble, val getWidth: Boolean, val cbitGiven : Seq[Int] ) extends FuncTable {
+class FuncTableFloat (t: FuncTableDouble, val getWidth: Boolean, val cbitGiven : Seq[Int] ) extends FuncTable {
   val nOrder = t.nOrder
   val sign = t.checkSign
   println("Cbits     : "+cbitGiven.mkString("", ", ",""))

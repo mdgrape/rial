@@ -37,7 +37,7 @@ import rial.math._
 //  \__\__,_|_.__/|_|\___|  \___\___/ \___|_| |_|
 // -------------------------------------------------------------------------
 
-private[rial] class InvSqrtTableCoeff(
+class InvSqrtTableCoeff(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val maxCbit  : Seq[Int], // max coeff width among all math funcs
@@ -99,7 +99,7 @@ private[rial] class InvSqrtTableCoeff(
     io.cs := enableIf(io.en, coeffs)
   }
 }
-private[rial] object InvSqrtTableCoeff {
+object InvSqrtTableCoeff {
   def getCBits(
     spec:     RealSpec,
     polySpec: PolynomialSpec
@@ -144,7 +144,7 @@ private[rial] object InvSqrtTableCoeff {
 // -------------------------------------------------------------------------
 
 // No pathway other than table interpolation. just calculate ex and sgn.
-private[rial] class InvSqrtOtherPath(
+class InvSqrtOtherPath(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,

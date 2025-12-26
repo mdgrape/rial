@@ -32,7 +32,7 @@ import rial.arith.FloatChiselUtil
 // |_|            |_|
 // -------------------------------------------------------------------------
 
-private[rial] object ExpPreMulArgs {
+object ExpPreMulArgs {
   def lhsW(spec: RealSpec): Int = {
     1 + spec.manW + 14 // XXX the width is determined empirically
   }
@@ -59,7 +59,7 @@ private[rial] object ExpPreMulArgs {
   }
 }
 
-private[rial] class ExpPreProcess(
+class ExpPreProcess(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -191,7 +191,7 @@ private[rial] class ExpPreProcess(
 //  \__\__,_|_.__/|_|\___|  \___\___/ \___|_| |_|
 // -------------------------------------------------------------------------
 
-private[rial] class ExpTableCoeff(
+class ExpTableCoeff(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val maxCbit  : Seq[Int], // max coeff width among all math funcs
@@ -248,7 +248,7 @@ private[rial] class ExpTableCoeff(
     io.cs := enableIf(io.en, coeffs)
   }
 }
-private[rial] object ExpTableCoeff {
+object ExpTableCoeff {
   def getCBits(
     spec:     RealSpec,
     polySpec: PolynomialSpec
@@ -292,7 +292,7 @@ private[rial] object ExpTableCoeff {
 //                                               |_|
 // -------------------------------------------------------------------------
 
-private[rial] class ExpNonTableOutput(val spec: RealSpec) extends Bundle {
+class ExpNonTableOutput(val spec: RealSpec) extends Bundle {
   //  zsgn  = 0, always
   val zex   = Output(UInt(spec.exW.W))
   val znan  = Output(Bool())
@@ -303,7 +303,7 @@ private[rial] class ExpNonTableOutput(val spec: RealSpec) extends Bundle {
 
 // No pathway (like taylor series) other than table interpolation.
 // Here we calculate z.ex and correction to zman.
-private[rial] class ExpOtherPath(
+class ExpOtherPath(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -395,7 +395,7 @@ private[rial] class ExpOtherPath(
 // |_|                 |_|
 // -------------------------------------------------------------------------
 
-private[rial] class ExpPostProcess(
+class ExpPostProcess(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,

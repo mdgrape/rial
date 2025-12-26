@@ -38,7 +38,7 @@ import rial.math._
 
 // sqrt(x): floating => floating
 // - if x < 0, returns 0.
-private[rial] class SqrtPreProcess(
+class SqrtPreProcess(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -78,7 +78,7 @@ private[rial] class SqrtPreProcess(
 //  \__\__,_|_.__/|_|\___|  \___\___/ \___|_| |_|
 // -------------------------------------------------------------------------
 
-private[rial] class SqrtTableCoeff(
+class SqrtTableCoeff(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val maxCbit  : Seq[Int], // max coeff width among all math funcs
@@ -140,7 +140,7 @@ private[rial] class SqrtTableCoeff(
     io.cs := enableIf(io.en, coeffs)
   }
 }
-private[rial] object SqrtTableCoeff {
+object SqrtTableCoeff {
   def getCBits(
     spec:     RealSpec,
     polySpec: PolynomialSpec
@@ -184,7 +184,7 @@ private[rial] object SqrtTableCoeff {
 //                                               |_|
 // -------------------------------------------------------------------------
 
-private[rial] class RoundingNonTableOutput(val spec: RealSpec) extends Bundle {
+class RoundingNonTableOutput(val spec: RealSpec) extends Bundle {
   val zsgn        = UInt(1.W)
   val zex         = UInt(spec.exW.W)
   val znan        = Bool()
@@ -192,7 +192,7 @@ private[rial] class RoundingNonTableOutput(val spec: RealSpec) extends Bundle {
 }
 
 // No pathway other than table interpolation. just calculate ex and sgn.
-private[rial] class SqrtOtherPath(
+class SqrtOtherPath(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -243,7 +243,7 @@ private[rial] class SqrtOtherPath(
 // It just rounds the polynomial result.
 // sqrt, invsqrt, reciprocal requires the same postprocess.
 //
-private[rial] class RoundingPostProcess(
+class RoundingPostProcess(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,

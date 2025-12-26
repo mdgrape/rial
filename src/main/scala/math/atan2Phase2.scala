@@ -37,7 +37,7 @@ import rial.arith._
 //
 // Phase2 calculates atan(x), so we need to extract the address value
 
-private[rial] class ATan2Phase2PreProcess(
+class ATan2Phase2PreProcess(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig
@@ -132,7 +132,7 @@ private[rial] class ATan2Phase2PreProcess(
 //
 // Phase1 re-use the reciprocal table. we don't need to implement it for atan2.
 //
-private[rial] class ATan2Phase2TableCoeff(
+class ATan2Phase2TableCoeff(
   val spec     : RealSpec,
   val polySpec : PolynomialSpec,
   val maxCbit  : Seq[Int], // max coeff width among all math funcs
@@ -187,7 +187,7 @@ private[rial] class ATan2Phase2TableCoeff(
   }
 }
 
-private[rial] object ATan2Phase2TableCoeff {
+object ATan2Phase2TableCoeff {
   def getCBits(
     spec:     RealSpec,
     polySpec: PolynomialSpec
@@ -234,14 +234,14 @@ private[rial] object ATan2Phase2TableCoeff {
 //                                               |_|
 // -----------------------------------------------------------------------------
 
-private[rial] class ATan2Phase2NonTableOutput(val spec: RealSpec) extends Bundle {
+class ATan2Phase2NonTableOutput(val spec: RealSpec) extends Bundle {
   val zsgn        = Output(UInt(1.W))
   val zex         = Output(UInt(spec.exW.W))
   val zman        = Output(UInt(spec.manW.W))
   val zIsNonTable = Output(Bool())
 }
 
-private[rial] class ATan2Phase2OtherPath(
+class ATan2Phase2OtherPath(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,
@@ -309,7 +309,7 @@ private[rial] class ATan2Phase2OtherPath(
 // Phase2: takes status flags, returns corrected result
 //
 
-private[rial] class ATan2Phase2PostProcess(
+class ATan2Phase2PostProcess(
   val spec     : RealSpec, // Input / Output floating spec
   val polySpec : PolynomialSpec,
   val stage    : PipelineStageConfig,

@@ -20,7 +20,7 @@ import rial.util.ScalaUtil._
 import rial.arith.RealSpec
 import rial.arith.RealGeneric
 
-private[rial] object SigmoidSim {
+object SigmoidSim {
 
   def sigmoidSimGeneric(
     t : FuncTableInt, x: RealGeneric
