@@ -257,7 +257,7 @@ object Threefry4_32Driver extends App {
     )
 }
 
-private[rial] class ThreefrySim(
+class ThreefrySim(
   val round: Int       = 20,
   val key  : Seq[Long] = Seq(0x11111111L, 0x22222222L, 0x0L, 0x0L)
 ) {
