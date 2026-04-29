@@ -1,25 +1,20 @@
 package rial.tests
 
 import org.scalatest._
+import org.scalatest.funspec.AnyFunSpec
 
 import rial.ecc._
 
 import chisel3._
-import chiseltest._
-import firrtl.AnnotationSeq
-
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
+import chisel3.util._
+import chisel3.simulator.scalatest.ChiselSim
+import chisel3.simulator.scalatest.Cli.EmitVcd
 
 import scala.collection.mutable.{Queue, ArrayBuffer}
 import scala.util.Random
 import scala.math._
 
-class CRC16Test extends AnyFlatSpec
-    with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
-
-  behavior of "CRC-16(g=0x18005) result compared to software impl"
+class CRC16Test extends AnyFunSpec with ChiselSim with EmitVcd {
 
   // use the simplest approach because it is the reference
   def crc16Soft(data: Seq[Int]): Int = {
@@ -44,9 +39,9 @@ class CRC16Test extends AnyFlatSpec
     x.toInt
   }
 
-  def runtest(dlen: Int, n: Int, seed: Int, anno: AnnotationSeq) = {
-    it should f"CRC16(g=0x18005, w=16)" in {
-      test(new CRCcore(0x18005, 16)).withAnnotations(anno) {
+  def runtest(dlen: Int, n: Int, seed: Int) = {
+    it(f"CRC16(g=0x18005, w=16)") {
+      simulate(new CRCcore(0x18005, 16)) {
         c => {
           val rng = new Random(seed)
 
@@ -79,5 +74,8 @@ class CRC16Test extends AnyFlatSpec
       }
     }
   }
-  runtest(4, 1000, 123456789, Seq())
+
+  describe("CRC-16(g=0x18005) result compared to software impl") {
+    runtest(4, 1000, 123456789)
+  }
 }
