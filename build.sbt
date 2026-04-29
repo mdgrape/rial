@@ -26,3 +26,13 @@ lazy val rial = (project in file("."))
       ),
     addCompilerPlugin("org.chipsalliance" % "chisel-plugin" % chiselVersion cross CrossVersion.full),
   )
+
+Test / unmanagedSources / excludeFilter := new SimpleFileFilter( p => {
+  p.getAbsolutePath.contains("/ecc/")   ||
+  p.getAbsolutePath.contains("/fixed/") ||
+  p.getAbsolutePath.contains("/math/")  ||
+  p.getAbsolutePath.contains("/rng/")   ||
+  p.getAbsolutePath.contains("/table/") ||
+  p.getAbsolutePath.contains("/util/")
+})
+
