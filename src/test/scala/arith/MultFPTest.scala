@@ -1,42 +1,30 @@
 package rial.tests
 
 import org.scalatest._
+import org.scalatest.funspec.AnyFunSpec
 
 import chisel3._
-import chisel3.experimental.BundleLiterals._
-import chiseltest._
+import chisel3.util._
+import chisel3.simulator.scalatest.ChiselSim
+import chisel3.simulator.scalatest.Cli.EmitVcd
 
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
 import rial.arith._
 import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig
 
-import scala.util.Random
 import scala.math._
+import scala.util.Random
 import scala.collection.mutable.Queue
-import scala.language.reflectiveCalls
 
 import spire.math.SafeLong
 import spire.implicits._
 
 //
-// Testing Pow2F32 using ChiselTest
+// Testing mul using ChiselTest
 //
-
-class MultFPTest extends AnyFlatSpec
-    with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
-
-  behavior of "Test x*y"
+class MultFPTest extends AnyFunSpec with ChiselSim with EmitVcd {
 
   var n = 1000
-
-  override def beforeAll(configMap: ConfigMap) = {
-    n = configMap.getOptional[String]("n").getOrElse("1000").toInt
-    println(s"ncycle=$n")
-  }
-
   val r = new Random(19660809)
 
   def generateRealWithin( p : Double, spec: RealSpec, r : Random ) = {
@@ -51,7 +39,7 @@ class MultFPTest extends AnyFlatSpec
 
   def multTest(xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, roundSpec : RoundSpec,
     n : Int, stage : PipelineStageConfig ) = {
-      test(new MultFPGeneric( xSpec, ySpec, zSpec, roundSpec, stage )) { c =>
+      simulate(new MultFPGeneric( xSpec, ySpec, zSpec, roundSpec, stage )) { c =>
         {
           var q  = new Queue[(BigInt,BigInt,BigInt)]
           val nstage = c.getStage
@@ -101,26 +89,27 @@ class MultFPTest extends AnyFlatSpec
       }
   }
 
-  it should f"Multiplier Double with pipereg 0" in {
-    multTest( RealSpec.Float64Spec, RealSpec.Float64Spec, RealSpec.Float64Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none)
+  describe("Test x*y") {
+    it(f"Multiplier Double with pipereg 0") {
+      multTest( RealSpec.Float64Spec, RealSpec.Float64Spec, RealSpec.Float64Spec,
+        RoundSpec.roundToEven, n, PipelineStageConfig.none)
+    }
+    it(f"Multiplier Float with pipereg 0") {
+      multTest( RealSpec.Float32Spec, RealSpec.Float32Spec, RealSpec.Float32Spec,
+        RoundSpec.roundToEven, n, PipelineStageConfig.none)
+    }
+    it(f"Multiplier Double*Float->Double with pipereg 0") {
+      multTest( RealSpec.Float64Spec, RealSpec.Float32Spec, RealSpec.Float64Spec,
+        RoundSpec.roundToEven, n, PipelineStageConfig.none)
+    }
+    it(f"Multiplier Float*Double->Double with pipereg 0") {
+      multTest( RealSpec.Float32Spec, RealSpec.Float64Spec, RealSpec.Float64Spec,
+        RoundSpec.roundToEven, n, PipelineStageConfig.none)
+    }
+    it(f"Multiplier Float*Float->Double with pipereg 0") {
+      multTest( RealSpec.Float32Spec, RealSpec.Float32Spec, RealSpec.Float64Spec,
+        RoundSpec.roundToEven, n, PipelineStageConfig.none)
+    }
   }
-  it should f"Multiplier Float with pipereg 0" in {
-    multTest( RealSpec.Float32Spec, RealSpec.Float32Spec, RealSpec.Float32Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none)
-  }
-  it should f"Multiplier Double*Float->Double with pipereg 0" in {
-    multTest( RealSpec.Float64Spec, RealSpec.Float32Spec, RealSpec.Float64Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none)
-  }
-  it should f"Multiplier Float*Double->Double with pipereg 0" in {
-    multTest( RealSpec.Float32Spec, RealSpec.Float64Spec, RealSpec.Float64Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none)
-  }
-  it should f"Multiplier Float*Float->Double with pipereg 0" in {
-    multTest( RealSpec.Float32Spec, RealSpec.Float32Spec, RealSpec.Float64Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none)
-  }
-  //runtest(n, PipelineStageConfig.default(2))
 }
 
