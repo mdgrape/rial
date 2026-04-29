@@ -1,13 +1,12 @@
 package rial.tests
 
 import org.scalatest._
+import org.scalatest.funspec.AnyFunSpec
 
 import chisel3._
-import chisel3.experimental.BundleLiterals._
-import chiseltest._
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
+import chisel3.simulator.scalatest.ChiselSim
+import chisel3.simulator.scalatest.Cli.EmitVcd
+
 import rial.arith._
 import rial.fixed._
 import rial.util.ScalaUtil._
@@ -16,7 +15,6 @@ import rial.util.PipelineStageConfig
 import scala.util.Random
 import scala.math._
 import scala.collection.mutable.Queue
-import scala.language.reflectiveCalls
 
 import spire.math.SafeLong
 import spire.implicits._
@@ -25,18 +23,9 @@ import spire.implicits._
 // Testing Float -> Fixed using ChiselTest
 //
 
-class FloatToFixedTest extends AnyFlatSpec
-    with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
-
-  behavior of "Test float -> fixed"
+class FloatToFixedTest extends AnyFunSpec with ChiselSim with EmitVcd {
 
   var n = 10000
-
-  override def beforeAll(configMap: ConfigMap) = {
-    n = configMap.getOptional[String]("n").getOrElse("1000").toInt
-    println(s"ncycle=$n")
-  }
-
   val r = new Random(123456789)
 
   def generateRealWithin( p : Double, spec: RealSpec, r : Random ) = {
@@ -47,7 +36,7 @@ class FloatToFixedTest extends AnyFlatSpec
 
   def convTest(xSpec : RealSpec, bp : Option[(Int, Int)], zSpec : FixedSpec, roundSpec : RoundSpec,
     n : Int, stage : PipelineStageConfig, range : Double ) = {
-      test(new FloatToFixedGeneric( xSpec, bp.map(x => x._1), zSpec, roundSpec, stage )) { c =>
+      simulate(new FloatToFixedGeneric( xSpec, bp.map(x => x._1), zSpec, roundSpec, stage )) { c =>
         {
           var q  = new Queue[(BigInt,BigInt)]
           val fracW  = if(bp.isEmpty) {zSpec.fracW} else {bp.get._2}
@@ -82,35 +71,36 @@ class FloatToFixedTest extends AnyFlatSpec
       }
   }
 
-  it should f"Converter signed Q24 to Float with pipereg 0" in {
-    convTest( RealSpec.Float32Spec, None, new FixedSpec(32, 24, true, true),
-      RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-24-1))
-  }
-  it should f"Converter signed Qd24 to Float with pipereg 0" in {
-    convTest( RealSpec.Float32Spec, Some((5, 24)), new FixedSpec(32, 24, true, true),
-      RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-24-1))
-  }
-  it should f"Converter signed Qd20 to Float with pipereg 0" in {
-    convTest( RealSpec.Float32Spec, Some((5, 20)), new FixedSpec(32, 24, true, true),
-      RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-20-1))
-  }
-  it should f"Converter signed Q20 to Float with pipereg 0" in {
-    convTest( RealSpec.Float32Spec, None, new FixedSpec(32, 20, true, true),
-      RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-20-1))
-  }
+  describe( "Test float -> fixed") {
+    it(f"Converter signed Q24 to Float with pipereg 0") {
+      convTest( RealSpec.Float32Spec, None, new FixedSpec(32, 24, true, true),
+        RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-24-1))
+    }
+    it(f"Converter signed Qd24 to Float with pipereg 0") {
+      convTest( RealSpec.Float32Spec, Some((5, 24)), new FixedSpec(32, 24, true, true),
+        RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-24-1))
+    }
+    it(f"Converter signed Qd20 to Float with pipereg 0") {
+      convTest( RealSpec.Float32Spec, Some((5, 20)), new FixedSpec(32, 24, true, true),
+        RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-20-1))
+    }
+    it(f"Converter signed Q20 to Float with pipereg 0") {
+      convTest( RealSpec.Float32Spec, None, new FixedSpec(32, 20, true, true),
+        RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-20-1))
+    }
 
-
-  it should f"Converter signed Q30 to Float with pipereg 0" in {
-    convTest( RealSpec.Float32Spec, None, new FixedSpec(32, 30, true, true),
-      RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-30-1))
-  }
-  it should f"Converter signed Q16 to Float with pipereg 0" in {
-    convTest( RealSpec.Float32Spec, None, new FixedSpec(32, 16, true, true),
-      RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-16-1))
-  }
-  it should f"Converter signed int32 to Float with pipereg 0" in {
-    convTest( RealSpec.Float32Spec, None, new FixedSpec(32, 0, true, true),
-      RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-1))
+    it(f"Converter signed Q30 to Float with pipereg 0") {
+      convTest( RealSpec.Float32Spec, None, new FixedSpec(32, 30, true, true),
+        RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-30-1))
+    }
+    it(f"Converter signed Q16 to Float with pipereg 0") {
+      convTest( RealSpec.Float32Spec, None, new FixedSpec(32, 16, true, true),
+        RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-16-1))
+    }
+    it(f"Converter signed int32 to Float with pipereg 0") {
+      convTest( RealSpec.Float32Spec, None, new FixedSpec(32, 0, true, true),
+        RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-1))
+    }
   }
 }
 

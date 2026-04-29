@@ -1,13 +1,12 @@
 package rial.tests
 
 import org.scalatest._
+import org.scalatest.funspec.AnyFunSpec
 
 import chisel3._
-import chisel3.experimental.BundleLiterals._
-import chiseltest._
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
+import chisel3.simulator.scalatest.ChiselSim
+import chisel3.simulator.scalatest.Cli.EmitVcd
+
 import rial.arith._
 import rial.fixed._
 import rial.util.ScalaUtil._
@@ -16,7 +15,6 @@ import rial.util.PipelineStageConfig
 import scala.util.Random
 import scala.math._
 import scala.collection.mutable.Queue
-import scala.language.reflectiveCalls
 
 import spire.math.SafeLong
 import spire.implicits._
@@ -25,18 +23,9 @@ import spire.implicits._
 // Testing Fixed -> Float using ChiselTest
 //
 
-class ScaledFixedToFloatTest extends AnyFlatSpec
-    with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
-
-  behavior of "Test fixed -> float"
+class ScaledFixedToFloatTest extends AnyFunSpec with ChiselSim with EmitVcd {
 
   var n = 10000
-
-  override def beforeAll(configMap: ConfigMap) = {
-    n = configMap.getOptional[String]("n").getOrElse("1000").toInt
-    println(s"ncycle=$n")
-  }
-
   val r = new Random(123456789)
 
   def generateRealWithin( p : Double, spec: RealSpec, r : Random ) = {
@@ -47,7 +36,7 @@ class ScaledFixedToFloatTest extends AnyFlatSpec
 
   def convTest(xSpec : FixedSpec, ySpec : RealSpec, zSpec : RealSpec, roundSpec : RoundSpec,
     n : Int, stage : PipelineStageConfig, xrange : Double, yrange : Double ) = {
-      test(new ScaledFixedToFloatGeneric( xSpec, ySpec, zSpec, roundSpec, stage )) { c =>
+      simulate(new ScaledFixedToFloatGeneric( xSpec, ySpec, zSpec, roundSpec, stage )) { c =>
         {
           var q  = new Queue[(BigInt, BigInt, BigInt)]
           val delta  = pow(2.0, -xSpec.fracW)
@@ -92,31 +81,33 @@ class ScaledFixedToFloatTest extends AnyFlatSpec
       }
   }
 
-  it should f"Scale signed Q24 by large Float with pipereg 0" in {
-    convTest( new FixedSpec(32, 24, true, true), RealSpec.Float32Spec, RealSpec.Float32Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-24-1), pow(2.0, 128.0))
-  }
-  it should f"Scale signed Q24 by comparable Float with pipereg 0" in {
-    convTest( new FixedSpec(32, 24, true, true), RealSpec.Float32Spec, RealSpec.Float32Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-24-1), pow(2.0, 7.0))
-  }
+  describe("Test fixed -> float") {
+    it(f"Scale signed Q24 by large Float with pipereg 0") {
+      convTest( new FixedSpec(32, 24, true, true), RealSpec.Float32Spec, RealSpec.Float32Spec,
+        RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-24-1), pow(2.0, 128.0))
+    }
+    it(f"Scale signed Q24 by comparable Float with pipereg 0") {
+      convTest( new FixedSpec(32, 24, true, true), RealSpec.Float32Spec, RealSpec.Float32Spec,
+        RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-24-1), pow(2.0, 7.0))
+    }
 
-  it should f"Scale signed Q30 by large Float with pipereg 0" in {
-    convTest( new FixedSpec(32, 30, true, true), RealSpec.Float32Spec, RealSpec.Float32Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-30-1), pow(2.0, 128.0))
-  }
-  it should f"Scale signed Q30 by comparable Float with pipereg 0" in {
-    convTest( new FixedSpec(32, 30, true, true), RealSpec.Float32Spec, RealSpec.Float32Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-30-1), pow(2.0, 7.0))
-  }
+    it(f"Scale signed Q30 by large Float with pipereg 0") {
+      convTest( new FixedSpec(32, 30, true, true), RealSpec.Float32Spec, RealSpec.Float32Spec,
+        RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-30-1), pow(2.0, 128.0))
+    }
+    it(f"Scale signed Q30 by comparable Float with pipereg 0") {
+      convTest( new FixedSpec(32, 30, true, true), RealSpec.Float32Spec, RealSpec.Float32Spec,
+        RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-30-1), pow(2.0, 7.0))
+    }
 
-  it should f"Scale signed Q16 by large Float with pipereg 0" in {
-    convTest( new FixedSpec(32, 16, true, true), RealSpec.Float32Spec, RealSpec.Float32Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-16-1), pow(2.0, 128.0))
-  }
-  it should f"Scale signed Q16 to comparable Float with pipereg 0" in {
-    convTest( new FixedSpec(32, 16, true, true), RealSpec.Float32Spec, RealSpec.Float32Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-16-1), pow(2.0, 7.0))
+    it(f"Scale signed Q16 by large Float with pipereg 0") {
+      convTest( new FixedSpec(32, 16, true, true), RealSpec.Float32Spec, RealSpec.Float32Spec,
+        RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-16-1), pow(2.0, 128.0))
+    }
+    it(f"Scale signed Q16 to comparable Float with pipereg 0") {
+      convTest( new FixedSpec(32, 16, true, true), RealSpec.Float32Spec, RealSpec.Float32Spec,
+        RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-16-1), pow(2.0, 7.0))
+    }
   }
 }
 
