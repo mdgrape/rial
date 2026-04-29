@@ -117,7 +117,7 @@ class AddFPTest extends AnyFunSpec with ChiselSim with EmitVcd {
                 c.io.x.poke(xid.U(xSpec.W.W))
                 c.io.y.poke(yid.U(ySpec.W.W))
                 for(i <- 1 to nstage) c.clock.step(1)
-                c.debugEnableIO.poke(true.B)
+                c.debugEnableIO.poke(false.B)
                 c.clock.step(1)
               }
 

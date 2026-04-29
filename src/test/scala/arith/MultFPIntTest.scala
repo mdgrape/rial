@@ -65,7 +65,7 @@ class MultFPIntTest extends AnyFunSpec with ChiselSim with EmitVcd {
               val yi = yr.toBigInt
               val zr = new RealGeneric(zSpec, xr.toDouble * yr.toDouble) // TODO write simulator
               val z0i= zr.value.toBigInt
-              println(f"x = ${xi}(${xr.toDouble}), y = ${yr}, z = ${zr.value}")
+              // println(f"x = ${xi}(${xr.toDouble}), y = ${yr}, z = ${zr.value}")
               q += ((xi,yi,z0i))
               c.io.x.poke(xi.U(xSpec.W.W))
               if(ySigned) {
