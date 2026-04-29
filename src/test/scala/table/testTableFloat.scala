@@ -59,7 +59,7 @@ object testTableFloat extends App {
 
   //val calcW = ti.checkWidthAll( 20 )
   val cbit = Array(bp+2)
-  val tf = new FuncTableFloat( t, true, cbit )
+  val tf = new FuncTableFloat( t, true, cbit.toIndexedSeq )
 
   val n = 100
   val xList = (0 to n-1).toList.map( y => xMin + y*(xMax-xMin)/n )
