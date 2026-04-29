@@ -374,12 +374,3 @@ class AddFP64( stage : PipelineStageConfig )
       RealSpec.Float64Spec,  RealSpec.Float64Spec,
       RoundSpec.roundToEven, stage) {
 }
-
-/** AddFP64 generator.
- *
- * @see [[rial.arith.AddFPGeneric]]
- */
-object AddFP64_driver extends App {
-  (new chisel3.stage.ChiselStage).execute(args,
-    Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new AddFP64(PipelineStageConfig.none)) ) )
-}

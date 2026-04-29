@@ -1115,20 +1115,7 @@ class MathFuncUnitFP32( stage : MathFuncPipelineConfig )
     extends MathFunctions(MathFuncConfig.all, RealSpec.Float32Spec, 2, 8, 3, stage) {
 }
 
-/** A driver of MathFuncUnitFP32. */
-object MathFuncUnitFP32_driver extends App {
-  (new chisel3.stage.ChiselStage).execute(args,
-    Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new MathFuncUnitFP32(MathFuncPipelineConfig.none)) ) )
-}
-
 /** A specialization of MathFunctions for BrainFloat16 with all the available functions. */
 class MathFuncUnitBF16( stage : MathFuncPipelineConfig )
     extends MathFunctions(MathFuncConfig.all, RealSpec.BFloat16Spec, 0, 7, 1, stage) {
 }
-
-/** A driver of MathFuncUnitBF16. */
-object MathFuncUnitBF16_driver extends App {
-  (new chisel3.stage.ChiselStage).execute(args,
-    Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new MathFuncUnitBF16(MathFuncPipelineConfig.none)) ) )
-}
-

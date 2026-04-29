@@ -528,12 +528,3 @@ class FusedMulAddFP64( stage : PipelineStageConfig )
       RealSpec.Float64Spec,  RealSpec.Float64Spec, RealSpec.Float64Spec,
       RoundSpec.roundToEven, stage) {
 }
-
-/** FusedMulAddFP64 generator.
- *
- * @see [[rial.arith.FusedMulAddFPGeneric]]
- */
-object FusedMulAddFP64_driver extends App {
-  (new chisel3.stage.ChiselStage).execute(args,
-    Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new FusedMulAddFP64(PipelineStageConfig.none)) ) )
-}

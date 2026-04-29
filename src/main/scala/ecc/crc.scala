@@ -80,17 +80,3 @@ class CRCcore ( g : BigInt, w : Int ) extends Module {
 
   io.ro := rv.asUInt
 }
-
-/** Specialization of CRCcore for parity
- */
-object CRCcoreGen_1_32 extends App {
-  (new chisel3.stage.ChiselStage).execute(args,
-    Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new CRCcore(3, 32)) ) )
-}
-
-/** Specialization of CRCcore for CRC16_IBM (0x1_8005)
- */
-object CRCcoreGen_16_16 extends App {
-  (new chisel3.stage.ChiselStage).execute(args,
-    Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new CRCcore(0x18005, 16)) ) )
-}
