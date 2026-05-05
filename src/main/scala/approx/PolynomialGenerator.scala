@@ -104,7 +104,7 @@ class PolynomialGenerator(
     })
   }
 
-  def eval(
+  private def evalImpl(
     x: Long,
     bitWidth: PolynomialBitWidth,
     tableElem: Seq[Long],
@@ -118,6 +118,9 @@ class PolynomialGenerator(
       val xW   = min(calcW, cfg.inBitW) // minimum required bitW
       val prod = BigInt(x >> (cfg.inBitW - xW)) * sum
 
+      //                                 -16                            15
+      // [-1, 1] -> signed fixedpoint [10000,..11111, 00000, 00001,..01111]
+      //
       // since x is signed and in [-1,1), the position of decimal point is
       // slightly different from its width.
       // if x is unsigned and in [0,1), decimal point is the same as its width.
@@ -138,8 +141,6 @@ class PolynomialGenerator(
     val xiv = (x - cfg.xMin - idx * cfg.intervalW) * cfg.rIntervalW * 2.0 - 1.0
     assert(-1.0 <= xiv && xiv <= 1.0)
 
-    //                                 -16                            15
-    // [-1, 1] -> signed fixedpoint [10000,..11111, 00000, 00001,..01111]
     val xl0 = round(scalb(xiv, cfg.inBitW-1))
     val xlmin = -(1L << (cfg.inBitW - 1))
     val xlmax =  (1L << (cfg.inBitW - 1)) - 1L
@@ -147,7 +148,7 @@ class PolynomialGenerator(
 
     // println(f"xiv=${xiv}%8g, xl0=${xl0}, clamp(${xlmin}, ${xlmax})=${xl}, xiv-xl=${ abs(xiv - scalb(xl, -cfg.inBitW+1)) }%8g")
 
-    val z = eval(xl, bitWidth, table(idx))
+    val z = evalImpl(xl, bitWidth, table(idx))
     scalb(z.toDouble, -cfg.outBitW)
   }
 }
