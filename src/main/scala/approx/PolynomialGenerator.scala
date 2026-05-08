@@ -104,6 +104,23 @@ class PolynomialGenerator(
     })
   }
 
+  def packTable(
+    bitWidth: PolynomialBitWidth,
+    coeffs: Seq[ Seq[Long /* ; cfg.nOrder+1 */] /* ; cfg.nInterval */ ]
+  ): Seq[BigInt] = {
+    coeffs.map(cs => {
+      var lsb    = 0
+      var result = BigInt(0)
+      assert(cs.length() == bitWidth.coeffBits.length())
+      for(i <- 0 until cs.length()) {
+        assert( abs(cs(i)) <= (1L << (bitWidth.coeffBits(i)-1)) )
+        result += (BigInt(cs(i)) << lsb)
+        lsb += bitWidth.coeffBits(i)
+      }
+      result
+    })
+  }
+
   private def evalImpl(
     x: Long,
     bitWidth: PolynomialBitWidth,
