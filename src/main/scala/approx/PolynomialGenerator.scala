@@ -4,15 +4,13 @@ import scala.math._
 import scala.collection.mutable.ArraySeq
 import java.lang.Math.scalb
 
-/**
- * @param nOrder   polynomial order
- * @param coefBits bit widths required to store coefficients
- * @param calcBits bit widths required to calculate polynomial
- */
 case class PolynomialBitWidth(
-  val nOrder: Int,
-  val coefBits: Seq[Int],
-  val calcBits: Seq[Int],
+  val nOrder:    Int,
+  val nInterval: Int,
+  val inBitW:    Int, // width of x in each interval polynomial.
+  val outBitW:   Int, // (1 << outBitW) means 1.0
+  val coefBits:  Seq[Int],
+  val calcBits:  Seq[Int],
 ) {
   assert(coefBits.length == nOrder+1)
   assert(calcBits.length == nOrder+1)
@@ -91,6 +89,9 @@ class PolynomialGenerator(
   def getBitWidth(): PolynomialBitWidth = {
     PolynomialBitWidth(
       cfg.nOrder,
+      cfg.nInterval,
+      cfg.inBitW,
+      cfg.outBitW,
       minimumRequiredCoeffBits,
       minimumRequiredCalcBits,
     )
