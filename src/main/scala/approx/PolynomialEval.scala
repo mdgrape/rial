@@ -48,10 +48,10 @@ class PolynomialEval(
       // minimize bit width in multiply
       val currW: Int = curr.getWidth()
       val xPrec: Int = x.getWidth() - 1 // [-1, 1) = [1'0000, 01111]
-      val xW:    Int = min(currW, xPrec)
+      val xminW: Int = min(currW, xPrec)
 
-      val prod = x(xPrec, xPrec-xW).asSInt * curr
-      val sum  = (prod >> xW) + coeff
+      val prod = x(xPrec, xPrec-xminW).asSInt * curr
+      val sum  = (prod >> xminW) + coeff
       sum
     }
     val res = coeffs.init.foldRight(coeffs.last)( (c, z) => horner(c, z, x) )
