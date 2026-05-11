@@ -27,6 +27,12 @@ case class PolynomialBitWidth(
   }
 }
 
+case class PolynomialCoefficients(
+  val bitW:   PolynomialBitWidth,
+  val coeffs: Seq[ Seq[Long /* ; nOrder+1 */] /* ; nInterval */ ]
+) {
+}
+
 class PolynomialGenerator(
   f: Double => Double,
   val cfg: ApproxFuncConfig,
@@ -92,30 +98,31 @@ class PolynomialGenerator(
 
   def generateTable(
     bitWidth: PolynomialBitWidth
-  ): Seq[ Seq[Long /* ; cfg.nOrder+1 */] /* ; cfg.nInterval */ ] = {
-    funcTable.intervals.map(iv => {
-      assert(iv.coeffs.length == bitWidth.coefBits.length)
-      iv.coeffs.zip(bitWidth.coefBits).map { case (coeff, bitW) => {
-        // println(f"coeff=${coeff}, outBitW=${cfg.outBitW}, bitW=${bitW}")
-        val bits = round(scalb(coeff, cfg.outBitW))
-        assert(-(1L << (bitW-1)) <= bits && bits < (1L << (bitW-1)))
-        bits
-      }}
-    })
+  ): PolynomialCoefficients = {
+    PolynomialCoefficients(bitWidth,
+      funcTable.intervals.map(iv => {
+        assert(iv.coeffs.length == bitWidth.coefBits.length)
+        iv.coeffs.zip(bitWidth.coefBits).map { case (coeff, bitW) => {
+          // println(f"coeff=${coeff}, outBitW=${cfg.outBitW}, bitW=${bitW}")
+          val bits = round(scalb(coeff, cfg.outBitW))
+          assert(-(1L << (bitW-1)) <= bits && bits < (1L << (bitW-1)))
+          bits
+        }}
+      })
+    )
   }
 
   def packTable(
-    bitWidth: PolynomialBitWidth,
-    coeffs: Seq[ Seq[Long /* ; cfg.nOrder+1 */] /* ; cfg.nInterval */ ]
+    coeffs: PolynomialCoefficients
   ): Seq[BigInt] = {
-    coeffs.map(cs => {
+    coeffs.coeffs.map(cs => {
       var lsb    = 0
       var result = BigInt(0)
-      assert(cs.length() == bitWidth.coeffBits.length())
+      assert(cs.length() == coeffs.bitW.coeffBits.length())
       for(i <- 0 until cs.length()) {
-        assert( abs(cs(i)) <= (1L << (bitWidth.coeffBits(i)-1)) )
+        assert( abs(cs(i)) <= (1L << (coeffs.bitW.coeffBits(i)-1)) )
         result += (BigInt(cs(i)) << lsb)
-        lsb += bitWidth.coeffBits(i)
+        lsb += coeffs.bitWidth.coeffBits(i)
       }
       result
     })
@@ -151,8 +158,7 @@ class PolynomialGenerator(
 
   def eval(
     x: Double,
-    bitWidth: PolynomialBitWidth,
-    table: Seq[Seq[Long]],
+    coeffs: PolynomialCoefficients
   ): Double = {
     val idx = floor((x - cfg.xMin) * cfg.rIntervalW).toInt
     val xiv = (x - cfg.xMin - idx * cfg.intervalW) * cfg.rIntervalW * 2.0 - 1.0
@@ -165,7 +171,7 @@ class PolynomialGenerator(
 
     // println(f"xiv=${xiv}%8g, xl0=${xl0}, clamp(${xlmin}, ${xlmax})=${xl}, xiv-xl=${ abs(xiv - scalb(xl, -cfg.inBitW+1)) }%8g")
 
-    val z = evalImpl(xl, bitWidth, table(idx))
+    val z = evalImpl(xl, coeffs.bitW, coeffs.coeffs(idx))
     scalb(z.toDouble, -cfg.outBitW)
   }
 }
