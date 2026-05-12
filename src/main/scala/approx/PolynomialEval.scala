@@ -61,3 +61,56 @@ class PolynomialEval(
     out.bits  := Mux(res > resMax, resMax, res)
   }
 }
+
+// ------------------------------------------------------------
+// software
+
+object PolynomialEval {
+
+  private def evalImpl(
+    x: Long,
+    bitWidth: PolynomialBitWidth,
+    tableElem: Seq[Long],
+  ): BigInt = {
+
+    var calcW = bitWidth.calcBits(tableElem.length-1)
+    var sum   = BigInt(tableElem (tableElem.length-1))
+
+    // println(f"i=${tableElem.length-1}: inBitW=${cfg.inBitW}, coefW=${bitWidth.coefBits(tableElem.length-1)}, calcW=${calcW}, x=${x}, sum=${sum}, coef=${tableElem(tableElem.length-1)}")
+    for(i <- (tableElem.length-2) to 0 by -1) {
+      val xW   = min(calcW, cfg.inBitW) // minimum required bitW
+      val prod = BigInt(x >> (cfg.inBitW - xW)) * sum
+
+      //                                 -16                            15
+      // [-1, 1] -> signed fixedpoint [10000,..11111, 00000, 00001,..01111]
+      //
+      // since x is signed and in [-1,1), the position of decimal point is
+      // slightly different from its width.
+      // if x is unsigned and in [0,1), decimal point is the same as its width.
+      // but if x is signed and in [-1,1), decimal point locates width-1.
+      sum   = (prod >> (xW-1)) + tableElem(i)
+      calcW = bitWidth.calcBits(i)
+      // println(f"i=${i}: inBitW=${cfg.inBitW}, coefW=${bitWidth.coefBits(i)}, calcW=${calcW}, x=${x}, prod=${prod>>xW}, sum=${sum}, coef=${tableElem(i)}")
+    }
+    sum
+  }
+
+  def eval(
+    x: Double,
+    coeffs: PolynomialCoefficients
+  ): Double = {
+    val idx = floor((x - cfg.xMin) * cfg.rIntervalW).toInt
+    val xiv = (x - cfg.xMin - idx * cfg.intervalW) * cfg.rIntervalW * 2.0 - 1.0
+    assert(-1.0 <= xiv && xiv <= 1.0)
+
+    val xl0 = round(scalb(xiv, cfg.inPrec))
+    val xlmin = -(1L << (cfg.inPrec))
+    val xlmax =  (1L << (cfg.inPrec)) - 1L
+    val xl = max(min(xl0, xlmax), xlmin)
+
+    // println(f"xiv=${xiv}%8g, xl0=${xl0}, clamp(${xlmin}, ${xlmax})=${xl}, xiv-xl=${ abs(xiv - scalb(xl, -cfg.inBitW+1)) }%8g")
+
+    val z = evalImpl(xl, coeffs.bitW, coeffs.coeffs(idx))
+    scalb(z.toDouble, -cfg.outPrec)
+  }
+}
