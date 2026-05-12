@@ -67,8 +67,8 @@ class PolynomialEval(
 
 object PolynomialEval {
 
-  private def evalImpl(
-    x: Long,
+  private def evalInterval(
+    x: BigInt,
     bitWidth: PolynomialBitWidth,
     tableElem: Seq[Long],
   ): BigInt = {
@@ -79,7 +79,7 @@ object PolynomialEval {
     // println(f"i=${tableElem.length-1}: inBitW=${cfg.inBitW}, coefW=${bitWidth.coefBits(tableElem.length-1)}, calcW=${calcW}, x=${x}, sum=${sum}, coef=${tableElem(tableElem.length-1)}")
     for(i <- (tableElem.length-2) to 0 by -1) {
       val xW   = min(calcW, cfg.inBitW) // minimum required bitW
-      val prod = BigInt(x >> (cfg.inBitW - xW)) * sum
+      val prod = (x >> (cfg.inBitW - xW)) * sum
 
       //                                 -16                            15
       // [-1, 1] -> signed fixedpoint [10000,..11111, 00000, 00001,..01111]
@@ -93,6 +93,24 @@ object PolynomialEval {
       // println(f"i=${i}: inBitW=${cfg.inBitW}, coefW=${bitWidth.coefBits(i)}, calcW=${calcW}, x=${x}, prod=${prod>>xW}, sum=${sum}, coef=${tableElem(i)}")
     }
     sum
+  }
+
+  def eval(
+    addr: Int,
+    x: BigInt, // unsigned
+    coeffs: PolynomialCoefficients,
+  ): BigInt = {
+    if(coeffs.bitW.nOrder == 0) {
+      // just a table, no calc. no x.
+      coeffs.coeffs(addr)
+    } else {
+      // convert unsigend [0, 1) -> signed [-1, 1)
+      // 0000,..0111,1000,..1111 -> 1000,..1111,0000,..0111
+      // then, (normally, on a hardware implementation) flip the MSB!
+      // on a software impl, subtract `1000`.
+      val sx = x - (BigInt(1) << (xW-1))
+      PolynomialEval.evalInterval(sx, coeffs.bitW, coeffs.coeffs(addr))
+    }
   }
 
   def eval(
@@ -110,7 +128,7 @@ object PolynomialEval {
 
     // println(f"xiv=${xiv}%8g, xl0=${xl0}, clamp(${xlmin}, ${xlmax})=${xl}, xiv-xl=${ abs(xiv - scalb(xl, -cfg.inBitW+1)) }%8g")
 
-    val z = evalImpl(xl, coeffs.bitW, coeffs.coeffs(idx))
+    val z = evalInterval(BigInt(xl), coeffs.bitW, coeffs.coeffs(idx))
     scalb(z.toDouble, -cfg.outPrec)
   }
 }
