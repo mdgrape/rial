@@ -20,18 +20,18 @@ class PolynomialEval(
      val coeffs = UInt(bitW.coefBits.reduce(_+_).W)
      val x = if (order != 0) { Some(UInt(cfg.inBitW.W)) } else { None }
     }))
-    val out = Valid(UInt(cfg.outBitW.W))
+    val out = Valid(UInt(cfg.outPrec.W)) // [0.0, 1.0)
   })
 
   val out = WireDefault(0.U.asTypeOf(new Bundle {
     val valid = Bool()
-    val bits  = UInt(cfg.outBitW.W)
+    val bits  = UInt(cfg.outPrec.W)
   }))
   io.out := ShiftRegister(out, stage.total)
 
   if(order == 0) {
     assert(cfg.coefBits.length() == 1)
-    assert(cfg.outBitW == cfg.coefBits.reduce(_+_))
+    assert(cfg.outPrec == cfg.coefBits.reduce(_+_))
 
     out.valid := io.in.valid
     out.bits  := io.in.bits.coeffs // if order==0, then there is only one parameter.
@@ -51,10 +51,12 @@ class PolynomialEval(
       val xminW: Int = min(currW, xPrec)
 
       val prod = x(xPrec, xPrec-xminW).asSInt * curr
-      val sum  = (prod >> xminW) + coeff
+      val sum  = (prod >> xminW) +& coeff
       sum
     }
     val res = coeffs.init.foldRight(coeffs.last)( (c, z) => horner(c, z, x) )
+    val resMax = Fill(cfg.outPrec, 1.U(1.W))
+
     out.valid := io.in.valid
     out.bits  := res.asUInt
   }
