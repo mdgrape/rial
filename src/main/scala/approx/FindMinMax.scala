@@ -10,7 +10,7 @@ object FindMinMax {
     f: Double => Double,
     xMin: Double,
     xMax: Double
-  ): Double = {
+  ): (Double, Double) = {
     require(isUnimodal(f, xMin, xMax))
     val optimizer = new BrentOptimizer(1e-10, 1e-14)
     val minResult = optimizer.optimize(
@@ -19,14 +19,14 @@ object FindMinMax {
       GoalType.MINIMIZE,
       new SearchInterval(xMin, xMax)
     )
-    minResult.getValue
+    (minResult.getPoint, minResult.getValue)
   }
 
   def findMax(
     f: Double => Double,
     xMin: Double,
     xMax: Double
-  ): Double = {
+  ): (Double, Double) = {
     require(isUnimodal(f, xMin, xMax))
     val optimizer = new BrentOptimizer(1e-10, 1e-14)
     val maxResult = optimizer.optimize(
@@ -35,7 +35,7 @@ object FindMinMax {
       GoalType.MAXIMIZE,
       new SearchInterval(xMin, xMax)
     )
-    maxResult.getValue
+    (maxResult.getPoint, maxResult.getValue)
   }
 
   // check it approximately (since it is a part of polynomial approx, user
