@@ -55,7 +55,8 @@ class PolynomialGenerator(
   if(minF < 0.5) {
     println(f"WARNING: f(x=${xAtMinF}) = ${minF} < 0.5 may lose precision.")
   }
-  assert(maxF <= 1.0 f"WARNING: f(x=${xAtMaxF}) = ${maxF} > 1.0 may cause overflow.")
+  assert(0.0 <= minF f"f(x=${xAtMaxF}) = ${maxF} < 0.0 may cause overflow.")
+  assert(maxF <= 1.0 f"f(x=${xAtMaxF}) = ${maxF} > 1.0 may cause overflow.")
 
   // ----------------------------------------------------------------------
   // minimum required (possible max) width of coeffs for each order
