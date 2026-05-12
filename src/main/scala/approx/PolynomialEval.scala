@@ -54,10 +54,10 @@ class PolynomialEval(
       val sum  = (prod >> xminW) +& coeff
       sum
     }
-    val res = coeffs.init.foldRight(coeffs.last)( (c, z) => horner(c, z, x) )
+    val res = coeffs.init.foldRight(coeffs.last)( (c, z) => horner(c, z, x) ).asUInt
     val resMax = Fill(cfg.outPrec, 1.U(1.W))
 
     out.valid := io.in.valid
-    out.bits  := res.asUInt
+    out.bits  := Mux(res > resMax, resMax, res)
   }
 }
