@@ -4,21 +4,29 @@ import scala.math._
 import scala.collection.mutable.ArraySeq
 import java.lang.Math.scalb
 
+import chisel3.util.log2Ceil
+
 case class PolynomialBitWidth(
   val nOrder:    Int,
   val nInterval: Int,
   val inBitW:    Int, // width of x in each interval polynomial.
-  val outBitW:   Int, // (1 << outBitW) means 1.0
+  val outPrec:   Int, // (1 << outPrec) means 1.0
   val coefBits:  Seq[Int],
   val calcBits:  Seq[Int],
 ) {
   assert(coefBits.length == nOrder+1)
   assert(calcBits.length == nOrder+1)
 
+  val addrW = log2Ceil(nInterval)
+  val inPrec = inBitW-1 // input is [-1.0, 1.0). (1 << inPrec) == 1.0
+
   def merge(other: PolynomialBitWidth): PolynomialBitWidth = {
     require(nOrder == other.nOrder)
     PolynomialBitWidth(
       nOrder,
+      nInterval,
+      inBitW,
+      outPrec,
       coefBits.zip(other.coefBits).map { case (lhs, rhs) => max(lhs, rhs) },
       calcBits.zip(other.calcBits).map { case (lhs, rhs) => max(lhs, rhs) },
     )
@@ -39,11 +47,19 @@ class PolynomialGenerator(
 
   private val funcTable = new FuncTable(f, cfg)
 
-  private def log2(x: Double): Double = { log(x) / log(2.0) }
+  // ----------------------------------------------------------------------
+  // range checks
+
+  private val (xAtMinF, minF) = FindMinMax.findMin(f, 0.0, 1.0)
+  private val (xAtMaxF, maxF) = FindMinMax.findMax(f, 0.0, 1.0)
+  if(minF < 0.5) {
+    println(f"WARNING: f(x=${xAtMinF}) = ${minF} < 0.5 may lose precision.")
+  }
+  assert(maxF <= 1.0 f"WARNING: f(x=${xAtMaxF}) = ${maxF} > 1.0 may cause overflow.")
 
   // ----------------------------------------------------------------------
   // minimum required (possible max) width of coeffs for each order
-  // to realize cfg.outBitW precision
+  // to realize cfg.outPrec precision
 
   private val minCoeffs = (0 to cfg.nOrder).map(i => funcTable.intervals.map(_.coeffs(i)).min)
   private val maxCoeffs = (0 to cfg.nOrder).map(i => funcTable.intervals.map(_.coeffs(i)).max)
@@ -54,24 +70,24 @@ class PolynomialGenerator(
   })
 
   private val minimumRequiredCoeffBits = maxCoeffMagnitude.map(x => {
-    val coeffInt  = round(scalb(x, cfg.outBitW))
-    // println(f"maxCoeffMag = ${x}%10.6f, log2(coeffInt)=${ceil(log2(coeffInt)).toInt}")
-    ceil(log2(coeffInt)).toInt + 1 // +1 for SInt
+    val coeffInt  = round(scalb(x, cfg.outPrec))
+    // println(f"maxCoeffMag = ${x}%10.6f, log2(coeffInt)=${log2Ceil(coeffInt).toInt}")
+    log2Ceil(coeffInt).toInt + 1 // +1 for SInt
   })
 
   // ----------------------------------------------------------------------
   // minimum required (possible max) width of calc result for each order
-  // to realize cfg.outBitW precision
+  // to realize cfg.outPrec precision
 
   private val minCalc = (0 to cfg.nOrder).map(order => {
     funcTable.intervals.map(iv => {
-      FindMinMax.findMin( (x: Double) => iv.eval(x, order), 0.0, 1.0 )
+      FindMinMax.findMin( (x: Double) => iv.eval(x, order), 0.0, 1.0 )._1
     }).min
   })
 
   private val maxCalc = (0 to cfg.nOrder).map(order => {
     funcTable.intervals.map(iv => {
-      FindMinMax.findMax( (x: Double) => iv.eval(x, order), 0.0, 1.0 )
+      FindMinMax.findMax( (x: Double) => iv.eval(x, order), 0.0, 1.0 )._1
     }).max
   })
 
@@ -80,8 +96,8 @@ class PolynomialGenerator(
   })
 
   private val minimumRequiredCalcBits = maxCalcMagnitude.map(x => {
-    val coeffInt  = round(scalb(x, cfg.outBitW))
-    ceil(log2(coeffInt)).toInt + 1 // +1 for SInt
+    val coeffInt  = round(scalb(x, cfg.outPrec))
+    log2Ceil(coeffInt).toInt + 1 // +1 for SInt
   })
 
   // --------------------------------------------------------------------------
@@ -91,7 +107,7 @@ class PolynomialGenerator(
       cfg.nOrder,
       cfg.nInterval,
       cfg.inBitW,
-      cfg.outBitW,
+      cfg.outPrec,
       minimumRequiredCoeffBits,
       minimumRequiredCalcBits,
     )
@@ -104,8 +120,8 @@ class PolynomialGenerator(
       funcTable.intervals.map(iv => {
         assert(iv.coeffs.length == bitWidth.coefBits.length)
         iv.coeffs.zip(bitWidth.coefBits).map { case (coeff, bitW) => {
-          // println(f"coeff=${coeff}, outBitW=${cfg.outBitW}, bitW=${bitW}")
-          val bits = round(scalb(coeff, cfg.outBitW))
+          // println(f"coeff=${coeff}, outPrec=${cfg.outPrec}, bitW=${bitW}")
+          val bits = round(scalb(coeff, cfg.outPrec))
           assert(-(1L << (bitW-1)) <= bits && bits < (1L << (bitW-1)))
           bits
         }}
@@ -165,14 +181,14 @@ class PolynomialGenerator(
     val xiv = (x - cfg.xMin - idx * cfg.intervalW) * cfg.rIntervalW * 2.0 - 1.0
     assert(-1.0 <= xiv && xiv <= 1.0)
 
-    val xl0 = round(scalb(xiv, cfg.inBitW-1))
-    val xlmin = -(1L << (cfg.inBitW - 1))
-    val xlmax =  (1L << (cfg.inBitW - 1)) - 1L
+    val xl0 = round(scalb(xiv, cfg.inPrec))
+    val xlmin = -(1L << (cfg.inPrec))
+    val xlmax =  (1L << (cfg.inPrec)) - 1L
     val xl = max(min(xl0, xlmax), xlmin)
 
     // println(f"xiv=${xiv}%8g, xl0=${xl0}, clamp(${xlmin}, ${xlmax})=${xl}, xiv-xl=${ abs(xiv - scalb(xl, -cfg.inBitW+1)) }%8g")
 
     val z = evalImpl(xl, coeffs.bitW, coeffs.coeffs(idx))
-    scalb(z.toDouble, -cfg.outBitW)
+    scalb(z.toDouble, -cfg.outPrec)
   }
 }
