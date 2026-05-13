@@ -8,25 +8,23 @@ import chisel3._
 import chisel3.util._
 
 class PolynomialEval(
-  cfg: ApproxFuncConfig,
   bitW: PolynomialBitWidth,
   stage: PipelineStageConfig,
 ) extends Module {
-  assert(cfg.nOrder == bitW.nOrder)
 
-  val order = cfg.nOrder
+  val order = bitW.nOrder
 
   val io = IO(new Bundle {
     val in = Flipped(Valid(new Bundle {
      val coeffs = UInt(bitW.coefBits.reduce(_+_).W)
      val x = if (order != 0) { Some(UInt(bitW.inBitW.W)) } else { None }
     }))
-    val out = Valid(UInt(cfg.outPrec.W)) // [0.0, 1.0)
+    val out = Valid(UInt(bitW.outBitW.W)) // [0.0, 1.0)
   })
 
   val out = WireDefault(0.U.asTypeOf(new Bundle {
     val valid = Bool()
-    val bits  = UInt(cfg.outPrec.W)
+    val bits  = UInt(bitW.outBitW.W)
   }))
   io.out := ShiftRegister(out, stage.total)
 
@@ -56,7 +54,7 @@ class PolynomialEval(
       sum
     }
     val res = coeffs.init.foldRight(coeffs.last)( (c, z) => horner(c, z, x) ).asUInt
-    val resMax = Fill(cfg.outPrec, 1.U(1.W))
+    val resMax = Fill(bitW.outBitW, 1.U(1.W))
 
     out.valid := io.in.valid
     out.bits  := Mux(res > resMax, resMax, res)
