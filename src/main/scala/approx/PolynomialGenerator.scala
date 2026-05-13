@@ -1,10 +1,10 @@
 package rial.approx
 
 import scala.math._
-import scala.collection.mutable.ArraySeq
 import java.lang.Math.scalb
-
 import chisel3.util.log2Ceil
+
+import rial.util.ScalaUtil._
 
 case class PolynomialBitWidth(
   val nOrder:   Int,
@@ -120,7 +120,9 @@ class PolynomialGenerator(
       })
     )
   }
+}
 
+object PolynomialGenerator {
   def packTable(
     coeffs: PolynomialCoefficients
   ): Seq[BigInt] = {
@@ -130,12 +132,12 @@ class PolynomialGenerator(
       assert(cs.length == coeffs.bitW.coefBits.length)
       for(i <- 0 until cs.length) {
         assert( abs(cs(i)) <= (1L << (coeffs.bitW.coefBits(i)-1)) )
-        result += (BigInt(cs(i)) << lsb)
+        val c = BigInt(cs(i)) & maskBI(coeffs.bitW.coefBits(i))
+        result |= (c << lsb)
         lsb = lsb + coeffs.bitW.coefBits(i)
       }
       result
     })
   }
 }
-
 

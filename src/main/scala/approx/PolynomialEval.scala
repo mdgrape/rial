@@ -16,32 +16,25 @@ class PolynomialEval(
 
   val io = IO(new Bundle {
     val in = Flipped(Valid(new Bundle {
-     val coeffs = UInt(bitW.coefBits.reduce(_+_).W)
-     val x = if (order != 0) { Some(UInt(bitW.inBitW.W)) } else { None }
+     val coeffs = Input(MixedVec(bitW.coefBits.map{w => SInt(w.W)}))
+     val x = if (order != 0) { Some(SInt(bitW.inBitW.W)) } else { None }
     }))
     val out = Valid(UInt(bitW.outBitW.W)) // [0.0, 1.0)
   })
 
-  val out = WireDefault(0.U.asTypeOf(new Bundle {
-    val valid = Bool()
-    val bits  = UInt(bitW.outBitW.W)
-  }))
-  io.out := ShiftRegister(out, stage.total)
+  val out = WireDefault(0.U(bitW.outBitW.W))
+  io.out := Pipe(io.in.valid, out, stage.total)
 
   if(order == 0) {
     assert(bitW.coefBits.length == 1)
     assert(bitW.outPrec == bitW.coefBits.reduce(_+_))
 
-    out.valid := io.in.valid
-    out.bits  := io.in.bits.coeffs // if order==0, then there is only one parameter.
+    out := io.in.bits.coeffs(0) // if order==0, then there is only one parameter.
 
   } else {
     // conversion to SInt (-1 ~ +1 range) must be done outside
-    val x = io.in.bits.x.get.asSInt
-
-    val ws     = bitW.coefBits.scanLeft(0)(_+_)
-    val ranges = ws.zip(ws.tail)
-    val coeffs = MixedVec(ranges.map { case (l,u) => io.in.bits.coeffs(l, u).asSInt })
+    val x      = io.in.bits.x.get
+    val coeffs = io.in.bits.coeffs
 
     def horner( coeff: SInt, curr: SInt, x: SInt ): SInt = {
       // minimize bit width in multiply
@@ -56,8 +49,7 @@ class PolynomialEval(
     val res = coeffs.init.foldRight(coeffs.last)( (c, z) => horner(c, z, x) ).asUInt
     val resMax = Fill(bitW.outBitW, 1.U(1.W))
 
-    out.valid := io.in.valid
-    out.bits  := Mux(res > resMax, resMax, res)
+    out := Mux(res > resMax, resMax, res)
   }
 }
 
