@@ -1,35 +1,79 @@
 package rial.approx
 
 import scala.math._
-import scala.collection.mutable.ArraySeq
+import scala.collection.mutable.{ArrayBuffer, ArraySeq}
 
-private[rial] class FuncTable(
+class FuncTable(
   f: Double => Double,
-  val cfg: ApproxFuncConfig,
+  val nOrder: Int,
 ) {
-  val intervals = (0 until cfg.nInterval).map(i => {
-    val xMin = cfg.xMin + cfg.intervalW * i
-    val xMax = cfg.xMin + cfg.intervalW * (i+1)
+  val intervals = new ArrayBuffer[FuncTableInterval]
 
-    // [-1, 1] => [f(xMin), f(xMax)]
-    new FuncTableInterval( (x: Double) => {
-      f((x + 1.0) * 0.5 * cfg.intervalW + xMin)
-    }, cfg.nOrder)
-  })
+  // sometimes, we need to split the domain of the target function
+  def addInterval(
+    xMin: Double,
+    xMax: Double
+  ) = {
+    val intervalW = xMax - xMin
+    // [f_chebyshev(-1), f_chebyshev(1)] => [f_user(xMin), f_user(xMax)]
+    intervals += new FuncTableInterval( (x: Double) => {
+      f((x + 1.0) * 0.5 * intervalW + xMin)
+    }, nOrder, xMin, xMax)
+  }
 
-  def eval(x: Double, n: Int = cfg.nOrder): Double = {
-    val idx  = floor((x - cfg.xMin) * cfg.rIntervalW)
-    val xMin = cfg.xMin + cfg.intervalW * idx
+  def addEqualInterval(
+    nIntervals: Int,
+    xMin: Double,
+    xMax: Double
+  ) = {
+    val intervalW = (xMax - xMin) / nIntervals
+    for(i <- 0 until nIntervals) {
+      val xMinLocal = xMin + intervalW *  i
+      val xMaxLocal = xMin + intervalW * (i+1)
+      addInterval(xMinLocal, xMaxLocal)
+    }
+  }
 
-    // [xMin, xMax] => [-1, 1]
-    intervals(idx.toInt).eval( (x - xMin) * cfg.rIntervalW * 2.0 - 1.0 )
+  def eval(x: Double, n: Int = nOrder): Double = {
+    intervals.find(iv => {
+      iv.inRange(x)
+    }).map( iv => {
+      iv.eval(iv.mapToDomain(x), n)
+    }).getOrElse(Double.NaN)
+  }
+}
+
+private[rial] object FuncTable {
+  def apply(
+    f: Double => Double,
+    nOrder: Int,
+    nIntervals: Int,
+    xMin: Double,
+    xMax: Double,
+  ): FuncTable = {
+    val t = new FuncTable(f, nOrder)
+    t.addEqualInterval(nIntervals, xMin, xMax)
+    t
   }
 }
 
 private[rial] class FuncTableInterval(
-  f : Double => Double, // already centered to [-1, 1]
+  f : Double => Double, // x in [-1, 1]
   val nOrder: Int,
+  val xMin: Double,
+  val xMax: Double,
 ) {
+
+  def inRange(x: Double): Boolean = {
+    xMin <= x && x < xMax
+  }
+
+  val width = xMax - xMin
+  val rwidth = 1.0 / width
+  // convert [xMin, xMax] -> [-1, 1] (domain of chebyshev)
+  def mapToDomain(x: Double): Double = {
+    (x - xMin) * rwidth * 2.0 - 1.0
+  }
 
   private val chebyshev = new Chebyshev(nOrder)
   private val nodes = chebyshev.nodes()
@@ -53,6 +97,7 @@ private[rial] class FuncTableInterval(
     }).sum
   })
 
+  // x must be in [-1, 1]
   def eval(x: Double, order: Int = nOrder): Double = {
     (0 to order).map(i => { pow(x, i) * coeffs(i) }).sum
   }
