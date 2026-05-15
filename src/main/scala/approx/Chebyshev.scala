@@ -7,10 +7,14 @@ import scala.collection.mutable.ArraySeq
 private[rial] class Chebyshev(
   val nOrder: Int,
 ) {
-  val coeffs = ArraySeq.fill(nOrder+1, nOrder+1)(0)
+  require(nOrder >= 0, s"nOrder must be >= 0, but got $nOrder")
+
+  val coeffs = ArraySeq.fill(nOrder+1)(ArraySeq.fill(nOrder+1)(0))
 
   coeffs(0)(0) = 1
-  coeffs(1)(1) = 1
+  if(nOrder >= 1) {
+    coeffs(1)(1) = 1
+  }
 
   for(order <- 2 to nOrder) {
     coeffs(order)(0) = -1 * coeffs(order-2)(0)
