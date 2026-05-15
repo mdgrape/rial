@@ -133,10 +133,11 @@ object SqrtSimGeneric {
     val zSgn = 0
     val zEx  = (ex >> 1) + exBias
 
-    assert(addrW <  manW || nOrder == 0, f"table address width(${addrW}) >= "+
-      f"mantissa width(${manW}), but polynomial order is not zero.")
-    assert(addrW == manW || nOrder != 0, f"table address width(${addrW}) "+
-      f" must be == mantissa width(${manW}), for polynomial order is zero.")
+    // sqrt uses manW+1 address bits (including LSB of exponent for even/odd distinction)
+    assert(addrW <= manW+1 || nOrder == 0, f"table address width(${addrW}) > "+
+      f"mantissa width+1(${manW+1}), but polynomial order is not zero.")
+    assert(addrW == manW+1 || nOrder != 0, f"table address width(${addrW}) "+
+      f" must be == mantissa width+1(${manW+1}), for polynomial order is zero.")
 
     // val zman0 = if (nOrder==0) {
     //
