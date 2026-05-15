@@ -34,10 +34,9 @@ import rial.util.PipelineStageConfig
 class SqrtPreProcess(
   val spec:  RealSpec,
   val coeff: PolynomialCoefficients,
-  val stage: PipelineStageConfig,
+  val stage: Int,
 ) extends Module {
 
-  val nStage = stage.total
   val manW   = spec.manW
 
   val adrW   = coeff.bitW.addrW
@@ -47,18 +46,18 @@ class SqrtPreProcess(
 
   val io = IO(new Bundle {
     val x   = Flipped(Valid(new DecomposedReal(spec)))
-    val adr = Output(UInt((1+adrW).W)) // we use LSB of x.ex
-    val dx  = if(order != 0) { Some(Output(UInt(dxW.W))) } else { None }
+    val adr = Valid(UInt((1+adrW).W)) // we use LSB of x.ex
+    val dx  = if(order != 0) { Some(Valid(UInt(dxW.W))) } else { None }
   })
 
   // use the LSB of x.ex to distinguish 1~2 and 2~4
   val adr = Cat(io.x.bits.ex(0), io.x.bits.man(manW-1, dxW))
-  io.adr := Pipe(io.x.valid, adr, nStage)
+  io.adr := Pipe(io.x.valid, adr, stage)
 
   if(order != 0) {
     // convert UInt 0000~1111 -> SInt 1000,..1111,0000,..0111
     val dx = Cat(~io.x.bits.man(dxW-1), io.x.bits.man(dxW-2, 0))
-    io.dx.get := Pipe(io.x.valid, dx, nStage)
+    io.dx.get := Pipe(io.x.valid, dx, stage)
   }
 }
 
@@ -73,10 +72,8 @@ class SqrtPreProcess(
 class SqrtTableCoeff(
   val spec:  RealSpec,
   val coeff: PolynomialCoefficients,
-  val stage: PipelineStageConfig,
+  val stage: Int,
 ) extends Module {
-
-  val nStage = stage.total
 
   val manW   = spec.manW
   val adrW   = coeff.bitW.addrW
@@ -91,7 +88,7 @@ class SqrtTableCoeff(
   val packed = VecInit(PolynomialGenerator.packTable(coeff).map(c => {
     c.U(coeff.bitW.coefBits.reduce(_+_).W)
   }))
-  io.cs := Pipe(io.adr.valid, packed(io.adr.bits), nStage)
+  io.cs := Pipe(io.adr.valid, packed(io.adr.bits), stage)
 }
 
 // -------------------------------------------------------------------------
@@ -108,10 +105,8 @@ class SqrtTableCoeff(
 class SqrtNonTable(
   val spec:  RealSpec, // Input / Output floating spec
   val coeff: PolynomialCoefficients,
-  val stage: PipelineStageConfig,
+  val stage: Int,
 ) extends Module {
-
-  val nStage = stage.total
 
   val exW    = spec.exW
   val manW   = spec.manW
@@ -123,7 +118,7 @@ class SqrtNonTable(
   })
 
   val out = WireDefault(0.U.asTypeOf(new RoundingPostProcInfo(spec)))
-  io.z := Pipe(io.x.valid, out, nStage)
+  io.z := Pipe(io.x.valid, out, stage)
 
   val x = io.x.bits
 
