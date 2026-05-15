@@ -70,7 +70,7 @@ object SqrtTable {
       nOrder     = 2,
       nIntervals = (1 << addrW),
       inBitW     = (RealSpec.Float32Spec.manW - addrW),
-      outBitw    = (RealSpec.Float32Spec.manW + extraBits),
+      outBitW    = (RealSpec.Float32Spec.manW + extraBits),
     )
   }
   def bf16(): SqrtTable = {
@@ -82,7 +82,7 @@ object SqrtTable {
       nOrder     =  0,
       nIntervals = (1 << addrW),
       inBitW     = (RealSpec.BFloat16Spec.manW - addrW),
-      outBitw    = (RealSpec.BFloat16Spec.manW + extraBits),
+      outBitW    = (RealSpec.BFloat16Spec.manW + extraBits),
     )
   }
 
@@ -91,7 +91,7 @@ object SqrtTable {
   /** sqrt simulation with the default configuration (2, 8, 3)
    */
   def sqrtDefaultFP32(x: Float): Float = {
-    sqrtSimGeneric(
+    SqrtSimGeneric(
       sqrtDefaultFP32Table,
       RealGeneric.fromFloat(RealSpec.Float32Spec, x)
     ).toFloat
