@@ -20,12 +20,90 @@ import rial.util.ScalaUtil._
 import rial.arith.RealSpec
 import rial.arith.RealGeneric
 
+class SqrtTable(
+  val nOrder:     Int,
+  val nIntervals: Int,
+  val inBitW:     Int,
+  val outBitW:    Int,
+) extends TableBase {
+
+  // to distinguish ex=odd and ex=even cases, we use the LSB of exbit at the
+  // top of the table address.
+  // XXX: assuming exBias is odd. That means that, in case of exNobias == 0,
+  //      the MSB is 1.
+  //
+  // [0.0, 0.5) -> [2, 4), sqrt([2, 4)) = [1.414, 2)
+  // [0.5, 1.0) -> [1, 2), sqrt([1, 2)) = [1, 1.414)
+  private val func = (x: Double) => {
+    if(x < 0.5) {
+      sqrt(x*4.0+2.0)-1.0
+    } else {
+      sqrt(x*2.0)-1.0
+    }
+  }
+
+  // since we use different table for even and odd exponent, we double the
+  // number of intervals
+  private val ft = FuncTable(func, nOrder, nIntervals*2, 0.0, 1.0)
+  private val gen = new PolynomialGenerator(ft, inBitW, outBitW)
+
+  // ------------------------------------------------------------------------
+
+  def getBitWidth(): PolynomialBitWidth = {
+    gen.getBitWidth()
+  }
+  def generateTable(
+    bitW: PolynomialBitWidth
+  ): PolynomialCoefficients = {
+    gen.generateTable(bitW)
+  }
+}
+
+object SqrtTable {
+
+  def fp32(): SqrtTable = {
+
+    val addrW = 8
+    val extraBits = 3
+
+    new SqrtTable(
+      nOrder     = 2,
+      nIntervals = (1 << addrW),
+      inBitW     = (RealSpec.Float32Spec.manW - addrW),
+      outBitw    = (RealSpec.Float32Spec.manW + extraBits),
+    )
+  }
+  def bf16(): SqrtTable = {
+
+    val addrW = RealSpec.BFloat16Spec.manW
+    val extraBits = 0
+
+    new SqrtTable(
+      nOrder     =  0,
+      nIntervals = (1 << addrW),
+      inBitW     = (RealSpec.BFloat16Spec.manW - addrW),
+      outBitw    = (RealSpec.BFloat16Spec.manW + extraBits),
+    )
+  }
+
+  val sqrtDefaultFP32Table = fp32().generateTable(fp32().getBitWidth())
+
+  /** sqrt simulation with the default configuration (2, 8, 3)
+   */
+  def sqrtDefaultFP32(x: Float): Float = {
+    sqrtSimGeneric(
+      sqrtDefaultFP32Table,
+      RealGeneric.fromFloat(RealSpec.Float32Spec, x)
+    ).toFloat
+  }
+}
+
 /** An interface for software simulator
  */
-object SqrtSim {
+object SqrtSimGeneric {
 
   // sqrt( [1, 4) ) -> [1, 2) (without the hidden bit)
-  def sqrtSimGeneric( t: PolynomialCoefficients, x: RealGeneric ): RealGeneric = {
+  def apply( t: PolynomialCoefficients, x: RealGeneric ): RealGeneric = {
 
     if (x.isNaN)  {return RealGeneric.nan (x.spec)}
     if (x.isZero) {return RealGeneric.zero(x.spec)}
@@ -98,58 +176,4 @@ object SqrtSim {
 //     println(f"zman = ${zmanRounded.toLong.toBinaryString}")
     z
   }
-
-  def sqrtTableGeneration(
-    nOrder:     Int,
-    nIntervals: Int,
-    inBitW:     Int,
-    outBitW:    Int,
-  ): PolynomialCoefficients = {
-
-    // to distinguish ex=odd and ex=even cases, we use the LSB of exbit at the
-    // top of the table address.
-    // XXX: assuming exBias is odd. That means that, in case of exNobias == 0,
-    //      the MSB is 1.
-    //
-    // [0.0, 0.5) -> [2, 4), sqrt([2, 4)) = [1.414, 2)
-    // [0.5, 1.0) -> [1, 2), sqrt([1, 2)) = [1, 1.414)
-    val func = (x: Double) => {
-      if(x < 0.5) {
-        sqrt(x*4.0+2.0)-1.0
-      } else {
-        sqrt(x*2.0)-1.0
-      }
-    }
-
-    // since we use different table for even and odd exponent, we double the
-    // number of intervals
-    val ft = FuncTable(func, nOrder, nIntervals*2, 0.0, 1.0)
-
-    val gen = new PolynomialGenerator(ft, inBitW, outBitW)
-    val bitW = gen.getBitWidth()
-    gen.generateTable(bitW)
-  }
-
-  /** sqrt simulation with the default configuration (2, 8, 3)
-   */
-  def sqrtDefaultFP32(x: Float): Float = {
-    sqrtSimGeneric(
-      sqrtDefaultFP32TableI,
-      RealGeneric.fromFloat(RealSpec.Float32Spec, x)
-    ).toFloat
-  }
-
-  private val sqrtDefaultFP32TableI = SqrtSim.sqrtTableGeneration(
-    nOrder     = 2,
-    nIntervals = (1 << 8),
-    inBitW     = (RealSpec.Float32Spec.manW - 8),
-    outBitW    =  RealSpec.Float32Spec.manW + 3,
-  )
-
-  private val sqrtDefaultBF16TableI = SqrtSim.sqrtTableGeneration(
-    nOrder     = 0,
-    nIntervals = (1 << 7),
-    inBitW     = 0,
-    outBitW    = 7,
-  )
 }
