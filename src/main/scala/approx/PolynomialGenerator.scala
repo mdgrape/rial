@@ -112,10 +112,14 @@ class PolynomialGenerator(
       funcTable.intervals.map(iv => {
         assert(iv.coeffs.length == bitW.coefBits.length)
         iv.coeffs.zip(bitW.coefBits).map { case (coeff, bitW) => {
-          // println(f"coeff=${coeff}, outBitW=${outBitW}, bitW=${bitW}")
           val bits = round(scalb(coeff, outBitW))
-          assert(-(1L << (bitW-1)) <= bits && bits < (1L << (bitW-1)))
-          bits
+          assert( -(1L << (coeffs.bitW.coefBits(i)-1)) - 1 < bits, f"coeff bit(${bits}) must be > than 0b100..0(${-(1L << (coeffs.bitW.coefBits(i)-1))})" )
+          assert( bits < (1L << (coeffs.bitW.coefBits(i)-1)) + 1,  f"coeff bit(${bits}) must be < than 0b011..1(${ (1L << (coeffs.bitW.coefBits(i)-1))})" )
+
+          val minVal = -(1L << (bitW-1))
+          val maxVal = (1L << (bitW-1)) - 1
+          // Clip to the valid range for signed integer
+          bits.max(minVal).min(maxVal)
         }}
       })
     )
