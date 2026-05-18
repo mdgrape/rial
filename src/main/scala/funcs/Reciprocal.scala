@@ -200,6 +200,7 @@ class ReciprocalPostProcess(
   val zsgn  = io.in.bits.info.zsgn
   val zex   = io.in.bits.info.zex
   val znan  = io.in.bits.info.znan
+  val zinf  = io.in.bits.info.zinf
   val zzero = io.in.bits.info.zzero
   val zman0 = io.in.bits.info.zman0
 

@@ -117,7 +117,7 @@ class SqrtNonTable(
     val z = Valid(new SqrtPostProcInfo(spec))
   })
 
-  val out = WireDefault(0.U.asTypeOf(new RoundingPostProcInfo(spec)))
+  val out = WireDefault(0.U.asTypeOf(new SqrtPostProcInfo(spec)))
   io.z := Pipe(io.x.valid, out, stage)
 
   val x = io.x.bits

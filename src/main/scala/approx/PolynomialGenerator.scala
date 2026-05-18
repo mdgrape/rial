@@ -120,8 +120,8 @@ class PolynomialGenerator(
           // overflow by rounding (e.g. 0.999 -> 1.000) is okay.
           // overflow by the function itself (e.g. f(x)=1.001) is not okay.
 
-          assert( bits > -(1L << (coefBitW-1)) - 1, f"coeff bit(${bits}) must be > than 0b100..0(${-(1L << (coeffs.bitW.coefBits(i)-1))})" )
-          assert( bits <  (1L << (coefBitW-1)) + 1, f"coeff bit(${bits}) must be < than 0b011..1(${ (1L << (coeffs.bitW.coefBits(i)-1))})" )
+          assert( bits > -(1L << (coefBitW-1)) - 1, f"coeff bit(${bits}) must be > than 0b100..0(${-(1L << (coefBitW-1))})" )
+          assert( bits <  (1L << (coefBitW-1)) + 1, f"coeff bit(${bits}) must be < than 0b011..1(${ (1L << (coefBitW-1))})" )
 
           val minVal = -(1L << (coefBitW-1))
           val maxVal =  (1L << (coefBitW-1)) - 1
