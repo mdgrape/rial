@@ -22,6 +22,9 @@ case class PolynomialBitWidth(
 
   def merge(other: PolynomialBitWidth): PolynomialBitWidth = {
     require(nOrder == other.nOrder)
+    require(addrW == other.addrW)
+    require(inBitW == other.inBitW)
+    require(outBitW == other.outBitW)
     PolynomialBitWidth(
       nOrder,
       addrW,
