@@ -27,6 +27,7 @@ import rial.arith._
 
 object ExpSim {
 
+  // t: FuncTableInt, x: RealGeneric, corr: ExpCorrConfig
   def expSimGeneric( t: FuncTableInt, x: RealGeneric ): RealGeneric = {
 
 //     println("==================================================")
@@ -160,14 +161,21 @@ object ExpSim {
       zman
     }
 
-    val corrTermW = min(10, 1+manW+padding) // XXX determined empirically
+    // (6, 8) is okay (by empirical scanning)
+    val corrTermW = min(6, 1+manW+padding)
+    val coeffW    = min(8, manW+1)
+
 //     val coefficient = new RealGeneric(x.spec, log(2.0))
-    val coefficient = (Real.log(Real.two))(x.spec.manW+1)
+    val coefficient = (Real.log(Real.two))(coeffW)
     val xShiftedOut = slice(0, padding, xfrac)
     val zCorrectionCoef0 = (coefficient * xShiftedOut)
-    val zCorrectionCoef  = zCorrectionCoef0 >> ((manW + 1) + padding - corrTermW)
+
+    val corrShift = coeffW + padding - corrTermW
+    assert(corrShift >= 0, s"coeffW($coeffW)+padding($padding) must be >= corrTermW($corrTermW)")
+    val zCorrectionCoef  = zCorrectionCoef0 >> corrShift
+
     val zCorrectionTerm0 = (((SafeLong(1)<<manW) + zmanRound) * zCorrectionCoef)
-    val zCorrectionTerm  = zCorrectionTerm0 >> (manW+1 + corrTermW - corrTermW)
+    val zCorrectionTerm  = zCorrectionTerm0 >> (manW+1)
     val zCorrectionShifted = bit(corrTermW-1, zCorrectionTerm) + bit(corrTermW-2, zCorrectionTerm)
     assert(0 <= zCorrectionShifted && zCorrectionShifted <= 1)
 

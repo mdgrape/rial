@@ -318,7 +318,8 @@ class ExpOtherPath(
   val extraBits = polySpec.extraBits
   val padding = extraBits
 
-  val zCorrTmpW = min(10, 1+manW+padding) // XXX see expSim
+  val zCorrTmpW = min(6, 1+manW+padding) // swept; see expSim / ExpCorrSweepTest
+  val coeffW    = min(8, manW+1)         // ln2 constant fractional bits
 
   val io = IO(new Bundle {
     val x         = Flipped(new DecomposedRealOutput(spec))
@@ -337,11 +338,11 @@ class ExpOtherPath(
   //
   // note: z isn't calculated yet, so here we can only calculate xfracLSBs * ln2
   if(padding != 0) {
-    val coefficient = (Real.log(Real.two))(spec.manW+1).toBigInt.U((1+manW).W)
+    val coefficient = (Real.log(Real.two))(coeffW).toBigInt.U(coeffW.W)
 
     val xfracLSBs  = io.xfracLSBs.get
     val zCorrCoef0 = coefficient * xfracLSBs
-    val zCorrCoefW = 1 + manW + padding
+    val zCorrCoefW = coeffW + padding
     val zCorrCoef  = zCorrCoef0(zCorrCoefW-1, zCorrCoefW-zCorrTmpW)
 
     assert(zCorrCoef.getWidth  == zCorrTmpW)
@@ -415,7 +416,7 @@ class ExpPostProcess(
 
   val padding = extraBits
 
-  val zCorrTmpW = min(10, 1+manW+padding) // XXX see expSim
+  val zCorrTmpW = min(6, 1+manW+padding) // swept; see expSim / ExpCorrSweepTest
 
   val io = IO(new Bundle {
     val en = Input(UInt(1.W))
