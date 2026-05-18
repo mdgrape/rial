@@ -1,7 +1,7 @@
 package rial.funcs
 
 import rial.arith.RealSpec
-import rial.approx.PolynomialCoefficients
+import rial.approx.PolynomialBitWidth
 import rial.util.PipelineStageConfig
 
 import chisel3._
@@ -20,7 +20,7 @@ class RoundingPostProcInfo(val spec: RealSpec) extends Bundle {
 //
 class RoundingPostProcess(
   val spec:  RealSpec, // Input / Output floating spec
-  val coeff: PolynomialCoefficients,
+  val bitW:  PolynomialBitWidth,
   val stage: PipelineStageConfig,
 ) extends Module {
 
@@ -28,9 +28,9 @@ class RoundingPostProcess(
   val manW   = spec.manW
   val exBias = spec.exBias
 
-  val adrW   = coeff.bitW.addrW
-  val fracW  = coeff.bitW.outBitW
-  val order  = coeff.bitW.nOrder
+  val adrW   = bitW.addrW
+  val fracW  = bitW.outBitW
+  val order  = bitW.nOrder
 
   val extraBits = fracW - manW
 

@@ -34,16 +34,16 @@ import rial.util.PipelineStageConfig
 // - if x < 0, returns inf.
 class InvSqrtPreProcess(
   val spec:  RealSpec,
-  val coeff: PolynomialCoefficients,
+  val bitW:  PolynomialBitWidth,
   val stage: Int,
 ) extends Module {
 
   val manW   = spec.manW
 
-  val adrW   = coeff.bitW.addrW
-  val fracW  = coeff.bitW.outBitW
-  val dxW    = coeff.bitW.inBitW
-  val order  = coeff.bitW.nOrder
+  val adrW   = bitW.addrW
+  val fracW  = bitW.outBitW
+  val dxW    = bitW.inBitW
+  val order  = bitW.nOrder
 
   val io = IO(new Bundle {
     val x   = Flipped(Valid(new DecomposedReal(spec)))
@@ -105,7 +105,7 @@ class InvSqrtTableCoeff(
 // No pathway other than table interpolation. just calculate ex and sgn.
 class InvSqrtNonTable(
   val spec:  RealSpec, // Input / Output floating spec
-  val coeff: PolynomialCoefficients,
+  val bitW:  PolynomialBitWidth,
   val stage: Int,
 ) extends Module {
 
