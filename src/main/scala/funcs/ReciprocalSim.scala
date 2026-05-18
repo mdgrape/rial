@@ -21,10 +21,10 @@ import rial.arith.RealSpec
 import rial.arith.RealGeneric
 
 class ReciprocalTable(
-  val nOrder:     Int,
-  val nIntervals: Int,
-  val inBitW:     Int,
-  val outBitW:    Int,
+  val nOrder:  Int,
+  val addrW:   Int,
+  val inBitW:  Int,
+  val outBitW: Int,
 ) extends TableBase {
 
   // 1/x = 2^(-e-1) * 2/1.m
@@ -33,6 +33,7 @@ class ReciprocalTable(
     2.0/(1.0+x) - 1.0
   }
 
+  private val nIntervals = 1 << addrW
   private val ft = FuncTable(func, nOrder, nIntervals, 0.0, 1.0)
   private val gen = new PolynomialGenerator(ft, inBitW, outBitW)
 
@@ -56,10 +57,10 @@ object ReciprocalTable {
     val extraBits = 3
 
     new ReciprocalTable(
-      nOrder     = 2,
-      nIntervals = (1 << addrW),
-      inBitW     = (RealSpec.Float32Spec.manW - addrW),
-      outBitW    = (RealSpec.Float32Spec.manW + extraBits),
+      nOrder  = 2,
+      addrW   = addrW,
+      inBitW  = (RealSpec.Float32Spec.manW - addrW),
+      outBitW = (RealSpec.Float32Spec.manW + extraBits),
     )
   }
   def bf16(): ReciprocalTable = {
@@ -68,10 +69,10 @@ object ReciprocalTable {
     val extraBits = 0
 
     new ReciprocalTable(
-      nOrder     =  0,
-      nIntervals = (1 << addrW),
-      inBitW     = (RealSpec.BFloat16Spec.manW - addrW),
-      outBitW    = (RealSpec.BFloat16Spec.manW + extraBits),
+      nOrder  = 0,
+      addrW   = addrW,
+      inBitW  = (RealSpec.BFloat16Spec.manW - addrW),
+      outBitW = (RealSpec.BFloat16Spec.manW + extraBits),
     )
   }
 

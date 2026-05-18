@@ -21,10 +21,10 @@ import rial.arith.RealSpec
 import rial.arith.RealGeneric
 
 class InvSqrtTable(
-  val nOrder:     Int,
-  val nIntervals: Int,
-  val inBitW:     Int,
-  val outBitW:    Int,
+  val nOrder:  Int,
+  val addrW:   Int,
+  val inBitW:  Int,
+  val outBitW: Int,
 ) extends TableBase {
 
   // to distinguish ex=odd and ex=even cases, we use the LSB of exbit at the
@@ -44,13 +44,24 @@ class InvSqrtTable(
 
   // since we use different table for even and odd exponent, we double the
   // number of intervals
+  private val nIntervals = 1 << addrW
   private val ft = FuncTable(func, nOrder, nIntervals*2, 0.0, 1.0)
   private val gen = new PolynomialGenerator(ft, inBitW, outBitW)
 
   // ------------------------------------------------------------------------
 
   def getBitWidth(): PolynomialBitWidth = {
-    gen.getBitWidth()
+    // Internal table uses nIntervals*2 (for even/odd exponent), but the
+    // reported addrW should be based on the original addrW parameter.
+    val genBitW = gen.getBitWidth()
+    PolynomialBitWidth(
+      nOrder   = genBitW.nOrder,
+      addrW    = addrW,
+      inBitW   = genBitW.inBitW,
+      outBitW  = genBitW.outBitW,
+      coefBits = genBitW.coefBits,
+      calcBits = genBitW.calcBits
+    )
   }
   def generateTable(
     bitW: PolynomialBitWidth
@@ -67,10 +78,10 @@ object InvSqrtTable {
     val extraBits = 3
 
     new InvSqrtTable(
-      nOrder     = 2,
-      nIntervals = (1 << addrW),
-      inBitW     = (RealSpec.Float32Spec.manW - addrW),
-      outBitW    = (RealSpec.Float32Spec.manW + extraBits),
+      nOrder  = 2,
+      addrW   = addrW,
+      inBitW  = (RealSpec.Float32Spec.manW - addrW),
+      outBitW = (RealSpec.Float32Spec.manW + extraBits),
     )
   }
   def bf16(): InvSqrtTable = {
@@ -79,10 +90,10 @@ object InvSqrtTable {
     val extraBits = 0
 
     new InvSqrtTable(
-      nOrder     =  0,
-      nIntervals = (1 << addrW),
-      inBitW     = (RealSpec.BFloat16Spec.manW - addrW),
-      outBitW    = (RealSpec.BFloat16Spec.manW + extraBits),
+      nOrder  = 0,
+      addrW   = addrW,
+      inBitW  = (RealSpec.BFloat16Spec.manW - addrW),
+      outBitW = (RealSpec.BFloat16Spec.manW + extraBits),
     )
   }
 
@@ -125,19 +136,21 @@ object InvSqrtSimGeneric {
     val ex    = exRaw - exBias
     val man   = slice(0, manW+1, x.value) // x is even -> x.man, odd -> x.manW1
 
-    assert(manW+1 == addrW + t.bitW.inBitW)
+    // InvSqrt uses addrW bits from mantissa + 1 bit from ex(0) for even/odd distinction
+    assert(manW == addrW + t.bitW.inBitW)
 
     val zSgn = 0
     val zEx0 = exBias - (ex >> 1) - 1
 
-    // invsqrt uses manW+1 address bits (including LSB of exponent for even/odd distinction)
-    assert(addrW <= manW+1 || nOrder == 0, f"table address width(${addrW}) > "+
-      f"mantissa width+1(${manW+1}), but polynomial order is not zero.")
-    assert(addrW == manW+1 || nOrder != 0, f"table address width(${addrW}) "+
-      f" must be == mantissa width+1(${manW+1}), for polynomial order is zero.")
+    // invsqrt uses addrW bits from mantissa (+ 1 bit from ex(0) for even/odd, handled separately)
+    assert(addrW <= manW || nOrder == 0, f"table address width(${addrW}) > "+
+      f"mantissa width(${manW}), but polynomial order is not zero.")
+    assert(addrW == manW || nOrder != 0, f"table address width(${addrW}) "+
+      f" must be == mantissa width(${manW}), for polynomial order is zero.")
 
-    val xW    = manW+1 - addrW
-    val addr  = slice(xW, addrW, man).toInt
+    val xW    = manW - addrW
+    // addr includes ex(0) in MSB and addrW bits from mantissa
+    val addr  = slice(xW, addrW+1, man).toInt
     val xiv   = slice( 0,    xW, man).toBigInt
     val zman0 = PolynomialEval.eval(addr, xiv, t)
 
