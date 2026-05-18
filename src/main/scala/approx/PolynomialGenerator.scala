@@ -114,14 +114,17 @@ class PolynomialGenerator(
       bitW,
       funcTable.intervals.map(iv => {
         assert(iv.coeffs.length == bitW.coefBits.length)
-        iv.coeffs.zip(bitW.coefBits).map { case (coeff, bitW) => {
+        iv.coeffs.zip(bitW.coefBits).map { case (coeff, coefBitW) => {
           val bits = round(scalb(coeff, outBitW))
-          assert( -(1L << (coeffs.bitW.coefBits(i)-1)) - 1 < bits, f"coeff bit(${bits}) must be > than 0b100..0(${-(1L << (coeffs.bitW.coefBits(i)-1))})" )
-          assert( bits < (1L << (coeffs.bitW.coefBits(i)-1)) + 1,  f"coeff bit(${bits}) must be < than 0b011..1(${ (1L << (coeffs.bitW.coefBits(i)-1))})" )
 
-          val minVal = -(1L << (bitW-1))
-          val maxVal = (1L << (bitW-1)) - 1
-          // Clip to the valid range for signed integer
+          // overflow by rounding (e.g. 0.999 -> 1.000) is okay.
+          // overflow by the function itself (e.g. f(x)=1.001) is not okay.
+
+          assert( bits > -(1L << (coefBitW-1)) - 1, f"coeff bit(${bits}) must be > than 0b100..0(${-(1L << (coeffs.bitW.coefBits(i)-1))})" )
+          assert( bits <  (1L << (coefBitW-1)) + 1, f"coeff bit(${bits}) must be < than 0b011..1(${ (1L << (coeffs.bitW.coefBits(i)-1))})" )
+
+          val minVal = -(1L << (coefBitW-1))
+          val maxVal =  (1L << (coefBitW-1)) - 1
           bits.max(minVal).min(maxVal)
         }}
       })
