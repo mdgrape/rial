@@ -115,10 +115,10 @@ class InvSqrtNonTable(
 
   val io = IO(new Bundle {
     val x = Flipped(Valid(new DecomposedReal(spec)))
-    val z = Valid(new RoundingPostProcInfo(spec))
+    val z = Valid(new InvSqrtPostProcInfo(spec))
   })
 
-  val out = WireDefault(0.U.asTypeOf(new RoundingPostProcInfo(spec)))
+  val out = WireDefault(0.U.asTypeOf(new InvSqrtPostProcInfo(spec)))
   io.z := Pipe(io.x.valid, out, stage)
 
   val x = io.x.bits
@@ -131,8 +131,6 @@ class InvSqrtNonTable(
   val zman0 = (x.man === 0.U) && (!x.zero) && (x.ex(0) === (exBias % 2).U(1.W))
   // if x.man == 0 && x.ex == 2N, that means x = 2^2N. then z = 2^-N, so zman = 0.
 
-  out.zsgn := 0.U(1.W)
-
   val xExNobias  = x.ex - exBias.U
   val xExHalf    = Cat(xExNobias(exW-1), xExNobias(exW-1, 1)) // arith right shift
   val zEx0       = ~xExHalf // -(xex>>1)-1 = ~(xex>>1)+1-1 = ~(xex>>1)
@@ -140,9 +138,9 @@ class InvSqrtNonTable(
   out.zex  := Mux(zinf || znan, Fill(exW, 1.U(1.W)),
               Mux(zzero,        0.U(exW.W),
                                 zEx0 + zman0.asUInt + exBias.U))
-  out.znan := znan
-  out.zinf := zinf
-  out.zIsNonTable := znan || zinf || zzero || zman0
+  out.znan  := znan
+  out.zinf  := zinf
+  out.zman0 := zzero || zman0
 }
 
 // -------------------------------------------------------------------------
@@ -154,6 +152,59 @@ class InvSqrtNonTable(
 // |_|                 |_|
 // -------------------------------------------------------------------------
 
-//
-// see RoundingPostProc.
-//
+class InvSqrtPostProcInfo(val spec: RealSpec) extends Bundle {
+  val zex   = UInt(spec.exW.W)
+  val znan  = Bool()
+  val zinf  = Bool()
+  val zman0 = Bool()
+}
+
+class InvSqrtPostProcess(
+  val spec:  RealSpec, // Input / Output floating spec
+  val bitW:  PolynomialBitWidth,
+  val stage: PipelineStageConfig,
+) extends Module {
+
+  val exW    = spec.exW
+  val manW   = spec.manW
+  val exBias = spec.exBias
+
+  val adrW   = bitW.addrW
+  val fracW  = bitW.outBitW
+  val order  = bitW.nOrder
+
+  val extraBits = fracW - manW
+
+  val nStage = stage.total
+
+  val io = IO(new Bundle {
+    val in = Flipped(Valid(new Bundle {
+      val info = new InvSqrtPostProcInfo(spec)
+      val zres = UInt(fracW.W)
+    }))
+    val z = Valid(UInt(spec.W.W))
+  })
+
+  val zsgn  = 0.U
+  val zex   = io.in.bits.info.zex
+  val znan  = io.in.bits.info.znan
+  val zinf  = io.in.bits.info.zinf
+  val zman0 = io.in.bits.info.zzero
+
+  val zIsNonTable  = znan || zinf || zman0
+  val zmanNonTable = Cat(znan, 0.U((manW-1).W))
+
+  val zmanRounded = WireDefault(0.U(manW.W))
+  if(extraBits == 0) {
+    zmanRounded := io.in.bits.zres
+  } else {
+    val zman0 = (io.in.bits.zres >> extraBits) +& io.in.bits.zres(extraBits-1)
+    val polynomialOvf = zman0(manW) === 1.U
+    zmanRounded := Mux(polynomialOvf, Fill(manW, 1.U(1.W)), zman0(manW-1,0))
+  }
+
+  val zman = Mux(zIsNonTable, zmanNonTable, zmanRounded)
+  val z = Cat(zsgn, zex, zman)
+
+  io.z := Pipe(io.in.valid, z, nStage)
+}

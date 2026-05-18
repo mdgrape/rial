@@ -107,10 +107,10 @@ class ReciprocalNonTable(
 
   val io = IO(new Bundle {
     val x = Flipped(Valid(new DecomposedReal(spec)))
-    val z = Valid(new RoundingPostProcInfo(spec))
+    val z = Valid(new ReciprocalPostProcInfo(spec))
   })
 
-  val out = WireDefault(0.U.asTypeOf(new RoundingPostProcInfo(spec)))
+  val out = WireDefault(0.U.asTypeOf(new ReciprocalPostProcInfo(spec)))
   io.z := Pipe(io.x.valid, out, stage)
 
   val x = io.x.bits
@@ -144,9 +144,10 @@ class ReciprocalNonTable(
   out.zex  := Mux(znan || zinf || zinfOvf, Fill(exW, 1.U(1.W)),
               Mux(zzero || zzeroUnf,        0.U(exW.W),
                                             zex0(exW-1,0)))
-  out.znan := znan
-  out.zinf := zinf || zinfOvf
-  out.zIsNonTable := zIsNonTable
+  out.znan  := znan
+  out.zinf  := zinf  || zinfOvf
+  out.zzero := zzero || zzeroUnf
+  out.zman0 := zman0
 }
 
 // -------------------------------------------------------------------------
@@ -158,6 +159,65 @@ class ReciprocalNonTable(
 // |_|                 |_|
 // -------------------------------------------------------------------------
 
+class ReciprocalPostProcInfo(val spec: RealSpec) extends Bundle {
+  val zsgn        = UInt(1.W)
+  val zex         = UInt(spec.exW.W)
+  val zinf        = Bool()
+  val znan        = Bool()
+  val zzero       = Bool()
+  val zman0       = Bool()
+}
+
+// It just rounds the polynomial result.
+// sqrt, invsqrt, reciprocal requires the same postprocess.
 //
-// see RoundingPostProc.
-//
+class ReciprocalPostProcess(
+  val spec:  RealSpec, // Input / Output floating spec
+  val bitW:  PolynomialBitWidth,
+  val stage: PipelineStageConfig,
+) extends Module {
+
+  val exW    = spec.exW
+  val manW   = spec.manW
+  val exBias = spec.exBias
+
+  val adrW   = bitW.addrW
+  val fracW  = bitW.outBitW
+  val order  = bitW.nOrder
+
+  val extraBits = fracW - manW
+
+  val nStage = stage.total
+
+  val io = IO(new Bundle {
+    val in = Flipped(Valid(new Bundle {
+      val info = new ReciprocalPostProcInfo(spec)
+      val zres = UInt(fracW.W)
+    }))
+    val z = Valid(UInt(spec.W.W))
+  })
+
+  val zsgn  = io.in.bits.info.zsgn
+  val zex   = io.in.bits.info.zex
+  val znan  = io.in.bits.info.znan
+  val zzero = io.in.bits.info.zzero
+  val zman0 = io.in.bits.info.zman0
+
+  val zIsNonTable  = zinf || znan || zzero || zman0
+  val zmanNonTable = Cat(znan, 0.U((manW-1).W))
+
+  val zmanRounded = WireDefault(0.U(manW.W))
+  if(extraBits == 0) {
+    zmanRounded := io.in.bits.zres
+  } else {
+    val zman0 = (io.in.bits.zres >> extraBits) +& io.in.bits.zres(extraBits-1)
+    val polynomialOvf = zman0(manW)
+    zmanRounded := Mux(polynomialOvf, Fill(manW, 1.U(1.W)), zman0(manW-1,0))
+  }
+
+  val zman = Mux(zIsNonTable, zmanNonTable, zmanRounded)
+  val z = Cat(zsgn, zex, zman)
+
+  io.z := Pipe(io.in.valid, z, nStage)
+}
+
