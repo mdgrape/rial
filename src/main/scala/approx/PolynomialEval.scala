@@ -40,18 +40,29 @@ class PolynomialEval(
     // conversion to SInt (-1 ~ +1 range) must be done outside
     val x      = io.in.bits.x.get
     val coeffs = io.in.bits.coeffs
+    val xPrec  = bitW.inPrec
 
-    def horner( coeff: SInt, curr: SInt, x: SInt ): SInt = {
-      // minimize bit width in multiply
-      val currW: Int = curr.getWidth
-      val xPrec: Int = x.getWidth - 1 // [-1, 1) = [1'0000, 01111]
-      val xminW: Int = min(currW, xPrec)
-
-      val prod = x(xPrec, xPrec-xminW).asSInt * curr
-      val sum  = (prod >> xminW) +& coeff
-      sum
+    def mulByX(curr: SInt): SInt = {
+      val xminW = min(curr.getWidth, xPrec) // min(calcBits, xPrec)
+      val prod  = x(xPrec, xPrec - xminW).asSInt * curr
+      (prod >> xminW).asSInt
     }
-    val res = coeffs.init.foldRight(coeffs.last)( (c, z) => horner(c, z, x) ).asUInt
+
+    val accVec = Wire(MixedVec((1 to order).map(i => SInt(bitW.calcBits(i).W))))
+
+    // since 0-th (the last) order is `res`, we need to do -1
+    accVec(order-1) := coeffs(order)
+
+    for(i <- (order - 1) to 1 by -1) {
+      val sumFull = mulByX(accVec(i)) +& coeffs(i)
+      accVec(i-1) := sumFull
+
+      assert(accVec(i-1) === sumFull, "PolynomialEval: horner intermediate (order=" +
+        i + ") overflowed calcBits=" + bitW.calcBits(i))
+    }
+
+    // final stage (order 0): result may legitimately reach 1.0, saturate.
+    val res    = (mulByX(accVec(0)) +& coeffs(0)).asUInt
     val resMax = Fill(bitW.outBitW, 1.U(1.W))
 
     out := Mux(res > resMax, resMax, res)
