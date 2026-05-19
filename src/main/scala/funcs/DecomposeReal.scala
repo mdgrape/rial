@@ -21,18 +21,20 @@ private[rial] class DecomposeReal(
 ) extends Module {
 
   val io = IO(new Bundle {
-    val real   = Input(UInt(spec.W.W))
-    val decomp = Output(new DecomposedReal(spec))
+    val real   = Flipped(Valid(UInt(spec.W.W)))
+    val decomp = Valid(new DecomposedReal(spec))
   })
 
-  val (sgn,  ex,  man) = FloatChiselUtil.decompose (spec, io.real)
-  val (zero, inf, nan) = FloatChiselUtil.checkValue(spec, io.real)
-  io.decomp.sgn  := sgn
-  io.decomp.ex   := ex
-  io.decomp.man  := man
-  io.decomp.zero := zero
-  io.decomp.inf  := inf
-  io.decomp.nan  := nan
+  io.decomp.valid := io.real.valid
+
+  val (sgn,  ex,  man) = FloatChiselUtil.decompose (spec, io.real.bits)
+  val (zero, inf, nan) = FloatChiselUtil.checkValue(spec, io.real.bits)
+  io.decomp.bits.sgn  := sgn
+  io.decomp.bits.ex   := ex
+  io.decomp.bits.man  := man
+  io.decomp.bits.zero := zero
+  io.decomp.bits.inf  := inf
+  io.decomp.bits.nan  := nan
 }
 
 
