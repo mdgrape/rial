@@ -264,11 +264,11 @@ object MathFuncConfig {
    * </ul>
    */
   val simple = new MathFuncConfig(
-    funcs = Seq(Sqrt, InvSqrt, Reciprocal),
-    nOrder = 2,
-    addrW = 8,
-    inBitW = RealSpec.Float32Spec.manW - 8,
-    outBitW = RealSpec.Float32Spec.manW + 3
+    funcs   = Seq(Sqrt, InvSqrt, Reciprocal),
+    nOrder  = 2,
+    addrW   = 8,
+    inBitW  = RealSpec.Float32Spec.manW - 8,
+    outBitW = RealSpec.Float32Spec.manW + 3,
   )
 
   // TODO: uncomment when sin/cos/exp/log are implemented in funcs/
