@@ -97,8 +97,14 @@ private[rial] class FuncTableInterval(
     }).sum
   })
 
-  // x must be in [-1, 1]
+  // x must be in [-1, 1].
   def eval(x: Double, order: Int = nOrder): Double = {
-    (0 to order).map(i => { pow(x, i) * coeffs(i) }).sum
+    // to determine calcBit, we use `order` cutoff with horner's rule
+    var sum = coeffs(nOrder)
+    for(i <- 1 to order) {
+      sum = sum * x + coeffs(nOrder-i)
+    }
+    sum
   }
 }
+
