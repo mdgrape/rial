@@ -27,11 +27,14 @@ class PolynomialEval(
 
   if(order == 0) {
     assert(bitW.coefBits.length == 1)
-    assert(bitW.outBitW <= bitW.coefBits.reduce(_+_)+1,
+    // +1 because coefficient is treated as an SInt.
+    assert(bitW.outBitW+1 == bitW.coefBits.reduce(_+_),
       f"outBitW=${bitW.outBitW}, coefBits=${bitW.coefBits.mkString("[",",","]")}, "+
       f"sum=${bitW.coefBits.reduce(_+_)}")
+    assert(io.in.bits.coeffs(0).asUInt(bitW.outBitW) === 0.U,
+      "if nOrder==0, coefficient must be in [0, 1) and the MSB must be zero")
 
-    out := io.in.bits.coeffs(0).asUInt // if order==0, then there is only one parameter.
+    out := io.in.bits.coeffs(0).asUInt(bitW.outBitW-1, 0) // if order==0, then there is only one parameter.
 
   } else {
     // conversion to SInt (-1 ~ +1 range) must be done outside
