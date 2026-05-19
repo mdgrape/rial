@@ -9,7 +9,7 @@ import chisel3.util._
 
 class PolynomialEval(
   bitW: PolynomialBitWidth,
-  stage: PipelineStageConfig,
+  stage: Int,
 ) extends Module {
 
   val order = bitW.nOrder
@@ -23,7 +23,7 @@ class PolynomialEval(
   })
 
   val out = WireDefault(0.U(bitW.outBitW.W))
-  io.out := Pipe(io.in.valid, out, stage.total)
+  io.out := Pipe(io.in.valid, out, stage)
 
   if(order == 0) {
     assert(bitW.coefBits.length == 1)
