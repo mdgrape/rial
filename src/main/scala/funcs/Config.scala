@@ -326,6 +326,7 @@ object MathFuncConfig {
  */
 class MathFuncPipelineConfig(
   val preStage:     Int,
+  val tableStage:   Int,
   val calcStage:    Int,
   val postStage:    Int,
   val preMulStage:  Int = 0,
@@ -340,14 +341,20 @@ class MathFuncPipelineConfig(
   /** Calculates the total latency in clock cycles.
    */
   def total = {
-    preStage  +
-    calcStage +
+             1 +
+    preStage   +
+    tableStage +
+    calcStage  +
     postStage
   }
+
+  val nonTableStage = tableStage + calcStage
+
   /** Generates a string that represents the current config.
    */
   def getString = {
     f"pre:${preStage}(mul=${preMulStage}), " +
+    f"table:${tableStage}, " +
     f"calc:${calcStage}, " +
     f"post:${postStage}(mul=${postMulStage})"
   }
@@ -359,7 +366,7 @@ object MathFuncPipelineConfig {
   /** constructs a config corresponding to the single cycle mathfunc.
    */
   def none = {
-    new MathFuncPipelineConfig(0,0,0,0,0)
+    new MathFuncPipelineConfig(0,0,0,0,0,0)
   }
 }
 
