@@ -169,7 +169,7 @@ class InvSqrtTest extends AnyFlatSpec
     funcs   = Seq(Sqrt, InvSqrt, Reciprocal),
     nOrder  = 0,
     addrW   = RealSpec.BFloat16Spec.manW,
-    inBitW  = RealSpec.BFloat16Spec.manW,
+    inBitW  = 0, // no polynomial, just an addr
     outBitW = RealSpec.BFloat16Spec.manW,
   )
   val invsqrtTableBF16 = new InvSqrtTable(
