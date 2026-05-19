@@ -219,30 +219,28 @@ class MathFuncConfig(
 
   // ---------------------------------------------------------------------------
 
-  val tables: Seq[TableBase] = funcs.map(fn => {
-    fn match {
-      case Sqrt        => new SqrtTable       (nOrder, addrW, inBitW, outBitW)
-      case InvSqrt     => new InvSqrtTable    (nOrder, addrW, inBitW, outBitW)
-      case Reciprocal  => new ReciprocalTable (nOrder, addrW, inBitW, outBitW)
-      // case Sin         => new SinCosTable     (nOrder, addrW, inBitW, outBitW)
-      // case Cos         => new SinCosTable     (nOrder, addrW, inBitW, outBitW)
-      // case ACosPhase1  => new SqrtTable       (nOrder, addrW, inBitW, outBitW)
-      // case ACosPhase2  => new ACosTable       (nOrder, addrW, inBitW, outBitW)
-      // case ATan2Phase1 => new ReciprocalTable (nOrder, addrW, inBitW, outBitW)
-      // case ATan2Phase2 => new ATan2Phase2Table(nOrder, addrW, inBitW, outBitW)
-      // case Exp         => new ExpTable        (nOrder, addrW, inBitW, outBitW)
-      // case Log         => new LogTable        (nOrder, addrW, inBitW, outBitW)
-      // case Sigmoid     => new SigmoidTable    (nOrder, addrW, inBitW, outBitW)
-      // case SoftPlus    => new SoftPlusTable   (nOrder, addrW, inBitW, outBitW)
-      // case ScaleMixtureGaussian => {
-      //   val (sA, sB) = scaleMixtureGaussianSigma.get
-      //   new ScaleMixtureGaussianTable(sA, sB, nOrder, nIntervals, inBitW, outBitW)
-      // }
-    }
-  })
+  val tables: Map[FuncKind, TableBase] = funcs.map {
+    case Sqrt        => (Sqrt       -> new SqrtTable       (nOrder, addrW, inBitW, outBitW))
+    case InvSqrt     => (InvSqrt    -> new InvSqrtTable    (nOrder, addrW, inBitW, outBitW))
+    case Reciprocal  => (Reciprocal -> new ReciprocalTable (nOrder, addrW, inBitW, outBitW))
+    // case Sin         => new SinCosTable     (nOrder, addrW, inBitW, outBitW)
+    // case Cos         => new SinCosTable     (nOrder, addrW, inBitW, outBitW)
+    // case ACosPhase1  => new SqrtTable       (nOrder, addrW, inBitW, outBitW)
+    // case ACosPhase2  => new ACosTable       (nOrder, addrW, inBitW, outBitW)
+    // case ATan2Phase1 => new ReciprocalTable (nOrder, addrW, inBitW, outBitW)
+    // case ATan2Phase2 => new ATan2Phase2Table(nOrder, addrW, inBitW, outBitW)
+    // case Exp         => new ExpTable        (nOrder, addrW, inBitW, outBitW)
+    // case Log         => new LogTable        (nOrder, addrW, inBitW, outBitW)
+    // case Sigmoid     => new SigmoidTable    (nOrder, addrW, inBitW, outBitW)
+    // case SoftPlus    => new SoftPlusTable   (nOrder, addrW, inBitW, outBitW)
+    // case ScaleMixtureGaussian => {
+    //   val (sA, sB) = scaleMixtureGaussianSigma.get
+    //   new ScaleMixtureGaussianTable(sA, sB, nOrder, nIntervals, inBitW, outBitW)
+    // }
+  }.toMap
 
-  val bitW   = tables.map(_.getBitWidth()).reduce((l, r) => { l.merge(r) } )
-  val coeffs = tables.map(_.generateTable(bitW))
+  val bitW   = tables.map(_._2.getBitWidth()).reduce((l, r) => { l.merge(r) } )
+  val coeffs = tables.map{ case (k,v) => (k -> v.generateTable(bitW)) }.toMap
 
   // --------------------------------------------------------------------------
 
