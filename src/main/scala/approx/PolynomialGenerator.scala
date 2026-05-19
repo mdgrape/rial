@@ -117,14 +117,24 @@ class PolynomialGenerator(
         iv.coeffs.zip(bitW.coefBits).map { case (coeff, coefBitW) => {
           val bits = round(scalb(coeff, outBitW))
 
+          val (minVal, maxVal) = if(nOrder == 0) {
+            // there is no calculation, so coefficient itself is the output.
+            // since output is mantissa, it must be in [0, 1) (excl hidden bit).
+            val minV = 0L
+            val maxV = (1L << (coefBitW-1)) - 1
+            (minV, maxV)
+
+          } else {
+            val minV = -(1L << (coefBitW-1))
+            val maxV =  (1L << (coefBitW-1)) - 1
+            (minV, maxV)
+          }
+
           // overflow by rounding (e.g. 0.999 -> 1.000) is okay.
           // overflow by the function itself (e.g. f(x)=1.001) is not okay.
+          assert( bits >= minVal - 1, f"coeff bit(${bits}) must be > than 0b100..0(${minVal})" )
+          assert( bits <= maxVal + 1, f"coeff bit(${bits}) must be < than 0b011..1(${maxVal})" )
 
-          assert( bits > -(1L << (coefBitW-1)) - 1, f"coeff bit(${bits}) must be > than 0b100..0(${-(1L << (coefBitW-1))})" )
-          assert( bits <  (1L << (coefBitW-1)) + 1, f"coeff bit(${bits}) must be < than 0b011..1(${ (1L << (coefBitW-1))})" )
-
-          val minVal = -(1L << (coefBitW-1))
-          val maxVal =  (1L << (coefBitW-1)) - 1
           bits.max(minVal).min(maxVal)
         }}
       })
