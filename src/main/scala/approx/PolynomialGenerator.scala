@@ -94,6 +94,9 @@ class PolynomialGenerator(
     log2Ceil(coeffInt).toInt + 1 // +1 for SInt
   })
 
+  // println(f"coefBits=${minimumRequiredCoeffBits.mkString("[",",","]")}")
+  // println(f"calcBits=${minimumRequiredCalcBits .mkString("[",",","]")}")
+
   // --------------------------------------------------------------------------
 
   def getBitWidth(): PolynomialBitWidth = {

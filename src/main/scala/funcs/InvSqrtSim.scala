@@ -116,10 +116,10 @@ object InvSqrtSimGeneric {
   // 1/sqrt( [1, 4) ) -> [0.5, 1) (without the hidden bit)
   def apply( t: PolynomialCoefficients, x: RealGeneric ): RealGeneric = {
 
-    if (x.isNaN)  {return RealGeneric.nan (x.spec)}
-    if (x.isZero) {return RealGeneric.inf (x.spec, sgn=0)}
+    if (x.isNaN)      {return RealGeneric.nan (x.spec)}
+    if (x.isZero)     {return RealGeneric.inf (x.spec, sgn=0)}
     if (x.isInfinite) {return RealGeneric.zero(x.spec)}
-    if (x.sgn == 1) {return RealGeneric.inf(x.spec, sgn=0)} // sqrt(-x) = inf
+    if (x.sgn == 1)   {return RealGeneric.inf(x.spec, sgn=0)} // sqrt(-x) = inf
 
     val addrW   = t.bitW.addrW // XXX this is already +1-ed. see invsqrtTableGeneration
     val nOrder  = t.bitW.nOrder
@@ -153,16 +153,20 @@ object InvSqrtSimGeneric {
     val addr  = slice(xW, addrW+1, man).toInt
     val xiv   = slice( 0,    xW, man).toBigInt
     val zman0 = PolynomialEval.eval(addr, xiv, t)
+    // println(f"S: x=(${x.sgn}|${x.ex}|${x.man.toLong.toBinaryString}), addr=${addr}, xiv=${xiv}(${xiv.toLong.toBinaryString})")
 
     val zman = if(zman0 < 0) {
       println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=$x%h")
       SafeLong(0)
     } else if (zman0 >= (SafeLong(1)<<outPrec)) {
-      println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=$x%h")
+      if(zman0 > (SafeLong(1)<<outPrec)) {
+        println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=$x%h")
+      }
       maskSL(outPrec)
     } else {
       SafeLong(zman0)
     }
+    // println(f"S: x=(${x.sgn}|${x.ex}|${x.man.toLong.toBinaryString}), polynomial=${zman0}")
 
     // Simple rounding
     val zmanRounded = if (extraBits > 0) {
