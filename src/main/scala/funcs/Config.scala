@@ -139,11 +139,11 @@ object FuncKind extends Enumeration {
  *  @param ScaleMixtureGaussianSigma sigmaA and sigmaB for ScaleMixtureGaussian.
  */
 class MathFuncConfig(
-  val funcs:      Seq[FuncKind.FuncKind],
-  val nOrder:     Int,
-  val addrW:      Int,
-  val inBitW:     Int,
-  val outBitW:    Int,
+  val funcs:   Seq[FuncKind.FuncKind],
+  val nOrder:  Int,
+  val addrW:   Int,
+  val inBitW:  Int,
+  val outBitW: Int,
   val scaleMixtureGaussianSigma: Option[(Double, Double)] = None,
 ) {
 
@@ -203,6 +203,10 @@ class MathFuncConfig(
     } else {
       (funcs.length + 1).U(signalW.W)
     }
+  }
+
+  def isValid(s: UInt): Bool = {
+    s =/= 0.U && s < (funcs.length + 1).U
   }
 
   /** Returns function select signal that runs no function.
