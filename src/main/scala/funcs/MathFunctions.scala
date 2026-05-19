@@ -62,7 +62,7 @@ class MathFunctions(
   }).toMap
 
   io.z := MuxCase(0.U, cfg.funcs.map(fn => {
-    (selOut === cfg.signal(fn) && zs(fn).valid) -> zs(fn)
+    (selOut === cfg.signal(fn) && zs(fn).valid) -> zs(fn).bits
   }))
 
   // ==========================================================================
