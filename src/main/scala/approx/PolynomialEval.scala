@@ -74,8 +74,8 @@ object PolynomialEval {
 
     // println(f"i=${tableElem.length-1}: inBitW=${bitW.inBitW}, coefW=${bitW.coefBits(tableElem.length-1)}, calcW=${calcW}, x=${x}, sum=${sum}, coef=${tableElem(tableElem.length-1)}")
     for(i <- (tableElem.length-2) to 0 by -1) {
-      val xW   = min(calcW, bitW.inBitW) // minimum required bitW
-      val prod = (x >> (bitW.inBitW - xW)) * sum
+      val xminW = min(calcW, bitW.inBitW - 1)
+      val prod  = (x >> (bitW.inBitW - 1 - xminW)) * sum
 
       //                                 -16                            15
       // [-1, 1] -> signed fixedpoint [10000,..11111, 00000, 00001,..01111]
@@ -84,9 +84,9 @@ object PolynomialEval {
       // slightly different from its width.
       // if x is unsigned and in [0,1), decimal point is the same as its width.
       // but if x is signed and in [-1,1), decimal point locates width-1.
-      sum   = (prod >> (xW-1)) + tableElem(i)
+      sum   = (prod >> xminW) + tableElem(i)
       calcW = bitW.calcBits(i)
-      // println(f"i=${i}: inBitW=${bitW.inBitW}, coefW=${bitW.coefBits(i)}, calcW=${calcW}, x=${x}, prod=${prod>>xW}, sum=${sum}, coef=${tableElem(i)}")
+      // println(f"i=${i}: inBitW=${bitW.inBitW}, coefW=${bitW.coefBits(i)}, calcW=${calcW}, x=${x}, prod=${prod>>xminW}, sum=${sum}, coef=${tableElem(i)}")
     }
     sum
   }
