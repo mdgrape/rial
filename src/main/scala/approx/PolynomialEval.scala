@@ -37,34 +37,33 @@ class PolynomialEval(
     out := io.in.bits.coeffs(0).asUInt(bitW.outBitW-1, 0) // if order==0, then there is only one parameter.
 
   } else {
+
     // conversion to SInt (-1 ~ +1 range) must be done outside
     val x      = io.in.bits.x.get
     val coeffs = io.in.bits.coeffs
     val xPrec  = bitW.inPrec
 
-    def mulByX(curr: SInt): SInt = {
-      val xminW = min(curr.getWidth, xPrec) // min(calcBits, xPrec)
-      val prod  = x(xPrec, xPrec - xminW).asSInt * curr
-      (prod >> xminW).asSInt
+    //           ((c2) * x + c1) * x + c0
+    // accVec(2)= ^^^^
+    // accVec(1)= ^^^^^^^^^^^^^^
+    // accVec(0)= ^^^^^^^^^^^^^^^^^^^^^^^ -> out
+    //
+    val accVec = Wire(MixedVec((0 to order).map(k => SInt(bitW.calcBits(k).W))))
+    accVec(order) := coeffs(order)
+
+    for(k <- (order-1) to 0 by -1) {
+      val prev    = accVec(k+1)
+      val xminW   = min(prev.getWidth, xPrec) // min(calcBits, xPrec)
+      val prod    = x(xPrec, xPrec - xminW).asSInt * prev
+      val sumFull = (prod >> xminW).asSInt +& coeffs(k)
+      accVec(k) := sumFull // drop the MSB (carry)
+
+      assert((k == 0).B || accVec(k) === sumFull, "PolynomialEval: horner "+
+        f"intermediate (k=${k}) overflowed calcBits=${bitW.calcBits(k)}")
     }
 
-    val accVec = Wire(MixedVec((1 to order).map(i => SInt(bitW.calcBits(i).W))))
-
-    // since 0-th (the last) order is `res`, we need to do -1
-    accVec(order-1) := coeffs(order)
-
-    for(i <- (order - 1) to 1 by -1) {
-      val sumFull = mulByX(accVec(i)) +& coeffs(i)
-      accVec(i-1) := sumFull
-
-      assert(accVec(i-1) === sumFull, "PolynomialEval: horner intermediate (order=" +
-        i + ") overflowed calcBits=" + bitW.calcBits(i))
-    }
-
-    // final stage (order 0): result may legitimately reach 1.0, saturate.
-    val res    = (mulByX(accVec(0)) +& coeffs(0)).asUInt
     val resMax = Fill(bitW.outBitW, 1.U(1.W))
-
+    val res    = accVec(0).asUInt
     out := Mux(res > resMax, resMax, res)
   }
 }
