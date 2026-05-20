@@ -226,6 +226,7 @@ class MathFuncConfig(
     case Sin         => (Sin        -> new SinCosTable     (nOrder, addrW, inBitW, outBitW))
     case Cos         => (Cos        -> new SinCosTable     (nOrder, addrW, inBitW, outBitW))
     case Exp         => (Exp        -> new ExpTable        (nOrder, addrW, inBitW, outBitW))
+    case Log         => (Log        -> new LogTable        (nOrder, addrW, inBitW, outBitW))
     // case ACosPhase1  => new SqrtTable       (nOrder, addrW, inBitW, outBitW)
     // case ACosPhase2  => new ACosTable       (nOrder, addrW, inBitW, outBitW)
     // case ATan2Phase1 => new ReciprocalTable (nOrder, addrW, inBitW, outBitW)

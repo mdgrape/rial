@@ -189,6 +189,7 @@ class MathFunctions(
     case Reciprocal => Reciprocal -> Module(new ReciprocalPreProcess(spec, bitW, stage.preStage))
     case Sin        => Sin        -> Module(new SinCosPreProcess    (spec, bitW, stage.preStage-stage.preMulStage))
     case Exp        => Exp        -> Module(new ExpPreProcess       (spec, bitW, stage.preStage-stage.preMulStage))
+    case Log        => Log        -> Module(new LogPreProcess       (spec, bitW, stage.preStage))
   }.toMap[FuncKind, Module]
 
   val tabs: Map[FuncKind, Module] = cfg.funcs.collect {
@@ -196,6 +197,7 @@ class MathFunctions(
     case InvSqrt    => InvSqrt    -> Module(new InvSqrtTableCoeff   (spec, coeffs(InvSqrt   ), stage.tableStage))
     case Reciprocal => Reciprocal -> Module(new ReciprocalTableCoeff(spec, coeffs(Reciprocal), stage.tableStage))
     case Sin        => Sin        -> Module(new SinCosTableCoeff    (spec, coeffs(Sin),        stage.tableStage))
+    case Log        => Log        -> Module(new LogTableCoeff       (spec, coeffs(Log),        stage.tableStage))
     case Exp        => Exp        -> Module(new ExpTableCoeff       (spec, coeffs(Exp),        stage.tableStage))
   }.toMap
 
@@ -204,6 +206,7 @@ class MathFunctions(
     case InvSqrt    => InvSqrt    -> Module(new InvSqrtNonTable   (spec, bitW, stage.nonTableStage))
     case Reciprocal => Reciprocal -> Module(new ReciprocalNonTable(spec, bitW, stage.nonTableStage))
     case Exp        => Exp        -> Module(new ExpNonTable       (spec, bitW, stage.nonTableStage))
+    case Log        => Log        -> Module(new LogNonTable       (spec, bitW, stage.nonTableStage))
     // sincos does not have non-table path
   }.toMap
 
@@ -213,6 +216,7 @@ class MathFunctions(
     case Reciprocal => Reciprocal -> Module(new ReciprocalPostProcess(spec, bitW, stage.postStage))
     case Sin        => Sin        -> Module(new SinCosPostProcess    (spec, bitW, stage.postStage-stage.postMulStage))
     case Exp        => Exp        -> Module(new ExpPostProcess       (spec, bitW, stage.postStage))
+    case Log        => Log        -> Module(new LogPostProcess       (spec, bitW, stage.postStage-stage.postMulStage))
   }.toMap
 
   private def toModule[T <: Module](x: Module)(implicit ct: ClassTag[T]): T = {
@@ -398,5 +402,59 @@ class MathFunctions(
     post.io.in.bits.zres := polynomialEval.io.out.bits
 
     zs(Exp) := post.io.z
+  }
+
+  // --------------------------------------------------------------------------
+  // Log -- uses the post-process multiplier (poly * const), no pre-mult.
+  //
+  //   pre  : xIn        .. xTab             (uses full preStage)
+  //   tab  : xTab       .. xCalc            (3 sub-Vec ROMs, Mux'd by exAddr)
+  //   nontab: xTab      .. xPost            (constant + zex0 + zsgn + flags)
+  //   poly  : xCalc     .. xPost
+  //   mulArgs (comb)   at xPost             (build ymanW1 from zres + info)
+  //   postMul : xPost   .. xPost+postMulStage
+  //   post    : xPost+postMulStage .. xOut  (assemble final z)
+
+  if(cfg.has(Log)) {
+    assert(postMul.isDefined, "Log requires the post-process multiplier")
+
+    val pre  = toModule[LogPreProcess ](pres   (Log))
+    val tab  = toModule[LogTableCoeff ](tabs   (Log))
+    val ntab = toModule[LogNonTable   ](nontabs(Log))
+    val post = toModule[LogPostProcess](posts  (Log))
+
+    pre.io.x   := xIn
+    tab.io.adr := pre.io.adr
+
+    polynomialCoefs(Log) := tab.io.cs
+    if(bitW.nOrder != 0) {
+      polynomialDxs.get(Log) := Pipe(pre.io.dx.get, stage.tableStage)
+    }
+
+    ntab.io.x := xTab
+
+    // ----- post-mult arg builder (combinational, at xPost timing) -----
+    val mulArgs = Module(new LogPostMultArgs(spec, bitW))
+    mulArgs.io.info := ntab.io.z                  // at xPost timing
+    mulArgs.io.zres := polynomialEval.io.out.bits // at xPost timing
+
+    val logSelAtPost = ShiftRegister(selIn === cfg.signal(Log),
+      stage.preStage + stage.tableStage + stage.calcStage, false.B, true.B)
+
+    when (logSelAtPost) {
+      postMulLhs.get   := mulArgs.io.mul.bits.lhs
+      postMulRhs.get   := mulArgs.io.mul.bits.rhs
+      postMulValid.get := mulArgs.io.mul.valid && polynomialEval.io.out.valid
+    }
+
+    // ----- post -----
+    //
+    // ntab.io.z (= info) is at xPost timing. The mul output appears at
+    // xPost + postMulStage, so the info needs to be pipelined that many
+    // cycles to align with the mul output at LogPostProcess's input.
+    post.io.info := Pipe(ntab.io.z, stage.postMulStage)
+    post.io.mul  := postMul.get.io.out
+
+    zs(Log) := post.io.z
   }
 }
