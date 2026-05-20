@@ -52,7 +52,7 @@ object PreProcMultiplier {
   def lhsW(funcs: Seq[FuncKind], spec: RealSpec): Int = {
     val ws = funcs.collect {
       case Sin | Cos => SinCosPreMulArgs.lhsW(spec)
-      // case Exp                  => ExpPreMulArgs.lhsW(spec)
+      case Exp       => ExpPreMulArgs.lhsW(spec)
       // case ScaleMixtureGaussian => ScaleMixtureGaussianPreMulArgs.lhsW(spec)
     }
     if (ws.isEmpty) 0 else ws.max

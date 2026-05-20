@@ -188,6 +188,7 @@ class MathFunctions(
     case InvSqrt    => InvSqrt    -> Module(new InvSqrtPreProcess   (spec, bitW, stage.preStage))
     case Reciprocal => Reciprocal -> Module(new ReciprocalPreProcess(spec, bitW, stage.preStage))
     case Sin        => Sin        -> Module(new SinCosPreProcess    (spec, bitW, stage.preStage-stage.preMulStage))
+    case Exp        => Exp        -> Module(new ExpPreProcess       (spec, bitW, stage.preStage-stage.preMulStage))
   }.toMap[FuncKind, Module]
 
   val tabs: Map[FuncKind, Module] = cfg.funcs.collect {
@@ -195,12 +196,14 @@ class MathFunctions(
     case InvSqrt    => InvSqrt    -> Module(new InvSqrtTableCoeff   (spec, coeffs(InvSqrt   ), stage.tableStage))
     case Reciprocal => Reciprocal -> Module(new ReciprocalTableCoeff(spec, coeffs(Reciprocal), stage.tableStage))
     case Sin        => Sin        -> Module(new SinCosTableCoeff    (spec, coeffs(Sin),        stage.tableStage))
+    case Exp        => Exp        -> Module(new ExpTableCoeff       (spec, coeffs(Exp),        stage.tableStage))
   }.toMap
 
   val nontabs: Map[FuncKind, Module] = cfg.funcs.collect {
     case Sqrt       => Sqrt       -> Module(new SqrtNonTable      (spec, bitW, stage.nonTableStage))
     case InvSqrt    => InvSqrt    -> Module(new InvSqrtNonTable   (spec, bitW, stage.nonTableStage))
     case Reciprocal => Reciprocal -> Module(new ReciprocalNonTable(spec, bitW, stage.nonTableStage))
+    case Exp        => Exp        -> Module(new ExpNonTable       (spec, bitW, stage.nonTableStage))
     // sincos does not have non-table path
   }.toMap
 
@@ -209,6 +212,7 @@ class MathFunctions(
     case InvSqrt    => InvSqrt    -> Module(new InvSqrtPostProcess   (spec, bitW, stage.postStage))
     case Reciprocal => Reciprocal -> Module(new ReciprocalPostProcess(spec, bitW, stage.postStage))
     case Sin        => Sin        -> Module(new SinCosPostProcess    (spec, bitW, stage.postStage-stage.postMulStage))
+    case Exp        => Exp        -> Module(new ExpPostProcess       (spec, bitW, stage.postStage))
   }.toMap
 
   private def toModule[T <: Module](x: Module)(implicit ct: ClassTag[T]): T = {
@@ -362,5 +366,59 @@ class MathFunctions(
 
     zs(Sin) := sincosPost.io.z
     zs(Cos) := sincosPost.io.z
+  }
+
+  // --------------------------------------------------------------------------
+  // Exp -- uses the pre-process multiplier (x * log2e), no post-mult.
+  //
+  // Pipeline alignment:
+  //   preMul    : 0 .. preMulStage             (consumes xIn)
+  //   expPre    : preMulStage .. preStage      (consumes preMul output)
+  //   expTab    : preStage    .. preStage+tableStage
+  //   expNonTab : preStage    .. xPost (consumes pre.info too)
+  //   expPost   : xPost       .. xOut          (consumes nontab + poly)
+
+  if(cfg.has(Exp)) {
+    assert(preMul.isDefined, "Exp requires the pre-process multiplier")
+
+    val pre  = toModule[ExpPreProcess ](pres   (Exp))
+    val tab  = toModule[ExpTableCoeff ](tabs   (Exp))
+    val ntab = toModule[ExpNonTable   ](nontabs(Exp))
+    val post = toModule[ExpPostProcess](posts  (Exp))
+
+    val expSelIn = selIn === cfg.signal(Exp)
+
+    // ----- pre-mult driver: log2(e) * (1 + x.man) -----
+    when (expSelIn) {
+      preMulLhs.get   := ExpPreMulArgs.lhs(spec, preMul.get.lhsW)
+      preMulRhs.get   := Cat(1.U(1.W), xIn.bits.man)
+      preMulValid.get := xIn.valid
+    }
+
+    // ----- pre stage: x delayed by preMulStage to align with preMul.out -----
+    val xAtExpPre  = Pipe(xIn, stage.preMulStage)
+
+    pre.io.x    := xAtExpPre
+    pre.io.prod.valid := preMul.get.io.out.valid
+    pre.io.prod.bits  := ExpPreMulArgs.prod(spec, preMul.get.io.out.bits)
+
+    // ----- table -----
+    tab.io.adr := pre.io.adr
+
+    polynomialCoefs(Exp) := tab.io.cs
+    if(bitW.nOrder != 0) {
+      polynomialDxs.get(Exp) := Pipe(pre.io.dx.get, stage.tableStage)
+    }
+
+    // ----- non-table: takes xTab (DecomposedReal) and pre.info ------
+    ntab.io.x    := xTab
+    ntab.io.info := pre.io.info
+
+    // ----- post -----
+    post.io.in.valid     := ntab.io.z.valid && polynomialEval.io.out.valid
+    post.io.in.bits.info := ntab.io.z.bits
+    post.io.in.bits.zres := polynomialEval.io.out.bits
+
+    zs(Exp) := post.io.z
   }
 }
