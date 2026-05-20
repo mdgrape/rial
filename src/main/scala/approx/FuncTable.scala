@@ -75,27 +75,34 @@ private[rial] class FuncTableInterval(
     (x - xMin) * rwidth * 2.0 - 1.0
   }
 
-  private val chebyshev = new Chebyshev(nOrder)
-  private val nodes = chebyshev.nodes()
-  private val funcs = nodes.map(x => f(x))
-
-  // chebyshev weights
-  private val ks = ArraySeq.fill(nOrder+1)(0.0)
-  for(i <- 0 to nOrder) {
-
-    val orderTerm = ( if(i == 0) { 1 } else { 2 } )
-
-    ks(i) = (0 to nOrder).map(j => {
-      funcs(j) * chebyshev(i, nodes(j))
-    }).sum / (nOrder+1) * orderTerm
-  }
-
   // polynomial coefficient!
-  val coeffs = (0 to nOrder).map(i => {
-    (0 to nOrder).map(j => {
-      ks(j) * chebyshev.coeffs(j)(i)
-    }).sum
-  })
+  //
+  // For nOrder == 0 we skip the Chebyshev fit and just take f at the left
+  // endpoint (t = -1, i.e. x = xMin).
+  // Since, in case of nOrder==0, the hardware uses its whole mantissa as the
+  // key of the table and that corresponds to the xMin(= -1.0 for chebyshev).
+  val coeffs: Seq[Double] = if (nOrder == 0) {
+    Seq(f(-1.0))
+  } else {
+    val chebyshev = new Chebyshev(nOrder)
+    val nodes = chebyshev.nodes()
+    val funcs = nodes.map(x => f(x))
+
+    // chebyshev weights
+    val ks = ArraySeq.fill(nOrder+1)(0.0)
+    for(i <- 0 to nOrder) {
+      val orderTerm = ( if(i == 0) { 1 } else { 2 } )
+      ks(i) = (0 to nOrder).map(j => {
+        funcs(j) * chebyshev(i, nodes(j))
+      }).sum / (nOrder+1) * orderTerm
+    }
+    // convert to polynomial coeff
+    (0 to nOrder).map(i => {
+      (0 to nOrder).map(j => {
+        ks(j) * chebyshev.coeffs(j)(i)
+      }).sum
+    })
+  }
 
   // x must be in [-1, 1].
   def eval(x: Double, hornerStep: Int = nOrder): Double = {
