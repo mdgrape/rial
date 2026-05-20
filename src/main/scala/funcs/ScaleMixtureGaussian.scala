@@ -47,7 +47,7 @@ object ScaleMixtureGaussianPreMulArgs {
     assert(diffW >= 0, f"PreMul lhsW($w) must be >= smg lhsW(${base})")
     val coef = new RealGeneric(spec, 1.0 / (sgmA * sgmA))
     val v    = coef.manW1.toBigInt
-    if (diffW == 0) v.U(base.W) else Cat(v.U(base.W), 0.U(diffW.W))
+    if (diffW == 0) { v.U(base.W) } else { Cat(v.U(base.W), 0.U(diffW.W)) }
   }
 
   /** Width of the slice of the multiplier output that SMG consumes (the
