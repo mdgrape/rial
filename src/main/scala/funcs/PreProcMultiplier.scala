@@ -53,8 +53,8 @@ object PreProcMultiplier {
     val ws = funcs.collect {
       case Sin | Cos => SinCosPreMulArgs.lhsW(spec)
       case Exp       => ExpPreMulArgs.lhsW(spec)
-      // case ScaleMixtureGaussian => ScaleMixtureGaussianPreMulArgs.lhsW(spec)
+      case ScaleMixtureGaussian => ScaleMixtureGaussianPreMulArgs.lhsW(spec)
     }
-    if (ws.isEmpty) 0 else ws.max
+    if (ws.isEmpty) { 0 } else { ws.max }
   }
 }

@@ -233,10 +233,10 @@ class MathFuncConfig(
     case ATan2Phase2 => (ATan2Phase2 -> new ATan2Phase2Table(nOrder, addrW, inBitW, outBitW))
     case Sigmoid     => (Sigmoid     -> new SigmoidTable    (nOrder, addrW, inBitW, outBitW))
     case SoftPlus    => (SoftPlus    -> new SoftPlusTable   (nOrder, addrW, inBitW, outBitW))
-    // case ScaleMixtureGaussian => {
-    //   val (sA, sB) = scaleMixtureGaussianSigma.get
-    //   new ScaleMixtureGaussianTable(sA, sB, nOrder, nIntervals, inBitW, outBitW)
-    // }
+    case ScaleMixtureGaussian => {
+      val (sA, sB) = scaleMixtureGaussianSigma.get
+      (ScaleMixtureGaussian -> new ScaleMixtureGaussianTable(sA, sB, nOrder, addrW, inBitW, outBitW))
+    }
   }.toMap
 
   val bitW   = tables.map(_._2.getBitWidth()).reduce((l, r) => { l.merge(r) } )

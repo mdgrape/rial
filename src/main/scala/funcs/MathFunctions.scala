@@ -209,6 +209,11 @@ class MathFunctions(
     case ATan2Phase2 => ATan2Phase2 -> Module(new ATan2Phase2PreProcess(spec, bitW, stage.preStage))
     case Sigmoid     => Sigmoid     -> Module(new SigmoidPreProcess    (spec, bitW, stage.preStage))
     case SoftPlus    => SoftPlus    -> Module(new SoftPlusPreProcess   (spec, bitW, stage.preStage))
+    case ScaleMixtureGaussian => {
+      val (sA, sB) = cfg.scaleMixtureGaussianSigma.get
+      ScaleMixtureGaussian -> Module(new ScaleMixtureGaussianPreProcess(
+        sA, sB, spec, bitW, stage.preStage - stage.preMulStage))
+    }
   }.toMap[FuncKind, Module]
 
   val tabs: Map[FuncKind, Module] = cfg.funcs.collect {
@@ -224,6 +229,8 @@ class MathFunctions(
     case ATan2Phase2 => ATan2Phase2 -> Module(new ATan2Phase2TableCoeff(spec, coeffs(ATan2Phase2), stage.tableStage))
     case Sigmoid     => Sigmoid     -> Module(new SigmoidTableCoeff    (spec, coeffs(Sigmoid    ), stage.tableStage))
     case SoftPlus    => SoftPlus    -> Module(new SoftPlusTableCoeff   (spec, coeffs(SoftPlus   ), stage.tableStage))
+    case ScaleMixtureGaussian => ScaleMixtureGaussian ->
+      Module(new ScaleMixtureGaussianTableCoeff(spec, coeffs(ScaleMixtureGaussian), stage.tableStage))
   }.toMap
 
   val nontabs: Map[FuncKind, Module] = cfg.funcs.collect {
@@ -250,6 +257,8 @@ class MathFunctions(
     case ATan2Phase2 => ATan2Phase2 -> Module(new ATan2Phase2PostProcess(spec, bitW, stage.postStage-stage.postMulStage))
     case Sigmoid     => Sigmoid     -> Module(new SigmoidPostProcess    (spec, bitW, stage.postStage))
     case SoftPlus    => SoftPlus    -> Module(new SoftPlusPostProcess   (spec, bitW, stage.postStage))
+    case ScaleMixtureGaussian => ScaleMixtureGaussian ->
+      Module(new ScaleMixtureGaussianPostProcess(spec, bitW, stage.postStage - stage.postMulStage))
   }.toMap
 
   private def toModule[T <: Module](x: Module)(implicit ct: ClassTag[T]): T = {
@@ -665,10 +674,6 @@ class MathFunctions(
 
   // --------------------------------------------------------------------------
   // Sigmoid -- own table, no pre/post-mult (the post-process fold is a shift).
-  //   pre  : xIn   .. xTab
-  //   tab  : xTab  .. xCalc
-  //   poly : xCalc .. xPost
-  //   post : xPost .. xOut
 
   if(cfg.has(Sigmoid)) {
     val pre  = toModule[SigmoidPreProcess ](pres (Sigmoid))
@@ -694,10 +699,6 @@ class MathFunctions(
 
   // --------------------------------------------------------------------------
   // SoftPlus -- own table (concat pos+neg, Mux'd by xsgn), no pre/post-mult.
-  //   pre  : xIn   .. xTab
-  //   tab  : xTab  .. xCalc
-  //   poly : xCalc .. xPost
-  //   post : xPost .. xOut
 
   if(cfg.has(SoftPlus)) {
     val pre  = toModule[SoftPlusPreProcess ](pres (SoftPlus))
@@ -718,5 +719,69 @@ class MathFunctions(
     post.io.in.bits.zres := polynomialEval.io.out.bits
 
     zs(SoftPlus) := post.io.z
+  }
+
+  // --------------------------------------------------------------------------
+  // ScaleMixtureGaussian -- uses BOTH the pre-process and post-process
+  // multipliers.
+  //   pre-mult: (1/sgmA^2).manW1 * x.manW1   (= x/sgmA^2)
+  //   post-mult: z0.manW1 * xsgmA2.manW1    (where z0 = polynomial*2^maxBitDigit + 1)
+
+  if(cfg.has(ScaleMixtureGaussian)) {
+    assert(preMul .isDefined, "ScaleMixtureGaussian requires the pre-process multiplier")
+    assert(postMul.isDefined, "ScaleMixtureGaussian requires the post-process multiplier")
+    val (sgmA, sgmB) = cfg.scaleMixtureGaussianSigma.get
+
+    val pre  = toModule[ScaleMixtureGaussianPreProcess ](pres (ScaleMixtureGaussian))
+    val tab  = toModule[ScaleMixtureGaussianTableCoeff ](tabs (ScaleMixtureGaussian))
+    val post = toModule[ScaleMixtureGaussianPostProcess](posts(ScaleMixtureGaussian))
+
+    val smgSelIn = selIn === cfg.signal(ScaleMixtureGaussian)
+
+    // ----- pre-mult driver: (1/sgmA^2) * (1 + x.man) -----
+    when (smgSelIn) {
+      preMulLhs.get   := ScaleMixtureGaussianPreMulArgs.lhs(sgmA, spec, preMul.get.lhsW)
+      preMulRhs.get   := Cat(1.U(1.W), xIn.bits.man)
+      preMulValid.get := xIn.valid
+    }
+
+    // ----- pre stage: x delayed by preMulStage to align with preMul.out -----
+    val xAtSmgPre = Pipe(xIn, stage.preMulStage)
+    pre.io.x          := xAtSmgPre
+    pre.io.prod.valid := preMul.get.io.out.valid
+    pre.io.prod.bits  := ScaleMixtureGaussianPreMulArgs.prod(spec, preMul.get.io.out.bits)
+
+    // ----- table -----
+    tab.io.adr := pre.io.adr
+    polynomialCoefs(ScaleMixtureGaussian) := tab.io.cs
+    if (bitW.nOrder != 0) {
+      polynomialDxs.get(ScaleMixtureGaussian) := Pipe(pre.io.dx.get, stage.tableStage)
+    }
+
+    // ----- post-mult args at xPost timing -----
+    val infoAtPost = Pipe(pre.io.info, stage.tableStage + stage.calcStage)
+    val mulArgs    = Module(new ScaleMixtureGaussianPostMulArgs(sgmA, sgmB, spec, bitW))
+    mulArgs.io.useTable  := infoAtPost.bits.useTable
+    mulArgs.io.xsgmA2Man := infoAtPost.bits.xsgmA2Man
+    mulArgs.io.zres      := polynomialEval.io.out.bits
+    mulArgs.io.valid     := infoAtPost.valid && polynomialEval.io.out.valid
+
+    val smgSelAtPost = ShiftRegister(smgSelIn,
+      stage.preStage + stage.tableStage + stage.calcStage, false.B, true.B)
+    when (smgSelAtPost) {
+      postMulLhs.get   := mulArgs.io.mul.bits.lhs
+      postMulRhs.get   := mulArgs.io.mul.bits.rhs
+      postMulValid.get := mulArgs.io.mul.valid
+    }
+
+    // ----- post stage: pipe info & z0Ex to post-postMul timing -----
+    val infoAtAfterMul = Pipe(infoAtPost, stage.postMulStage)
+    val z0exAtAfterMul = Pipe(mulArgs.io.mul.valid, mulArgs.io.mul.bits.z0ex,
+                              stage.postMulStage)
+
+    post.io.info := infoAtAfterMul
+    post.io.z0ex := z0exAtAfterMul
+    post.io.mul  := postMul.get.io.out
+    zs(ScaleMixtureGaussian) := post.io.z
   }
 }
