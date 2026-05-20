@@ -263,57 +263,36 @@ object MathFuncConfig {
    *   <li> reciprocal </li>
    * </ul>
    */
-  val simple = new MathFuncConfig(
-    funcs   = Seq(Sqrt, InvSqrt, Reciprocal),
-    nOrder  = 2,
-    addrW   = 8,
-    inBitW  = RealSpec.Float32Spec.manW - 8,
-    outBitW = RealSpec.Float32Spec.manW + 3,
-  )
+  val simple = Seq(Sqrt, InvSqrt, Reciprocal)
 
-  // TODO: uncomment when sin/cos/exp/log are implemented in funcs/
-  // /** Defines standard math functions that are frequently used.
-  //  *
-  //  * includes:
-  //  * <ul>
-  //  *   <li> sqrt       </li>
-  //  *   <li> invsqrt    </li>
-  //  *   <li> reciprocal </li>
-  //  *   <li> sin        </li>
-  //  *   <li> cos        </li>
-  //  *   <li> acos       </li>
-  //  *   <li> atan2      </li>
-  //  *   <li> exp        </li>
-  //  *   <li> log        </li>
-  //  * </ul>
-  //  */
-  // val standard = new MathFuncConfig(
-  //   funcs = Seq(Sqrt, InvSqrt, Reciprocal, Sin, Cos,
-  //     ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2,
-  //     Exp, Log),
-  //   nOrder = 2,
-  //   addrW = 8,
-  //   inBitW = RealSpec.Float32Spec.manW - 8,
-  //   outBitW = RealSpec.Float32Spec.manW + 3
-  // )
-  //
-  // /** Defines all the supported math functions including too task-specific ones.
-  //  *
-  //  * includes:
-  //  * <ul>
-  //  *   <li> everything. </li>
-  //  * </ul>
-  //  */
-  // val all = new MathFuncConfig(
-  //   funcs = Seq(Sqrt, InvSqrt, Reciprocal, Sin, Cos,
-  //     ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Exp, Log,
-  //     Sigmoid, SoftPlus, ScaleMixtureGaussian),
-  //   nOrder = 2,
-  //   addrW = 8,
-  //   inBitW = RealSpec.Float32Spec.manW - 8,
-  //   outBitW = RealSpec.Float32Spec.manW + 3,
-  //   scaleMixtureGaussianSigma = Some((exp(-1.0), exp(-6.0)))
-  // )
+  /** Defines standard math functions that are frequently used.
+   *
+   * includes:
+   * <ul>
+   *   <li> sqrt       </li>
+   *   <li> invsqrt    </li>
+   *   <li> reciprocal </li>
+   *   <li> sin        </li>
+   *   <li> cos        </li>
+   *   <li> acos       </li>
+   *   <li> atan2      </li>
+   *   <li> exp        </li>
+   *   <li> log        </li>
+   * </ul>
+   */
+  val standard = Seq(Sqrt, InvSqrt, Reciprocal, Sin, Cos, Exp, Log,
+    ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2)
+
+  /** Defines all the supported math functions including too task-specific ones.
+   *
+   * includes:
+   * <ul>
+   *   <li> everything. </li>
+   * </ul>
+   */
+  val all = Seq(Sqrt, InvSqrt, Reciprocal, Sin, Cos, Exp, Log,
+    ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2,
+    Sigmoid, SoftPlus, ScaleMixtureGaussian)
 }
 
 /** Config class to set pipeline stages in a [[rial.math.MathFunctions]] module.
