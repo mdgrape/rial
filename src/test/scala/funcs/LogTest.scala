@@ -52,13 +52,11 @@ class LogTest extends AnyFlatSpec
     new RealGeneric(spec, specialValues(idx))
   }
 
-  // SW reference: use the per-sub-table coeffs from the LogTable that the HW
-  // sees (so the polynomial-evaluation widths match the merged cfg.bitW).
   private def logRef(cfg: MathFuncConfig): RealGeneric => RealGeneric = {
     val lt = cfg.tables(Log).asInstanceOf[LogTable]
-    val cN = lt.tableN.generateTable(cfg.bitW)
-    val cP = lt.tableP.generateTable(cfg.bitW)
-    val cG = lt.tableG.generateTable(cfg.bitW)
+    val cN = lt.genNormalCoeffs  (cfg.bitW)
+    val cP = lt.genSmallPosCoeffs(cfg.bitW)
+    val cG = lt.genSmallNegCoeffs(cfg.bitW)
     (x: RealGeneric) => LogSimGeneric(cN, cP, cG, x)
   }
 

@@ -3,12 +3,9 @@
 // Simulator for log(x).
 //
 // Three regions, three tables:
-//   * |x|.ex < bias-1 or |x|.ex > bias  (i.e. x < 0.5 or x >= 2):
-//       log(x) = ex*log(2) + log(1.man)         ← uses log2(1+t) table
-//   * bias-1 == |x|.ex  (i.e. 0.5 <= x < 1):
-//       log(x) = -log(x)/(1-x) * -(1-x)          ← uses -log(y)/(1-y) table
-//   * bias   == |x|.ex  (i.e. 1.0 <= x < 2):
-//       log(x) =  log(x)/(x-1) * (x-1)           ← uses  log(y)/(y-1) table
+// - x < 0.5 or 2 <= x: log(x) = ex * log(2) + log(1.man): uses  log2(1+t)    table
+// -     0.5 <= x < 1 : log(x) = -log(x)/(1-x) * -(1-x)  : uses -log(y)/(1-y) table
+// -     1.0 <= x < 2 : log(x) =  log(x)/(x-1) *  (x-1)  : uses  log(y)/(y-1) table
 //
 // Copyright (C) Toru Niina RIKEN BDR 2022
 //
@@ -30,43 +27,20 @@ import rial.arith.RealGeneric
 import rial.arith.RoundSpec
 import rial.arith.Rounding._
 
-// Table for the polynomial path: f(t) = log2(1+t) for t in [0, 1).
-class LogNormalTable(
-  val nOrder: Int, val addrW: Int, val inBitW: Int, val outBitW: Int,
+class LogTable(
+  val nOrder:  Int,
+  val addrW:   Int,
+  val inBitW:  Int,
+  val outBitW: Int,
 ) extends TableBase {
+
   private val log2 = (a: Double) => log(a) / log(2.0)
-  private val func = (t: Double) => log2(1.0 + t)
 
-  private val ft  = FuncTable(func, nOrder, 1 << addrW, 0.0, 1.0)
-  private val gen = new PolynomialGenerator(ft, inBitW, outBitW)
+  // path 0 (x < 0.5 or x >= 2): log2(1+t) for t in [0, 1)
+  private val funcN = (t: Double) => { log2(1.0 + t) }
 
-  def getBitWidth(): PolynomialBitWidth = gen.getBitWidth()
-  def generateTable(bitW: PolynomialBitWidth): PolynomialCoefficients =
-    gen.generateTable(bitW)
-}
-
-// Table for 1.0 <= x < 2.0 region: approximates `log(1+t)/t` (=> 1 at t=0) in [0,1)
-// which maps to log(x)/(x-1) for x in [1, 2).
-class LogSmallPosTable(
-  val nOrder: Int, val addrW: Int, val inBitW: Int, val outBitW: Int,
-) extends TableBase {
-  private val func = (t: Double) => {
-    if (t == 0.0) 1.0 else log(1.0 + t) / t
-  }
-  private val ft  = FuncTable(func, nOrder, 1 << addrW, 0.0, 1.0)
-  private val gen = new PolynomialGenerator(ft, inBitW, outBitW)
-
-  def getBitWidth(): PolynomialBitWidth = gen.getBitWidth()
-  def generateTable(bitW: PolynomialBitWidth): PolynomialCoefficients =
-    gen.generateTable(bitW)
-}
-
-// Table for 0.5 <= x < 1.0 region: approximates -log((1+t)/2)/(1-(1+t)/2) - 1
-// in [0, 1).  Maps to -log(x)/(1-x) - 1 for x in [0.5, 1.0).
-class LogSmallNegTable(
-  val nOrder: Int, val addrW: Int, val inBitW: Int, val outBitW: Int,
-) extends TableBase {
-  private val func = (t: Double) => {
+  // path 1 (0.5 <= x < 1.0): -log((1+t)/2) / (1 - (1+t)/2) - 1 for t in [0, 1)
+  private val funcG = (t: Double) => {
     if (t == 1.0) {
       0.0
     } else {
@@ -74,12 +48,42 @@ class LogSmallNegTable(
       -log(x) / (1.0 - x) - 1.0
     }
   }
-  private val ft  = FuncTable(func, nOrder, 1 << addrW, 0.0, 1.0)
-  private val gen = new PolynomialGenerator(ft, inBitW, outBitW)
+  // path 2 (1.0 <= x < 2.0): log(1+t)/t  (=> 1 at t=0) for t in [0, 1)
+  private val funcP = (t: Double) => {
+    if (t == 0.0) {
+      1.0 
+    } else {
+      log(1.0 + t) / t
+    }
+  }
 
-  def getBitWidth(): PolynomialBitWidth = gen.getBitWidth()
-  def generateTable(bitW: PolynomialBitWidth): PolynomialCoefficients =
-    gen.generateTable(bitW)
+  private val nIntervals = 1 << addrW
+
+  private val ftN = FuncTable(funcN, nOrder, nIntervals, 0.0, 1.0)
+  private val ftG = FuncTable(funcG, nOrder, nIntervals, 0.0, 1.0)
+  private val ftP = FuncTable(funcP, nOrder, nIntervals, 0.0, 1.0)
+
+  private val genN = new PolynomialGenerator(ftN, inBitW, outBitW)
+  private val genG = new PolynomialGenerator(ftG, inBitW, outBitW)
+  private val genP = new PolynomialGenerator(ftP, inBitW, outBitW)
+
+  def getBitWidth(): PolynomialBitWidth =
+    genN.getBitWidth().merge(genG.getBitWidth()).merge(genP.getBitWidth())
+
+  def genNormalCoeffs  (bitW: PolynomialBitWidth): PolynomialCoefficients = {genN.generateTable(bitW)}
+  def genSmallNegCoeffs(bitW: PolynomialBitWidth): PolynomialCoefficients = {genG.generateTable(bitW)}
+  def genSmallPosCoeffs(bitW: PolynomialBitWidth): PolynomialCoefficients = {genP.generateTable(bitW)}
+
+  /** Concatenated form: [normal] ++ [smallNeg] ++ [smallPos] ++ [zeros].
+   *  Consumed by the HW (LogTableCoeff) which slices it back into three
+   *  independent ROMs. */
+  def generateTable(bitW: PolynomialBitWidth): PolynomialCoefficients = {
+    val cN = genNormalCoeffs(bitW)
+    val cG = genSmallNegCoeffs(bitW)
+    val cP = genSmallPosCoeffs(bitW)
+    val zeros = Seq.fill(nIntervals)(Seq.fill(nOrder + 1)(0L))
+    PolynomialCoefficients(bitW, cN.coeffs ++ cG.coeffs ++ cP.coeffs ++ zeros)
+  }
 }
 
 object LogSimGeneric {

@@ -2,16 +2,9 @@
 //
 // log(x) hardware modules.
 //
-// Three sub-tables, distinguished by 2 extra bits prepended to the table
-// address (the same idea sqrt/invsqrt use with `ex(0)` for 1 extra bit):
-//   path 0 (x < 0.5 or x >= 2)  -> log2(1+t)               -- LogNormalTable
-//   path 1 (0.5 <= x < 1.0)     -> -log((1+t)/2)/(1-(1+t)/2)-1  -- LogSmallNegTable
-//   path 2 (1.0 <= x < 2.0)     -> log(1+t)/t              -- LogSmallPosTable
-//
-// LogTableCoeff instantiates the three sub-tables as three independent
-// VecInits and Mux's between them with `exAddr`. (For framework
-// compatibility LogTable.generateTable also returns a single concatenated
-// PolynomialCoefficients, but the hardware lookup uses three separate ROMs.)
+// - path 0 (x < 0.5 or x >= 2)  ->  log2(1+t)
+// - path 1 (0.5 <= x < 1.0)     -> -log((1+t)/2)/(1-(1+t)/2)-1
+// - path 2 (1.0 <= x < 2.0)     ->  log(1+t)/t
 //
 // Copyright (C) Toru Niina RIKEN BDR 2022
 //
@@ -29,42 +22,6 @@ import rial.approx._
 import rial.arith.RealSpec
 import rial.util.RialChiselUtil._
 import rial.util.ScalaUtil._
-
-// -------------------------------------------------------------------------
-// Aggregate that the framework sees as Log's "table". Holds the three real
-// sub-table generators (defined in LogSim.scala) as fields so the consumer
-// (LogTableCoeff) can generate each one against the merged bitW separately.
-// -------------------------------------------------------------------------
-
-class LogTable(
-  val nOrder:  Int,
-  val addrW:   Int,
-  val inBitW:  Int,
-  val outBitW: Int,
-) extends TableBase {
-
-  val tableN = new LogNormalTable  (nOrder, addrW, inBitW, outBitW)
-  val tableP = new LogSmallPosTable(nOrder, addrW, inBitW, outBitW)
-  val tableG = new LogSmallNegTable(nOrder, addrW, inBitW, outBitW)
-
-  def getBitWidth(): PolynomialBitWidth =
-    tableN.getBitWidth().merge(tableG.getBitWidth()).merge(tableP.getBitWidth())
-
-  // Concatenate the three sub-tables (and a zero-padded 4th slot) into one
-  // PolynomialCoefficients.  LogTableCoeff slices this back into three Vec
-  // ROMs and Mux's between them with `exAddr`.
-  //   slot 0 .. 2^addrW - 1       : tableN (normal, path 0)
-  //   slot 2^addrW .. 2*2^addrW-1 : tableG (smallNeg, path 1)
-  //   slot 2*2^addrW .. 3*2^addrW-1 : tableP (smallPos, path 2)
-  //   slot 3*2^addrW .. 4*2^addrW-1 : zeros (unused, path 3)
-  def generateTable(bitW: PolynomialBitWidth): PolynomialCoefficients = {
-    val cN    = tableN.generateTable(bitW)
-    val cG    = tableG.generateTable(bitW)
-    val cP    = tableP.generateTable(bitW)
-    val zeros = Seq.fill(1 << addrW)(Seq.fill(nOrder + 1)(0L))
-    PolynomialCoefficients(bitW, cN.coeffs ++ cG.coeffs ++ cP.coeffs ++ zeros)
-  }
-}
 
 // -------------------------------------------------------------------------
 //  _ __  _ __ ___ _ __  _ __ ___   ___ ___  ___ ___
@@ -93,9 +50,9 @@ class LogPreProcess(
     val dx  = if (order != 0) Some(Valid(UInt(dxW.W))) else None
   })
 
-  //   exAddr = 0 : x < 0.5 or x >= 2        (normal/polynomial)
-  //   exAddr = 1 : 0.5 <= x < 1.0           (smallNeg)
-  //   exAddr = 2 : 1.0 <= x < 2.0           (smallPos)
+  // exAddr = 0 : x < 0.5 or x >= 2        (normal/polynomial)
+  // exAddr = 1 : 0.5 <= x < 1.0           (smallNeg)
+  // exAddr = 2 : 1.0 <= x < 2.0           (smallPos)
   val exAddr = Mux(io.x.bits.ex === exBias.U,       2.U(2.W),
                Mux(io.x.bits.ex === (exBias - 1).U, 1.U(2.W),
                                                     0.U(2.W)))
@@ -117,12 +74,10 @@ class LogPreProcess(
 //  \__\__,_|_.__/|_|\___|  \___\___/ \___|_| |_|
 // -------------------------------------------------------------------------
 
-// LogTableCoeff splits the concatenated PolynomialCoefficients back into the
-// three sub-table arrays, building three independent VecInits, and Mux's
-// between them using `exAddr` (the 2 MSBs of `adr`).
 class LogTableCoeff(
   val spec:  RealSpec,
-  val coeff: PolynomialCoefficients, // = [N coeffs] ++ [G coeffs] ++ [P coeffs] ++ [zeros]
+  // concat [N coeffs] ++ [G coeffs] ++ [P coeffs] ++ [zeros]
+  val coeff: PolynomialCoefficients,
   val stage: Int,
 ) extends Module {
 
