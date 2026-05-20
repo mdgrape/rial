@@ -126,15 +126,7 @@ class ReciprocalTest extends AnyFlatSpec
     inBitW  = RealSpec.Float32Spec.manW - 8,
     outBitW = RealSpec.Float32Spec.manW + 3,
   )
-
-  val reciprocalTableFP32 = new ReciprocalTable(
-    fp32Config.nOrder,
-    fp32Config.addrW,
-    fp32Config.inBitW,
-    fp32Config.outBitW,
-  )
-  val reciprocalRefFP32 = ReciprocalSimGeneric(
-    reciprocalTableFP32.generateTable(reciprocalTableFP32.getBitWidth()), _)
+  val reciprocalRefFP32 = ReciprocalSimGeneric(fp32Config.coeffs(Reciprocal), _)
 
   val noPipeStage = new MathFuncPipelineConfig(0,0,0,0)
   val simplePipeStage = new MathFuncPipelineConfig(1,1,1,1)
@@ -172,14 +164,7 @@ class ReciprocalTest extends AnyFlatSpec
     inBitW  = 0,
     outBitW = RealSpec.BFloat16Spec.manW,
   )
-  val reciprocalTableBF16 = new ReciprocalTable(
-    bf16Config.nOrder,
-    bf16Config.addrW,
-    bf16Config.inBitW,
-    bf16Config.outBitW,
-  )
-  val reciprocalRefBF16 = ReciprocalSimGeneric(
-    reciprocalTableBF16.generateTable(reciprocalTableBF16.getBitWidth()), _)
+  val reciprocalRefBF16 = ReciprocalSimGeneric(bf16Config.coeffs(Reciprocal), _)
 
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,
     n, "Test Within (-128,128)", generateRealWithin(128.0,_,_), reciprocalRefBF16)

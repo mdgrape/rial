@@ -126,15 +126,7 @@ class SqrtTest extends AnyFlatSpec
     inBitW  = RealSpec.Float32Spec.manW - 8,
     outBitW = RealSpec.Float32Spec.manW + 3,
   )
-
-  val sqrtTableFP32 = new SqrtTable(
-    fp32Config.nOrder,
-    fp32Config.addrW,
-    fp32Config.inBitW,
-    fp32Config.outBitW,
-  )
-  val sqrtRefFP32 = SqrtSimGeneric(
-    sqrtTableFP32.generateTable(sqrtTableFP32.getBitWidth()), _)
+  val sqrtRefFP32 = SqrtSimGeneric(fp32Config.coeffs(Sqrt), _)
 
   val noPipeStage = new MathFuncPipelineConfig(0,0,0,0)
   val simplePipeStage = new MathFuncPipelineConfig(1,1,1,1)
@@ -172,14 +164,7 @@ class SqrtTest extends AnyFlatSpec
     inBitW  = 0,
     outBitW = RealSpec.BFloat16Spec.manW,
   )
-  val sqrtTableBF16 = new SqrtTable(
-    bf16Config.nOrder,
-    bf16Config.addrW,
-    bf16Config.inBitW,
-    bf16Config.outBitW,
-  )
-  val sqrtRefBF16 = SqrtSimGeneric(
-    sqrtTableBF16.generateTable(sqrtTableBF16.getBitWidth()), _)
+  val sqrtRefBF16 = SqrtSimGeneric(bf16Config.coeffs(Sqrt), _)
 
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,
     n, "Test Within (-128,128)", generateRealWithin(128.0,_,_), sqrtRefBF16)
