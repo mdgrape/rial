@@ -83,24 +83,23 @@ class MathFunctions(
   // such functions).
   // ==========================================================================
 
-  val preMul: Option[PreProcMultiplier] =
-    if (PreProcMultiplier.isNeeded(cfg.funcs)) {
-      Some(Module(new PreProcMultiplier(
-        lhsW  = PreProcMultiplier.lhsW(cfg.funcs, spec),
-        manW  = manW,
-        stage = stage.preMulStage,
-      )))
-    } else { None }
+  val needPreMul = PreProcMultiplier.isNeeded(cfg.funcs)
+
+  val preMul: Option[PreProcMultiplier] = if (needPreMul) { Some(
+    Module(new PreProcMultiplier(
+      lhsW  = PreProcMultiplier.lhsW(cfg.funcs, spec),
+      manW  = manW,
+      stage = stage.preMulStage,
+    ))
+  )} else { None }
 
   // Pre-mult driver wires: each function that wants the multiplier overrides
   // these in its own when-block below. Default = 0 (no spurious switching).
-  val (preMulValid, preMulLhs, preMulRhs) = if (PreProcMultiplier.isNeeded(cfg.funcs)) {
-    (
-      Some(WireDefault(false.B)),
-      Some(WireDefault(0.U(PreProcMultiplier.lhsW(cfg.funcs, spec).W))),
-      Some(WireDefault(0.U((1+manW).W)))
-    )
-  } else {(None, None, None)}
+  val (preMulValid, preMulLhs, preMulRhs) = if (needPreMul) { (
+    Some(WireDefault(false.B)),
+    Some(WireDefault(0.U(PreProcMultiplier.lhsW(cfg.funcs, spec).W))),
+    Some(WireDefault(0.U((1+manW).W)))
+  )} else {(None, None, None)}
 
   if (preMul.isDefined) {
     preMul.get.io.in.valid    := preMulValid.get
@@ -110,23 +109,22 @@ class MathFunctions(
 
   // --------------------------------------------------------------------------
 
-  val postMul: Option[PostProcMultiplier] =
-    if (PostProcMultiplier.isNeeded(cfg.funcs)) {
-      Some(Module(new PostProcMultiplier(
-        fracW     = bitW.outBitW,
-        manW      = manW,
-        roundSpec = RoundSpec.roundToEven,
-        stage     = stage.postMulStage,
-      )))
-    } else { None }
+  val needPostMul = PostProcMultiplier.isNeeded(cfg.funcs)
 
-  val (postMulValid, postMulLhs, postMulRhs) = if (PostProcMultiplier.isNeeded(cfg.funcs)) {
-    (
-      Some(WireDefault(false.B)),
-      Some(WireDefault(0.U((1 + bitW.outBitW).W))),
-      Some(WireDefault(0.U((1+manW).W)))
-    )
-  } else {(None, None, None)}
+  val postMul: Option[PostProcMultiplier] = if (needPostMul) { Some(
+    Module(new PostProcMultiplier(
+      fracW     = bitW.outBitW,
+      manW      = manW,
+      roundSpec = RoundSpec.roundToEven,
+      stage     = stage.postMulStage,
+    ))
+  )} else { None }
+
+  val (postMulValid, postMulLhs, postMulRhs) = if (needPostMul) { (
+    Some(WireDefault(false.B)),
+    Some(WireDefault(0.U((1 + bitW.outBitW).W))),
+    Some(WireDefault(0.U((1+manW).W)))
+  )} else {(None, None, None)}
 
   if (postMul.isDefined) {
     postMul.get.io.in.valid     := postMulValid.get
