@@ -231,8 +231,8 @@ class MathFuncConfig(
     case ACosPhase2  => (ACosPhase2  -> new ACosPhase2Table (nOrder, addrW, inBitW, outBitW))
     case ATan2Phase1 => (ATan2Phase1 -> new ReciprocalTable (nOrder, addrW, inBitW, outBitW))
     case ATan2Phase2 => (ATan2Phase2 -> new ATan2Phase2Table(nOrder, addrW, inBitW, outBitW))
-    // case Sigmoid     => new SigmoidTable    (nOrder, addrW, inBitW, outBitW)
-    // case SoftPlus    => new SoftPlusTable   (nOrder, addrW, inBitW, outBitW)
+    case Sigmoid     => (Sigmoid     -> new SigmoidTable    (nOrder, addrW, inBitW, outBitW))
+    case SoftPlus    => (SoftPlus    -> new SoftPlusTable   (nOrder, addrW, inBitW, outBitW))
     // case ScaleMixtureGaussian => {
     //   val (sA, sB) = scaleMixtureGaussianSigma.get
     //   new ScaleMixtureGaussianTable(sA, sB, nOrder, nIntervals, inBitW, outBitW)

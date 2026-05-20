@@ -207,6 +207,8 @@ class MathFunctions(
     case ACosPhase2  => ACosPhase2  -> Module(new ACosPhase2PreProcess (spec, bitW, stage.preStage))
     case ATan2Phase1 => ATan2Phase1 -> Module(new ATan2Phase1PreProcess(spec, bitW, stage.preStage))
     case ATan2Phase2 => ATan2Phase2 -> Module(new ATan2Phase2PreProcess(spec, bitW, stage.preStage))
+    case Sigmoid     => Sigmoid     -> Module(new SigmoidPreProcess    (spec, bitW, stage.preStage))
+    case SoftPlus    => SoftPlus    -> Module(new SoftPlusPreProcess   (spec, bitW, stage.preStage))
   }.toMap[FuncKind, Module]
 
   val tabs: Map[FuncKind, Module] = cfg.funcs.collect {
@@ -220,6 +222,8 @@ class MathFunctions(
     case ACosPhase2  => ACosPhase2  -> Module(new ACosPhase2TableCoeff (spec, coeffs(ACosPhase2 ), stage.tableStage))
     // ATan2Phase1 shares Reciprocal's TableCoeff
     case ATan2Phase2 => ATan2Phase2 -> Module(new ATan2Phase2TableCoeff(spec, coeffs(ATan2Phase2), stage.tableStage))
+    case Sigmoid     => Sigmoid     -> Module(new SigmoidTableCoeff    (spec, coeffs(Sigmoid    ), stage.tableStage))
+    case SoftPlus    => SoftPlus    -> Module(new SoftPlusTableCoeff   (spec, coeffs(SoftPlus   ), stage.tableStage))
   }.toMap
 
   val nontabs: Map[FuncKind, Module] = cfg.funcs.collect {
@@ -244,6 +248,8 @@ class MathFunctions(
     case ACosPhase2  => ACosPhase2  -> Module(new ACosPhase2PostProcess (spec, bitW, stage.postStage-stage.postMulStage))
     case ATan2Phase1 => ATan2Phase1 -> Module(new ATan2Phase1PostProcess(spec, bitW, stage.postStage-stage.postMulStage))
     case ATan2Phase2 => ATan2Phase2 -> Module(new ATan2Phase2PostProcess(spec, bitW, stage.postStage-stage.postMulStage))
+    case Sigmoid     => Sigmoid     -> Module(new SigmoidPostProcess    (spec, bitW, stage.postStage))
+    case SoftPlus    => SoftPlus    -> Module(new SoftPlusPostProcess   (spec, bitW, stage.postStage))
   }.toMap
 
   private def toModule[T <: Module](x: Module)(implicit ct: ClassTag[T]): T = {
@@ -655,5 +661,62 @@ class MathFunctions(
     post.io.mul      := postMul.get.io.out
 
     zs(ATan2Phase2) := post.io.z
+  }
+
+  // --------------------------------------------------------------------------
+  // Sigmoid -- own table, no pre/post-mult (the post-process fold is a shift).
+  //   pre  : xIn   .. xTab
+  //   tab  : xTab  .. xCalc
+  //   poly : xCalc .. xPost
+  //   post : xPost .. xOut
+
+  if(cfg.has(Sigmoid)) {
+    val pre  = toModule[SigmoidPreProcess ](pres (Sigmoid))
+    val tab  = toModule[SigmoidTableCoeff ](tabs (Sigmoid))
+    val post = toModule[SigmoidPostProcess](posts(Sigmoid))
+
+    pre.io.x   := xIn
+    tab.io.adr := pre.io.adr
+
+    polynomialCoefs(Sigmoid) := tab.io.cs
+    if (bitW.nOrder != 0) {
+      polynomialDxs.get(Sigmoid) := Pipe(pre.io.dx.get, stage.tableStage)
+    }
+
+    // info pipelined from xTab to xPost (across tableStage + calcStage)
+    val infoAtPost = Pipe(pre.io.info, stage.tableStage + stage.calcStage)
+    post.io.in.valid     := infoAtPost.valid && polynomialEval.io.out.valid
+    post.io.in.bits.info := infoAtPost.bits
+    post.io.in.bits.zres := polynomialEval.io.out.bits
+
+    zs(Sigmoid) := post.io.z
+  }
+
+  // --------------------------------------------------------------------------
+  // SoftPlus -- own table (concat pos+neg, Mux'd by xsgn), no pre/post-mult.
+  //   pre  : xIn   .. xTab
+  //   tab  : xTab  .. xCalc
+  //   poly : xCalc .. xPost
+  //   post : xPost .. xOut
+
+  if(cfg.has(SoftPlus)) {
+    val pre  = toModule[SoftPlusPreProcess ](pres (SoftPlus))
+    val tab  = toModule[SoftPlusTableCoeff ](tabs (SoftPlus))
+    val post = toModule[SoftPlusPostProcess](posts(SoftPlus))
+
+    pre.io.x   := xIn
+    tab.io.adr := pre.io.adr
+
+    polynomialCoefs(SoftPlus) := tab.io.cs
+    if (bitW.nOrder != 0) {
+      polynomialDxs.get(SoftPlus) := Pipe(pre.io.dx.get, stage.tableStage)
+    }
+
+    val infoAtPost = Pipe(pre.io.info, stage.tableStage + stage.calcStage)
+    post.io.in.valid     := infoAtPost.valid && polynomialEval.io.out.valid
+    post.io.in.bits.info := infoAtPost.bits
+    post.io.in.bits.zres := polynomialEval.io.out.bits
+
+    zs(SoftPlus) := post.io.z
   }
 }
