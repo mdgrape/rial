@@ -42,6 +42,7 @@ class MathFunctions(
   val io = IO(new Bundle {
     val sel = Input (UInt(cfg.signalW.W))
     val x   = Input (UInt(spec.W.W))
+    val y   = if (cfg.has(FuncKind.ATan2Phase1)) Some(Input(UInt(spec.W.W))) else None
     val z   = Output(UInt(spec.W.W))
   })
 
@@ -76,6 +77,18 @@ class MathFunctions(
   val xCalc = Pipe(xTab,  stage.tableStage)
   val xPost = Pipe(xCalc, stage.calcStage )
   val xOut  = Pipe(xPost, stage.postStage )
+
+  // ATan2 also needs the y operand decomposed/pipelined.
+  val ydecomp: Option[DecomposeReal] = if (cfg.has(ATan2Phase1)) {
+    val m = Module(new DecomposeReal(spec))
+    m.io.real.valid := cfg.isValid(io.sel)
+    m.io.real.bits  := io.y.get
+    Some(m)
+  } else { None }
+
+  val yIn: Option[Valid[DecomposedReal]] = if (cfg.has(ATan2Phase1)) {
+    Some(Pipe(ydecomp.get.io.decomp, 1))
+  } else { None }
 
   // ==========================================================================
   // Shared pre/post-process multipliers (only built if some configured
@@ -184,46 +197,53 @@ class MathFunctions(
   // ==========================================================================
 
   val pres: Map[FuncKind, Module] = cfg.funcs.collect {
-    case Sqrt       => Sqrt       -> Module(new SqrtPreProcess      (spec, bitW, stage.preStage))
-    case InvSqrt    => InvSqrt    -> Module(new InvSqrtPreProcess   (spec, bitW, stage.preStage))
-    case Reciprocal => Reciprocal -> Module(new ReciprocalPreProcess(spec, bitW, stage.preStage))
-    case Sin        => Sin        -> Module(new SinCosPreProcess    (spec, bitW, stage.preStage-stage.preMulStage))
-    case Exp        => Exp        -> Module(new ExpPreProcess       (spec, bitW, stage.preStage-stage.preMulStage))
-    case Log        => Log        -> Module(new LogPreProcess       (spec, bitW, stage.preStage))
-    case ACosPhase1 => ACosPhase1 -> Module(new ACosPhase1PreProcess(spec, bitW, stage.preStage))
-    case ACosPhase2 => ACosPhase2 -> Module(new ACosPhase2PreProcess(spec, bitW, stage.preStage))
+    case Sqrt        => Sqrt        -> Module(new SqrtPreProcess       (spec, bitW, stage.preStage))
+    case InvSqrt     => InvSqrt     -> Module(new InvSqrtPreProcess    (spec, bitW, stage.preStage))
+    case Reciprocal  => Reciprocal  -> Module(new ReciprocalPreProcess (spec, bitW, stage.preStage))
+    case Sin         => Sin         -> Module(new SinCosPreProcess     (spec, bitW, stage.preStage-stage.preMulStage))
+    case Exp         => Exp         -> Module(new ExpPreProcess        (spec, bitW, stage.preStage-stage.preMulStage))
+    case Log         => Log         -> Module(new LogPreProcess        (spec, bitW, stage.preStage))
+    case ACosPhase1  => ACosPhase1  -> Module(new ACosPhase1PreProcess (spec, bitW, stage.preStage))
+    case ACosPhase2  => ACosPhase2  -> Module(new ACosPhase2PreProcess (spec, bitW, stage.preStage))
+    case ATan2Phase1 => ATan2Phase1 -> Module(new ATan2Phase1PreProcess(spec, bitW, stage.preStage))
+    case ATan2Phase2 => ATan2Phase2 -> Module(new ATan2Phase2PreProcess(spec, bitW, stage.preStage))
   }.toMap[FuncKind, Module]
 
   val tabs: Map[FuncKind, Module] = cfg.funcs.collect {
-    case Sqrt       => Sqrt       -> Module(new SqrtTableCoeff      (spec, coeffs(Sqrt      ), stage.tableStage))
-    case InvSqrt    => InvSqrt    -> Module(new InvSqrtTableCoeff   (spec, coeffs(InvSqrt   ), stage.tableStage))
-    case Reciprocal => Reciprocal -> Module(new ReciprocalTableCoeff(spec, coeffs(Reciprocal), stage.tableStage))
-    case Sin        => Sin        -> Module(new SinCosTableCoeff    (spec, coeffs(Sin),        stage.tableStage))
-    case Log        => Log        -> Module(new LogTableCoeff       (spec, coeffs(Log),        stage.tableStage))
-    case Exp        => Exp        -> Module(new ExpTableCoeff       (spec, coeffs(Exp),        stage.tableStage))
-    // ACosPhase1 shares Sqrt's TableCoeff -- no separate instance.
-    case ACosPhase2 => ACosPhase2 -> Module(new ACosPhase2TableCoeff(spec, coeffs(ACosPhase2), stage.tableStage))
+    case Sqrt        => Sqrt        -> Module(new SqrtTableCoeff       (spec, coeffs(Sqrt       ), stage.tableStage))
+    case InvSqrt     => InvSqrt     -> Module(new InvSqrtTableCoeff    (spec, coeffs(InvSqrt    ), stage.tableStage))
+    case Reciprocal  => Reciprocal  -> Module(new ReciprocalTableCoeff (spec, coeffs(Reciprocal ), stage.tableStage))
+    case Sin         => Sin         -> Module(new SinCosTableCoeff     (spec, coeffs(Sin        ), stage.tableStage))
+    case Log         => Log         -> Module(new LogTableCoeff        (spec, coeffs(Log        ), stage.tableStage))
+    case Exp         => Exp         -> Module(new ExpTableCoeff        (spec, coeffs(Exp        ), stage.tableStage))
+    // ACosPhase1 shares Sqrt's TableCoeff
+    case ACosPhase2  => ACosPhase2  -> Module(new ACosPhase2TableCoeff (spec, coeffs(ACosPhase2 ), stage.tableStage))
+    // ATan2Phase1 shares Reciprocal's TableCoeff
+    case ATan2Phase2 => ATan2Phase2 -> Module(new ATan2Phase2TableCoeff(spec, coeffs(ATan2Phase2), stage.tableStage))
   }.toMap
 
   val nontabs: Map[FuncKind, Module] = cfg.funcs.collect {
     case Sqrt       => Sqrt       -> Module(new SqrtNonTable      (spec, bitW, stage.nonTableStage))
     case InvSqrt    => InvSqrt    -> Module(new InvSqrtNonTable   (spec, bitW, stage.nonTableStage))
     case Reciprocal => Reciprocal -> Module(new ReciprocalNonTable(spec, bitW, stage.nonTableStage))
+    // sincos / acos do not have a dedicated non-table path
     case Exp        => Exp        -> Module(new ExpNonTable       (spec, bitW, stage.nonTableStage))
     case Log        => Log        -> Module(new LogNonTable       (spec, bitW, stage.nonTableStage))
-    // sincos / acos do not have a dedicated non-table path
-    // (ACosPhase1 reuses SqrtNonTable; ACosPhase2 doesn't need one).
+    // ACosPhase1 reuses SqrtNonTable
+    // ACosPhase2 doesn't need one.
   }.toMap
 
   val posts: Map[FuncKind, Module] = cfg.funcs.collect {
-    case Sqrt       => Sqrt       -> Module(new SqrtPostProcess       (spec, bitW, stage.postStage))
-    case InvSqrt    => InvSqrt    -> Module(new InvSqrtPostProcess    (spec, bitW, stage.postStage))
-    case Reciprocal => Reciprocal -> Module(new ReciprocalPostProcess (spec, bitW, stage.postStage))
-    case Sin        => Sin        -> Module(new SinCosPostProcess     (spec, bitW, stage.postStage-stage.postMulStage))
-    case Exp        => Exp        -> Module(new ExpPostProcess        (spec, bitW, stage.postStage))
-    case Log        => Log        -> Module(new LogPostProcess        (spec, bitW, stage.postStage-stage.postMulStage))
-    case ACosPhase1 => ACosPhase1 -> Module(new ACosPhase1PostProcess (spec, bitW, stage.postStage))
-    case ACosPhase2 => ACosPhase2 -> Module(new ACosPhase2PostProcess (spec, bitW, stage.postStage-stage.postMulStage))
+    case Sqrt        => Sqrt        -> Module(new SqrtPostProcess       (spec, bitW, stage.postStage))
+    case InvSqrt     => InvSqrt     -> Module(new InvSqrtPostProcess    (spec, bitW, stage.postStage))
+    case Reciprocal  => Reciprocal  -> Module(new ReciprocalPostProcess (spec, bitW, stage.postStage))
+    case Sin         => Sin         -> Module(new SinCosPostProcess     (spec, bitW, stage.postStage-stage.postMulStage))
+    case Exp         => Exp         -> Module(new ExpPostProcess        (spec, bitW, stage.postStage))
+    case Log         => Log         -> Module(new LogPostProcess        (spec, bitW, stage.postStage-stage.postMulStage))
+    case ACosPhase1  => ACosPhase1  -> Module(new ACosPhase1PostProcess (spec, bitW, stage.postStage))
+    case ACosPhase2  => ACosPhase2  -> Module(new ACosPhase2PostProcess (spec, bitW, stage.postStage-stage.postMulStage))
+    case ATan2Phase1 => ATan2Phase1 -> Module(new ATan2Phase1PostProcess(spec, bitW, stage.postStage-stage.postMulStage))
+    case ATan2Phase2 => ATan2Phase2 -> Module(new ATan2Phase2PostProcess(spec, bitW, stage.postStage-stage.postMulStage))
   }.toMap
 
   private def toModule[T <: Module](x: Module)(implicit ct: ClassTag[T]): T = {
@@ -413,14 +433,6 @@ class MathFunctions(
 
   // --------------------------------------------------------------------------
   // Log -- uses the post-process multiplier (poly * const), no pre-mult.
-  //
-  //   pre  : xIn        .. xTab             (uses full preStage)
-  //   tab  : xTab       .. xCalc            (3 sub-Vec ROMs, Mux'd by exAddr)
-  //   nontab: xTab      .. xPost            (constant + zex0 + zsgn + flags)
-  //   poly  : xCalc     .. xPost
-  //   mulArgs (comb)   at xPost             (build ymanW1 from zres + info)
-  //   postMul : xPost   .. xPost+postMulStage
-  //   post    : xPost+postMulStage .. xOut  (assemble final z)
 
   if(cfg.has(Log)) {
     assert(postMul.isDefined, "Log requires the post-process multiplier")
@@ -455,10 +467,6 @@ class MathFunctions(
     }
 
     // ----- post -----
-    //
-    // ntab.io.z (= info) is at xPost timing. The mul output appears at
-    // xPost + postMulStage, so the info needs to be pipelined that many
-    // cycles to align with the mul output at LogPostProcess's input.
     post.io.info := Pipe(ntab.io.z, stage.postMulStage)
     post.io.mul  := postMul.get.io.out
 
@@ -466,12 +474,7 @@ class MathFunctions(
   }
 
   // --------------------------------------------------------------------------
-  // ACosPhase1 -- reuses Sqrt's TableCoeff and NonTable. The Sqrt block above
-  // unconditionally drove `sqrtTab.io.adr` and `sqrtNtab.io.x`; here we
-  // override those drivers in a `when (selTab === ACosPhase1)` block so the
-  // last-connect semantics route Phase 1's signals to them when Phase 1 is
-  // selected. cfg.normalize guarantees Sqrt is configured whenever ACosPhase1
-  // is, so `tabs(Sqrt)` / `nontabs(Sqrt)` always exist.
+  // ACosPhase1 -- reuses Sqrt's TableCoeff and NonTable.
 
   if(cfg.has(ACosPhase1)) {
     assert(cfg.has(Sqrt),
@@ -501,17 +504,12 @@ class MathFunctions(
     post.io.in.bits.info   := sqrtNtab.io.z.bits
     post.io.in.bits.zres   := polynomialEval.io.out.bits
     post.io.in.bits.flags  := flagsAtPost.bits
+
     zs(ACosPhase1) := post.io.z
   }
 
   // --------------------------------------------------------------------------
   // ACosPhase2 -- own table, uses the post-process multiplier (poly * x).
-  //   pre     : xIn   .. xTab
-  //   tab     : xTab  .. xCalc
-  //   poly    : xCalc .. xPost
-  //   mulArgs (comb) at xPost  (poly with hidden 1, x.manW1)
-  //   postMul : xPost .. xPost+postMulStage
-  //   post    : xPost+postMulStage .. xOut
 
   if(cfg.has(ACosPhase2)) {
     assert(postMul.isDefined, "ACosPhase2 requires the post-process multiplier")
@@ -552,6 +550,110 @@ class MathFunctions(
     post.io.flags := flagsAtAfterMul
     post.io.xex   := xexAtAfterMul
     post.io.mul   := postMul.get.io.out
+
     zs(ACosPhase2) := post.io.z
+  }
+
+  // --------------------------------------------------------------------------
+  // ATan2Phase1 -- reuses Reciprocal's TableCoeff.
+  //
+  // Uses the post-process multiplier to assemble (1+min) * (2/(1+max)).
+
+  if(cfg.has(ATan2Phase1)) {
+    assert(cfg.has(Reciprocal),
+      "ATan2Phase1 requires Reciprocal (cfg.normalize should pull it in automatically)")
+    assert(postMul.isDefined, "ATan2Phase1 requires the post-process multiplier")
+    assert(yIn.isDefined,     "ATan2Phase1 requires y as an additional input")
+
+    val pre    = toModule[ATan2Phase1PreProcess ](pres (ATan2Phase1))
+    val post   = toModule[ATan2Phase1PostProcess](posts(ATan2Phase1))
+    val recTab = toModule[ReciprocalTableCoeff  ](tabs (Reciprocal))
+
+    pre.io.x := xIn
+    pre.io.y := yIn.get
+
+    when (selTab === cfg.signal(ATan2Phase1)) {
+      recTab.io.adr := pre.io.adr
+    }
+
+    polynomialCoefs(ATan2Phase1) := recTab.io.cs
+    if (bitW.nOrder != 0) {
+      polynomialDxs.get(ATan2Phase1) := Pipe(pre.io.dx.get, stage.tableStage)
+    }
+
+    // ---- post-mult args at xPost timing: lhs (poly+hidden 1), rhs (1+minMan) ----
+    val infoAtPost = Pipe(pre.io.info, stage.tableStage + stage.calcStage)
+    val mulArgs = Module(new ATan2Phase1PostMultArgs(spec, bitW))
+    mulArgs.io.zres      := polynomialEval.io.out.bits
+    mulArgs.io.maxXYMan0 := infoAtPost.bits.maxXYMan0
+    mulArgs.io.minMan    := infoAtPost.bits.minMan
+    mulArgs.io.valid     := infoAtPost.valid && polynomialEval.io.out.valid
+
+    val atan2P1SelAtPost = ShiftRegister(selIn === cfg.signal(ATan2Phase1),
+      stage.preStage + stage.tableStage + stage.calcStage, false.B, true.B)
+
+    when (atan2P1SelAtPost) {
+      postMulLhs.get   := mulArgs.io.mul.bits.lhs
+      postMulRhs.get   := mulArgs.io.mul.bits.rhs
+      postMulValid.get := mulArgs.io.mul.valid
+    }
+
+    // info & flags pipelined to the post stage (after postMul)
+    val infoAtAfterMul  = Pipe(pre.io.info,  stage.tableStage + stage.calcStage + stage.postMulStage)
+    val flagsAtAfterMul = Pipe(pre.io.flags, stage.tableStage + stage.calcStage + stage.postMulStage)
+
+    post.io.info  := infoAtAfterMul
+    post.io.flags := flagsAtAfterMul
+    post.io.mul   := postMul.get.io.out
+
+    zs(ATan2Phase1) := post.io.z
+  }
+
+  // --------------------------------------------------------------------------
+  // ATan2Phase2 -- own table; uses the post-process multiplier (atan(t)/t * t).
+
+  if(cfg.has(ATan2Phase2)) {
+    assert(postMul.isDefined, "ATan2Phase2 requires the post-process multiplier")
+
+    val pre  = toModule[ATan2Phase2PreProcess ](pres (ATan2Phase2))
+    val tab  = toModule[ATan2Phase2TableCoeff ](tabs (ATan2Phase2))
+    val post = toModule[ATan2Phase2PostProcess](posts(ATan2Phase2))
+
+    pre.io.x   := xIn
+    tab.io.adr := pre.io.adr
+
+    polynomialCoefs(ATan2Phase2) := tab.io.cs
+    if (bitW.nOrder != 0) {
+      polynomialDxs.get(ATan2Phase2) := Pipe(pre.io.dx.get, stage.tableStage)
+    }
+
+    // ---- post-mult args at xPost timing ----
+    val xManW1AtPost   = Pipe(pre.io.xManW1,   stage.tableStage + stage.calcStage)
+    val isLinearAtPost = Pipe(pre.io.isLinear, stage.tableStage + stage.calcStage)
+    val mulArgs = Module(new ATan2Phase2PostMultArgs(spec, bitW))
+    mulArgs.io.zres     := polynomialEval.io.out.bits
+    mulArgs.io.isLinear := isLinearAtPost.bits
+    mulArgs.io.xManW1   := xManW1AtPost
+
+    val atan2P2SelAtPost = ShiftRegister(selIn === cfg.signal(ATan2Phase2),
+      stage.preStage + stage.tableStage + stage.calcStage, false.B, true.B)
+
+    when (atan2P2SelAtPost) {
+      postMulLhs.get   := mulArgs.io.mul.bits.lhs
+      postMulRhs.get   := mulArgs.io.mul.bits.rhs
+      postMulValid.get := mulArgs.io.mul.valid && polynomialEval.io.out.valid
+    }
+
+    // flags, xex, isLinear pipelined to the post stage (after postMul)
+    val flagsAtAfterMul    = Pipe(pre.io.flags,    stage.tableStage + stage.calcStage + stage.postMulStage)
+    val xexAtAfterMul      = Pipe(pre.io.xex,      stage.tableStage + stage.calcStage + stage.postMulStage)
+    val isLinearAtAfterMul = Pipe(pre.io.isLinear, stage.tableStage + stage.calcStage + stage.postMulStage)
+
+    post.io.flags    := flagsAtAfterMul
+    post.io.xex      := xexAtAfterMul
+    post.io.isLinear := isLinearAtAfterMul
+    post.io.mul      := postMul.get.io.out
+
+    zs(ATan2Phase2) := post.io.z
   }
 }

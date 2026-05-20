@@ -220,20 +220,17 @@ class MathFuncConfig(
   // ---------------------------------------------------------------------------
 
   val tables: Map[FuncKind, TableBase] = funcs.map {
-    case Sqrt        => (Sqrt       -> new SqrtTable       (nOrder, addrW, inBitW, outBitW))
-    case InvSqrt     => (InvSqrt    -> new InvSqrtTable    (nOrder, addrW, inBitW, outBitW))
-    case Reciprocal  => (Reciprocal -> new ReciprocalTable (nOrder, addrW, inBitW, outBitW))
-    case Sin         => (Sin        -> new SinCosTable     (nOrder, addrW, inBitW, outBitW))
-    case Cos         => (Cos        -> new SinCosTable     (nOrder, addrW, inBitW, outBitW))
-    case Exp         => (Exp        -> new ExpTable        (nOrder, addrW, inBitW, outBitW))
-    case Log         => (Log        -> new LogTable        (nOrder, addrW, inBitW, outBitW))
-    // Phase 1 reuses Sqrt's polynomial path; we still register a SqrtTable
-    // here so the merged bitW accounts for it.  At HW time, the Sqrt block
-    // shares its TableCoeff/NonTable with Phase 1 (no extra ROM).
-    case ACosPhase1  => (ACosPhase1 -> new SqrtTable       (nOrder, addrW, inBitW, outBitW))
-    case ACosPhase2  => (ACosPhase2 -> new ACosPhase2Table (nOrder, addrW, inBitW, outBitW))
-    // case ATan2Phase1 => new ReciprocalTable (nOrder, addrW, inBitW, outBitW)
-    // case ATan2Phase2 => new ATan2Phase2Table(nOrder, addrW, inBitW, outBitW)
+    case Sqrt        => (Sqrt        -> new SqrtTable       (nOrder, addrW, inBitW, outBitW))
+    case InvSqrt     => (InvSqrt     -> new InvSqrtTable    (nOrder, addrW, inBitW, outBitW))
+    case Reciprocal  => (Reciprocal  -> new ReciprocalTable (nOrder, addrW, inBitW, outBitW))
+    case Sin         => (Sin         -> new SinCosTable     (nOrder, addrW, inBitW, outBitW))
+    case Cos         => (Cos         -> new SinCosTable     (nOrder, addrW, inBitW, outBitW))
+    case Exp         => (Exp         -> new ExpTable        (nOrder, addrW, inBitW, outBitW))
+    case Log         => (Log         -> new LogTable        (nOrder, addrW, inBitW, outBitW))
+    case ACosPhase1  => (ACosPhase1  -> new SqrtTable       (nOrder, addrW, inBitW, outBitW))
+    case ACosPhase2  => (ACosPhase2  -> new ACosPhase2Table (nOrder, addrW, inBitW, outBitW))
+    case ATan2Phase1 => (ATan2Phase1 -> new ReciprocalTable (nOrder, addrW, inBitW, outBitW))
+    case ATan2Phase2 => (ATan2Phase2 -> new ATan2Phase2Table(nOrder, addrW, inBitW, outBitW))
     // case Sigmoid     => new SigmoidTable    (nOrder, addrW, inBitW, outBitW)
     // case SoftPlus    => new SoftPlusTable   (nOrder, addrW, inBitW, outBitW)
     // case ScaleMixtureGaussian => {
