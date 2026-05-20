@@ -294,15 +294,7 @@ class MathFunctions(
   }
 
   // --------------------------------------------------------------------------
-  // Sin / Cos -- one shared datapath, distinguished by `isSin` at runtime.
-  //
-  // Pipeline alignment:
-  //   preMul       : 0 .. preMulStage         (consumes xIn at t=0)
-  //   sincosPre    : preMulStage .. preStage  (consumes preMul output)
-  //   sincosTab    : preStage    .. preStage+tableStage
-  //   polynomialEval (shared) and sincosPre.info pipelined to here
-  //   postMul      : preStage+tableStage+calcStage .. + postMulStage
-  //   sincosPost   :   ...                    .. postStage (final)
+  // Sin / Cos
 
   if(cfg.has(Sin) || cfg.has(Cos)) {
     assert(preMul .isDefined, "Sin/Cos requires the pre-process multiplier")
@@ -343,10 +335,6 @@ class MathFunctions(
     }
 
     // ----- post-mult driver: polynomial * (1 + yman) -----
-    //
-    // sincosPre.io.info is at xTab timing; the polynomial result emerges at
-    // xPost timing (= xTab + tableStage + calcStage). To feed both into the
-    // post-mult at the same cycle, pipe `info` along.
     val sincosInfoAtPost = Pipe(sincosPre.io.info, stage.tableStage + stage.calcStage)
     val sincosSelAtPost  = ShiftRegister(sincosSelIn,
       stage.preStage + stage.tableStage + stage.calcStage, false.B, true.B)
@@ -358,9 +346,6 @@ class MathFunctions(
     }
 
     // ----- post -----
-    //
-    // sincosPost consumes the pre's `info` (yex etc.) at xPost+postMulStage
-    // timing -- same as postMul.io.out.
     sincosPost.io.pre := Pipe(sincosInfoAtPost, stage.postMulStage)
     sincosPost.io.mul := postMul.get.io.out
 
@@ -369,14 +354,7 @@ class MathFunctions(
   }
 
   // --------------------------------------------------------------------------
-  // Exp -- uses the pre-process multiplier (x * log2e), no post-mult.
-  //
-  // Pipeline alignment:
-  //   preMul    : 0 .. preMulStage             (consumes xIn)
-  //   expPre    : preMulStage .. preStage      (consumes preMul output)
-  //   expTab    : preStage    .. preStage+tableStage
-  //   expNonTab : preStage    .. xPost (consumes pre.info too)
-  //   expPost   : xPost       .. xOut          (consumes nontab + poly)
+  // Exp
 
   if(cfg.has(Exp)) {
     assert(preMul.isDefined, "Exp requires the pre-process multiplier")
@@ -395,7 +373,7 @@ class MathFunctions(
       preMulValid.get := xIn.valid
     }
 
-    // ----- pre stage: x delayed by preMulStage to align with preMul.out -----
+    // ----- pre stage -----
     val xAtExpPre  = Pipe(xIn, stage.preMulStage)
 
     pre.io.x    := xAtExpPre
@@ -410,7 +388,7 @@ class MathFunctions(
       polynomialDxs.get(Exp) := Pipe(pre.io.dx.get, stage.tableStage)
     }
 
-    // ----- non-table: takes xTab (DecomposedReal) and pre.info ------
+    // ----- non-table ------
     ntab.io.x    := xTab
     ntab.io.info := pre.io.info
 
