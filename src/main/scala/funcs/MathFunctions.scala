@@ -182,32 +182,35 @@ class MathFunctions(
   // ==========================================================================
   // Per-function pre/tab/nontab/post modules
   //
-  // `.collect` so that Sin/Cos (which share their HW) are skipped here and
-  // handled by the dedicated block below.
+  // `.collect` so that some funcs does not have the corresponding modules
   // ==========================================================================
 
   val pres: Map[FuncKind, Module] = cfg.funcs.collect {
     case Sqrt       => Sqrt       -> Module(new SqrtPreProcess      (spec, bitW, stage.preStage))
     case InvSqrt    => InvSqrt    -> Module(new InvSqrtPreProcess   (spec, bitW, stage.preStage))
     case Reciprocal => Reciprocal -> Module(new ReciprocalPreProcess(spec, bitW, stage.preStage))
+    case Sin        => Sin        -> Module(new SinCosPreProcess    (spec, bitW, stage.preStage-stage.preMulStage))
   }.toMap[FuncKind, Module]
 
   val tabs: Map[FuncKind, Module] = cfg.funcs.collect {
     case Sqrt       => Sqrt       -> Module(new SqrtTableCoeff      (spec, coeffs(Sqrt      ), stage.tableStage))
     case InvSqrt    => InvSqrt    -> Module(new InvSqrtTableCoeff   (spec, coeffs(InvSqrt   ), stage.tableStage))
     case Reciprocal => Reciprocal -> Module(new ReciprocalTableCoeff(spec, coeffs(Reciprocal), stage.tableStage))
+    case Sin        => Sin        -> Module(new SinCosTableCoeff    (spec, coeffs(Sin),        stage.tableStage))
   }.toMap
 
   val nontabs: Map[FuncKind, Module] = cfg.funcs.collect {
     case Sqrt       => Sqrt       -> Module(new SqrtNonTable      (spec, bitW, stage.nonTableStage))
     case InvSqrt    => InvSqrt    -> Module(new InvSqrtNonTable   (spec, bitW, stage.nonTableStage))
     case Reciprocal => Reciprocal -> Module(new ReciprocalNonTable(spec, bitW, stage.nonTableStage))
+    // sincos does not have non-table path
   }.toMap
 
   val posts: Map[FuncKind, Module] = cfg.funcs.collect {
     case Sqrt       => Sqrt       -> Module(new SqrtPostProcess      (spec, bitW, stage.postStage))
     case InvSqrt    => InvSqrt    -> Module(new InvSqrtPostProcess   (spec, bitW, stage.postStage))
     case Reciprocal => Reciprocal -> Module(new ReciprocalPostProcess(spec, bitW, stage.postStage))
+    case Sin        => Sin        -> Module(new SinCosPostProcess    (spec, bitW, stage.postStage-stage.postMulStage))
   }.toMap
 
   private def toModule[T <: Module](x: Module)(implicit ct: ClassTag[T]): T = {
@@ -300,16 +303,12 @@ class MathFunctions(
   //   sincosPost   :   ...                    .. postStage (final)
 
   if(cfg.has(Sin) || cfg.has(Cos)) {
-    assert(preMul.isDefined,  "Sin/Cos requires the pre-process multiplier")
+    assert(preMul .isDefined, "Sin/Cos requires the pre-process multiplier")
     assert(postMul.isDefined, "Sin/Cos requires the post-process multiplier")
 
-    // a single SinCos pre/tab/post; sel signal isSin chooses between them
-    val sincosPreStage  = stage.preStage  - stage.preMulStage
-    val sincosPostStage = stage.postStage - stage.postMulStage
-
-    val sincosPre  = Module(new SinCosPreProcess (spec, bitW, sincosPreStage))
-    val sincosTab  = Module(new SinCosTableCoeff (spec, coeffs(Sin), stage.tableStage))
-    val sincosPost = Module(new SinCosPostProcess(spec, bitW, sincosPostStage))
+    val sincosPre  = toModule[SinCosPreProcess ](pres (Sin))
+    val sincosTab  = toModule[SinCosTableCoeff ](tabs (Sin))
+    val sincosPost = toModule[SinCosPostProcess](posts(Sin))
 
     val isSinSelIn    = selIn === cfg.signal(Sin)
     val isCosSelIn    = selIn === cfg.signal(Cos)
