@@ -98,10 +98,14 @@ private[rial] class FuncTableInterval(
   })
 
   // x must be in [-1, 1].
-  def eval(x: Double, order: Int = nOrder): Double = {
-    // to determine calcBit, we use `order` cutoff with horner's rule
+  def eval(x: Double, hornerStep: Int = nOrder): Double = {
+    // to determine calcBit, we use `hornerStep` cutoff with horner's rule
+    //         ((c2) * x + c1) * x + c0
+    // step 0.  ^^^^
+    // step 1. ^^^^^^^^^^^^^^
+    // step 2. ^^^^^^^^^^^^^^^^^^^^^^^^
     var sum = coeffs(nOrder)
-    for(i <- 1 to order) {
+    for(i <- 1 to hornerStep) {
       sum = sum * x + coeffs(nOrder-i)
     }
     sum
