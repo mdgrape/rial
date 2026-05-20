@@ -80,12 +80,12 @@ class PolynomialGenerator(
   // order 2:   ^^                              0
   private val minCalc = (0 to nOrder).map(order => {
     funcTable.intervals.map(iv => {
-      FindMinMax.findMin( (x: Double) => iv.eval(x, nOrder-order), 0.0, 1.0 )._2
+      FindMinMax.findMin( (x: Double) => iv.eval(x, nOrder-order), -1.0, 1.0 )._2
     }).min
   })
   private val maxCalc = (0 to nOrder).map(order => {
     funcTable.intervals.map(iv => {
-      FindMinMax.findMax( (x: Double) => iv.eval(x, nOrder-order), 0.0, 1.0 )._2
+      FindMinMax.findMax( (x: Double) => iv.eval(x, nOrder-order), -1.0, 1.0 )._2
     }).max
   })
 
@@ -98,8 +98,9 @@ class PolynomialGenerator(
     log2Ceil(coeffInt).toInt + 1 // +1 for SInt
   })
 
-  // println(f"coefBits=${minimumRequiredCoeffBits.mkString("[",",","]")}")
-  // println(f"calcBits=${minimumRequiredCalcBits .mkString("[",",","]")}")
+  println(f"outBitW=${outBitW}, " +
+    f"coefBits=${minimumRequiredCoeffBits.mkString("[",",","]")}, " +
+    f"calcBits=${minimumRequiredCalcBits .mkString("[",",","]")}")
 
   // --------------------------------------------------------------------------
 
