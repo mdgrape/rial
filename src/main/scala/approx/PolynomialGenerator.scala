@@ -70,18 +70,22 @@ class PolynomialGenerator(
   })
 
   // ----------------------------------------------------------------------
-  // minimum required (possible max) width of calc result for each order
-  // to realize outBitW precision
-
+  // minimum required (possible max) width of the horner accum at each stage
+  //
+  // iv.eval takes horner step as the second argument.
+  //
+  //          ((c2) * x + c1) * x + c0
+  // order 0: ^^^^^^^^^^^^^^^^^^^^^^^^ requires 2 steps
+  // order 1:  ^^^^^^^^^^^^^                    1
+  // order 2:   ^^                              0
   private val minCalc = (0 to nOrder).map(order => {
     funcTable.intervals.map(iv => {
-      FindMinMax.findMin( (x: Double) => iv.eval(x, order), 0.0, 1.0 )._1
+      FindMinMax.findMin( (x: Double) => iv.eval(x, nOrder-order), 0.0, 1.0 )._2
     }).min
   })
-
   private val maxCalc = (0 to nOrder).map(order => {
     funcTable.intervals.map(iv => {
-      FindMinMax.findMax( (x: Double) => iv.eval(x, order), 0.0, 1.0 )._1
+      FindMinMax.findMax( (x: Double) => iv.eval(x, nOrder-order), 0.0, 1.0 )._2
     }).max
   })
 
