@@ -44,7 +44,9 @@ object SinCosPreMulArgs {
    *  pad matches the SW reference's default `oneOverPiPad = max(manW+1, 12)`
    *  so software and hardware produce bit-identical x/π.
    */
-  def lhsW(spec: RealSpec): Int = 1 + spec.manW + smax(spec.manW + 1, 12)
+  def lhsW(spec: RealSpec): Int = {
+    1 + spec.manW + smax(spec.manW + 1, 12)
+  }
 
   /** The 1/π constant as a UInt at width `w` (≥ lhsW(spec)). When the
    *  multiplier was sized for a different function (e.g. exp) we pad the
@@ -60,7 +62,9 @@ object SinCosPreMulArgs {
 
   /** Width of the slice of the multiplier output that sincos actually
    *  consumes (the high bits). */
-  def prodW(spec: RealSpec): Int = (1 + spec.manW) + lhsW(spec)
+  def prodW(spec: RealSpec): Int = {
+    (1 + spec.manW) + lhsW(spec)
+  }
   def prod(spec: RealSpec, out: UInt): UInt = {
     val w = out.getWidth
     out(w - 1, w - prodW(spec))

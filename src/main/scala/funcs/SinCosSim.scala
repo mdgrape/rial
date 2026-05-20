@@ -45,9 +45,12 @@ class SinCosTable(
   private val ft  = FuncTable(func, nOrder, nIntervals, 0.0, 1.0)
   private val gen = new PolynomialGenerator(ft, inBitW, outBitW)
 
-  def getBitWidth(): PolynomialBitWidth = gen.getBitWidth()
-  def generateTable(bitW: PolynomialBitWidth): PolynomialCoefficients =
+  def getBitWidth(): PolynomialBitWidth = {
+    gen.getBitWidth()
+  }
+  def generateTable(bitW: PolynomialBitWidth): PolynomialCoefficients = {
     gen.generateTable(bitW)
+  }
 }
 
 object SinCosTable {
