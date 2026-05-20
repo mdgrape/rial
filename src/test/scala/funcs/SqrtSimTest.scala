@@ -86,8 +86,9 @@ class SqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         val zd   = zi.toDouble
         val errf = zd - z0r.toDouble
         val erri = errorLSB(zi, z0r.toDouble).toLong
-        //println(f"${x.value.toLong}%x $z0 ${zi.toDouble}")
-        if ((z0r.value - zi.value).abs > tolerance) {
+
+        // dump if integer diff exceeds tol (except for +0/-0, those are equal)
+        if ((z0r.value - zi.value).abs > tolerance && !(z0r.isZero && zi.isZero)) {
           val xsgn = bit(spec.W-1, x.value).toInt
           val xexp = slice(spec.manW, spec.exW, x.value)
           val xman = x.value & maskSL(spec.manW)
