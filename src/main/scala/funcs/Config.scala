@@ -245,7 +245,13 @@ class MathFuncConfig(
   // --------------------------------------------------------------------------
 
   def getString: String = {
-    funcs.map(fn => FuncKind.getString(fn)).mkString("[", ", ", "]")
+    // Compact representation when funcs matches one of the predefined sets in
+    // the companion object.  Keeps the test names (which include this string)
+    // short enough to avoid hitting OS filename-length limits.
+    if      (funcs == MathFuncConfig.all     ) { "all" }
+    else if (funcs == MathFuncConfig.standard) { "standard" }
+    else if (funcs == MathFuncConfig.simple  ) { "simple" }
+    else    { funcs.map(fn => FuncKind.getString(fn)).mkString("[", ", ", "]") }
   }
 }
 
@@ -280,8 +286,8 @@ object MathFuncConfig {
    *   <li> log        </li>
    * </ul>
    */
-  val standard = Seq(Sqrt, InvSqrt, Reciprocal, Sin, Cos, Exp, Log,
-    ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2)
+  val standard = Seq(Sqrt, InvSqrt, Reciprocal, Sin, Cos,
+    ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Exp, Log)
 
   /** Defines all the supported math functions including too task-specific ones.
    *
@@ -290,9 +296,72 @@ object MathFuncConfig {
    *   <li> everything. </li>
    * </ul>
    */
-  val all = Seq(Sqrt, InvSqrt, Reciprocal, Sin, Cos, Exp, Log,
-    ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2,
+  val all = Seq(Sqrt, InvSqrt, Reciprocal, Sin, Cos,
+    ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Exp, Log,
     Sigmoid, SoftPlus, ScaleMixtureGaussian)
+
+  /** Default (sigmaA, sigmaB) for [[FuncKind.ScaleMixtureGaussian]]. */
+  val defaultSMGSigma: (Double, Double) = (exp(-1.0), exp(-6.0))
+
+  // --------------------------------------------------------------------------
+  // Default MathFuncConfig instances.  The HW table parameters (nOrder, addrW,
+  // outBitW) match the typical per-function setups used elsewhere; users
+  // wanting tighter precision should construct a custom MathFuncConfig.
+
+  /** Default FP32 config supporting only the [[simple]] function set. */
+  val simpleFP32 = new MathFuncConfig(
+    funcs   = simple,
+    nOrder  = 2,
+    addrW   = 8,
+    inBitW  = RealSpec.Float32Spec.manW - 8,
+    outBitW = RealSpec.Float32Spec.manW + 3,
+  )
+  /** Default BF16 config supporting only the [[simple]] function set. */
+  val simpleBF16 = new MathFuncConfig(
+    funcs   = simple,
+    nOrder  = 0,
+    addrW   = RealSpec.BFloat16Spec.manW,
+    inBitW  = 0,
+    outBitW = RealSpec.BFloat16Spec.manW + 1,
+  )
+
+  /** Default FP32 config supporting the [[standard]] function set. */
+  val standardFP32 = new MathFuncConfig(
+    funcs   = standard,
+    nOrder  = 2,
+    addrW   = 8,
+    inBitW  = RealSpec.Float32Spec.manW - 8,
+    outBitW = RealSpec.Float32Spec.manW + 3,
+  )
+  /** Default BF16 config supporting the [[standard]] function set. */
+  val standardBF16 = new MathFuncConfig(
+    funcs   = standard,
+    nOrder  = 0,
+    addrW   = RealSpec.BFloat16Spec.manW,
+    inBitW  = 0,
+    outBitW = RealSpec.BFloat16Spec.manW + 1,
+  )
+
+  /** Default FP32 config supporting [[all]] math functions.  Uses
+   *  `defaultSMGSigma` for ScaleMixtureGaussian. */
+  val allFP32 = new MathFuncConfig(
+    funcs   = all,
+    nOrder  = 2,
+    addrW   = 8,
+    inBitW  = RealSpec.Float32Spec.manW - 8,
+    outBitW = RealSpec.Float32Spec.manW + 3,
+    scaleMixtureGaussianSigma = Some(defaultSMGSigma),
+  )
+  /** Default BF16 config supporting [[all]] math functions.  Uses
+   *  `defaultSMGSigma` for ScaleMixtureGaussian. */
+  val allBF16 = new MathFuncConfig(
+    funcs   = all,
+    nOrder  = 0,
+    addrW   = RealSpec.BFloat16Spec.manW,
+    inBitW  = 0,
+    outBitW = RealSpec.BFloat16Spec.manW + 1,
+    scaleMixtureGaussianSigma = Some(defaultSMGSigma),
+  )
 }
 
 /** Config class to set pipeline stages in a [[rial.math.MathFunctions]] module.
