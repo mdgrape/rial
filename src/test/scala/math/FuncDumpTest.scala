@@ -1,4 +1,4 @@
-package rial.tests.funcs
+package rial.tests
 
 import org.scalatest._
 
@@ -29,7 +29,7 @@ import scala.collection.mutable.ArrayBuffer
 // (sigmoid / softplus / smg) come from an `all` build.  Point `stdCfg` at
 // `allFP32` if you'd rather dump everything from a single all-functions module.
 //
-// Run with:  sbt "testOnly rial.tests.funcs.FuncDumpTest"
+// Run with:  sbt "testOnly rial.tests.FuncDumpTest"
 //
 class FuncDumpTest extends AnyFlatSpec
     with ChiselScalatestTester with Matchers {

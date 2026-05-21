@@ -3,25 +3,19 @@ package rial.tests
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
 
-
-
-//import scopt.OptionParser
-
 import scala.util.Random
 import scala.math._
 
 import spire.math.SafeLong
-import spire.math.Numeric
 import spire.implicits._
 
-import rial.math._
+import rial.funcs._
 import rial.util.ScalaUtil._
-import rial.testUtil.ScalaTestUtil._ // errorLSB
 import rial.arith._
-import rial.table._
+import rial.approx._
 
 class ExpSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
-  var n = 1000000
+  var n = 10000
 
   override def beforeAll(configMap: ConfigMap) = {
     n = configMap.getOptional[String]("n").getOrElse("10000").toInt
@@ -53,20 +47,18 @@ class ExpSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   def generateSpecialValues( spec: RealSpec, r: Random ) = {
     val idx = counter
     counter += 1
-    if(counter >= specialValues.length) {
-      counter = 0
-    }
+    if(counter >= specialValues.length) counter = 0
     new RealGeneric(spec, specialValues(idx))
   }
 
-  def expTest(t : FuncTableInt, spec : RealSpec, n : Int, r : Random,
+  def errorLSB( x : RealGeneric, y : RealGeneric ) : SafeLong = x.value - y.value
+
+  def expTest(t : PolynomialCoefficients, spec : RealSpec, n : Int, r : Random,
     generatorStr    : String,
     generator       : ( (RealSpec, Random) => RealGeneric),
     tolerance       : Int ) = {
     test(s"exp(x), format ${spec.toStringShort}, ${generatorStr}") {
       counter = 0
-
-//       val libc = Native.loadLibrary("c", classOf[libc]).asInstanceOf[libc]
 
       var maxError    = SafeLong(0)
       var xatMaxError = 0.0
@@ -77,10 +69,10 @@ class ExpSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         val x  = generator(spec,r)
         val x0 = x.toDouble
 
-        val z0   = exp(x0) // .toFloat
+        val z0   = exp(x0)
         val z0r  = new RealGeneric(spec, z0)
 
-        val zi   = ExpSim.expSimGeneric( t, x )
+        val zi   = ExpSimGeneric(t, x)
         val zd   = zi.toDouble
         val erri = errorLSB(zi, z0r).toLong
 
@@ -107,9 +99,6 @@ class ExpSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
             val zrefman = z0r.value & maskSL(spec.manW)
 
             println(f"z0  = ${z0}")
-            println(f"z0r = ${z0r.sgn}| ${z0r.ex}| ${z0r.man.toLong.toBinaryString}")
-            println(f"zi  = ${zi.sgn }| ${zi .ex}| ${zi .man.toLong.toBinaryString}")
-            println(f"zd  = ${zd}")
             println(f"test: x   = ${x0}(${x.sgn}|${x.ex}(${x.ex-x.spec.exBias})|${x.man.toLong.toBinaryString})")
             println(f"test: ref = ${z0}(${zrefsgn}|${zrefexp}(${zrefexp-x.spec.exBias})|${zrefman.toLong.toBinaryString})")
             println(f"test: sim = ${zd}(${zsimsgn}|${zsimexp}(${zsimexp-x.spec.exBias})|${zsimman.toLong.toBinaryString})")
@@ -127,6 +116,8 @@ class ExpSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
               errs(errkey) = (errs(errkey)._1, errs(errkey)._2 + 1)
             }
           }
+
+          assert(erri.abs <= tolerance)
 
           if (maxError < erri.abs) {
             maxError    = erri.abs
@@ -146,98 +137,98 @@ class ExpSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         println(f"N=$n%d : +/- ${k}%4d errors (${log2DownL(k)+1}%2d ULPs) positive $errPos%d / negative $errNeg%d")
       }
       println( "---------------------------------------------------------------")
-
     }
   }
 
-  val nOrderFP32    = 2
-  val adrWFP32      = 8
-  val extraBitsFP32 = 3
+  private def mkTable(nOrder: Int, addrW: Int, manW: Int, extraBits: Int): PolynomialCoefficients = {
+    val t = new ExpTable(nOrder, addrW, manW - addrW, manW + extraBits)
+    t.generateTable(t.getBitWidth())
+  }
 
-  val expFP32TableI = ExpSim.expTableGeneration(
-    nOrderFP32, adrWFP32, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBitsFP32)
+  // --------------------------------------------------------------------------
+  // FP32
 
-  expTest(expFP32TableI, RealSpec.Float32Spec, n, r,
+  val expFP32Table = mkTable(nOrder = 2, addrW = 8,
+                             manW = RealSpec.Float32Spec.manW, extraBits = 3)
+
+  expTest(expFP32Table, RealSpec.Float32Spec, n, r,
     "Test Safe Positive [1, 127]", generateRealWithin(1.0, 127.0,_,_), 2)
-  expTest(expFP32TableI, RealSpec.Float32Spec, n, r,
+  expTest(expFP32Table, RealSpec.Float32Spec, n, r,
     "Test Safe Negative [-126, -1]", generateRealWithin(-126.0, -1.0,_,_), 2)
 
-  expTest(expFP32TableI, RealSpec.Float32Spec, n, r,
+  expTest(expFP32Table, RealSpec.Float32Spec, n, r,
     "Test Large Positive [127, inf]", generateRealWithin(127.0, Double.PositiveInfinity,_,_), 2)
-  expTest(expFP32TableI, RealSpec.Float32Spec, n, r,
+  expTest(expFP32Table, RealSpec.Float32Spec, n, r,
     "Test Large Negative [-inf, -126]", generateRealWithin(Double.NegativeInfinity, -126.0,_,_), 2)
 
-  expTest(expFP32TableI, RealSpec.Float32Spec, n, r,
+  expTest(expFP32Table, RealSpec.Float32Spec, n, r,
     "Test Small Positive [2^-7, 1]", generateRealWithin(pow(2.0, -7),1.0,_,_), 2)
-  expTest(expFP32TableI, RealSpec.Float32Spec, n, r,
+  expTest(expFP32Table, RealSpec.Float32Spec, n, r,
     "Test Small Negative [-1, -2^-7]", generateRealWithin(-1.0, -pow(2.0, -7),_,_), 2)
 
-  expTest(expFP32TableI, RealSpec.Float32Spec, n, r,
+  expTest(expFP32Table, RealSpec.Float32Spec, n, r,
     "Test Tiny Positive [0, 2^-7]", generateRealWithin(0.0, pow(2.0, -7),_,_), 2)
-  expTest(expFP32TableI, RealSpec.Float32Spec, n, r,
+  expTest(expFP32Table, RealSpec.Float32Spec, n, r,
     "Test Tiny Negative [-2^-7, 0]", generateRealWithin(-pow(2.0, -7), 0.0,_,_), 2)
 
-  expTest(expFP32TableI, RealSpec.Float32Spec, n, r,
+  expTest(expFP32Table, RealSpec.Float32Spec, n, r,
     "Test Special Values", generateSpecialValues(_,_), 1)
 
-  val nOrderBF16    = 0
-  val adrWBF16      = 7
-  val extraBitsBF16 = 1
+  // --------------------------------------------------------------------------
+  // BFloat16
 
-  val expBF16TableI = ExpSim.expTableGeneration(
-    nOrderBF16, adrWBF16, RealSpec.BFloat16Spec.manW, RealSpec.BFloat16Spec.manW+extraBitsBF16)
+  val expBF16Table = mkTable(nOrder = 0, addrW = 7,
+                             manW = RealSpec.BFloat16Spec.manW, extraBits = 1)
 
-  expTest(expBF16TableI, RealSpec.BFloat16Spec, n, r,
+  expTest(expBF16Table, RealSpec.BFloat16Spec, n, r,
     "Test Safe Positive [1, 127]", generateRealWithin(1.0, 127.0,_,_), 1)
-  expTest(expBF16TableI, RealSpec.BFloat16Spec, n, r,
+  expTest(expBF16Table, RealSpec.BFloat16Spec, n, r,
     "Test Safe Negative [-126, -1]", generateRealWithin(-126.0, -1.0,_,_), 1)
 
-  expTest(expBF16TableI, RealSpec.BFloat16Spec, n, r,
+  expTest(expBF16Table, RealSpec.BFloat16Spec, n, r,
     "Test Large Positive [127, inf]", generateRealWithin(127.0, Double.PositiveInfinity,_,_), 1)
-  expTest(expBF16TableI, RealSpec.BFloat16Spec, n, r,
+  expTest(expBF16Table, RealSpec.BFloat16Spec, n, r,
     "Test Large Negative [-inf, -126]", generateRealWithin(Double.NegativeInfinity, -126.0,_,_), 1)
 
-  expTest(expBF16TableI, RealSpec.BFloat16Spec, n, r,
+  expTest(expBF16Table, RealSpec.BFloat16Spec, n, r,
     "Test Small Positive [2^-7, 1]", generateRealWithin(pow(2.0, -7),1.0,_,_), 1)
-  expTest(expBF16TableI, RealSpec.BFloat16Spec, n, r,
+  expTest(expBF16Table, RealSpec.BFloat16Spec, n, r,
     "Test Small Negative [-1, -2^-7]", generateRealWithin(-1.0, -pow(2.0, -7),_,_), 1)
 
-  expTest(expBF16TableI, RealSpec.BFloat16Spec, n, r,
+  expTest(expBF16Table, RealSpec.BFloat16Spec, n, r,
     "Test Tiny Positive [0, 2^-7]", generateRealWithin(0.0, pow(2.0, -7),_,_), 1)
-  expTest(expBF16TableI, RealSpec.BFloat16Spec, n, r,
+  expTest(expBF16Table, RealSpec.BFloat16Spec, n, r,
     "Test Tiny Negative [-2^-7, 0]", generateRealWithin(-pow(2.0, -7), 0.0,_,_), 1)
 
-  expTest(expBF16TableI, RealSpec.BFloat16Spec, n, r,
+  expTest(expBF16Table, RealSpec.BFloat16Spec, n, r,
     "Test Special Values", generateSpecialValues(_,_), 2)
 
-  val nOrderFP64    = 3
-  val adrWFP64      = 12
-  val extraBitsFP64 = 4
+  // --------------------------------------------------------------------------
+  // FP64
 
-  val expFP64TableI = ExpSim.expTableGeneration(
-    nOrderFP64, adrWFP64, RealSpec.Float64Spec.manW, RealSpec.Float64Spec.manW+extraBitsFP64)
+  val expFP64Table = mkTable(nOrder = 3, addrW = 12,
+                             manW = RealSpec.Float64Spec.manW, extraBits = 4)
 
-  expTest(expFP64TableI, RealSpec.Float64Spec, n, r,
+  expTest(expFP64Table, RealSpec.Float64Spec, n, r,
     "Test Safe Positive [1, 127]", generateRealWithin(1.0, 127.0,_,_), 7)
-  expTest(expFP64TableI, RealSpec.Float64Spec, n, r,
+  expTest(expFP64Table, RealSpec.Float64Spec, n, r,
     "Test Safe Negative [-126, -1]", generateRealWithin(-126.0, -1.0,_,_), 7)
 
-  expTest(expFP64TableI, RealSpec.Float64Spec, n, r,
+  expTest(expFP64Table, RealSpec.Float64Spec, n, r,
     "Test Large Positive [127, inf]", generateRealWithin(127.0, Double.PositiveInfinity,_,_), 7)
-  expTest(expFP64TableI, RealSpec.Float64Spec, n, r,
+  expTest(expFP64Table, RealSpec.Float64Spec, n, r,
     "Test Large Negative [-inf, -126]", generateRealWithin(Double.NegativeInfinity, -126.0,_,_), 7)
 
-  expTest(expFP64TableI, RealSpec.Float64Spec, n, r,
+  expTest(expFP64Table, RealSpec.Float64Spec, n, r,
     "Test Small Positive [2^-7, 1]", generateRealWithin(pow(2.0, -7),1.0,_,_), 7)
-  expTest(expFP64TableI, RealSpec.Float64Spec, n, r,
+  expTest(expFP64Table, RealSpec.Float64Spec, n, r,
     "Test Small Negative [-1, -2^-7]", generateRealWithin(-1.0, -pow(2.0, -7),_,_), 7)
 
-  expTest(expFP64TableI, RealSpec.Float64Spec, n, r,
+  expTest(expFP64Table, RealSpec.Float64Spec, n, r,
     "Test Tiny Positive [0, 2^-7]", generateRealWithin(0.0, pow(2.0, -7),_,_), 7)
-  expTest(expFP64TableI, RealSpec.Float64Spec, n, r,
+  expTest(expFP64Table, RealSpec.Float64Spec, n, r,
     "Test Tiny Negative [-2^-7, 0]", generateRealWithin(-pow(2.0, -7), 0.0,_,_), 7)
 
-  expTest(expFP64TableI, RealSpec.Float64Spec, n, r,
+  expTest(expFP64Table, RealSpec.Float64Spec, n, r,
     "Test Special Values", generateSpecialValues(_,_), 2)
-
 }

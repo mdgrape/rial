@@ -10,12 +10,13 @@ import spire.math.SafeLong
 import spire.math.Numeric
 import spire.implicits._
 
-import rial.math._
+import rial.funcs._
 import rial.util.ScalaUtil._
 import rial.arith._
-import rial.table._
+import rial.approx._
 
 class SqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
+
   var n = 10000
 
   override def beforeAll(configMap: ConfigMap) = {
@@ -64,7 +65,7 @@ class SqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     java.lang.Math.scalb(err, -x.exNorm+x.spec.manW)
   }
 
-  def sqrtTest(t: FuncTableInt, spec : RealSpec, n : Int, r : Random,
+  def sqrtTest(t: PolynomialCoefficients, spec : RealSpec, n : Int, r : Random,
     generatorStr : String, generator : ( (RealSpec, Random) => RealGeneric),
     tolerance: Int) = {
     test(s"sqrt(x), format ${spec.toStringShort}, ${generatorStr}") {
@@ -81,12 +82,13 @@ class SqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         val x0   = x.toDouble
         val z0   = if(x0 < 0) {0.0} else {math.sqrt(x0)}
         val z0r  = new RealGeneric(spec, z0)
-        val zi   = SqrtSim.sqrtSimGeneric( t, x )
+        val zi   = SqrtSimGeneric( t, x )
         val zd   = zi.toDouble
         val errf = zd - z0r.toDouble
         val erri = errorLSB(zi, z0r.toDouble).toLong
-        //println(f"${x.value.toLong}%x $z0 ${zi.toDouble}")
-        if ((z0r.value - zi.value).abs > tolerance) {
+
+        // dump if integer diff exceeds tol (except for +0/-0, those are equal)
+        if ((z0r.value - zi.value).abs > tolerance && !(z0r.isZero && zi.isZero)) {
           val xsgn = bit(spec.W-1, x.value).toInt
           val xexp = slice(spec.manW, spec.exW, x.value)
           val xman = x.value & maskSL(spec.manW)
@@ -148,42 +150,18 @@ class SqrtSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     }
   }
 
-  val sqrtF32TableI = SqrtSim.sqrtTableGeneration( 2, 8, 23, 23+2 )
+  val sqrtF32Table = SqrtTable.fp32()
+  val sqrtF32Coeff = sqrtF32Table.generateTable(sqrtF32Table.getBitWidth())
 
-  sqrtTest(sqrtF32TableI, RealSpec.Float32Spec, n, r,
-    "Test Within [0, 4)",generateReal1to4(_,_), 1)
-  sqrtTest(sqrtF32TableI, RealSpec.Float32Spec, n, r,
-    "Test Within (-128,128)",generateRealWithin(128.0,_,_), 1)
-  sqrtTest(sqrtF32TableI, RealSpec.Float32Spec, n, r,
-    "Test All range",generateRealFull(_,_), 1 )
-  sqrtTest(sqrtF32TableI, RealSpec.Float32Spec, n, r,
-    "Test special value",generateSpecialValues(_,_), 1 )
+  sqrtTest(sqrtF32Coeff, RealSpec.Float32Spec, n, r, "Test Within [0, 4)",     generateReal1to4(_,_), 1)
+  sqrtTest(sqrtF32Coeff, RealSpec.Float32Spec, n, r, "Test Within (-128,128)", generateRealWithin(128.0,_,_), 1)
+  sqrtTest(sqrtF32Coeff, RealSpec.Float32Spec, n, r, "Test All range",         generateRealFull(_,_), 1 )
+  sqrtTest(sqrtF32Coeff, RealSpec.Float32Spec, n, r, "Test special value",     generateSpecialValues(_,_), 1 )
 
-  val sqrtBF16TableI = SqrtSim.sqrtTableGeneration(0, 7, 7, 7 ) // [1,2) + [2,4) + 1.0
+  val sqrtBF16Table = SqrtTable.bf16()
+  val sqrtBF16Coeff = sqrtBF16Table.generateTable(sqrtBF16Table.getBitWidth())
 
-  sqrtTest(sqrtBF16TableI, RealSpec.BFloat16Spec, n, r,
-    "Test Within (-128,128)",generateRealWithin(128.0,_,_), 1)
-  sqrtTest(sqrtBF16TableI, RealSpec.BFloat16Spec, n, r,
-    "Test All range",generateRealFull(_,_), 1 )
-  sqrtTest(sqrtBF16TableI, RealSpec.BFloat16Spec, n, r,
-    "Test special value",generateSpecialValues(_,_), 1 )
-
-  val float48Spec = new RealSpec(10, 511, 37)
-  val sqrtFP48TableI = SqrtSim.sqrtTableGeneration(3, 10, 37, 37+4 )
-
-  sqrtTest(sqrtFP48TableI, float48Spec, n, r,
-    "Test Within (-128,128)",generateRealWithin(128.0,_,_), 1)
-  sqrtTest(sqrtFP48TableI, float48Spec, n, r,
-    "Test All range",generateRealFull(_,_), 1 )
-  sqrtTest(sqrtFP48TableI, float48Spec, n, r,
-    "Test special value",generateSpecialValues(_,_), 1 )
-
-  val sqrtFP64TableI = SqrtSim.sqrtTableGeneration(3, 10, 52, 52+1 )
-
-  sqrtTest(sqrtFP64TableI, RealSpec.Float64Spec, n, r,
-    "Test Within (-128,128)",generateRealWithin(128.0,_,_), 3) // XXX 3!
-  sqrtTest(sqrtFP64TableI, RealSpec.Float64Spec, n, r,
-    "Test All range",generateRealFull(_,_), 3 )
-  sqrtTest(sqrtFP64TableI, RealSpec.Float64Spec, n, r,
-    "Test special value",generateSpecialValues(_,_), 3 )
+  sqrtTest(sqrtBF16Coeff, RealSpec.BFloat16Spec, n, r, "Test Within (-128,128)", generateRealWithin(128.0,_,_), 1)
+  sqrtTest(sqrtBF16Coeff, RealSpec.BFloat16Spec, n, r, "Test All range",         generateRealFull(_,_), 1 )
+  sqrtTest(sqrtBF16Coeff, RealSpec.BFloat16Spec, n, r, "Test special value",     generateSpecialValues(_,_), 1 )
 }

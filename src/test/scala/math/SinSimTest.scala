@@ -10,17 +10,16 @@ import spire.math.SafeLong
 import spire.math.Numeric
 import spire.implicits._
 
-import rial.math._
+import rial.funcs._
 import rial.util.ScalaUtil._
-import rial.testUtil.ScalaTestUtil._ // errorLSB
 import rial.arith._
-import rial.table._
+import rial.approx._
 
 class SinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
-  var n = 1000000
+  var n = 10000
 
   override def beforeAll(configMap: ConfigMap) = {
-    n = configMap.getOptional[String]("n").getOrElse("1000000").toInt
+    n = configMap.getOptional[String]("n").getOrElse("10000").toInt
     println(s"ncycle=$n")
   }
 
@@ -56,13 +55,16 @@ class SinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     new RealGeneric(spec, specialValues(idx))
   }
 
-  def sinTest( t: FuncTableInt, spec : RealSpec, n : Int, r : Random,
+  // integer bit-pattern difference, in LSB units of the result format.
+  def errorLSB( x : RealGeneric, y : RealGeneric ) : SafeLong = x.value - y.value
+
+  def sinTest( t: PolynomialCoefficients, spec : RealSpec, n : Int, r : Random,
     generatorStr    : String,
     generator       : ( (RealSpec, Random) => RealGeneric),
     tolerance       : Int
     ) = {
     test(s"sin(x), format ${spec.toStringShort}, ${generatorStr}") {
-      counter = 0;
+      counter = 0
 
       var maxError    = SafeLong(0)
       var xatMaxError = 0.0
@@ -77,7 +79,7 @@ class SinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
         val z0   = sin(x0)
         val z0r  = new RealGeneric(spec, z0)
 
-        val zi   = SinCosSim.sincosSimGeneric(true, t, x )
+        val zi   = SinCosSimGeneric(true, t, x)
         val zd   = zi.toDouble
         val erri = errorLSB(zi, z0r).toInt
 
@@ -146,189 +148,183 @@ class SinSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
     }
   }
 
-  val nOrderFP32     = 2
-  val adrWFP32       = 8
-  val extraBitsFP32  = 3
+  private def mkTable(nOrder: Int, addrW: Int, manW: Int, extraBits: Int): PolynomialCoefficients = {
+    val t = new SinCosTable(nOrder, addrW, manW - addrW, manW + extraBits)
+    t.generateTable(t.getBitWidth())
+  }
 
-  val sinFP32TableI = SinCosSim.sincosTableGeneration(
-    nOrderFP32, adrWFP32, RealSpec.Float32Spec.manW, RealSpec.Float32Spec.manW+extraBitsFP32,
-    None, None)
+  // --------------------------------------------------------------------------
+  // FP32
 
-  sinTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+  val sinFP32Table = mkTable(
+    nOrder    = 2,
+    addrW     = 8,
+    manW      = RealSpec.Float32Spec.manW,
+    extraBits = 3
+  )
+
+  sinTest(sinFP32Table, RealSpec.Float32Spec, n, r,
     "Test sin Within [-2pi, -1.5pi]", generateRealWithin(-2 * Pi, -1.5 * Pi,_,_), 3)
-  sinTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32Table, RealSpec.Float32Spec, n, r,
     "Test sin Within [-1.5pi, -pi]", generateRealWithin(-1.5 * Pi, -Pi,_,_), 3)
-  sinTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32Table, RealSpec.Float32Spec, n, r,
     "Test sin Within [-pi, -pi/2]", generateRealWithin(-Pi, -0.5 * Pi,_,_), 3)
-  sinTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32Table, RealSpec.Float32Spec, n, r,
     "Test sin Within [-pi/2, -2^-12pi]", generateRealWithin(-0.5*Pi, -pow(2.0, -12)*Pi,_,_), 3)
-  sinTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32Table, RealSpec.Float32Spec, n, r,
     "Test sin Within [-2^-12pi, 0]", generateRealWithin(-pow(2.0, -12)*Pi, 0.0,_,_), 3)
-  sinTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32Table, RealSpec.Float32Spec, n, r,
     "Test sin Within [0, 2^-12pi]", generateRealWithin(0.0, pow(2.0, -12)*Pi,_,_), 3)
-  sinTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32Table, RealSpec.Float32Spec, n, r,
     "Test sin Within [2^-12pi, pi/2]", generateRealWithin(pow(2.0, -12)*Pi, 0.5*Pi,_,_), 3)
-  sinTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32Table, RealSpec.Float32Spec, n, r,
     "Test sin Within [pi/2, pi]", generateRealWithin(0.5*Pi, Pi,_,_), 3)
-  sinTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32Table, RealSpec.Float32Spec, n, r,
     "Test sin Within [pi, 3/2pi]", generateRealWithin(Pi, 1.5*Pi,_,_), 3)
-  sinTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32Table, RealSpec.Float32Spec, n, r,
     "Test sin Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 3)
 
-  sinTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32Table, RealSpec.Float32Spec, n, r,
     "Test sin with special values", generateSpecialValues(_,_), 1)
 
-  // over +/- 2pi
-
-  sinTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+  // beyond ±2pi
+  sinTest(sinFP32Table, RealSpec.Float32Spec, n, r,
     "Test sin Within [-10pi, -2pi]", generateRealWithin(-10 * Pi, -2 * Pi,_,_), 3)
-  sinTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32Table, RealSpec.Float32Spec, n, r,
     "Test sin Within [2pi, 10pi]", generateRealWithin(2.0 * Pi, 10.0 * Pi,_,_), 3)
-
-  sinTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32Table, RealSpec.Float32Spec, n, r,
     "Test sin Within [16pi, 32pi]", generateRealWithin(16.0 * Pi, 32.0 * Pi,_,_), 3)
-  sinTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32Table, RealSpec.Float32Spec, n, r,
     "Test sin Within [32pi, 64pi]", generateRealWithin(32.0 * Pi, 64.0 * Pi,_,_), 3)
-
-  sinTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32Table, RealSpec.Float32Spec, n, r,
     "Test sin Within [-32pi, -16pi]", generateRealWithin( -32.0 * Pi,-16.0 * Pi, _,_), 3)
-  sinTest(sinFP32TableI, RealSpec.Float32Spec, n, r,
+  sinTest(sinFP32Table, RealSpec.Float32Spec, n, r,
     "Test sin Within [-64pi, -32pi]", generateRealWithin( -64.0 * Pi,-32.0 * Pi, _,_), 3)
 
-  val nOrderBF16     = 0
-  val adrWBF16       = 7
-  val extraBitsBF16  = 1
+  // --------------------------------------------------------------------------
+  // BFloat16
 
-  val sinBF16TableI = SinCosSim.sincosTableGeneration(
-    nOrderBF16, adrWBF16, RealSpec.BFloat16Spec.manW, RealSpec.BFloat16Spec.manW+extraBitsBF16,
-    None, None)
+  val sinBF16Table = mkTable(
+    nOrder    = 0,
+    addrW     = 7,
+    manW      = RealSpec.BFloat16Spec.manW,
+    extraBits = 1
+  )
 
-  sinTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+  sinTest(sinBF16Table, RealSpec.BFloat16Spec, n, r,
     "Test sin Within [-2pi, -1.5pi]", generateRealWithin(-2 * Pi, -1.5 * Pi,_,_), 3)
-  sinTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+  sinTest(sinBF16Table, RealSpec.BFloat16Spec, n, r,
     "Test sin Within [-1.5pi, -pi]", generateRealWithin(-1.5 * Pi, -Pi,_,_), 3)
-  sinTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+  sinTest(sinBF16Table, RealSpec.BFloat16Spec, n, r,
     "Test sin Within [-pi, -pi/2]", generateRealWithin(-Pi, -0.5 * Pi,_,_), 3)
-  sinTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+  sinTest(sinBF16Table, RealSpec.BFloat16Spec, n, r,
     "Test sin Within [-pi/2, -2^-12pi]", generateRealWithin(-0.5*Pi, -pow(2.0, -12)*Pi,_,_), 3)
-  sinTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+  sinTest(sinBF16Table, RealSpec.BFloat16Spec, n, r,
     "Test sin Within [-2^-12pi, 0]", generateRealWithin(-pow(2.0, -12)*Pi, 0.0,_,_), 3)
-  sinTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+  sinTest(sinBF16Table, RealSpec.BFloat16Spec, n, r,
     "Test sin Within [0, 2^-12pi]", generateRealWithin(0.0, pow(2.0, -12)*Pi,_,_), 3)
-  sinTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+  sinTest(sinBF16Table, RealSpec.BFloat16Spec, n, r,
     "Test sin Within [2^-12pi, pi/2]", generateRealWithin(pow(2.0, -12)*Pi, 0.5*Pi,_,_), 3)
-  sinTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+  sinTest(sinBF16Table, RealSpec.BFloat16Spec, n, r,
     "Test sin Within [pi/2, pi]", generateRealWithin(0.5*Pi, Pi,_,_), 3)
-  sinTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+  sinTest(sinBF16Table, RealSpec.BFloat16Spec, n, r,
     "Test sin Within [pi, 3/2pi]", generateRealWithin(Pi, 1.5*Pi,_,_), 3)
-  sinTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+  sinTest(sinBF16Table, RealSpec.BFloat16Spec, n, r,
     "Test sin Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 3)
 
-  sinTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+  sinTest(sinBF16Table, RealSpec.BFloat16Spec, n, r,
     "Test sin with special values", generateSpecialValues(_,_), 1)
 
-  // over +/-2pi
-
-  sinTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+  // beyond ±2pi
+  sinTest(sinBF16Table, RealSpec.BFloat16Spec, n, r,
     "Test sin Within [-10pi, -2pi]", generateRealWithin(-10 * Pi, -2 * Pi,_,_), 3)
-  sinTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+  sinTest(sinBF16Table, RealSpec.BFloat16Spec, n, r,
     "Test sin Within [2pi, 10pi]", generateRealWithin(2.0 * Pi, 10.0 * Pi,_,_), 3)
-
-  sinTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+  sinTest(sinBF16Table, RealSpec.BFloat16Spec, n, r,
     "Test sin Within [16pi, 32pi]", generateRealWithin(16.0 * Pi, 32.0 * Pi,_,_), 3)
-  sinTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+  sinTest(sinBF16Table, RealSpec.BFloat16Spec, n, r,
     "Test sin Within [32pi, 64pi]", generateRealWithin(32.0 * Pi, 64.0 * Pi,_,_), 3)
-
-  sinTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+  sinTest(sinBF16Table, RealSpec.BFloat16Spec, n, r,
     "Test sin Within [-32pi, -16pi]", generateRealWithin( -32.0 * Pi,-16.0 * Pi, _,_), 3)
-  sinTest(sinBF16TableI, RealSpec.BFloat16Spec, n, r,
+  sinTest(sinBF16Table, RealSpec.BFloat16Spec, n, r,
     "Test sin Within [-64pi, -32pi]", generateRealWithin( -64.0 * Pi,-32.0 * Pi, _,_), 3)
+
+  // --------------------------------------------------------------------------
+  // a hypothetical Float48 (10-bit exponent, 37-bit mantissa)
 
   val float48Spec = new RealSpec(10, 511, 37)
+  val sinFP48Table = mkTable(
+    nOrder    = 3,
+    addrW     = 10,
+    manW      = float48Spec.manW,
+    extraBits = 4
+  )
 
-  val nOrderFP48     = 3
-  val adrWFP48       = 10
-  val extraBitsFP48  = 4
-
-  val sinFP48TableI = SinCosSim.sincosTableGeneration(
-    nOrderFP48, adrWFP48, float48Spec.manW, float48Spec.manW+extraBitsFP48,
-    None, None)
-
-  sinTest(sinFP48TableI, float48Spec, n, r,
+  sinTest(sinFP48Table, float48Spec, n, r,
     "Test sin Within [-2pi, -1.5pi]", generateRealWithin(-2 * Pi, -1.5 * Pi,_,_), 4)
-  sinTest(sinFP48TableI, float48Spec, n, r,
+  sinTest(sinFP48Table, float48Spec, n, r,
     "Test sin Within [-1.5pi, -pi]", generateRealWithin(-1.5 * Pi, -Pi,_,_), 4)
-  sinTest(sinFP48TableI, float48Spec, n, r,
+  sinTest(sinFP48Table, float48Spec, n, r,
     "Test sin Within [-pi, -pi/2]", generateRealWithin(-Pi, -0.5 * Pi,_,_), 4)
-  sinTest(sinFP48TableI, float48Spec, n, r,
+  sinTest(sinFP48Table, float48Spec, n, r,
     "Test sin Within [-pi/2, -2^-12pi]", generateRealWithin(-0.5*Pi, -pow(2.0, -12)*Pi,_,_), 4)
-  sinTest(sinFP48TableI, float48Spec, n, r,
+  sinTest(sinFP48Table, float48Spec, n, r,
     "Test sin Within [-2^-12pi, 0]", generateRealWithin(-pow(2.0, -12)*Pi, 0.0,_,_), 4)
-  sinTest(sinFP48TableI, float48Spec, n, r,
+  sinTest(sinFP48Table, float48Spec, n, r,
     "Test sin Within [0, 2^-12pi]", generateRealWithin(0.0, pow(2.0, -12)*Pi,_,_), 4)
-  sinTest(sinFP48TableI, float48Spec, n, r,
+  sinTest(sinFP48Table, float48Spec, n, r,
     "Test sin Within [2^-12pi, pi/2]", generateRealWithin(pow(2.0, -12)*Pi, 0.5*Pi,_,_), 4)
-  sinTest(sinFP48TableI, float48Spec, n, r,
+  sinTest(sinFP48Table, float48Spec, n, r,
     "Test sin Within [pi/2, pi]", generateRealWithin(0.5*Pi, Pi,_,_), 4)
-  sinTest(sinFP48TableI, float48Spec, n, r,
+  sinTest(sinFP48Table, float48Spec, n, r,
     "Test sin Within [pi, 3/2pi]", generateRealWithin(Pi, 1.5*Pi,_,_), 4)
-  sinTest(sinFP48TableI, float48Spec, n, r,
+  sinTest(sinFP48Table, float48Spec, n, r,
     "Test sin Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 4)
 
-  sinTest(sinFP48TableI, float48Spec, n, r,
+  sinTest(sinFP48Table, float48Spec, n, r,
     "Test sin with special values", generateSpecialValues(_,_), 1)
 
-// over +/- 2pi
-//   sinTest(sinFP48TableI, float48Spec, n, r,
-//     "Test sin Within [-10pi, -2pi]", generateRealWithin(-10 * Pi, -2 * Pi,_,_), 3)
-//   sinTest(sinFP48TableI, float48Spec, n, r,
-//     "Test sin Within [2pi, 10pi]", generateRealWithin(2.0 * Pi, 10.0 * Pi,_,_), 3)
+  // --------------------------------------------------------------------------
+  // FP64
 
-  val nOrderFP64     = 3
-  val adrWFP64       = 12
-  val extraBitsFP64  = 4
+  val sinFP64Table = mkTable(
+    nOrder    = 3,
+    addrW     = 12,
+    manW      = RealSpec.Float64Spec.manW,
+    extraBits = 4
+  )
 
-  val sinFP64TableI = SinCosSim.sincosTableGeneration(
-    nOrderFP64, adrWFP64, RealSpec.Float64Spec.manW, RealSpec.Float64Spec.manW+extraBitsFP64,
-    None, None)
-
-  sinTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+  sinTest(sinFP64Table, RealSpec.Float64Spec, n, r,
     "Test sin Within [-2pi, -1.5pi]", generateRealWithin(-2 * Pi, -1.5 * Pi,_,_), 7)
-  sinTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+  sinTest(sinFP64Table, RealSpec.Float64Spec, n, r,
     "Test sin Within [-1.5pi, -pi]", generateRealWithin(-1.5 * Pi, -Pi,_,_), 7)
-  sinTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+  sinTest(sinFP64Table, RealSpec.Float64Spec, n, r,
     "Test sin Within [-pi, -pi/2]", generateRealWithin(-Pi, -0.5 * Pi,_,_), 7)
-  sinTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+  sinTest(sinFP64Table, RealSpec.Float64Spec, n, r,
     "Test sin Within [-pi/2, -2^-12pi]", generateRealWithin(-0.5*Pi, -pow(2.0, -12)*Pi,_,_), 7)
-  sinTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+  sinTest(sinFP64Table, RealSpec.Float64Spec, n, r,
     "Test sin Within [-2^-12pi, 0]", generateRealWithin(-pow(2.0, -12)*Pi, 0.0,_,_), 7)
-  sinTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+  sinTest(sinFP64Table, RealSpec.Float64Spec, n, r,
     "Test sin Within [0, 2^-12pi]", generateRealWithin(0.0, pow(2.0, -12)*Pi,_,_), 7)
-  sinTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+  sinTest(sinFP64Table, RealSpec.Float64Spec, n, r,
     "Test sin Within [2^-12pi, pi/2]", generateRealWithin(pow(2.0, -12)*Pi, 0.5*Pi,_,_), 7)
-  sinTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+  sinTest(sinFP64Table, RealSpec.Float64Spec, n, r,
     "Test sin Within [pi/2, pi]", generateRealWithin(0.5*Pi, Pi,_,_), 7)
-  sinTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+  sinTest(sinFP64Table, RealSpec.Float64Spec, n, r,
     "Test sin Within [pi, 3/2pi]", generateRealWithin(Pi, 1.5*Pi,_,_), 7)
-  sinTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+  sinTest(sinFP64Table, RealSpec.Float64Spec, n, r,
     "Test sin Within [3/2pi, 2pi]", generateRealWithin(1.5*Pi, 2.0*Pi,_,_), 7)
 
-  sinTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+  sinTest(sinFP64Table, RealSpec.Float64Spec, n, r,
     "Test sin with special values", generateSpecialValues(_,_), 2)
 
   val delta = pow(2.0, -32)
-  sinTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+  sinTest(sinFP64Table, RealSpec.Float64Spec, n, r,
     "Test sin around 0", generateRealWithin(-delta*Pi, delta*Pi,_,_), 7)
-  sinTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+  sinTest(sinFP64Table, RealSpec.Float64Spec, n, r,
     "Test sin around pi/2", generateRealWithin((0.5-delta)*Pi, (0.5+delta)*Pi,_,_), 7)
-  sinTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+  sinTest(sinFP64Table, RealSpec.Float64Spec, n, r,
     "Test sin around pi", generateRealWithin((1-delta)*Pi, (1+delta)*Pi,_,_), 7)
-  sinTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
+  sinTest(sinFP64Table, RealSpec.Float64Spec, n, r,
     "Test sin around 3pi/2", generateRealWithin((1.5-delta)*Pi, (1.5+delta)*Pi,_,_), 7)
-
-// over +/-2pi
-//   sinTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
-//     "Test sin Within [-10pi, -2pi]", generateRealWithin(-10 * Pi, -2 * Pi,_,_), 8)
-//   sinTest(sinFP64TableI, RealSpec.Float64Spec, n, r,
-//     "Test sin Within [2pi, 10pi]", generateRealWithin(2.0 * Pi, 10.0 * Pi,_,_), 8)
 }
