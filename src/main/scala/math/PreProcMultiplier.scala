@@ -15,7 +15,7 @@ import chisel3._
 import chisel3.util._
 
 import rial.arith.RealSpec
-import rial.funcs.FuncKind._
+import rial.math.FuncKind._
 
 private[rial] class PreProcMultiplier(
   val lhsW:  Int,

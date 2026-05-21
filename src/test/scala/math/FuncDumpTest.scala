@@ -10,7 +10,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import rial.math._
-import rial.funcs.FuncKind._
+import rial.math.FuncKind._
 import rial.arith._
 
 import java.io.PrintWriter

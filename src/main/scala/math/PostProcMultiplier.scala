@@ -18,7 +18,7 @@ import chisel3.util._
 
 import rial.arith.RoundSpec
 import rial.arith.FloatChiselUtil
-import rial.funcs.FuncKind._
+import rial.math.FuncKind._
 
 private[rial] class PostProcMultiplierOutput(val manW: Int) extends Bundle {
   val zman  = UInt(manW.W)

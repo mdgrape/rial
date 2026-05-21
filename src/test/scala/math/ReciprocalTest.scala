@@ -16,7 +16,7 @@ import spire.math.Numeric
 import spire.implicits._
 
 import rial.math._
-import rial.funcs.FuncKind._
+import rial.math.FuncKind._
 import rial.arith._
 import rial.util.ScalaUtil._
 

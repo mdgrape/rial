@@ -1,6 +1,6 @@
 package rial.math
 
-import rial.approx.{PolynomialBitWidth, PolynomialCoefficients}
+import rial.table.{PolynomialBitWidth, PolynomialCoefficients}
 
 private[rial] trait TableBase {
   def getBitWidth(): PolynomialBitWidth
