@@ -9,7 +9,7 @@ import chiseltest.VerilatorBackendAnnotation
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import rial.funcs._
+import rial.math._
 import rial.funcs.FuncKind._
 import rial.arith._
 

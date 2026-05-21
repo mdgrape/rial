@@ -9,10 +9,10 @@ import scala.math._
 import spire.math.SafeLong
 import spire.implicits._
 
-import rial.funcs._
+import rial.math._
 import rial.util.ScalaUtil._
 import rial.arith._
-import rial.approx._
+import rial.table._
 
 class ExpSimTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
   var n = 10000

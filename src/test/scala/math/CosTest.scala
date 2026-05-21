@@ -13,7 +13,7 @@ import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
 import spire.math.SafeLong
 import spire.implicits._
 
-import rial.funcs._
+import rial.math._
 import rial.funcs.FuncKind._
 import rial.arith._
 import rial.util.ScalaUtil._
