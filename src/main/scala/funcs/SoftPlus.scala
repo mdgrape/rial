@@ -164,7 +164,11 @@ class SoftPlusPostProcess(
   // ---- normalize: leftshift until top bit reaches position calcW ----
   // zShift = (calcW + 1) - binaryWidth(zres)
   //        = leading zeros count of zres (within fracW bits) + 1
-  val zShift = Mux(zres === 0.U, zres.getWidth.U, PriorityEncoder(Reverse(zres))) + 1.U
+  // Use +& so the +1 doesn't overflow when zres == 0 (the all-zero branch
+  // returns `zres.getWidth.U` whose width is log2Up(fracW+1); for fracW that
+  // is a power of two + 1, that width is just log2Up(fracW), and a plain
+  // `+ 1.U` would wrap to 0).
+  val zShift = Mux(zres === 0.U, zres.getWidth.U, PriorityEncoder(Reverse(zres))) +& 1.U
   val zmanW1 = zres << zShift
 
   val zmanW1Rounded = if (extraBits > 0) {
