@@ -343,13 +343,22 @@ object MathFuncConfig {
   )
 
   /** Default FP32 config supporting [[all]] math functions.  Uses
-   *  `defaultSMGSigma` for ScaleMixtureGaussian. */
+   *  `defaultSMGSigma` for ScaleMixtureGaussian.
+   *
+   *  `outBitW = manW + 8` is driven by [[FuncKind.ScaleMixtureGaussian]]:
+   *  with the default sigmas SMG reconstructs the result by multiplying the
+   *  polynomial by ~`2^15`, so fewer extra bits noticeably degrade the SMG
+   *  output (at +3 the SMG result already carries ~8000 ULP of error).  The
+   *  simpler functions (Sqrt / Sin / ...) work at this larger size but their
+   *  ROMs become wider than strictly necessary -- use [[standardFP32]] (or a
+   *  hand-rolled `MathFuncConfig`) when SMG is not needed.
+   */
   val allFP32 = new MathFuncConfig(
     funcs   = all,
     nOrder  = 2,
     addrW   = 8,
     inBitW  = RealSpec.Float32Spec.manW - 8,
-    outBitW = RealSpec.Float32Spec.manW + 3,
+    outBitW = RealSpec.Float32Spec.manW + 8,
     scaleMixtureGaussianSigma = Some(defaultSMGSigma),
   )
   /** Default BF16 config supporting [[all]] math functions.  Uses
