@@ -367,7 +367,9 @@ class MathFunctions(
 
     sincosPre.io.isSin := isSinAtPre
     sincosPre.io.x     := xAtSinCosPre
-    sincosPre.io.prod  := preMul.get.io.out
+
+    sincosPre.io.prod.valid := preMul.get.io.out.valid
+    sincosPre.io.prod.bits  := SinCosPreMulArgs.prod(spec, preMul.get.io.out.bits)
 
     // ----- table -----
     sincosTab.io.adr := sincosPre.io.adr
