@@ -168,4 +168,41 @@ class InvSqrtTest extends AnyFlatSpec
   runtest(RealSpec.BFloat16Spec, bf16Config, simplePipeStage,
     n, "Test Special Values", generateSpecialValues(_,_), invsqrtRefBF16)
 
+  // --------------------------------------------------------------------------
+  // simple config (Sqrt / InvSqrt / Reciprocal only -- no multiplier).
+  // --------------------------------------------------------------------------
+
+  val fp32ConfigSimple     = MathFuncConfig.simpleFP32
+  val invsqrtRefFP32Simple = InvSqrtSimGeneric(fp32ConfigSimple.coeffs(InvSqrt), _)
+
+  runtest(RealSpec.Float32Spec, fp32ConfigSimple, noPipeStage,
+    n, "Test Within (-128,128)", generateRealWithin(128.0,_,_), invsqrtRefFP32Simple)
+  runtest(RealSpec.Float32Spec, fp32ConfigSimple, noPipeStage,
+    n, "Test All range", generateRealFull(_,_), invsqrtRefFP32Simple)
+  runtest(RealSpec.Float32Spec, fp32ConfigSimple, noPipeStage,
+    n, "Test Special Values", generateSpecialValues(_,_), invsqrtRefFP32Simple)
+
+  runtest(RealSpec.Float32Spec, fp32ConfigSimple, complexPipeStage,
+    n, "Test Within (-128,128)", generateRealWithin(128.0,_,_), invsqrtRefFP32Simple)
+  runtest(RealSpec.Float32Spec, fp32ConfigSimple, complexPipeStage,
+    n, "Test All range", generateRealFull(_,_), invsqrtRefFP32Simple)
+  runtest(RealSpec.Float32Spec, fp32ConfigSimple, complexPipeStage,
+    n, "Test Special Values", generateSpecialValues(_,_), invsqrtRefFP32Simple)
+
+  val bf16ConfigSimple     = MathFuncConfig.simpleBF16
+  val invsqrtRefBF16Simple = InvSqrtSimGeneric(bf16ConfigSimple.coeffs(InvSqrt), _)
+
+  runtest(RealSpec.BFloat16Spec, bf16ConfigSimple, noPipeStage,
+    n, "Test Within (-128,128)", generateRealWithin(128.0,_,_), invsqrtRefBF16Simple)
+  runtest(RealSpec.BFloat16Spec, bf16ConfigSimple, noPipeStage,
+    n, "Test All range", generateRealFull(_,_), invsqrtRefBF16Simple)
+  runtest(RealSpec.BFloat16Spec, bf16ConfigSimple, noPipeStage,
+    n, "Test Special Values", generateSpecialValues(_,_), invsqrtRefBF16Simple)
+
+  runtest(RealSpec.BFloat16Spec, bf16ConfigSimple, simplePipeStage,
+    n, "Test Within (-128,128)", generateRealWithin(128.0,_,_), invsqrtRefBF16Simple)
+  runtest(RealSpec.BFloat16Spec, bf16ConfigSimple, simplePipeStage,
+    n, "Test All range", generateRealFull(_,_), invsqrtRefBF16Simple)
+  runtest(RealSpec.BFloat16Spec, bf16ConfigSimple, simplePipeStage,
+    n, "Test Special Values", generateSpecialValues(_,_), invsqrtRefBF16Simple)
 }
