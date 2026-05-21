@@ -117,13 +117,7 @@ class SoftPlusTest extends AnyFlatSpec
   // --------------------------------------------------------------------------
   // FP32
 
-  val fp32Config = new MathFuncConfig(
-    funcs   = Seq(SoftPlus),
-    nOrder  = 2,
-    addrW   = 8,
-    inBitW  = RealSpec.Float32Spec.manW - 8,
-    outBitW = RealSpec.Float32Spec.manW + 2,
-  )
+  val fp32Config = MathFuncConfig.allFP32
 
   val noPipeStage     = new MathFuncPipelineConfig(0, 0, 0, 0, 0, 0)
   val simplePipeStage = new MathFuncPipelineConfig(1, 1, 1, 1, 0, 0)
@@ -151,13 +145,7 @@ class SoftPlusTest extends AnyFlatSpec
   // --------------------------------------------------------------------------
   // BFloat16
 
-  val bf16Config = new MathFuncConfig(
-    funcs   = Seq(SoftPlus),
-    nOrder  = 0,
-    addrW   = RealSpec.BFloat16Spec.manW,
-    inBitW  = 0,
-    outBitW = RealSpec.BFloat16Spec.manW + 1,
-  )
+  val bf16Config = MathFuncConfig.allBF16
 
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,
     n, "Test Within (-128,128)", generateRealWithin(128.0, _, _))

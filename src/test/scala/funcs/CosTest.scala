@@ -112,13 +112,7 @@ class CosTest extends AnyFlatSpec
   // --------------------------------------------------------------------------
   // FP32
 
-  val fp32Config = new MathFuncConfig(
-    funcs   = Seq(Sqrt, InvSqrt, Reciprocal, Sin, Cos),
-    nOrder  = 2,
-    addrW   = 8,
-    inBitW  = RealSpec.Float32Spec.manW - 8,
-    outBitW = RealSpec.Float32Spec.manW + 3,
-  )
+  val fp32Config = MathFuncConfig.standardFP32
   // Use the same merged coefficients the hardware sees, so HW == SW bit-exact.
   val cosRefFP32 = SinCosSimGeneric(false, fp32Config.coeffs(Cos), _: RealGeneric)
 
@@ -150,13 +144,7 @@ class CosTest extends AnyFlatSpec
   // --------------------------------------------------------------------------
   // BFloat16
 
-  val bf16Config = new MathFuncConfig(
-    funcs   = Seq(Sqrt, InvSqrt, Reciprocal, Sin, Cos),
-    nOrder  = 0,
-    addrW   = RealSpec.BFloat16Spec.manW,
-    inBitW  = 0,
-    outBitW = RealSpec.BFloat16Spec.manW,
-  )
+  val bf16Config = MathFuncConfig.standardBF16
   val cosRefBF16 = SinCosSimGeneric(false, bf16Config.coeffs(Cos), _: RealGeneric)
 
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,

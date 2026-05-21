@@ -112,13 +112,7 @@ class LogTest extends AnyFlatSpec
   // --------------------------------------------------------------------------
   // FP32
 
-  val fp32Config = new MathFuncConfig(
-    funcs   = Seq(Sqrt, InvSqrt, Reciprocal, Sin, Cos, Exp, Log),
-    nOrder  = 2,
-    addrW   = 8,
-    inBitW  = RealSpec.Float32Spec.manW - 8,
-    outBitW = RealSpec.Float32Spec.manW + 3,
-  )
+  val fp32Config = MathFuncConfig.standardFP32
   val logRefFP32 = logRef(fp32Config)
 
   val noPipeStage     = new MathFuncPipelineConfig(0, 0, 0, 0, 0, 0)
@@ -163,13 +157,7 @@ class LogTest extends AnyFlatSpec
   // --------------------------------------------------------------------------
   // BFloat16
 
-  val bf16Config = new MathFuncConfig(
-    funcs   = Seq(Sqrt, InvSqrt, Reciprocal, Sin, Cos, Exp, Log),
-    nOrder  = 0,
-    addrW   = RealSpec.BFloat16Spec.manW,
-    inBitW  = 0,
-    outBitW = RealSpec.BFloat16Spec.manW,
-  )
+  val bf16Config = MathFuncConfig.standardBF16
   val logRefBF16 = logRef(bf16Config)
 
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,

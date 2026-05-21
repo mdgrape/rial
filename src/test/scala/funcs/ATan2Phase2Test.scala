@@ -101,13 +101,7 @@ class ATan2Phase2Test extends AnyFlatSpec
   // --------------------------------------------------------------------------
   // FP32
 
-  val fp32Config = new MathFuncConfig(
-    funcs   = Seq(Reciprocal, ATan2Phase1, ATan2Phase2),
-    nOrder  = 2,
-    addrW   = 8,
-    inBitW  = RealSpec.Float32Spec.manW - 8,
-    outBitW = RealSpec.Float32Spec.manW + 3,
-  )
+  val fp32Config = MathFuncConfig.standardFP32
   val refFP32 = fullRef(fp32Config)
 
   val noPipeStage     = new MathFuncPipelineConfig(0, 0, 0, 0, 0, 0)
@@ -138,13 +132,7 @@ class ATan2Phase2Test extends AnyFlatSpec
   // --------------------------------------------------------------------------
   // BFloat16
 
-  val bf16Config = new MathFuncConfig(
-    funcs   = Seq(Reciprocal, ATan2Phase1, ATan2Phase2),
-    nOrder  = 0,
-    addrW   = 7,
-    inBitW  = RealSpec.BFloat16Spec.manW - 7,
-    outBitW = RealSpec.BFloat16Spec.manW + 1,
-  )
+  val bf16Config = MathFuncConfig.standardBF16
   val refBF16 = fullRef(bf16Config)
 
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,

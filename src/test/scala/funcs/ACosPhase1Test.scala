@@ -100,13 +100,7 @@ class ACosPhase1Test extends AnyFlatSpec
   // --------------------------------------------------------------------------
   // FP32
 
-  val fp32Config = new MathFuncConfig(
-    funcs   = Seq(Sqrt, InvSqrt, Reciprocal, ACosPhase1, ACosPhase2),
-    nOrder  = 2,
-    addrW   = 8,
-    inBitW  = RealSpec.Float32Spec.manW - 8,
-    outBitW = RealSpec.Float32Spec.manW + 3,
-  )
+  val fp32Config = MathFuncConfig.standardFP32
   // SW reference uses the SAME (merged) Sqrt coefficients the HW sees.
   val phase1RefFP32 = ACosPhase1SimGeneric(fp32Config.coeffs(Sqrt), _: RealGeneric)
 
@@ -144,13 +138,7 @@ class ACosPhase1Test extends AnyFlatSpec
   // --------------------------------------------------------------------------
   // BFloat16
 
-  val bf16Config = new MathFuncConfig(
-    funcs   = Seq(Sqrt, InvSqrt, Reciprocal, ACosPhase1, ACosPhase2),
-    nOrder  = 0,
-    addrW   = RealSpec.BFloat16Spec.manW,
-    inBitW  = 0,
-    outBitW = RealSpec.BFloat16Spec.manW,
-  )
+  val bf16Config = MathFuncConfig.standardBF16
   val phase1RefBF16 = ACosPhase1SimGeneric(bf16Config.coeffs(Sqrt), _: RealGeneric)
 
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,

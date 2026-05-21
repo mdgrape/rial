@@ -113,13 +113,7 @@ class ACosPhase2Test extends AnyFlatSpec
   // --------------------------------------------------------------------------
   // FP32
 
-  val fp32Config = new MathFuncConfig(
-    funcs   = Seq(Sqrt, InvSqrt, Reciprocal, ACosPhase1, ACosPhase2),
-    nOrder  = 2,
-    addrW   = 8,
-    inBitW  = RealSpec.Float32Spec.manW - 8,
-    outBitW = RealSpec.Float32Spec.manW + 3,
-  )
+  val fp32Config = MathFuncConfig.standardFP32
   val refFP32 = fullRef(fp32Config)
 
   val noPipeStage     = new MathFuncPipelineConfig(0, 0, 0, 0, 0, 0)
@@ -154,13 +148,7 @@ class ACosPhase2Test extends AnyFlatSpec
   // --------------------------------------------------------------------------
   // BFloat16
 
-  val bf16Config = new MathFuncConfig(
-    funcs   = Seq(Sqrt, InvSqrt, Reciprocal, ACosPhase1, ACosPhase2),
-    nOrder  = 0,
-    addrW   = RealSpec.BFloat16Spec.manW,
-    inBitW  = 0,
-    outBitW = RealSpec.BFloat16Spec.manW,
-  )
+  val bf16Config = MathFuncConfig.standardBF16
   val refBF16 = fullRef(bf16Config)
 
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,

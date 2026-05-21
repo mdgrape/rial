@@ -108,14 +108,7 @@ class ScaleMixtureGaussianTest extends AnyFlatSpec
   val sgmA16 = exp(-1.0)
   val sgmB16 = exp(-6.0)
 
-  val fp32Config = new MathFuncConfig(
-    funcs   = Seq(ScaleMixtureGaussian),
-    nOrder  = 2,
-    addrW   = 8,
-    inBitW  = RealSpec.Float32Spec.manW - 8,
-    outBitW = RealSpec.Float32Spec.manW + 8,
-    scaleMixtureGaussianSigma = Some((sgmA16, sgmB16)),
-  )
+  val fp32Config = MathFuncConfig.allFP32
 
   val transitionPointF32 = pow(2.0,
     ScaleMixtureGaussianTable.tableDomainDigit(fp32Config.outBitW, sgmA16, sgmB16))
@@ -145,14 +138,7 @@ class ScaleMixtureGaussianTest extends AnyFlatSpec
   // --------------------------------------------------------------------------
   // BFloat16
 
-  val bf16Config = new MathFuncConfig(
-    funcs   = Seq(ScaleMixtureGaussian),
-    nOrder  = 0,
-    addrW   = RealSpec.BFloat16Spec.manW,
-    inBitW  = 0,
-    outBitW = RealSpec.BFloat16Spec.manW + 10,
-    scaleMixtureGaussianSigma = Some((sgmA16, sgmB16)),
-  )
+  val bf16Config = MathFuncConfig.allBF16
 
   val transitionPointBF16 = pow(2.0,
     ScaleMixtureGaussianTable.tableDomainDigit(bf16Config.outBitW, sgmA16, sgmB16))

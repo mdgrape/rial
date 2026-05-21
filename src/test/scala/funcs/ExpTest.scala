@@ -99,13 +99,7 @@ class ExpTest extends AnyFlatSpec
   // --------------------------------------------------------------------------
   // FP32
 
-  val fp32Config = new MathFuncConfig(
-    funcs   = Seq(Sqrt, InvSqrt, Reciprocal, Sin, Cos, Exp),
-    nOrder  = 2,
-    addrW   = 8,
-    inBitW  = RealSpec.Float32Spec.manW - 8,
-    outBitW = RealSpec.Float32Spec.manW + 3,
-  )
+  val fp32Config = MathFuncConfig.standardFP32
   val expRefFP32 = ExpSimGeneric(fp32Config.coeffs(Exp), _: RealGeneric)
 
   val noPipeStage     = new MathFuncPipelineConfig(0, 0, 0, 0, 0, 0)
@@ -146,13 +140,7 @@ class ExpTest extends AnyFlatSpec
   // --------------------------------------------------------------------------
   // BFloat16
 
-  val bf16Config = new MathFuncConfig(
-    funcs   = Seq(Sqrt, InvSqrt, Reciprocal, Sin, Cos, Exp),
-    nOrder  = 0,
-    addrW   = RealSpec.BFloat16Spec.manW,
-    inBitW  = 0,
-    outBitW = RealSpec.BFloat16Spec.manW,
-  )
+  val bf16Config = MathFuncConfig.standardBF16
   val expRefBF16 = ExpSimGeneric(bf16Config.coeffs(Exp), _: RealGeneric)
 
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,

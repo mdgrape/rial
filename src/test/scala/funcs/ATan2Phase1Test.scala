@@ -88,13 +88,7 @@ class ATan2Phase1Test extends AnyFlatSpec
   // --------------------------------------------------------------------------
   // FP32
 
-  val fp32Config = new MathFuncConfig(
-    funcs   = Seq(Reciprocal, ATan2Phase1, ATan2Phase2),
-    nOrder  = 2,
-    addrW   = 8,
-    inBitW  = RealSpec.Float32Spec.manW - 8,
-    outBitW = RealSpec.Float32Spec.manW + 3,
-  )
+  val fp32Config = MathFuncConfig.standardFP32
   val phase1RefFP32 = (y: RealGeneric, x: RealGeneric) =>
     ATan2Phase1SimGeneric(fp32Config.coeffs(Reciprocal), y, x)
 
@@ -126,13 +120,7 @@ class ATan2Phase1Test extends AnyFlatSpec
   // --------------------------------------------------------------------------
   // BFloat16
 
-  val bf16Config = new MathFuncConfig(
-    funcs   = Seq(Reciprocal, ATan2Phase1, ATan2Phase2),
-    nOrder  = 0,
-    addrW   = 7,
-    inBitW  = RealSpec.BFloat16Spec.manW - 7,
-    outBitW = RealSpec.BFloat16Spec.manW + 1,
-  )
+  val bf16Config = MathFuncConfig.standardBF16
   val phase1RefBF16 = (y: RealGeneric, x: RealGeneric) =>
     ATan2Phase1SimGeneric(bf16Config.coeffs(Reciprocal), y, x)
 

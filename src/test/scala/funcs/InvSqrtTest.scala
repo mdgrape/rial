@@ -119,13 +119,7 @@ class InvSqrtTest extends AnyFlatSpec
   // Test Float32
   // --------------------------------------------------------------------------
 
-  val fp32Config = new MathFuncConfig(
-    funcs   = Seq(Sqrt, InvSqrt, Reciprocal),
-    nOrder  = 2,
-    addrW   = 8,
-    inBitW  = RealSpec.Float32Spec.manW - 8,
-    outBitW = RealSpec.Float32Spec.manW + 3,
-  )
+  val fp32Config = MathFuncConfig.standardFP32
   val invsqrtRefFP32 = InvSqrtSimGeneric(fp32Config.coeffs(InvSqrt), _)
 
   val noPipeStage = new MathFuncPipelineConfig(0,0,0,0)
@@ -157,13 +151,7 @@ class InvSqrtTest extends AnyFlatSpec
   // Test BFloat16
   // --------------------------------------------------------------------------
 
-  val bf16Config = new MathFuncConfig(
-    funcs   = Seq(Sqrt, InvSqrt, Reciprocal),
-    nOrder  = 0,
-    addrW   = RealSpec.BFloat16Spec.manW,
-    inBitW  = 0, // no polynomial, just an addr
-    outBitW = RealSpec.BFloat16Spec.manW,
-  )
+  val bf16Config = MathFuncConfig.standardBF16
   val invsqrtRefBF16 = InvSqrtSimGeneric(bf16Config.coeffs(InvSqrt), _)
 
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,
