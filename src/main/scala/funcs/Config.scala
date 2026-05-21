@@ -353,13 +353,24 @@ object MathFuncConfig {
     scaleMixtureGaussianSigma = Some(defaultSMGSigma),
   )
   /** Default BF16 config supporting [[all]] math functions.  Uses
-   *  `defaultSMGSigma` for ScaleMixtureGaussian. */
+   *  `defaultSMGSigma` for ScaleMixtureGaussian.
+   *
+   *  `outBitW = manW + 10` is driven by [[FuncKind.SoftPlus]] and
+   *  [[FuncKind.ScaleMixtureGaussian]]: with the default sigmas SMG
+   *  reconstructs the result by multiplying the polynomial by ~`2^15`, so
+   *  fewer than ~10 extra bits collapses the SMG output entirely.  SoftPlus
+   *  similarly needs ~1 BF16 ULP of headroom because its output range reaches
+   *  the table's `rangeMax`.  The simpler functions (Sqrt / Sin / ...) still
+   *  work at this larger size but their ROMs become wider than strictly
+   *  necessary -- use [[standardBF16]] (or a hand-rolled `MathFuncConfig`)
+   *  when SMG/SoftPlus are not needed and the extra precision is wasted area.
+   */
   val allBF16 = new MathFuncConfig(
     funcs   = all,
     nOrder  = 0,
     addrW   = RealSpec.BFloat16Spec.manW,
     inBitW  = 0,
-    outBitW = RealSpec.BFloat16Spec.manW + 1,
+    outBitW = RealSpec.BFloat16Spec.manW + 10,
     scaleMixtureGaussianSigma = Some(defaultSMGSigma),
   )
 }
