@@ -20,7 +20,7 @@ import scala.math._
 import spire.math.SafeLong
 import spire.implicits._
 
-import rial.approx._
+import rial.table._
 
 import rial.util._
 import rial.util.ScalaUtil._

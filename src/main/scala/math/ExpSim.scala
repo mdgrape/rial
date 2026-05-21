@@ -24,7 +24,7 @@ import spire.math.SafeLong
 import spire.math.Real
 import spire.implicits._
 
-import rial.approx._
+import rial.table._
 
 import rial.util._
 import rial.util.ScalaUtil._

@@ -20,7 +20,7 @@ import spire.implicits._
 import chisel3._
 import chisel3.util._
 
-import rial.approx._
+import rial.table._
 import rial.arith.{RealSpec, RealGeneric}
 import rial.util.RialChiselUtil._
 import rial.util.ScalaUtil._

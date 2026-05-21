@@ -8,7 +8,7 @@ package rial.math
 import chisel3._
 import chisel3.util._
 
-import rial.approx._
+import rial.table._
 import rial.arith.RealSpec
 import rial.util.PipelineStageConfig
 
