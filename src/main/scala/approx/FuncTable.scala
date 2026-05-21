@@ -4,13 +4,14 @@ import scala.math._
 import scala.collection.mutable.{ArrayBuffer, ArraySeq}
 
 class FuncTable(
-  f: Double => Double,
+  // order must be the same for all the intervals (polynomial part is shared)
   val nOrder: Int,
 ) {
   val intervals = new ArrayBuffer[FuncTableInterval]
 
   // sometimes, we need to split the domain of the target function
   def addInterval(
+    f: Double => Double,
     xMin: Double,
     xMax: Double
   ) = {
@@ -22,6 +23,7 @@ class FuncTable(
   }
 
   def addEqualInterval(
+    f: Double => Double,
     nIntervals: Int,
     xMin: Double,
     xMax: Double
@@ -30,20 +32,22 @@ class FuncTable(
     for(i <- 0 until nIntervals) {
       val xMinLocal = xMin + intervalW *  i
       val xMaxLocal = xMin + intervalW * (i+1)
-      addInterval(xMinLocal, xMaxLocal)
+      addInterval(f, xMinLocal, xMaxLocal)
     }
   }
 
-  def eval(x: Double, n: Int = nOrder): Double = {
+  def eval(x: Double, hornerStep: Int = nOrder): Double = {
     intervals.find(iv => {
       iv.inRange(x)
     }).map( iv => {
-      iv.eval(iv.mapToDomain(x), n)
+      iv.eval(iv.mapToDomain(x), hornerStep)
     }).getOrElse(Double.NaN)
   }
 }
 
 private[rial] object FuncTable {
+
+  // generate evenly-splitted function tables
   def apply(
     f: Double => Double,
     nOrder: Int,
@@ -51,8 +55,8 @@ private[rial] object FuncTable {
     xMin: Double,
     xMax: Double,
   ): FuncTable = {
-    val t = new FuncTable(f, nOrder)
-    t.addEqualInterval(nIntervals, xMin, xMax)
+    val t = new FuncTable(nOrder)
+    t.addEqualInterval(f, nIntervals, xMin, xMax)
     t
   }
 }
@@ -75,15 +79,16 @@ private[rial] class FuncTableInterval(
     (x - xMin) * rwidth * 2.0 - 1.0
   }
 
-  // polynomial coefficient!
-  //
-  // For nOrder == 0 we skip the Chebyshev fit and just take f at the left
-  // endpoint (t = -1, i.e. x = xMin).
-  // Since, in case of nOrder==0, the hardware uses its whole mantissa as the
-  // key of the table and that corresponds to the xMin(= -1.0 for chebyshev).
   val coeffs: Seq[Double] = if (nOrder == 0) {
+
+    // For nOrder == 0 we skip the Chebyshev fit and just take f at the left
+    // endpoint (t = -1, i.e. x = xMin).
+    // Since, in case of nOrder==0, the hardware uses its whole mantissa as the
+    // key of the table and that corresponds to the xMin(= -1.0 for chebyshev).
     Seq(f(-1.0))
+
   } else {
+    // do interpolation
     val chebyshev = new Chebyshev(nOrder)
     val nodes = chebyshev.nodes()
     val funcs = nodes.map(x => f(x))
@@ -96,7 +101,8 @@ private[rial] class FuncTableInterval(
         funcs(j) * chebyshev(i, nodes(j))
       }).sum / (nOrder+1) * orderTerm
     }
-    // convert to polynomial coeff
+
+    // convert weights to polynomial coeff
     (0 to nOrder).map(i => {
       (0 to nOrder).map(j => {
         ks(j) * chebyshev.coeffs(j)(i)
