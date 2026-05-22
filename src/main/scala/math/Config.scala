@@ -5,7 +5,6 @@ import chisel3.util._
 
 import rial.arith.RealSpec
 import rial.util.PipelineStageConfig
-import rial.funcs._
 
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.math.exp
