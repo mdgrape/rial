@@ -153,7 +153,7 @@ class GenRandomGaussian(
   val postMan  = Pipe(rnd.valid, xman, polynomialStage)
 
   // page=1
-  val scaleTable = VecInit(table.scaleTable.map(_.U(spec.W.W)))
+  val scaleTable = VecInit(table.scaleTable.map(_.U(spec.W.W)).toSeq)
   val scale      = scaleTable(postAddr.bits)
   val scaleEx    = scale(spec.manW+spec.exW-1, spec.manW)
   val scaleMan   = scale(spec.manW-1, 0)

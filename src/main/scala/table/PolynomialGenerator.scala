@@ -145,7 +145,7 @@ class PolynomialGenerator(
 
           bits.max(minVal).min(maxVal)
         }}
-      })
+      }).toSeq
     )
   }
 }
