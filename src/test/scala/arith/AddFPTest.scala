@@ -1,26 +1,21 @@
-
 package rial.tests
 
 import org.scalatest._
+import org.scalatest.funspec.AnyFunSpec
 
 import chisel3._
-import chisel3.experimental.BundleLiterals._
-import chiseltest._
+import chisel3.util._
+import chisel3.simulator.scalatest.ChiselSim
+import chisel3.simulator.scalatest.Cli.EmitVcd
 
-
-
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
 import rial.arith._
 import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig
 import rial.util.DebugControlMaster
 
-import scala.util.Random
 import scala.math._
+import scala.util.Random
 import scala.collection.mutable.Queue
-import scala.language.reflectiveCalls
 
 import spire.math.SafeLong
 import spire.implicits._
@@ -28,19 +23,9 @@ import spire.implicits._
 //
 // Testing FP Adder
 //
-
-class AddFPTest extends AnyFlatSpec
-    with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
-
-  behavior of "Test x+y"
+class AddFPTest extends AnyFunSpec with ChiselSim with EmitVcd {
 
   var n = 1000
-
-  override def beforeAll(configMap: ConfigMap) = {
-    n = configMap.getOptional[String]("n").getOrElse("1000").toInt
-    println(s"ncycle=$n")
-  }
-
   val r = new Random(19660809)
 
   def generateRealWithin( p : Double, spec: RealSpec, r : Random ) = {
@@ -75,7 +60,7 @@ class AddFPTest extends AnyFlatSpec
 
   def generateRealSmallDifferencePair ( p : Double, xSpec: RealSpec, ySpec: RealSpec, r : Random ) = {
     val x = generateRealWithin( p, xSpec, r )
-    val coef = ((r.nextDouble) * 3.0 + 1.0) / 2.0 // [0,1) -> [0,3) -> [1,4) -> [1/2, 2)
+    val coef = ((r.nextDouble()) * 3.0 + 1.0) / 2.0 // [0,1) -> [0,3) -> [1,4) -> [1/2, 2)
     val yd = -1 * x.toDouble * coef
 
     (x, new RealGeneric(ySpec, yd))
@@ -96,10 +81,9 @@ class AddFPTest extends AnyFlatSpec
 
   def addTest(xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, roundSpec : RoundSpec,
     n : Int, stage : PipelineStageConfig ) = {
-    test(new AddFPGeneric( xSpec, ySpec, zSpec, roundSpec, stage, true ) with DebugControlMaster) { c =>
+    simulate(new AddFPGeneric( xSpec, ySpec, zSpec, roundSpec, stage, true ) with DebugControlMaster ) { c =>
       {
         c.debugEnableIO.poke(false.B)
-
         var q  = new Queue[(BigInt,BigInt,BigInt)]
         val nstage = c.getStage
         for (gen <- List(
@@ -133,7 +117,7 @@ class AddFPTest extends AnyFlatSpec
                 c.io.x.poke(xid.U(xSpec.W.W))
                 c.io.y.poke(yid.U(ySpec.W.W))
                 for(i <- 1 to nstage) c.clock.step(1)
-                c.debugEnableIO.poke(true.B)
+                c.debugEnableIO.poke(false.B)
                 c.clock.step(1)
               }
 
@@ -166,22 +150,22 @@ class AddFPTest extends AnyFlatSpec
     }
   }
 
-  it should f"Add Double with pipereg 0" in {
-    addTest( RealSpec.Float64Spec, RealSpec.Float64Spec, RealSpec.Float64Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none)
+  describe("Test x+y") {
+    it(f"Add Double with pipereg 0") {
+      addTest( RealSpec.Float64Spec, RealSpec.Float64Spec, RealSpec.Float64Spec,
+        RoundSpec.roundToEven, n, PipelineStageConfig.none)
+    }
+    it(f"Add Float with pipereg 0") {
+      addTest( RealSpec.Float32Spec, RealSpec.Float32Spec, RealSpec.Float32Spec,
+        RoundSpec.roundToEven, n, PipelineStageConfig.none)
+    }
+    it(f"Add Float+Double=Double with pipereg 0") {
+      addTest( RealSpec.Float32Spec, RealSpec.Float64Spec, RealSpec.Float64Spec,
+        RoundSpec.roundToEven, n, PipelineStageConfig.none)
+    }
+    it(f"Add Double+Float=Double with pipereg 0") {
+      addTest( RealSpec.Float64Spec, RealSpec.Float32Spec, RealSpec.Float64Spec,
+        RoundSpec.roundToEven, n, PipelineStageConfig.none)
+    }
   }
-  it should f"Add Float with pipereg 0" in {
-    addTest( RealSpec.Float32Spec, RealSpec.Float32Spec, RealSpec.Float32Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none)
-  }
-  it should f"Add Float+Double=Double with pipereg 0" in {
-    addTest( RealSpec.Float32Spec, RealSpec.Float64Spec, RealSpec.Float64Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none)
-  }
-  it should f"Add Double+Float=Double with pipereg 0" in {
-    addTest( RealSpec.Float64Spec, RealSpec.Float32Spec, RealSpec.Float64Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none)
-  }
-
 }
-

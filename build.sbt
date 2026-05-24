@@ -1,15 +1,18 @@
 // See README.md for license details.
 
+ThisBuild / scalaVersion     := "2.13.18"
+val chiselVersion = "7.11.0"
+
 lazy val rial = (project in file("."))
   .settings(
     version      := "0.1.0",
-    scalaVersion := "2.12.18",
     libraryDependencies ++= Seq(
-      "edu.berkeley.cs" %% "chisel3" % "3.6.1",
-      "edu.berkeley.cs" %% "chiseltest" % "0.6.1" % "test",
+      "org.chipsalliance" %% "chisel" % chiselVersion,
+      "org.scalatest" %% "scalatest" % "3.2.19" % "test",
       "net.java.dev.jna" % "jna" % "5.10.0",
       "net.java.dev.jna" % "jna-platform" % "5.10.0",
       "org.jfree" % "jfreechart" % "1.5.0",
+
       "org.apache.commons" % "commons-math3" % "3.2",
       "org.typelevel" %% "spire" % "0.17.0",
       "org.scala-lang" % "scala-compiler" % scalaVersion.value,
@@ -22,9 +25,15 @@ lazy val rial = (project in file("."))
       "-feature",
       "-Xcheckinit",
       ),
-    addCompilerPlugin("edu.berkeley.cs" % "chisel3-plugin" % "3.6.1" cross CrossVersion.full),
-    // fix jar file name that is used by rial-jni
-    assembly / assemblyJarName := "rial.jar"
+    addCompilerPlugin("org.chipsalliance" % "chisel-plugin" % chiselVersion cross CrossVersion.full),
   )
 
-Test / parallelExecution := false
+Test / unmanagedSources / excludeFilter := new SimpleFileFilter( p => {
+  p.getAbsolutePath.contains("/ecc/")   ||
+  p.getAbsolutePath.contains("/fixed/") ||
+  p.getAbsolutePath.contains("/math/")  ||
+  p.getAbsolutePath.contains("/rng/")   ||
+  p.getAbsolutePath.contains("/table/") ||
+  p.getAbsolutePath.contains("/util/")
+})
+

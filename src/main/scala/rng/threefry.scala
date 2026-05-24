@@ -247,15 +247,6 @@ class Threefry4_32(
   io.output.rand  := x(r)
 }
 
-/** Threefry4_32 generator.
- *
- * @see [[rial.rng.Threefry4_32]]
- */
-object Threefry4_32Driver extends App {
-  (new chisel3.stage.ChiselStage).execute(args,
-      Seq(chisel3.stage.ChiselGeneratorAnnotation(() => new Threefry4_32(20,2)))
-    )
-}
 
 class ThreefrySim(
   val round: Int       = 20,

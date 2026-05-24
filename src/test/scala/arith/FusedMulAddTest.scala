@@ -1,24 +1,21 @@
 package rial.tests
 
 import org.scalatest._
+import org.scalatest.funspec.AnyFunSpec
 
 import chisel3._
-import chisel3.experimental.BundleLiterals._
-import chiseltest._
-import chiseltest.VerilatorBackendAnnotation
+import chisel3.util._
+import chisel3.simulator.scalatest.ChiselSim
+import chisel3.simulator.scalatest.Cli.EmitVcd
 
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
 import rial.arith._
 import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig
 import rial.util.DebugControlMaster
 
-import scala.util.Random
 import scala.math._
+import scala.util.Random
 import scala.collection.mutable.Queue
-import scala.language.reflectiveCalls
 
 import spire.math.SafeLong
 import spire.implicits._
@@ -26,19 +23,9 @@ import spire.implicits._
 //
 // Testing FP FMA
 //
-
-class FMAFPTest extends AnyFlatSpec
-    with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
-
-  behavior of "Test w=x*y+z"
+class FMAFPTest extends AnyFunSpec with ChiselSim with EmitVcd {
 
   var n = 1000
-
-  override def beforeAll(configMap: ConfigMap) = {
-    n = configMap.getOptional[String]("n").getOrElse("1000").toInt
-    println(s"ncycle=$n")
-  }
-
   val r = new Random(19660809)
 
   def generateRealWithin( p : Double, spec: RealSpec, r : Random ) = {
@@ -146,8 +133,7 @@ class FMAFPTest extends AnyFlatSpec
 
   def fmaTest(xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, wSpec : RealSpec,
     roundSpec : RoundSpec, n : Int, stage : PipelineStageConfig ) = {
-    test(new FusedMulAddFPGeneric( xSpec, ySpec, zSpec, wSpec, roundSpec, stage, true ) with DebugControlMaster).
-    withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
+    simulate(new FusedMulAddFPGeneric( xSpec, ySpec, zSpec, wSpec, roundSpec, stage, true ) with DebugControlMaster) { c =>
       {
         c.debugEnableIO.poke(false.B)
 
@@ -211,13 +197,15 @@ class FMAFPTest extends AnyFlatSpec
     }
   }
 
-  it should f"FMA float32 with pipereg 0" in {
-    fmaTest( RealSpec.Float32Spec, RealSpec.Float32Spec, RealSpec.Float32Spec, RealSpec.Float32Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none)
-  }
-  it should f"FMA float64 with pipereg 0" in {
-    fmaTest( RealSpec.Float64Spec, RealSpec.Float64Spec, RealSpec.Float64Spec, RealSpec.Float64Spec,
-      RoundSpec.roundToEven, n, PipelineStageConfig.none)
+  describe("Test x*y+z") {
+    it(f"FMA float32 with pipereg 0") {
+      fmaTest( RealSpec.Float32Spec, RealSpec.Float32Spec, RealSpec.Float32Spec, RealSpec.Float32Spec,
+        RoundSpec.roundToEven, n, PipelineStageConfig.none)
+    }
+    it(f"FMA float64 with pipereg 0") {
+      fmaTest( RealSpec.Float64Spec, RealSpec.Float64Spec, RealSpec.Float64Spec, RealSpec.Float64Spec,
+        RoundSpec.roundToEven, n, PipelineStageConfig.none)
+    }
   }
 }
 
