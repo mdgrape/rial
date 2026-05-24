@@ -128,8 +128,8 @@ object ExpSimGeneric {
     // determine widths
 
     val log2 = (a: Double) => { log(a) / log(2.0) }
-    val xExOvfLimit = scala.math.ceil(log2(maskL(exW) - exBias)).toInt // e.g. 7 for FP32
-    val xExUdfLimit = scala.math.ceil(log2(abs(0 - exBias))).toInt     // e.g. 7 for FP32
+    val xExOvfLimit = scala.math.ceil(log2( (maskL(exW) - exBias).toDouble )).toInt // e.g. 7 for FP32
+    val xExUdfLimit = scala.math.ceil(log2( (abs(0 - exBias)).toDouble     )).toInt // e.g. 7 for FP32
 
     val xIntW    = max(xExOvfLimit, xExUdfLimit).toInt
     val padding  = extraBits
