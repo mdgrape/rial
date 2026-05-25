@@ -10,7 +10,10 @@ import java.nio._
  */
 object crial {
 
-  val lib = NativeLibrary.getInstance("./lib/libcrial.so")
+  // Resolve the platform-specific name (libcrial.so / libcrial.dylib / crial.dll)
+  // from ./lib, instead of hardcoding the ".so" suffix.
+  NativeLibrary.addSearchPath("crial", "./lib")
+  val lib = NativeLibrary.getInstance("crial")
 
   val mdg_threefry4x32_init=lib.getFunction("mdg_threefry4x32_init");
   def threefry4x32_init(ctr: Array[Int], key: Array[Int]) : Pointer = {
