@@ -9,12 +9,15 @@ import chisel3._
 import chisel3.util._
 import chisel3.simulator.scalatest.ChiselSim
 import chisel3.simulator.scalatest.Cli.EmitVcd
+import chisel3.simulator.scalatest.HasCliOptions.CliOption
 
 import scala.collection.mutable.{Queue, ArrayBuffer}
 import scala.util.Random
 import scala.math._
 
 class CRC16Test extends AnyFunSpec with ChiselSim with EmitVcd {
+
+  addOption(CliOption.int("n", "number of test cases (default 1000)"))
 
   // use the simplest approach because it is the reference
   def crc16Soft(data: Seq[Int]): Int = {
@@ -39,8 +42,9 @@ class CRC16Test extends AnyFunSpec with ChiselSim with EmitVcd {
     x.toInt
   }
 
-  def runtest(dlen: Int, n: Int, seed: Int) = {
+  def runtest(dlen: Int, seed: Int) = {
     it(f"CRC16(g=0x18005, w=16)") {
+      val n = getOption[Int]("n").getOrElse(1000)
       simulate(new CRCcore(0x18005, 16)) {
         c => {
           val rng = new Random(seed)
@@ -76,6 +80,6 @@ class CRC16Test extends AnyFunSpec with ChiselSim with EmitVcd {
   }
 
   describe("CRC-16(g=0x18005) result compared to software impl") {
-    runtest(4, 1000, 123456789)
+    runtest(4, 123456789)
   }
 }

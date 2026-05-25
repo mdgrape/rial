@@ -9,12 +9,15 @@ import chisel3._
 import chisel3.util._
 import chisel3.simulator.scalatest.ChiselSim
 import chisel3.simulator.scalatest.Cli.EmitVcd
+import chisel3.simulator.scalatest.HasCliOptions.CliOption
 
 import scala.collection.mutable.{Queue, ArrayBuffer}
 import scala.util.Random
 import scala.math._
 
 class FletchersChecksumTest extends AnyFunSpec with ChiselSim with EmitVcd {
+
+  addOption(CliOption.int("n", "number of test cases (default 1000)"))
 
   // Ai = Ai-1 + di
   // Bi = Bi-1 + Ai
@@ -36,8 +39,9 @@ class FletchersChecksumTest extends AnyFunSpec with ChiselSim with EmitVcd {
     (bmod << 8) + amod
   }
 
-  def runtest(dataW: Int, latency: Int, n: Int, seed: Int) = {
+  def runtest(dataW: Int, latency: Int, seed: Int) = {
     it(f"Fletcher16(dataW=${dataW}, latency=${latency})") {
+      val n = getOption[Int]("n").getOrElse(1000)
       simulate(new Fletcher(16, dataW, latency)) {
         c => {
           val rng = new Random(seed)
@@ -70,16 +74,16 @@ class FletchersChecksumTest extends AnyFunSpec with ChiselSim with EmitVcd {
   }
 
   describe("Fletcher's checksum compared to software impl") {
-    runtest( 32, 0, 1000, 123456789)
-    runtest( 32, 1, 1000, 123456789)
-    runtest( 32, 2, 1000, 123456789)
+    runtest( 32, 0, 123456789)
+    runtest( 32, 1, 123456789)
+    runtest( 32, 2, 123456789)
 
-    runtest( 64, 0, 1000, 123456789)
-    runtest( 64, 1, 1000, 123456789)
-    runtest( 64, 2, 1000, 123456789)
+    runtest( 64, 0, 123456789)
+    runtest( 64, 1, 123456789)
+    runtest( 64, 2, 123456789)
 
-    runtest(128, 0, 1000, 123456789)
-    runtest(128, 1, 1000, 123456789)
-    runtest(128, 2, 1000, 123456789)
+    runtest(128, 0, 123456789)
+    runtest(128, 1, 123456789)
+    runtest(128, 2, 123456789)
   }
 }
