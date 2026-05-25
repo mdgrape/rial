@@ -15,7 +15,7 @@ import rial.util._
 import rial.util.RialChiselUtil._
 import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig._
-import rial.util.DebugControlSlave
+import rial.util.DebugControl
 
 /** Generic Floating-Point Adder.
  *
@@ -59,7 +59,7 @@ class AddFPGeneric(
   stage : PipelineStageConfig,
   val enableDebug : Boolean = false,
   val useParallelLZA : Boolean = false
-) extends Module with DebugControlSlave {
+) extends Module with DebugControl {
 
   val nStage = stage.total
 

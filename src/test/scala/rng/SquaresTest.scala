@@ -17,7 +17,6 @@ import org.scalatest.funspec.AnyFunSpec
 
 import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig
-import rial.util.DebugControlMaster
 import rial.rng._
 
 class SquaresTest extends AnyFunSpec

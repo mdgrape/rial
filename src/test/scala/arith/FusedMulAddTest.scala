@@ -12,7 +12,6 @@ import chisel3.simulator.scalatest.HasCliOptions.CliOption
 import rial.arith._
 import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig
-import rial.util.DebugControlMaster
 
 import scala.math._
 import scala.util.Random
@@ -135,9 +134,9 @@ class FMAFPTest extends AnyFunSpec with ChiselSim with EmitVcd {
 
   def fmaTest(xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, wSpec : RealSpec,
     roundSpec : RoundSpec, n : Int, stage : PipelineStageConfig ) = {
-    simulate(new FusedMulAddFPGeneric( xSpec, ySpec, zSpec, wSpec, roundSpec, stage, true ) with DebugControlMaster) { c =>
+    simulate(new FusedMulAddFPGeneric( xSpec, ySpec, zSpec, wSpec, roundSpec, stage, true )) { c =>
       {
-        c.debugEnableIO.poke(false.B)
+        c.debugEnableIO.get.poke(false.B)
 
         var q  = new Queue[(BigInt,BigInt,BigInt,BigInt)]
         val nstage = c.getStage
@@ -179,7 +178,7 @@ class FMAFPTest extends AnyFunSpec with ChiselSim with EmitVcd {
                 c.io.y.poke(yid.U(ySpec.W.W))
                 c.io.z.poke(zid.U(zSpec.W.W))
                 for(i <- 1 to nstage) c.clock.step(1)
-                c.debugEnableIO.poke(true.B)
+                c.debugEnableIO.get.poke(true.B)
                 c.clock.step(1)
               }
 

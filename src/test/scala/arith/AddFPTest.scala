@@ -12,7 +12,6 @@ import chisel3.simulator.scalatest.HasCliOptions.CliOption
 import rial.arith._
 import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig
-import rial.util.DebugControlMaster
 
 import scala.math._
 import scala.util.Random
@@ -83,9 +82,9 @@ class AddFPTest extends AnyFunSpec with ChiselSim with EmitVcd {
 
   def addTest(xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, roundSpec : RoundSpec,
     n : Int, stage : PipelineStageConfig ) = {
-    simulate(new AddFPGeneric( xSpec, ySpec, zSpec, roundSpec, stage, true ) with DebugControlMaster ) { c =>
+    simulate(new AddFPGeneric( xSpec, ySpec, zSpec, roundSpec, stage, true ) ) { c =>
       {
-        c.debugEnableIO.poke(false.B)
+        c.debugEnableIO.get.poke(false.B)
         var q  = new Queue[(BigInt,BigInt,BigInt)]
         val nstage = c.getStage
         for (gen <- List(
@@ -119,7 +118,7 @@ class AddFPTest extends AnyFunSpec with ChiselSim with EmitVcd {
                 c.io.x.poke(xid.U(xSpec.W.W))
                 c.io.y.poke(yid.U(ySpec.W.W))
                 for(i <- 1 to nstage) c.clock.step(1)
-                c.debugEnableIO.poke(false.B)
+                c.debugEnableIO.get.poke(false.B)
                 c.clock.step(1)
               }
 

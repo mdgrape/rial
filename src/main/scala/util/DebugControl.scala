@@ -1,38 +1,32 @@
-//% @file DynamicDebug.scala
+//% @file DebugControl.scala
 //
-// Dynamic Debug Control
+// Dynamic Debug Control.
+//
+// Mix `DebugControl` into a Module to get an optional run-time debug-enable
+// input plus a guarded `dbgPrintf`. The enable port (and the printf hardware)
+// exist only when `enableDebug` is true, so a non-debug build carries no extra
+// logic. Whoever owns the module -- a test, or a parent that threads its own
+// enable down -- drives `debugEnableIO` directly. No cross-module boring, so no
+// dependency on the (deprecated) BoringUtils name-based API.
+//
 // Copyright (C) Makoto Taiji RIKEN BDR 2020
 //
 package rial.util
 
-import scala.language.reflectiveCalls
 import chisel3._
 import chisel3.util._
-import chisel3.util._
-import chisel3.util.experimental.BoringUtils
 
-trait DebugControlMaster extends Module {
-
-  val debugEnableIO = IO(Input(Bool()))
-
-  BoringUtils.addSource( debugEnableIO, "GlobalDebugEnable" )
-  
-}
-
-trait DebugControlSlave {
+trait DebugControl extends Module {
   val enableDebug : Boolean
 
-  val globalDynamicDebugEnable = Wire(Bool())
-  globalDynamicDebugEnable := false.B
-  if (enableDebug)
-    BoringUtils.addSink( globalDynamicDebugEnable, "GlobalDebugEnable" )
+  val debugEnableIO : Option[Bool] =
+    if (enableDebug) Some(IO(Input(Bool())).suggestName("debugEnableIO")) else None
 
-  def dbgPrintf( fmt : String, data : Bits* ) = {
+  def dbgPrintf( fmt : String, data : Bits* ) : Unit = {
     if (enableDebug) {
-      when (globalDynamicDebugEnable) {
+      when (debugEnableIO.get) {
         printf(fmt, data : _*)
       }
     }
   }
-
 }

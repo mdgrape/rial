@@ -15,7 +15,7 @@ import rial.util._
 import rial.util.RialChiselUtil._
 import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig._
-import rial.util.DebugControlSlave
+import rial.util.DebugControl
 
 /** Generic Floating-Point Fused Multiply-Adder.
  *
@@ -54,7 +54,7 @@ class FusedMulAddFPGeneric(
   roundSpec : RoundSpec,
   stage : PipelineStageConfig,
   val enableDebug : Boolean = false
-) extends Module with DebugControlSlave {
+) extends Module with DebugControl {
 
   val nStage = stage.total
 
