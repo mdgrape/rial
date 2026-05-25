@@ -6,6 +6,7 @@ import org.scalatest.funspec.AnyFunSpec
 import chisel3._
 import chisel3.simulator.scalatest.ChiselSim
 import chisel3.simulator.scalatest.Cli.EmitVcd
+import chisel3.simulator.scalatest.HasCliOptions.CliOption
 
 import rial.arith._
 import rial.fixed._
@@ -25,7 +26,8 @@ import spire.implicits._
 
 class ScaledFixedToFloatTest extends AnyFunSpec with ChiselSim with EmitVcd {
 
-  var n = 10000
+  addOption(CliOption.int("n", "number of test cases (default 10000)"))
+  def n: Int = getOption[Int]("n").getOrElse(10000)
   val r = new Random(123456789)
 
   def generateRealWithin( p : Double, spec: RealSpec, r : Random ) = {
