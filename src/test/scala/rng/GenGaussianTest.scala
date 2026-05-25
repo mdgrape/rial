@@ -3,12 +3,11 @@ package rial.tests
 import org.scalatest._
 
 import chisel3._
-import chiseltest._
-import chiseltest.VerilatorBackendAnnotation
+import chisel3.simulator.scalatest.ChiselSim
+import chisel3.simulator.scalatest.Cli.EmitVcd
+import chisel3.simulator.scalatest.HasCliOptions.CliOption
 
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
+import org.scalatest.funspec.AnyFunSpec
 
 import org.apache.commons.math3.special.Erf
 
@@ -27,17 +26,12 @@ import scala.math._
 import scala.collection.mutable.Queue
 import scala.language.reflectiveCalls
 
-class GenGaussianTest extends AnyFlatSpec
-    with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
+class GenGaussianTest extends AnyFunSpec
+    with ChiselSim with EmitVcd {
 
-  behavior of "Test normal distribution, mean = 0, stddev = 1"
 
-  var n = 100000
-
-  override def beforeAll(configMap: ConfigMap) = {
-    n = configMap.getOptional[String]("n").getOrElse("100000").toInt
-    println(s"ncycle=$n")
-  }
+  addOption(CliOption.int("n", "number of test cases (default 100000)"))
+  def n: Int = getOption[Int]("n").getOrElse(100000)
 
   // Use SplittableRandom rather than scala.util.Random (java.util.Random, a
   // 48-bit LCG): the LCG correlates the two 32-bit halves of each 64-bit draw,
@@ -54,9 +48,8 @@ class GenGaussianTest extends AnyFlatSpec
     polyStage: Int,
     mulStage: Int,
   ) = {
-    it should f"GenGaussian(x) chi^2 w/ ${spec.toStringShort}, stage=(${polyStage}, ${mulStage})" in {
-      test( new GenRandomGaussian(rndW, spec, nOrder, polyStage, mulStage)).
-        withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
+    it(f"GenGaussian(x) chi^2 w/ ${spec.toStringShort}, stage=(${polyStage}, ${mulStage})") {
+      simulate(new GenRandomGaussian(rndW, spec, nOrder, polyStage, mulStage)) { c =>
         {
           val zs = scala.collection.mutable.ArrayBuffer.empty[Double]
 

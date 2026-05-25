@@ -5,10 +5,10 @@ import org.scalatest._
 import chisel3._
 import chisel3.experimental.BundleLiterals._
 import chisel3.util._
-import chiseltest._
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
+import chisel3.simulator.scalatest.ChiselSim
+import chisel3.simulator.scalatest.Cli.EmitVcd
+import chisel3.simulator.scalatest.HasCliOptions.CliOption
+import org.scalatest.funspec.AnyFunSpec
 
 import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig
@@ -24,20 +24,15 @@ import scala.language.reflectiveCalls
 
 import crial._
 
-class ThreefryTest extends AnyFlatSpec
-  with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
+class ThreefryTest extends AnyFunSpec
+  with ChiselSim with EmitVcd {
 
-  behavior of "Test Threefry"
 
-  var n = 1000
-
-  override def beforeAll(configMap: ConfigMap) = {
-    n = configMap.getOptional[String]("n").getOrElse("1000").toInt
-    println(s"ncycle=$n")
-  }
+  addOption(CliOption.int("n", "number of test cases (default 1000)"))
+  def n: Int = getOption[Int]("n").getOrElse(1000)
 
   def runTest(r: Int, rotStage: Int) = {
-    test(new Threefry4_32(r, rotStage)) {
+    simulate(new Threefry4_32(r, rotStage)) {
       c => {
         val (r, rotStage) = c.getParam
         println(f"Threefry4_32 parameters rotation=$r%d stage between rotation=$rotStage%d, nStage = ${c.nStage}")
@@ -87,7 +82,7 @@ class ThreefryTest extends AnyFlatSpec
     }
   }
 
-  it should "Threefry should be equal to crial C impl" in {
+  it("Threefry should be equal to crial C impl") {
     runTest(20, 0)
     runTest(20, 20)
     runTest(20, 10)
@@ -97,20 +92,15 @@ class ThreefryTest extends AnyFlatSpec
   }
 }
 
-class ThreefrySimTest extends AnyFlatSpec
-  with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
+class ThreefrySimTest extends AnyFunSpec
+  with ChiselSim with EmitVcd {
 
-  behavior of "Test Threefry software impl"
 
-  var n = 1000
-
-  override def beforeAll(configMap: ConfigMap) = {
-    n = configMap.getOptional[String]("n").getOrElse("1000").toInt
-    println(s"ncycle=$n")
-  }
+  addOption(CliOption.int("n", "number of test cases (default 1000)"))
+  def n: Int = getOption[Int]("n").getOrElse(1000)
 
   def runTest(r: Int, rotStage: Int) = {
-    test(new Threefry4_32(r, rotStage)) {
+    simulate(new Threefry4_32(r, rotStage)) {
       c => {
         val (r, rotStage) = c.getParam
         println(f"Threefry4_32 parameters rotation=$r%d stage between rotation=$rotStage%d, nStage = ${c.nStage}")
@@ -157,7 +147,7 @@ class ThreefrySimTest extends AnyFlatSpec
     }
   }
 
-  it should "Threefry should be equal to software impl" in {
+  it("Threefry should be equal to software impl") {
     runTest(20, 0)
     // runTest(20, 20)
     // runTest(20, 10)
@@ -168,20 +158,15 @@ class ThreefrySimTest extends AnyFlatSpec
 }
 
 // test of wrapper
-class ThreefryGeneratorTest extends AnyFlatSpec
-  with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
+class ThreefryGeneratorTest extends AnyFunSpec
+  with ChiselSim with EmitVcd {
 
-  behavior of "Test ThreefryGenerator"
 
-  var n = 1000
-
-  override def beforeAll(configMap: ConfigMap) = {
-    n = configMap.getOptional[String]("n").getOrElse("1000").toInt
-    println(s"ncycle=$n")
-  }
+  addOption(CliOption.int("n", "number of test cases (default 1000)"))
+  def n: Int = getOption[Int]("n").getOrElse(1000)
 
   def runTest(r: Int, rotStage: Int) = {
-    test(new Threefry4x32Generator(r, rotStage)) {
+    simulate(new Threefry4x32Generator(r, rotStage)) {
       c => {
         val (r, rotStage) = c.getParam
         println(f"Threefry4x32 parameters rotation=${r}%d stage between rotation=${rotStage}%d, nStage = ${c.nStage}")
@@ -246,7 +231,7 @@ class ThreefryGeneratorTest extends AnyFlatSpec
     }
   }
 
-  it should "Threefry should be equal to crial C impl" in {
+  it("Threefry should be equal to crial C impl") {
     runTest(20, 0)  // latency  0 + 1 (queue)
     runTest(20, 20) // latency  1 + 1
     runTest(20, 10) // latency  2 + 1

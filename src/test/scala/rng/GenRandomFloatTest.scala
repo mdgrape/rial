@@ -3,12 +3,11 @@ package rial.tests
 import org.scalatest._
 
 import chisel3._
-import chiseltest._
-import chiseltest.VerilatorBackendAnnotation
+import chisel3.simulator.scalatest.ChiselSim
+import chisel3.simulator.scalatest.Cli.EmitVcd
+import chisel3.simulator.scalatest.HasCliOptions.CliOption
 
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
+import org.scalatest.funspec.AnyFunSpec
 
 import spire.math.SafeLong
 import spire.math.Numeric
@@ -28,17 +27,12 @@ import scala.language.reflectiveCalls
 // Test GenRandomFloat12 using chi-squared test.
 //
 
-class Uniform12Test extends AnyFlatSpec
-    with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
+class Uniform12Test extends AnyFunSpec
+    with ChiselSim with EmitVcd {
 
-  behavior of "Test uniform real distribution [1, 2)"
 
-  var n = 1000
-
-  override def beforeAll(configMap: ConfigMap) = {
-    n = configMap.getOptional[String]("n").getOrElse("1000").toInt
-    println(s"ncycle=$n")
-  }
+  addOption(CliOption.int("n", "number of test cases (default 1000)"))
+  def n: Int = getOption[Int]("n").getOrElse(1000)
 
   val r = new Random(123456789)
 
@@ -50,9 +44,8 @@ class Uniform12Test extends AnyFlatSpec
   private def runtest ( spec : RealSpec, stage: PipelineStageConfig) = {
     val total = stage.total
     val pipeconfig = stage.getString
-    it should f"uniform12(x) pipereg $pipeconfig spec ${spec.toStringShort}" in {
-      test( new GenRandomFloat12(32, spec, stage)).
-        withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
+    it(f"uniform12(x) pipereg $pipeconfig spec ${spec.toStringShort}") {
+      simulate(new GenRandomFloat12(32, spec, stage)) { c =>
         {
           val nstage = stage.total
           val nnum = c.nRndInt
@@ -139,17 +132,12 @@ class Uniform12Test extends AnyFlatSpec
 // Test GenRandomFloat01 using chi-squared test.
 //
 
-class Uniform01Test extends AnyFlatSpec
-    with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
+class Uniform01Test extends AnyFunSpec
+    with ChiselSim with EmitVcd {
 
-  behavior of "Test uniform real distribution [0, 1)"
 
-  var n = 1000
-
-  override def beforeAll(configMap: ConfigMap) = {
-    n = configMap.getOptional[String]("n").getOrElse("1000").toInt
-    println(s"ncycle=$n")
-  }
+  addOption(CliOption.int("n", "number of test cases (default 1000)"))
+  def n: Int = getOption[Int]("n").getOrElse(1000)
 
   val r = new Random(123456789)
 
@@ -161,9 +149,8 @@ class Uniform01Test extends AnyFlatSpec
   private def runtest ( spec : RealSpec, stage: PipelineStageConfig) = {
     val total = stage.total
     val pipeconfig = stage.getString
-    it should f"uniform01(x) pipereg $pipeconfig spec ${spec.toStringShort}" in {
-      test( new GenRandomFloat01(32, spec, stage)).
-        withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
+    it(f"uniform01(x) pipereg $pipeconfig spec ${spec.toStringShort}") {
+      simulate(new GenRandomFloat01(32, spec, stage)) { c =>
         {
           val nstage = stage.total
           val nnum = c.nRndInt
@@ -250,17 +237,12 @@ class Uniform01Test extends AnyFlatSpec
 // Test GenRandomFloat01Full using chi-squared test.
 //
 
-class Uniform01FullTest extends AnyFlatSpec
-    with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
+class Uniform01FullTest extends AnyFunSpec
+    with ChiselSim with EmitVcd {
 
-  behavior of "Test uniform real distribution [0, 1)"
 
-  var n = 1000
-
-  override def beforeAll(configMap: ConfigMap) = {
-    n = configMap.getOptional[String]("n").getOrElse("1000").toInt
-    println(s"ncycle=$n")
-  }
+  addOption(CliOption.int("n", "number of test cases (default 1000)"))
+  def n: Int = getOption[Int]("n").getOrElse(1000)
 
   val r = new Random(123456789)
 
@@ -272,9 +254,8 @@ class Uniform01FullTest extends AnyFlatSpec
   private def runtest ( spec : RealSpec, stage: PipelineStageConfig) = {
     val total = stage.total
     val pipeconfig = stage.getString
-    it should f"uniform01Full(x) pipereg $pipeconfig spec ${spec.toStringShort}" in {
-      test( new GenRandomFloat01Full(32, spec, stage)).
-        withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
+    it(f"uniform01Full(x) pipereg $pipeconfig spec ${spec.toStringShort}") {
+      simulate(new GenRandomFloat01Full(32, spec, stage)) { c =>
         {
           val nnum = c.nRndInt
 
@@ -375,17 +356,12 @@ class Uniform01FullTest extends AnyFlatSpec
 // Test GenRandomFloat01Full using chi-squared test.
 //
 
-class Uniform01FullPipeTest extends AnyFlatSpec
-    with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
+class Uniform01FullPipeTest extends AnyFunSpec
+    with ChiselSim with EmitVcd {
 
-  behavior of "Test uniform real distribution [0, 1)"
 
-  var n = 100000
-
-  override def beforeAll(configMap: ConfigMap) = {
-    n = configMap.getOptional[String]("n").getOrElse("100000").toInt
-    println(s"ncycle=$n")
-  }
+  addOption(CliOption.int("n", "number of test cases (default 100000)"))
+  def n: Int = getOption[Int]("n").getOrElse(100000)
 
   val r = new Random(123456789)
 
@@ -395,9 +371,8 @@ class Uniform01FullPipeTest extends AnyFlatSpec
   }
 
   private def runtest ( spec : RealSpec) = {
-    it should f"uniform01FullPipe(x) spec ${spec.toStringShort}" in {
-      test( new GenRandomFloat01FullPipe(32, spec)).
-        withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
+    it(f"uniform01FullPipe(x) spec ${spec.toStringShort}") {
+      simulate(new GenRandomFloat01FullPipe(32, spec)) { c =>
         {
           // check if it works with rnd === 0.U first
           var zerochecked = false

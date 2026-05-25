@@ -9,28 +9,23 @@ import chisel3._
 import chisel3.experimental.BundleLiterals._
 import chisel3.util._
 
-import chiseltest._
+import chisel3.simulator.scalatest.ChiselSim
+import chisel3.simulator.scalatest.Cli.EmitVcd
+import chisel3.simulator.scalatest.HasCliOptions.CliOption
 
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
+import org.scalatest.funspec.AnyFunSpec
 
 import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig
 import rial.util.DebugControlMaster
 import rial.rng._
 
-class SquaresTest extends AnyFlatSpec
-  with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
+class SquaresTest extends AnyFunSpec
+  with ChiselSim with EmitVcd {
 
-  behavior of "Test Squares32"
 
-  var n = 1000
-
-  override def beforeAll(configMap: ConfigMap) = {
-    n = configMap.getOptional[String]("n").getOrElse("1000").toInt
-    println(s"ncycle=$n")
-  }
+  addOption(CliOption.int("n", "number of test cases (default 1000)"))
+  def n: Int = getOption[Int]("n").getOrElse(1000)
 
   def squares(cnt: BigInt, key: BigInt): BigInt = {
     val mask64 = (BigInt(1) << 64) - BigInt(1)
@@ -56,7 +51,7 @@ class SquaresTest extends AnyFlatSpec
   }
 
   def runTest(key: BigInt) = {
-    test(new Squares32) {
+    simulate(new Squares32) {
       c => {
         c.io.en.poke(true.B)
 
@@ -79,22 +74,17 @@ class SquaresTest extends AnyFlatSpec
     }
   }
 
-  it should "Squares should be equal to software impl" in {
+  it("Squares should be equal to software impl") {
     runTest(BigInt("2467cb532b5ce8d1", 16))
   }
 }
 
-class Squares32GeneratorTest extends AnyFlatSpec
-  with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
+class Squares32GeneratorTest extends AnyFunSpec
+  with ChiselSim with EmitVcd {
 
-  behavior of "Test Squares32Generator"
 
-  var n = 1000
-
-  override def beforeAll(configMap: ConfigMap) = {
-    n = configMap.getOptional[String]("n").getOrElse("1000").toInt
-    println(s"ncycle=$n")
-  }
+  addOption(CliOption.int("n", "number of test cases (default 1000)"))
+  def n: Int = getOption[Int]("n").getOrElse(1000)
 
   def squares(cnt: BigInt, key: BigInt): BigInt = {
     val mask64 = (BigInt(1) << 64) - BigInt(1)
@@ -120,7 +110,7 @@ class Squares32GeneratorTest extends AnyFlatSpec
   }
 
   def runTest(key: BigInt) = {
-    test(new Squares32Generator) {
+    simulate(new Squares32Generator) {
       c => {
         c.io.initialized.expect(false.B)
 
@@ -151,7 +141,7 @@ class Squares32GeneratorTest extends AnyFlatSpec
     }
   }
 
-  it should "Squares should be equal to software impl" in {
+  it("Squares should be equal to software impl") {
     runTest(BigInt("2467cb532b5ce8d1", 16))
   }
 }

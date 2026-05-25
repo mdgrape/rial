@@ -3,12 +3,11 @@ package rial.tests
 import org.scalatest._
 
 import chisel3._
-import chiseltest._
-import chiseltest.VerilatorBackendAnnotation
+import chisel3.simulator.scalatest.ChiselSim
+import chisel3.simulator.scalatest.Cli.EmitVcd
+import chisel3.simulator.scalatest.HasCliOptions.CliOption
 
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
+import org.scalatest.funspec.AnyFunSpec
 
 import spire.math.SafeLong
 import spire.math.Numeric
@@ -27,10 +26,11 @@ import scala.language.reflectiveCalls
 // Test GenRandomFloat01 using chi-squared test.
 //
 
-class Uniform01CloseTest extends AnyFlatSpec
-    with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
+class Uniform01CloseTest extends AnyFunSpec
+    with ChiselSim with EmitVcd {
 
-  behavior of "Test uniform real distribution (0, 1]"
+  addOption(CliOption.int("n", "number of test cases (default 4000)"))
+  def n: Int = getOption[Int]("n").getOrElse(4000)
 
   val r = new Random(123456789)
 
@@ -42,13 +42,11 @@ class Uniform01CloseTest extends AnyFlatSpec
 
   private def runtest ( rndW: Int, spec: RealSpec, stage: PipelineStageConfig ) = {
 
-    val n = 4000
     val total = stage.total
     val pipeconfig = stage.getString
 
-    it should f"uniform01Close(x) pipereg ${pipeconfig} rndW ${rndW} spec ${spec.toStringShort}" in {
-      test( new GenRandomFloat01Close(rndW, spec, stage)).
-        withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
+    it(f"uniform01Close(x) pipereg ${pipeconfig} rndW ${rndW} spec ${spec.toStringShort}") {
+      simulate(new GenRandomFloat01Close(rndW, spec, stage)) { c =>
         {
           val nstage = stage.total
           val zs = scala.collection.mutable.ArrayBuffer.empty[Double]

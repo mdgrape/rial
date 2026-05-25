@@ -3,12 +3,11 @@ package rial.tests
 import org.scalatest._
 
 import chisel3._
-import chiseltest._
-import chiseltest.VerilatorBackendAnnotation
+import chisel3.simulator.scalatest.ChiselSim
+import chisel3.simulator.scalatest.Cli.EmitVcd
+import chisel3.simulator.scalatest.HasCliOptions.CliOption
 
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
+import org.scalatest.funspec.AnyFunSpec
 
 import org.apache.commons.math3.special.Erf
 
@@ -25,17 +24,12 @@ import scala.language.reflectiveCalls
 //
 // Test IrwinHall distribution
 //
-class IrwinHallTest extends AnyFlatSpec
-    with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
+class IrwinHallTest extends AnyFunSpec
+    with ChiselSim with EmitVcd {
 
-  behavior of "Test normal distribution(m=0,s=1), generated based on Irwin-Hall distribution"
 
-  var n = 100000
-
-  override def beforeAll(configMap: ConfigMap) = {
-    n = configMap.getOptional[String]("n").getOrElse("100000").toInt
-    println(s"ncycle=$n")
-  }
+  addOption(CliOption.int("n", "number of test cases (default 100000)"))
+  def n: Int = getOption[Int]("n").getOrElse(100000)
 
   val r = new Random(123456789)
 
@@ -57,9 +51,8 @@ class IrwinHallTest extends AnyFlatSpec
   }
 
   private def runChiSquared( spec: RealSpec, rndW: Int ) = {
-    it should f"IrwinHall(x) spec ${spec.toStringShort} Chi^2 test" in {
-      test( new IrwinHall(spec, rndW)).
-        withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
+    it(f"IrwinHall(x) spec ${spec.toStringShort} Chi^2 test") {
+      simulate(new IrwinHall(spec, rndW)) { c =>
         {
           var zs = scala.collection.mutable.ArrayBuffer.empty[Double]
 
@@ -155,17 +148,12 @@ class IrwinHallTest extends AnyFlatSpec
 //
 // Test IrwinHall gaussian generator
 //
-class IrwinHallGeneratorTest extends AnyFlatSpec
-    with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
+class IrwinHallGeneratorTest extends AnyFunSpec
+    with ChiselSim with EmitVcd {
 
-  behavior of "Test Irwin-Hall generator with ready/valid I/F"
 
-  var n = 100000
-
-  override def beforeAll(configMap: ConfigMap) = {
-    n = configMap.getOptional[String]("n").getOrElse("100000").toInt
-    println(s"ncycle=$n")
-  }
+  addOption(CliOption.int("n", "number of test cases (default 100000)"))
+  def n: Int = getOption[Int]("n").getOrElse(100000)
 
   val r = new Random(123456789)
 
@@ -187,9 +175,8 @@ class IrwinHallGeneratorTest extends AnyFlatSpec
   }
 
   private def runChiSquared( spec: RealSpec, rndW: Int ) = {
-    it should f"IrwinHall(x) spec ${spec.toStringShort} Chi^2 test" in {
-      test( new IrwinHallGenerator(spec, rndW)).
-        withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
+    it(f"IrwinHall(x) spec ${spec.toStringShort} Chi^2 test") {
+      simulate(new IrwinHallGenerator(spec, rndW)) { c =>
         {
           var zs = scala.collection.mutable.ArrayBuffer.empty[Double]
 
