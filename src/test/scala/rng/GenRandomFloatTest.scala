@@ -37,7 +37,7 @@ class Uniform12Test extends AnyFunSpec
   val r = new Random(123456789)
 
   def generateRandomUInt(width: Int) = {
-    val rnd = SafeLong(r.nextLong)
+    val rnd = SafeLong(r.nextLong())
     rnd & maskSL(width)
   }
 
@@ -142,7 +142,7 @@ class Uniform01Test extends AnyFunSpec
   val r = new Random(123456789)
 
   def generateRandomUInt(width: Int) = {
-    val rnd = SafeLong(r.nextLong)
+    val rnd = SafeLong(r.nextLong())
     rnd & maskSL(width)
   }
 
@@ -247,7 +247,7 @@ class Uniform01FullTest extends AnyFunSpec
   val r = new Random(123456789)
 
   def generateRandomUInt(width: Int) = {
-    val rnd = SafeLong(r.nextLong)
+    val rnd = SafeLong(r.nextLong())
     rnd & maskSL(width)
   }
 
@@ -366,7 +366,7 @@ class Uniform01FullPipeTest extends AnyFunSpec
   val r = new Random(123456789)
 
   def generateRandomUInt(width: Int) = {
-    val rnd = SafeLong(r.nextLong)
+    val rnd = SafeLong(r.nextLong())
     rnd & maskSL(width)
   }
 

@@ -35,7 +35,7 @@ class Uniform01CloseTest extends AnyFunSpec
   val r = new Random(123456789)
 
   def generateRandomUInt(width: Int): BigInt = {
-    val rnd = BigInt(r.nextLong)
+    val rnd = BigInt(r.nextLong())
     val mask = (BigInt(1) << width) - BigInt(1)
     rnd & mask
   }
