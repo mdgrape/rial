@@ -7,6 +7,7 @@ import chisel3._
 import chisel3.util._
 import chisel3.simulator.scalatest.ChiselSim
 import chisel3.simulator.scalatest.Cli.EmitVcd
+import chisel3.simulator.scalatest.HasCliOptions.CliOption
 
 import rial.arith._
 import rial.util.ScalaUtil._
@@ -24,7 +25,8 @@ import spire.implicits._
 //
 class MultFPTest extends AnyFunSpec with ChiselSim with EmitVcd {
 
-  var n = 1000
+  addOption(CliOption.int("n", "number of test cases (default 1000)"))
+  def n: Int = getOption[Int]("n").getOrElse(1000)
   val r = new Random(19660809)
 
   def generateRealWithin( p : Double, spec: RealSpec, r : Random ) = {
