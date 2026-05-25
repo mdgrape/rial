@@ -274,7 +274,8 @@ class MathFunctions(
     val tab  = toModule[SqrtTableCoeff ](tabs   (Sqrt))
     val ntab = toModule[SqrtNonTable   ](nontabs(Sqrt))
     val post = toModule[SqrtPostProcess](posts  (Sqrt))
-    pre.io.x   := xIn
+    pre.io.x.valid := xIn.valid && selIn === cfg.signal(Sqrt)
+    pre.io.x.bits  := xIn.bits
     tab.io.adr := pre.io.adr
 
     polynomialCoefs(Sqrt) := tab.io.cs
@@ -282,7 +283,8 @@ class MathFunctions(
       polynomialDxs.get(Sqrt) := Pipe(pre.io.dx.get, stage.tableStage)
     }
 
-    ntab.io.x := xTab
+    ntab.io.x.valid := xTab.valid && selTab === cfg.signal(Sqrt)
+    ntab.io.x.bits  := xTab.bits
 
     post.io.in.valid     := ntab.io.z.valid && polynomialEval.io.out.valid
     post.io.in.bits.info := ntab.io.z.bits
@@ -298,7 +300,8 @@ class MathFunctions(
     val tab  = toModule[InvSqrtTableCoeff ](tabs   (InvSqrt))
     val ntab = toModule[InvSqrtNonTable   ](nontabs(InvSqrt))
     val post = toModule[InvSqrtPostProcess](posts  (InvSqrt))
-    pre.io.x   := xIn
+    pre.io.x.valid := xIn.valid && selIn === cfg.signal(InvSqrt)
+    pre.io.x.bits  := xIn.bits
     tab.io.adr := pre.io.adr
 
     polynomialCoefs(InvSqrt) := tab.io.cs
@@ -306,7 +309,8 @@ class MathFunctions(
       polynomialDxs.get(InvSqrt) := Pipe(pre.io.dx.get, stage.tableStage)
     }
 
-    ntab.io.x := xTab
+    ntab.io.x.valid := xTab.valid && selTab === cfg.signal(InvSqrt)
+    ntab.io.x.bits  := xTab.bits
 
     post.io.in.valid     := ntab.io.z.valid && polynomialEval.io.out.valid
     post.io.in.bits.info := ntab.io.z.bits
@@ -322,7 +326,8 @@ class MathFunctions(
     val tab  = toModule[ReciprocalTableCoeff ](tabs   (Reciprocal))
     val ntab = toModule[ReciprocalNonTable   ](nontabs(Reciprocal))
     val post = toModule[ReciprocalPostProcess](posts  (Reciprocal))
-    pre.io.x   := xIn
+    pre.io.x.valid := xIn.valid && selIn === cfg.signal(Reciprocal)
+    pre.io.x.bits  := xIn.bits
     tab.io.adr := pre.io.adr
 
     polynomialCoefs(Reciprocal) := tab.io.cs
@@ -330,7 +335,8 @@ class MathFunctions(
       polynomialDxs.get(Reciprocal) := Pipe(pre.io.dx.get, stage.tableStage)
     }
 
-    ntab.io.x := xTab
+    ntab.io.x.valid := xTab.valid && selTab === cfg.signal(Reciprocal)
+    ntab.io.x.bits  := xTab.bits
 
     post.io.in.valid     := ntab.io.z.valid && polynomialEval.io.out.valid
     post.io.in.bits.info := ntab.io.z.bits
@@ -363,12 +369,14 @@ class MathFunctions(
 
     // ----- pre stage: x delayed by preMulStage to align with preMul.out -----
     val xAtSinCosPre  = Pipe(xIn, stage.preMulStage)
-    val isSinAtPre    = ShiftRegister(isSinSelIn, stage.preMulStage, false.B, true.B)
+    val isSinAtPre    = ShiftRegister(isSinSelIn,  stage.preMulStage, false.B, true.B)
+    val sincosSelAtPre = ShiftRegister(sincosSelIn, stage.preMulStage, false.B, true.B)
 
     sincosPre.io.isSin := isSinAtPre
-    sincosPre.io.x     := xAtSinCosPre
+    sincosPre.io.x.valid := xAtSinCosPre.valid && sincosSelAtPre
+    sincosPre.io.x.bits  := xAtSinCosPre.bits
 
-    sincosPre.io.prod.valid := preMul.get.io.out.valid
+    sincosPre.io.prod.valid := preMul.get.io.out.valid && sincosSelAtPre
     sincosPre.io.prod.bits  := SinCosPreMulArgs.prod(spec, preMul.get.io.out.bits)
 
     // ----- table -----
@@ -423,9 +431,11 @@ class MathFunctions(
 
     // ----- pre stage -----
     val xAtExpPre  = Pipe(xIn, stage.preMulStage)
+    val expSelAtPre = ShiftRegister(expSelIn, stage.preMulStage, false.B, true.B)
 
-    pre.io.x    := xAtExpPre
-    pre.io.prod.valid := preMul.get.io.out.valid
+    pre.io.x.valid := xAtExpPre.valid && expSelAtPre
+    pre.io.x.bits  := xAtExpPre.bits
+    pre.io.prod.valid := preMul.get.io.out.valid && expSelAtPre
     pre.io.prod.bits  := ExpPreMulArgs.prod(spec, preMul.get.io.out.bits)
 
     // ----- table -----
@@ -437,7 +447,8 @@ class MathFunctions(
     }
 
     // ----- non-table ------
-    ntab.io.x    := xTab
+    ntab.io.x.valid := xTab.valid && selTab === cfg.signal(Exp)
+    ntab.io.x.bits  := xTab.bits
     ntab.io.info := pre.io.info
 
     // ----- post -----
@@ -459,7 +470,8 @@ class MathFunctions(
     val ntab = toModule[LogNonTable   ](nontabs(Log))
     val post = toModule[LogPostProcess](posts  (Log))
 
-    pre.io.x   := xIn
+    pre.io.x.valid := xIn.valid && selIn === cfg.signal(Log)
+    pre.io.x.bits  := xIn.bits
     tab.io.adr := pre.io.adr
 
     polynomialCoefs(Log) := tab.io.cs
@@ -467,7 +479,8 @@ class MathFunctions(
       polynomialDxs.get(Log) := Pipe(pre.io.dx.get, stage.tableStage)
     }
 
-    ntab.io.x := xTab
+    ntab.io.x.valid := xTab.valid && selTab === cfg.signal(Log)
+    ntab.io.x.bits  := xTab.bits
 
     // ----- post-mult arg builder (combinational, at xPost timing) -----
     val mulArgs = Module(new LogPostMultArgs(spec, bitW))
@@ -502,7 +515,8 @@ class MathFunctions(
     val sqrtTab  = toModule[SqrtTableCoeff](tabs   (Sqrt))
     val sqrtNtab = toModule[SqrtNonTable  ](nontabs(Sqrt))
 
-    pre.io.x := xIn
+    pre.io.x.valid := xIn.valid && selIn === cfg.signal(ACosPhase1)
+    pre.io.x.bits  := xIn.bits
 
     when (selTab === cfg.signal(ACosPhase1)) {
       sqrtTab.io.adr := pre.io.adr
@@ -535,7 +549,8 @@ class MathFunctions(
     val tab  = toModule[ACosPhase2TableCoeff ](tabs (ACosPhase2))
     val post = toModule[ACosPhase2PostProcess](posts(ACosPhase2))
 
-    pre.io.x   := xIn
+    pre.io.x.valid := xIn.valid && selIn === cfg.signal(ACosPhase2)
+    pre.io.x.bits  := xIn.bits
     tab.io.adr := pre.io.adr
 
     polynomialCoefs(ACosPhase2) := tab.io.cs
@@ -586,8 +601,10 @@ class MathFunctions(
     val post   = toModule[ATan2Phase1PostProcess](posts(ATan2Phase1))
     val recTab = toModule[ReciprocalTableCoeff  ](tabs (Reciprocal))
 
-    pre.io.x := xIn
-    pre.io.y := yIn.get
+    pre.io.x.valid := xIn.valid && selIn === cfg.signal(ATan2Phase1)
+    pre.io.x.bits  := xIn.bits
+    pre.io.y.valid := yIn.get.valid && selIn === cfg.signal(ATan2Phase1)
+    pre.io.y.bits  := yIn.get.bits
 
     when (selTab === cfg.signal(ATan2Phase1)) {
       recTab.io.adr := pre.io.adr
@@ -636,7 +653,8 @@ class MathFunctions(
     val tab  = toModule[ATan2Phase2TableCoeff ](tabs (ATan2Phase2))
     val post = toModule[ATan2Phase2PostProcess](posts(ATan2Phase2))
 
-    pre.io.x   := xIn
+    pre.io.x.valid := xIn.valid && selIn === cfg.signal(ATan2Phase2)
+    pre.io.x.bits  := xIn.bits
     tab.io.adr := pre.io.adr
 
     polynomialCoefs(ATan2Phase2) := tab.io.cs
@@ -682,7 +700,8 @@ class MathFunctions(
     val tab  = toModule[SigmoidTableCoeff ](tabs (Sigmoid))
     val post = toModule[SigmoidPostProcess](posts(Sigmoid))
 
-    pre.io.x   := xIn
+    pre.io.x.valid := xIn.valid && selIn === cfg.signal(Sigmoid)
+    pre.io.x.bits  := xIn.bits
     tab.io.adr := pre.io.adr
 
     polynomialCoefs(Sigmoid) := tab.io.cs
@@ -707,7 +726,8 @@ class MathFunctions(
     val tab  = toModule[SoftPlusTableCoeff ](tabs (SoftPlus))
     val post = toModule[SoftPlusPostProcess](posts(SoftPlus))
 
-    pre.io.x   := xIn
+    pre.io.x.valid := xIn.valid && selIn === cfg.signal(SoftPlus)
+    pre.io.x.bits  := xIn.bits
     tab.io.adr := pre.io.adr
 
     polynomialCoefs(SoftPlus) := tab.io.cs
@@ -749,8 +769,10 @@ class MathFunctions(
 
     // ----- pre stage: x delayed by preMulStage to align with preMul.out -----
     val xAtSmgPre = Pipe(xIn, stage.preMulStage)
-    pre.io.x          := xAtSmgPre
-    pre.io.prod.valid := preMul.get.io.out.valid
+    val smgSelAtPre = ShiftRegister(smgSelIn, stage.preMulStage, false.B, true.B)
+    pre.io.x.valid := xAtSmgPre.valid && smgSelAtPre
+    pre.io.x.bits  := xAtSmgPre.bits
+    pre.io.prod.valid := preMul.get.io.out.valid && smgSelAtPre
     pre.io.prod.bits  := ScaleMixtureGaussianPreMulArgs.prod(spec, preMul.get.io.out.bits)
 
     // ----- table -----
