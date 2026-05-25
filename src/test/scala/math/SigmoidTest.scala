@@ -3,12 +3,11 @@ package rial.tests
 import org.scalatest._
 
 import chisel3._
-import chiseltest._
-import chiseltest.VerilatorBackendAnnotation
+import chisel3.simulator.scalatest.ChiselSim
+import chisel3.simulator.scalatest.Cli.EmitVcd
+import chisel3.simulator.scalatest.HasCliOptions.CliOption
 
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
+import org.scalatest.funspec.AnyFunSpec
 
 import spire.math.SafeLong
 import spire.implicits._
@@ -22,12 +21,10 @@ import scala.util.Random
 import scala.math._
 import scala.collection.mutable.Queue
 
-class SigmoidTest extends AnyFlatSpec
-    with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
+class SigmoidTest extends AnyFunSpec
+    with ChiselSim with EmitVcd {
 
-  behavior of "Test sigmoid with funcs/MathFunctions"
-
-  val n = 1000
+  addOption(CliOption.int("n", "number of random test cases per case (default 1000)"))
   val r = new Random(123456789)
 
   def generateRealWithin(p: Double, spec: RealSpec, r: Random) = {
@@ -65,7 +62,7 @@ class SigmoidTest extends AnyFlatSpec
     spec:  RealSpec,
     cfg:   MathFuncConfig,
     stage: MathFuncPipelineConfig,
-    n: Int, generatorStr: String,
+    generatorStr: String,
     generator: (RealSpec, Random) => RealGeneric,
   ) = {
     val total      = stage.total
@@ -73,9 +70,9 @@ class SigmoidTest extends AnyFlatSpec
 
     val reference = SigmoidSimGeneric(cfg.coeffs(Sigmoid), _: RealGeneric)
 
-    it should f"sigmoid(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr with ${cfg.getString}" in {
-      test(new MathFunctions(cfg, spec, stage)).
-        withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
+    it(f"sigmoid(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr with ${cfg.getString}") {
+      val n = getOption[Int]("n").getOrElse(1000)
+      simulate(new MathFunctions(cfg, spec, stage)) { c =>
         counter = 0
         val q = new Queue[(BigInt, BigInt)]
         for (i <- 1 to n + total) {
@@ -124,23 +121,23 @@ class SigmoidTest extends AnyFlatSpec
   val complexPipeline = new MathFuncPipelineConfig(2, 1, 1, 2, 1, 1)
 
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
-    n, "Test Within (-128,128)", generateRealWithin(128.0, _, _))
+    "Test Within (-128,128)", generateRealWithin(128.0, _, _))
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
-    n, "Test All range",         generateRealFull(_, _))
+    "Test All range",         generateRealFull(_, _))
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
-    n, "Test special values",    generateSpecialValues(_, _))
+    "Test special values",    generateSpecialValues(_, _))
 
   runtest(RealSpec.Float32Spec, fp32Config, simplePipeStage,
-    n, "Test Within (-128,128)", generateRealWithin(128.0, _, _))
+    "Test Within (-128,128)", generateRealWithin(128.0, _, _))
   runtest(RealSpec.Float32Spec, fp32Config, simplePipeStage,
-    n, "Test All range",         generateRealFull(_, _))
+    "Test All range",         generateRealFull(_, _))
   runtest(RealSpec.Float32Spec, fp32Config, simplePipeStage,
-    n, "Test special values",    generateSpecialValues(_, _))
+    "Test special values",    generateSpecialValues(_, _))
 
   runtest(RealSpec.Float32Spec, fp32Config, complexPipeline,
-    n, "Test Within (-128,128)", generateRealWithin(128.0, _, _))
+    "Test Within (-128,128)", generateRealWithin(128.0, _, _))
   runtest(RealSpec.Float32Spec, fp32Config, complexPipeline,
-    n, "Test special values",    generateSpecialValues(_, _))
+    "Test special values",    generateSpecialValues(_, _))
 
   // --------------------------------------------------------------------------
   // BFloat16
@@ -148,14 +145,14 @@ class SigmoidTest extends AnyFlatSpec
   val bf16Config = MathFuncConfig.allBF16
 
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,
-    n, "Test Within (-128,128)", generateRealWithin(128.0, _, _))
+    "Test Within (-128,128)", generateRealWithin(128.0, _, _))
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,
-    n, "Test All range",         generateRealFull(_, _))
+    "Test All range",         generateRealFull(_, _))
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,
-    n, "Test special values",    generateSpecialValues(_, _))
+    "Test special values",    generateSpecialValues(_, _))
 
   runtest(RealSpec.BFloat16Spec, bf16Config, simplePipeStage,
-    n, "Test Within (-128,128)", generateRealWithin(128.0, _, _))
+    "Test Within (-128,128)", generateRealWithin(128.0, _, _))
   runtest(RealSpec.BFloat16Spec, bf16Config, simplePipeStage,
-    n, "Test special values",    generateSpecialValues(_, _))
+    "Test special values",    generateSpecialValues(_, _))
 }

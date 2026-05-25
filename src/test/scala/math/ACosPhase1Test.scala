@@ -3,12 +3,11 @@ package rial.tests
 import org.scalatest._
 
 import chisel3._
-import chiseltest._
-import chiseltest.VerilatorBackendAnnotation
+import chisel3.simulator.scalatest.ChiselSim
+import chisel3.simulator.scalatest.Cli.EmitVcd
+import chisel3.simulator.scalatest.HasCliOptions.CliOption
 
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
+import org.scalatest.funspec.AnyFunSpec
 
 import spire.math.SafeLong
 import spire.implicits._
@@ -22,12 +21,10 @@ import scala.util.Random
 import scala.math._
 import scala.collection.mutable.Queue
 
-class ACosPhase1Test extends AnyFlatSpec
-    with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
+class ACosPhase1Test extends AnyFunSpec
+    with ChiselSim with EmitVcd {
 
-  behavior of "Test acosPhase1 with funcs/MathFunctions"
-
-  val n = 1000
+  addOption(CliOption.int("n", "number of random test cases per case (default 1000)"))
   val r = new Random(123456789)
 
   def generateRealWithin(from: Double, to: Double, spec: RealSpec, r: Random) = {
@@ -52,15 +49,15 @@ class ACosPhase1Test extends AnyFlatSpec
     spec:  RealSpec,
     cfg:   MathFuncConfig,
     stage: MathFuncPipelineConfig,
-    n: Int, generatorStr: String, generator: (RealSpec, Random) => RealGeneric,
+    generatorStr: String, generator: (RealSpec, Random) => RealGeneric,
     reference: RealGeneric => RealGeneric,
   ) = {
     val total      = stage.total
     val pipeconfig = stage.getString
 
-    it should f"acosPhase1(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr with ${cfg.getString}" in {
-      test(new MathFunctions(cfg, spec, stage)).
-        withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
+    it(f"acosPhase1(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr with ${cfg.getString}") {
+      val n = getOption[Int]("n").getOrElse(1000)
+      simulate(new MathFunctions(cfg, spec, stage)) { c =>
         counter = 0
         val q = new Queue[(BigInt, BigInt)]
         for (i <- 1 to n + total) {
@@ -109,31 +106,31 @@ class ACosPhase1Test extends AnyFlatSpec
   val mulPipeStage    = new MathFuncPipelineConfig(2, 1, 1, 2, 0, 1)
 
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
-    n, "Test 0 < x <= 2^-4",   generateRealWithin(0.0, pow(2.0, -4), _, _), phase1RefFP32)
+    "Test 0 < x <= 2^-4",   generateRealWithin(0.0, pow(2.0, -4), _, _), phase1RefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
-    n, "Test 2^-4 < x < 1-2^-4", generateRealWithin(pow(2.0, -4), 1.0 - pow(2.0, -4), _, _), phase1RefFP32)
+    "Test 2^-4 < x < 1-2^-4", generateRealWithin(pow(2.0, -4), 1.0 - pow(2.0, -4), _, _), phase1RefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
-    n, "Test 1-2^-4 < x <= 1", generateRealWithin(1.0 - pow(2.0, -4), 1.0, _, _), phase1RefFP32)
+    "Test 1-2^-4 < x <= 1", generateRealWithin(1.0 - pow(2.0, -4), 1.0, _, _), phase1RefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
-    n, "Test -1 <= x < 0",     generateRealWithin(-1.0, 0.0, _, _), phase1RefFP32)
+    "Test -1 <= x < 0",     generateRealWithin(-1.0, 0.0, _, _), phase1RefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
-    n, "Test special values",  generateSpecialValues(_, _), phase1RefFP32)
+    "Test special values",  generateSpecialValues(_, _), phase1RefFP32)
 
   runtest(RealSpec.Float32Spec, fp32Config, simplePipeStage,
-    n, "Test 0 < x <= 2^-4",   generateRealWithin(0.0, pow(2.0, -4), _, _), phase1RefFP32)
+    "Test 0 < x <= 2^-4",   generateRealWithin(0.0, pow(2.0, -4), _, _), phase1RefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, simplePipeStage,
-    n, "Test 2^-4 < x < 1-2^-4", generateRealWithin(pow(2.0, -4), 1.0 - pow(2.0, -4), _, _), phase1RefFP32)
+    "Test 2^-4 < x < 1-2^-4", generateRealWithin(pow(2.0, -4), 1.0 - pow(2.0, -4), _, _), phase1RefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, simplePipeStage,
-    n, "Test 1-2^-4 < x <= 1", generateRealWithin(1.0 - pow(2.0, -4), 1.0, _, _), phase1RefFP32)
+    "Test 1-2^-4 < x <= 1", generateRealWithin(1.0 - pow(2.0, -4), 1.0, _, _), phase1RefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, simplePipeStage,
-    n, "Test -1 <= x < 0",     generateRealWithin(-1.0, 0.0, _, _), phase1RefFP32)
+    "Test -1 <= x < 0",     generateRealWithin(-1.0, 0.0, _, _), phase1RefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, simplePipeStage,
-    n, "Test special values",  generateSpecialValues(_, _), phase1RefFP32)
+    "Test special values",  generateSpecialValues(_, _), phase1RefFP32)
 
   runtest(RealSpec.Float32Spec, fp32Config, mulPipeStage,
-    n, "Test 2^-4 < x < 1-2^-4", generateRealWithin(pow(2.0, -4), 1.0 - pow(2.0, -4), _, _), phase1RefFP32)
+    "Test 2^-4 < x < 1-2^-4", generateRealWithin(pow(2.0, -4), 1.0 - pow(2.0, -4), _, _), phase1RefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, mulPipeStage,
-    n, "Test special values",  generateSpecialValues(_, _), phase1RefFP32)
+    "Test special values",  generateSpecialValues(_, _), phase1RefFP32)
 
   // --------------------------------------------------------------------------
   // BFloat16
@@ -142,18 +139,18 @@ class ACosPhase1Test extends AnyFlatSpec
   val phase1RefBF16 = ACosPhase1SimGeneric(bf16Config.coeffs(Sqrt), _: RealGeneric)
 
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,
-    n, "Test 0 < x <= 2^-4",   generateRealWithin(0.0, pow(2.0, -4), _, _), phase1RefBF16)
+    "Test 0 < x <= 2^-4",   generateRealWithin(0.0, pow(2.0, -4), _, _), phase1RefBF16)
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,
-    n, "Test 2^-4 < x < 1-2^-4", generateRealWithin(pow(2.0, -4), 1.0 - pow(2.0, -4), _, _), phase1RefBF16)
+    "Test 2^-4 < x < 1-2^-4", generateRealWithin(pow(2.0, -4), 1.0 - pow(2.0, -4), _, _), phase1RefBF16)
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,
-    n, "Test 1-2^-4 < x <= 1", generateRealWithin(1.0 - pow(2.0, -4), 1.0, _, _), phase1RefBF16)
+    "Test 1-2^-4 < x <= 1", generateRealWithin(1.0 - pow(2.0, -4), 1.0, _, _), phase1RefBF16)
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,
-    n, "Test -1 <= x < 0",     generateRealWithin(-1.0, 0.0, _, _), phase1RefBF16)
+    "Test -1 <= x < 0",     generateRealWithin(-1.0, 0.0, _, _), phase1RefBF16)
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,
-    n, "Test special values",  generateSpecialValues(_, _), phase1RefBF16)
+    "Test special values",  generateSpecialValues(_, _), phase1RefBF16)
 
   runtest(RealSpec.BFloat16Spec, bf16Config, simplePipeStage,
-    n, "Test 2^-4 < x < 1-2^-4", generateRealWithin(pow(2.0, -4), 1.0 - pow(2.0, -4), _, _), phase1RefBF16)
+    "Test 2^-4 < x < 1-2^-4", generateRealWithin(pow(2.0, -4), 1.0 - pow(2.0, -4), _, _), phase1RefBF16)
   runtest(RealSpec.BFloat16Spec, bf16Config, simplePipeStage,
-    n, "Test special values",  generateSpecialValues(_, _), phase1RefBF16)
+    "Test special values",  generateSpecialValues(_, _), phase1RefBF16)
 }

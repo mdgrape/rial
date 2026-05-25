@@ -4,12 +4,11 @@ import org.scalatest._
 
 import chisel3._
 import chisel3.experimental.BundleLiterals._
-import chiseltest._
-import chiseltest.VerilatorBackendAnnotation
+import chisel3.simulator.scalatest.ChiselSim
+import chisel3.simulator.scalatest.Cli.EmitVcd
+import chisel3.simulator.scalatest.HasCliOptions.CliOption
 
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
+import org.scalatest.funspec.AnyFunSpec
 
 import spire.math.SafeLong
 import spire.math.Numeric
@@ -29,12 +28,10 @@ import scala.language.reflectiveCalls
 // Testing Reciprocal using ChiselTest with new funcs/MathFunctions
 //
 
-class ReciprocalTest extends AnyFlatSpec
-    with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
+class ReciprocalTest extends AnyFunSpec
+    with ChiselSim with EmitVcd {
 
-  behavior of "Test reciprocal with funcs/MathFunctions"
-
-  val n = 1000 // the default number of cases
+  addOption(CliOption.int("n", "number of random test cases per case (default 1000)"))
   val r = new Random(123456789)
 
   def generateRealWithin( p : Double, spec: RealSpec, r : Random ) = {
@@ -67,15 +64,15 @@ class ReciprocalTest extends AnyFlatSpec
     spec:  RealSpec,
     cfg:   MathFuncConfig,
     stage: MathFuncPipelineConfig,
-    n: Int, generatorStr: String, generator: (RealSpec, Random) => RealGeneric,
+    generatorStr: String, generator: (RealSpec, Random) => RealGeneric,
     reference: RealGeneric => RealGeneric
   ) = {
     val total      = stage.total
     val pipeconfig = stage.getString
 
-    it should f"reciprocal(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr with ${cfg.getString}" in {
-      test( new MathFunctions(cfg, spec, stage)).
-        withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
+    it(f"reciprocal(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr with ${cfg.getString}") {
+      val n = getOption[Int]("n").getOrElse(1000)
+      simulate(new MathFunctions(cfg, spec, stage)) { c =>
         {
           counter = 0
 
@@ -127,25 +124,25 @@ class ReciprocalTest extends AnyFlatSpec
   val complexPipeStage = new MathFuncPipelineConfig(1,1,3,1)
 
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
-    n, "Test Within (-128,128)", generateRealWithin(128.0,_,_), reciprocalRefFP32)
+    "Test Within (-128,128)", generateRealWithin(128.0,_,_), reciprocalRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
-    n, "Test All range", generateRealFull(_,_), reciprocalRefFP32)
+    "Test All range", generateRealFull(_,_), reciprocalRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
-    n, "Test Special Values", generateSpecialValues(_,_), reciprocalRefFP32)
+    "Test Special Values", generateSpecialValues(_,_), reciprocalRefFP32)
 
   runtest(RealSpec.Float32Spec, fp32Config, simplePipeStage,
-    n, "Test Within (-128,128)", generateRealWithin(128.0,_,_), reciprocalRefFP32)
+    "Test Within (-128,128)", generateRealWithin(128.0,_,_), reciprocalRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, simplePipeStage,
-    n, "Test All range", generateRealFull(_,_), reciprocalRefFP32)
+    "Test All range", generateRealFull(_,_), reciprocalRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, simplePipeStage,
-    n, "Test Special Values", generateSpecialValues(_,_), reciprocalRefFP32)
+    "Test Special Values", generateSpecialValues(_,_), reciprocalRefFP32)
 
   runtest(RealSpec.Float32Spec, fp32Config, complexPipeStage,
-    n, "Test Within (-128,128)", generateRealWithin(128.0,_,_), reciprocalRefFP32)
+    "Test Within (-128,128)", generateRealWithin(128.0,_,_), reciprocalRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, complexPipeStage,
-    n, "Test All range", generateRealFull(_,_), reciprocalRefFP32)
+    "Test All range", generateRealFull(_,_), reciprocalRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, complexPipeStage,
-    n, "Test Special Values", generateSpecialValues(_,_), reciprocalRefFP32)
+    "Test Special Values", generateSpecialValues(_,_), reciprocalRefFP32)
 
   // --------------------------------------------------------------------------
   // Test BFloat16
@@ -155,18 +152,18 @@ class ReciprocalTest extends AnyFlatSpec
   val reciprocalRefBF16 = ReciprocalSimGeneric(bf16Config.coeffs(Reciprocal), _)
 
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,
-    n, "Test Within (-128,128)", generateRealWithin(128.0,_,_), reciprocalRefBF16)
+    "Test Within (-128,128)", generateRealWithin(128.0,_,_), reciprocalRefBF16)
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,
-    n, "Test All range", generateRealFull(_,_), reciprocalRefBF16)
+    "Test All range", generateRealFull(_,_), reciprocalRefBF16)
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,
-    n, "Test Special Values", generateSpecialValues(_,_), reciprocalRefBF16)
+    "Test Special Values", generateSpecialValues(_,_), reciprocalRefBF16)
 
   runtest(RealSpec.BFloat16Spec, bf16Config, simplePipeStage,
-    n, "Test Within (-128,128)", generateRealWithin(128.0,_,_), reciprocalRefBF16)
+    "Test Within (-128,128)", generateRealWithin(128.0,_,_), reciprocalRefBF16)
   runtest(RealSpec.BFloat16Spec, bf16Config, simplePipeStage,
-    n, "Test All range", generateRealFull(_,_), reciprocalRefBF16)
+    "Test All range", generateRealFull(_,_), reciprocalRefBF16)
   runtest(RealSpec.BFloat16Spec, bf16Config, simplePipeStage,
-    n, "Test Special Values", generateSpecialValues(_,_), reciprocalRefBF16)
+    "Test Special Values", generateSpecialValues(_,_), reciprocalRefBF16)
 
   // --------------------------------------------------------------------------
   // simple config (Sqrt / InvSqrt / Reciprocal only -- no multiplier).
@@ -176,33 +173,33 @@ class ReciprocalTest extends AnyFlatSpec
   val reciprocalRefFP32Simple = ReciprocalSimGeneric(fp32ConfigSimple.coeffs(Reciprocal), _)
 
   runtest(RealSpec.Float32Spec, fp32ConfigSimple, noPipeStage,
-    n, "Test Within (-128,128)", generateRealWithin(128.0,_,_), reciprocalRefFP32Simple)
+    "Test Within (-128,128)", generateRealWithin(128.0,_,_), reciprocalRefFP32Simple)
   runtest(RealSpec.Float32Spec, fp32ConfigSimple, noPipeStage,
-    n, "Test All range", generateRealFull(_,_), reciprocalRefFP32Simple)
+    "Test All range", generateRealFull(_,_), reciprocalRefFP32Simple)
   runtest(RealSpec.Float32Spec, fp32ConfigSimple, noPipeStage,
-    n, "Test Special Values", generateSpecialValues(_,_), reciprocalRefFP32Simple)
+    "Test Special Values", generateSpecialValues(_,_), reciprocalRefFP32Simple)
 
   runtest(RealSpec.Float32Spec, fp32ConfigSimple, complexPipeStage,
-    n, "Test Within (-128,128)", generateRealWithin(128.0,_,_), reciprocalRefFP32Simple)
+    "Test Within (-128,128)", generateRealWithin(128.0,_,_), reciprocalRefFP32Simple)
   runtest(RealSpec.Float32Spec, fp32ConfigSimple, complexPipeStage,
-    n, "Test All range", generateRealFull(_,_), reciprocalRefFP32Simple)
+    "Test All range", generateRealFull(_,_), reciprocalRefFP32Simple)
   runtest(RealSpec.Float32Spec, fp32ConfigSimple, complexPipeStage,
-    n, "Test Special Values", generateSpecialValues(_,_), reciprocalRefFP32Simple)
+    "Test Special Values", generateSpecialValues(_,_), reciprocalRefFP32Simple)
 
   val bf16ConfigSimple        = MathFuncConfig.simpleBF16
   val reciprocalRefBF16Simple = ReciprocalSimGeneric(bf16ConfigSimple.coeffs(Reciprocal), _)
 
   runtest(RealSpec.BFloat16Spec, bf16ConfigSimple, noPipeStage,
-    n, "Test Within (-128,128)", generateRealWithin(128.0,_,_), reciprocalRefBF16Simple)
+    "Test Within (-128,128)", generateRealWithin(128.0,_,_), reciprocalRefBF16Simple)
   runtest(RealSpec.BFloat16Spec, bf16ConfigSimple, noPipeStage,
-    n, "Test All range", generateRealFull(_,_), reciprocalRefBF16Simple)
+    "Test All range", generateRealFull(_,_), reciprocalRefBF16Simple)
   runtest(RealSpec.BFloat16Spec, bf16ConfigSimple, noPipeStage,
-    n, "Test Special Values", generateSpecialValues(_,_), reciprocalRefBF16Simple)
+    "Test Special Values", generateSpecialValues(_,_), reciprocalRefBF16Simple)
 
   runtest(RealSpec.BFloat16Spec, bf16ConfigSimple, simplePipeStage,
-    n, "Test Within (-128,128)", generateRealWithin(128.0,_,_), reciprocalRefBF16Simple)
+    "Test Within (-128,128)", generateRealWithin(128.0,_,_), reciprocalRefBF16Simple)
   runtest(RealSpec.BFloat16Spec, bf16ConfigSimple, simplePipeStage,
-    n, "Test All range", generateRealFull(_,_), reciprocalRefBF16Simple)
+    "Test All range", generateRealFull(_,_), reciprocalRefBF16Simple)
   runtest(RealSpec.BFloat16Spec, bf16ConfigSimple, simplePipeStage,
-    n, "Test Special Values", generateSpecialValues(_,_), reciprocalRefBF16Simple)
+    "Test Special Values", generateSpecialValues(_,_), reciprocalRefBF16Simple)
 }

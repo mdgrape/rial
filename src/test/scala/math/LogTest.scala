@@ -3,12 +3,11 @@ package rial.tests
 import org.scalatest._
 
 import chisel3._
-import chiseltest._
-import chiseltest.VerilatorBackendAnnotation
+import chisel3.simulator.scalatest.ChiselSim
+import chisel3.simulator.scalatest.Cli.EmitVcd
+import chisel3.simulator.scalatest.HasCliOptions.CliOption
 
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
+import org.scalatest.funspec.AnyFunSpec
 
 import spire.math.SafeLong
 import spire.implicits._
@@ -22,12 +21,10 @@ import scala.util.Random
 import scala.math._
 import scala.collection.mutable.Queue
 
-class LogTest extends AnyFlatSpec
-    with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
+class LogTest extends AnyFunSpec
+    with ChiselSim with EmitVcd {
 
-  behavior of "Test log with funcs/MathFunctions"
-
-  val n = 1000
+  addOption(CliOption.int("n", "number of random test cases per case (default 1000)"))
   val r = new Random(123456789)
 
   def generateRealWithin(from: Double, to: Double, spec: RealSpec, r: Random) = {
@@ -64,15 +61,15 @@ class LogTest extends AnyFlatSpec
     spec:  RealSpec,
     cfg:   MathFuncConfig,
     stage: MathFuncPipelineConfig,
-    n: Int, generatorStr: String, generator: (RealSpec, Random) => RealGeneric,
+    generatorStr: String, generator: (RealSpec, Random) => RealGeneric,
     reference: RealGeneric => RealGeneric,
   ) = {
     val total      = stage.total
     val pipeconfig = stage.getString
 
-    it should f"log(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr with ${cfg.getString}" in {
-      test(new MathFunctions(cfg, spec, stage)).
-        withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
+    it(f"log(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr with ${cfg.getString}") {
+      val n = getOption[Int]("n").getOrElse(1000)
+      simulate(new MathFunctions(cfg, spec, stage)) { c =>
         counter = 0
         val q = new Queue[(BigInt, BigInt)]
         for (i <- 1 to n + total) {
@@ -120,39 +117,39 @@ class LogTest extends AnyFlatSpec
   val mulPipeStage    = new MathFuncPipelineConfig(2, 1, 1, 2, 1, 1)
 
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
-    n, "Test [2, 128]", generateRealWithin(2.0, 128.0, _, _), logRefFP32)
+    "Test [2, 128]", generateRealWithin(2.0, 128.0, _, _), logRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
-    n, "Test [1, 2)",   generateRealWithin(1.0, 2.0 - pow(2.0, -23), _, _), logRefFP32)
+    "Test [1, 2)",   generateRealWithin(1.0, 2.0 - pow(2.0, -23), _, _), logRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
-    n, "Test [0.5, 1)", generateRealWithin(0.5, 1.0 - pow(2.0, -24), _, _), logRefFP32)
+    "Test [0.5, 1)", generateRealWithin(0.5, 1.0 - pow(2.0, -24), _, _), logRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
-    n, "Test [0, 0.5)", generateRealWithin(0.0, 0.5 - pow(2.0, -25), _, _), logRefFP32)
+    "Test [0, 0.5)", generateRealWithin(0.0, 0.5 - pow(2.0, -25), _, _), logRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
-    n, "Test negative", generateRealWithin(-128.0, 0.0, _, _), logRefFP32)
+    "Test negative", generateRealWithin(-128.0, 0.0, _, _), logRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
-    n, "Test special values", generateSpecialValues(_, _), logRefFP32)
+    "Test special values", generateSpecialValues(_, _), logRefFP32)
 
   runtest(RealSpec.Float32Spec, fp32Config, simplePipeStage,
-    n, "Test [2, 128]", generateRealWithin(2.0, 128.0, _, _), logRefFP32)
+    "Test [2, 128]", generateRealWithin(2.0, 128.0, _, _), logRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, simplePipeStage,
-    n, "Test [1, 2)",   generateRealWithin(1.0, 2.0 - pow(2.0, -23), _, _), logRefFP32)
+    "Test [1, 2)",   generateRealWithin(1.0, 2.0 - pow(2.0, -23), _, _), logRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, simplePipeStage,
-    n, "Test [0.5, 1)", generateRealWithin(0.5, 1.0 - pow(2.0, -24), _, _), logRefFP32)
+    "Test [0.5, 1)", generateRealWithin(0.5, 1.0 - pow(2.0, -24), _, _), logRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, simplePipeStage,
-    n, "Test [0, 0.5)", generateRealWithin(0.0, 0.5 - pow(2.0, -25), _, _), logRefFP32)
+    "Test [0, 0.5)", generateRealWithin(0.0, 0.5 - pow(2.0, -25), _, _), logRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, simplePipeStage,
-    n, "Test special values", generateSpecialValues(_, _), logRefFP32)
+    "Test special values", generateSpecialValues(_, _), logRefFP32)
 
   runtest(RealSpec.Float32Spec, fp32Config, mulPipeStage,
-    n, "Test [2, 128]", generateRealWithin(2.0, 128.0, _, _), logRefFP32)
+    "Test [2, 128]", generateRealWithin(2.0, 128.0, _, _), logRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, mulPipeStage,
-    n, "Test [1, 2)",   generateRealWithin(1.0, 2.0 - pow(2.0, -23), _, _), logRefFP32)
+    "Test [1, 2)",   generateRealWithin(1.0, 2.0 - pow(2.0, -23), _, _), logRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, mulPipeStage,
-    n, "Test [0.5, 1)", generateRealWithin(0.5, 1.0 - pow(2.0, -24), _, _), logRefFP32)
+    "Test [0.5, 1)", generateRealWithin(0.5, 1.0 - pow(2.0, -24), _, _), logRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, mulPipeStage,
-    n, "Test [0, 0.5)", generateRealWithin(0.0, 0.5 - pow(2.0, -25), _, _), logRefFP32)
+    "Test [0, 0.5)", generateRealWithin(0.0, 0.5 - pow(2.0, -25), _, _), logRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, mulPipeStage,
-    n, "Test special values", generateSpecialValues(_, _), logRefFP32)
+    "Test special values", generateSpecialValues(_, _), logRefFP32)
 
   // --------------------------------------------------------------------------
   // BFloat16
@@ -161,20 +158,20 @@ class LogTest extends AnyFlatSpec
   val logRefBF16 = logRef(bf16Config)
 
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,
-    n, "Test [2, 128]", generateRealWithin(2.0, 128.0, _, _), logRefBF16)
+    "Test [2, 128]", generateRealWithin(2.0, 128.0, _, _), logRefBF16)
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,
-    n, "Test [1, 2)",   generateRealWithin(1.0, 2.0 - pow(2.0, -7), _, _), logRefBF16)
+    "Test [1, 2)",   generateRealWithin(1.0, 2.0 - pow(2.0, -7), _, _), logRefBF16)
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,
-    n, "Test [0.5, 1)", generateRealWithin(0.5, 1.0 - pow(2.0, -8), _, _), logRefBF16)
+    "Test [0.5, 1)", generateRealWithin(0.5, 1.0 - pow(2.0, -8), _, _), logRefBF16)
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,
-    n, "Test [0, 0.5)", generateRealWithin(0.0, 0.5 - pow(2.0, -9), _, _), logRefBF16)
+    "Test [0, 0.5)", generateRealWithin(0.0, 0.5 - pow(2.0, -9), _, _), logRefBF16)
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,
-    n, "Test special values", generateSpecialValues(_, _), logRefBF16)
+    "Test special values", generateSpecialValues(_, _), logRefBF16)
 
   runtest(RealSpec.BFloat16Spec, bf16Config, simplePipeStage,
-    n, "Test [2, 128]", generateRealWithin(2.0, 128.0, _, _), logRefBF16)
+    "Test [2, 128]", generateRealWithin(2.0, 128.0, _, _), logRefBF16)
   runtest(RealSpec.BFloat16Spec, bf16Config, simplePipeStage,
-    n, "Test [1, 2)",   generateRealWithin(1.0, 2.0 - pow(2.0, -7), _, _), logRefBF16)
+    "Test [1, 2)",   generateRealWithin(1.0, 2.0 - pow(2.0, -7), _, _), logRefBF16)
   runtest(RealSpec.BFloat16Spec, bf16Config, simplePipeStage,
-    n, "Test special values", generateSpecialValues(_, _), logRefBF16)
+    "Test special values", generateSpecialValues(_, _), logRefBF16)
 }

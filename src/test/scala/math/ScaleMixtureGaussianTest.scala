@@ -3,12 +3,11 @@ package rial.tests
 import org.scalatest._
 
 import chisel3._
-import chiseltest._
-import chiseltest.VerilatorBackendAnnotation
+import chisel3.simulator.scalatest.ChiselSim
+import chisel3.simulator.scalatest.Cli.EmitVcd
+import chisel3.simulator.scalatest.HasCliOptions.CliOption
 
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
+import org.scalatest.funspec.AnyFunSpec
 
 import spire.math.SafeLong
 import spire.implicits._
@@ -22,12 +21,10 @@ import scala.util.Random
 import scala.math._
 import scala.collection.mutable.Queue
 
-class ScaleMixtureGaussianTest extends AnyFlatSpec
-    with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
+class ScaleMixtureGaussianTest extends AnyFunSpec
+    with ChiselSim with EmitVcd {
 
-  behavior of "Test scaleMixtureGaussian with funcs/MathFunctions"
-
-  val n = 1000
+  addOption(CliOption.int("n", "number of random test cases per case (default 1000)"))
   val r = new Random(123456789)
 
   def generateRealWithin(p: Double, spec: RealSpec, r: Random) = {
@@ -53,7 +50,7 @@ class ScaleMixtureGaussianTest extends AnyFlatSpec
     spec:  RealSpec,
     cfg:   MathFuncConfig,
     stage: MathFuncPipelineConfig,
-    n: Int, generatorStr: String,
+    generatorStr: String,
     generator: (RealSpec, Random) => RealGeneric,
   ) = {
     val total      = stage.total
@@ -63,9 +60,9 @@ class ScaleMixtureGaussianTest extends AnyFlatSpec
     val reference = ScaleMixtureGaussianSimGeneric(
       cfg.coeffs(ScaleMixtureGaussian), _: RealGeneric, sgmA, sgmB)
 
-    it should f"smg(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr with ${cfg.getString}" in {
-      test(new MathFunctions(cfg, spec, stage)).
-        withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
+    it(f"smg(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr with ${cfg.getString}") {
+      val n = getOption[Int]("n").getOrElse(1000)
+      simulate(new MathFunctions(cfg, spec, stage)) { c =>
         counter = 0
         val q = new Queue[(BigInt, BigInt)]
         for (i <- 1 to n + total) {
@@ -118,22 +115,22 @@ class ScaleMixtureGaussianTest extends AnyFlatSpec
   val complexPipeline = new MathFuncPipelineConfig(2, 1, 1, 2, 1, 1)
 
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
-    n, f"Test Within (-${transitionPointF32},${transitionPointF32}) where table is used",
+    f"Test Within (-${transitionPointF32},${transitionPointF32}) where table is used",
     generateRealWithin(transitionPointF32, _, _))
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
-    n, "Test All range", generateRealFull(_, _))
+    "Test All range", generateRealFull(_, _))
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
-    n, "Test special values", generateSpecialValues(_, _))
+    "Test special values", generateSpecialValues(_, _))
 
   runtest(RealSpec.Float32Spec, fp32Config, simplePipeStage,
-    n, "Test All range", generateRealFull(_, _))
+    "Test All range", generateRealFull(_, _))
   runtest(RealSpec.Float32Spec, fp32Config, simplePipeStage,
-    n, "Test special values", generateSpecialValues(_, _))
+    "Test special values", generateSpecialValues(_, _))
 
   runtest(RealSpec.Float32Spec, fp32Config, complexPipeline,
-    n, "Test All range", generateRealFull(_, _))
+    "Test All range", generateRealFull(_, _))
   runtest(RealSpec.Float32Spec, fp32Config, complexPipeline,
-    n, "Test special values", generateSpecialValues(_, _))
+    "Test special values", generateSpecialValues(_, _))
 
   // --------------------------------------------------------------------------
   // BFloat16
@@ -144,11 +141,11 @@ class ScaleMixtureGaussianTest extends AnyFlatSpec
     ScaleMixtureGaussianTable.tableDomainDigit(bf16Config.outBitW, sgmA16, sgmB16))
 
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,
-    n, f"Test Within (-${transitionPointBF16},${transitionPointBF16}) where table is used",
+    f"Test Within (-${transitionPointBF16},${transitionPointBF16}) where table is used",
     generateRealWithin(transitionPointBF16, _, _))
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,
-    n, "Test All range", generateRealFull(_, _))
+    "Test All range", generateRealFull(_, _))
 
   runtest(RealSpec.BFloat16Spec, bf16Config, simplePipeStage,
-    n, "Test All range", generateRealFull(_, _))
+    "Test All range", generateRealFull(_, _))
 }

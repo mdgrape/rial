@@ -3,11 +3,10 @@ package rial.tests
 import org.scalatest._
 
 import chisel3._
-import chiseltest._
-import chiseltest.VerilatorBackendAnnotation
+import chisel3.simulator.scalatest.ChiselSim
+import chisel3.simulator.scalatest.Cli.EmitVcd
 
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.funspec.AnyFunSpec
 
 import rial.math._
 import rial.math.FuncKind._
@@ -31,10 +30,8 @@ import scala.collection.mutable.ArrayBuffer
 //
 // Run with:  sbt "testOnly rial.tests.FuncDumpTest"
 //
-class FuncDumpTest extends AnyFlatSpec
-    with ChiselScalatestTester with Matchers {
-
-  behavior of "Dump funcs/MathFunctions I/O for plotting"
+class FuncDumpTest extends AnyFunSpec
+    with ChiselSim with EmitVcd {
 
   val spec   = RealSpec.Float32Spec
   val stage  = MathFuncPipelineConfig.none
@@ -76,7 +73,7 @@ class FuncDumpTest extends AnyFlatSpec
                         inputs: Seq[BigInt]): Seq[BigInt] =
     evalStream(c, cfg, fn, inputs, Seq.fill(inputs.length)(BigInt(0)))
 
-  it should "write func_io.dat, smg_io.dat and atan2_io.dat" in {
+  it("write func_io.dat, smg_io.dat and atan2_io.dat") {
     // ---- input sweeps ----
     val xLo = -10.0; val xHi = 10.0; val nStep = 2000
     val xs    = (0 to nStep).map(i => xLo + (xHi - xLo) * i / nStep)
@@ -102,8 +99,7 @@ class FuncDumpTest extends AnyFlatSpec
     // standard build: sqrt / invsqrt / reciprocal / sin / cos / acos /
     //                 exp / log / atan2
     // ====================================================================
-    test(new MathFunctions(stdCfg, spec, stage)).
-      withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
+    simulate(new MathFunctions(stdCfg, spec, stage)) { c =>
       sqrtO  = evalUnary(c, stdCfg, Sqrt,       xBits).map(toDouble)
       invsqO = evalUnary(c, stdCfg, InvSqrt,    xBits).map(toDouble)
       recO   = evalUnary(c, stdCfg, Reciprocal, xBits).map(toDouble)
@@ -123,8 +119,7 @@ class FuncDumpTest extends AnyFlatSpec
     // ====================================================================
     // all build: sigmoid / softplus / smg (not in `standard`)
     // ====================================================================
-    test(new MathFunctions(allCfg, spec, stage)).
-      withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
+    simulate(new MathFunctions(allCfg, spec, stage)) { c =>
       sigO     = evalUnary(c, allCfg, Sigmoid,              xBits).map(toDouble)
       spO      = evalUnary(c, allCfg, SoftPlus,             xBits).map(toDouble)
       smgO     = evalUnary(c, allCfg, ScaleMixtureGaussian, xBits).map(toDouble)

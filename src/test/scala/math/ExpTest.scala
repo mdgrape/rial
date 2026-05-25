@@ -3,12 +3,11 @@ package rial.tests
 import org.scalatest._
 
 import chisel3._
-import chiseltest._
-import chiseltest.VerilatorBackendAnnotation
+import chisel3.simulator.scalatest.ChiselSim
+import chisel3.simulator.scalatest.Cli.EmitVcd
+import chisel3.simulator.scalatest.HasCliOptions.CliOption
 
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
+import org.scalatest.funspec.AnyFunSpec
 
 import spire.math.SafeLong
 import spire.implicits._
@@ -22,12 +21,10 @@ import scala.util.Random
 import scala.math._
 import scala.collection.mutable.Queue
 
-class ExpTest extends AnyFlatSpec
-    with ChiselScalatestTester with Matchers with BeforeAndAfterAllConfigMap {
+class ExpTest extends AnyFunSpec
+    with ChiselSim with EmitVcd {
 
-  behavior of "Test exp with funcs/MathFunctions"
-
-  val n = 1000
+  addOption(CliOption.int("n", "number of random test cases per case (default 1000)"))
   val r = new Random(123456789)
 
   def generateRealWithin(from: Double, to: Double, spec: RealSpec, r: Random) = {
@@ -51,15 +48,15 @@ class ExpTest extends AnyFlatSpec
     spec:  RealSpec,
     cfg:   MathFuncConfig,
     stage: MathFuncPipelineConfig,
-    n: Int, generatorStr: String, generator: (RealSpec, Random) => RealGeneric,
+    generatorStr: String, generator: (RealSpec, Random) => RealGeneric,
     reference: RealGeneric => RealGeneric,
   ) = {
     val total      = stage.total
     val pipeconfig = stage.getString
 
-    it should f"exp(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr with ${cfg.getString}" in {
-      test(new MathFunctions(cfg, spec, stage)).
-        withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
+    it(f"exp(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr with ${cfg.getString}") {
+      val n = getOption[Int]("n").getOrElse(1000)
+      simulate(new MathFunctions(cfg, spec, stage)) { c =>
         counter = 0
         val q = new Queue[(BigInt, BigInt)]
         for (i <- 1 to n + total) {
@@ -107,35 +104,35 @@ class ExpTest extends AnyFlatSpec
   val mulPipeStage    = new MathFuncPipelineConfig(2, 1, 1, 2, 1, 1)
 
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
-    n, "Test Safe (-1, 1)", generateRealWithin(-1.0, 1.0, _, _), expRefFP32)
+    "Test Safe (-1, 1)", generateRealWithin(-1.0, 1.0, _, _), expRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
-    n, "Test Safe Positive [1, 88]", generateRealWithin(1.0, 88.0, _, _), expRefFP32)
+    "Test Safe Positive [1, 88]", generateRealWithin(1.0, 88.0, _, _), expRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
-    n, "Test Safe Negative [-87, -1]", generateRealWithin(-87.0, -1.0, _, _), expRefFP32)
+    "Test Safe Negative [-87, -1]", generateRealWithin(-87.0, -1.0, _, _), expRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
-    n, "Test Large Positive [88, inf]", generateRealWithin(88.0, 200.0, _, _), expRefFP32)
+    "Test Large Positive [88, inf]", generateRealWithin(88.0, 200.0, _, _), expRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
-    n, "Test Large Negative [-200, -88]", generateRealWithin(-200.0, -88.0, _, _), expRefFP32)
+    "Test Large Negative [-200, -88]", generateRealWithin(-200.0, -88.0, _, _), expRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
-    n, "Test Special Values", generateSpecialValues(_, _), expRefFP32)
+    "Test Special Values", generateSpecialValues(_, _), expRefFP32)
 
   runtest(RealSpec.Float32Spec, fp32Config, simplePipeStage,
-    n, "Test Safe (-1, 1)", generateRealWithin(-1.0, 1.0, _, _), expRefFP32)
+    "Test Safe (-1, 1)", generateRealWithin(-1.0, 1.0, _, _), expRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, simplePipeStage,
-    n, "Test Safe Positive [1, 88]", generateRealWithin(1.0, 88.0, _, _), expRefFP32)
+    "Test Safe Positive [1, 88]", generateRealWithin(1.0, 88.0, _, _), expRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, simplePipeStage,
-    n, "Test Safe Negative [-87, -1]", generateRealWithin(-87.0, -1.0, _, _), expRefFP32)
+    "Test Safe Negative [-87, -1]", generateRealWithin(-87.0, -1.0, _, _), expRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, simplePipeStage,
-    n, "Test Special Values", generateSpecialValues(_, _), expRefFP32)
+    "Test Special Values", generateSpecialValues(_, _), expRefFP32)
 
   runtest(RealSpec.Float32Spec, fp32Config, mulPipeStage,
-    n, "Test Safe (-1, 1)", generateRealWithin(-1.0, 1.0, _, _), expRefFP32)
+    "Test Safe (-1, 1)", generateRealWithin(-1.0, 1.0, _, _), expRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, mulPipeStage,
-    n, "Test Safe Positive [1, 88]", generateRealWithin(1.0, 88.0, _, _), expRefFP32)
+    "Test Safe Positive [1, 88]", generateRealWithin(1.0, 88.0, _, _), expRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, mulPipeStage,
-    n, "Test Safe Negative [-87, -1]", generateRealWithin(-87.0, -1.0, _, _), expRefFP32)
+    "Test Safe Negative [-87, -1]", generateRealWithin(-87.0, -1.0, _, _), expRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, mulPipeStage,
-    n, "Test Special Values", generateSpecialValues(_, _), expRefFP32)
+    "Test Special Values", generateSpecialValues(_, _), expRefFP32)
 
   // --------------------------------------------------------------------------
   // BFloat16
@@ -144,18 +141,18 @@ class ExpTest extends AnyFlatSpec
   val expRefBF16 = ExpSimGeneric(bf16Config.coeffs(Exp), _: RealGeneric)
 
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,
-    n, "Test Safe (-1, 1)", generateRealWithin(-1.0, 1.0, _, _), expRefBF16)
+    "Test Safe (-1, 1)", generateRealWithin(-1.0, 1.0, _, _), expRefBF16)
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,
-    n, "Test Safe Positive [1, 88]", generateRealWithin(1.0, 88.0, _, _), expRefBF16)
+    "Test Safe Positive [1, 88]", generateRealWithin(1.0, 88.0, _, _), expRefBF16)
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,
-    n, "Test Safe Negative [-87, -1]", generateRealWithin(-87.0, -1.0, _, _), expRefBF16)
+    "Test Safe Negative [-87, -1]", generateRealWithin(-87.0, -1.0, _, _), expRefBF16)
   runtest(RealSpec.BFloat16Spec, bf16Config, noPipeStage,
-    n, "Test Special Values", generateSpecialValues(_, _), expRefBF16)
+    "Test Special Values", generateSpecialValues(_, _), expRefBF16)
 
   runtest(RealSpec.BFloat16Spec, bf16Config, simplePipeStage,
-    n, "Test Safe (-1, 1)", generateRealWithin(-1.0, 1.0, _, _), expRefBF16)
+    "Test Safe (-1, 1)", generateRealWithin(-1.0, 1.0, _, _), expRefBF16)
   runtest(RealSpec.BFloat16Spec, bf16Config, simplePipeStage,
-    n, "Test Safe Positive [1, 88]", generateRealWithin(1.0, 88.0, _, _), expRefBF16)
+    "Test Safe Positive [1, 88]", generateRealWithin(1.0, 88.0, _, _), expRefBF16)
   runtest(RealSpec.BFloat16Spec, bf16Config, simplePipeStage,
-    n, "Test Special Values", generateSpecialValues(_, _), expRefBF16)
+    "Test Special Values", generateSpecialValues(_, _), expRefBF16)
 }
