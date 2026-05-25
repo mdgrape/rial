@@ -31,7 +31,7 @@ class PolynomialEval(
     assert(bitW.outBitW+1 == bitW.coefBits.reduce(_+_),
       f"outBitW=${bitW.outBitW}, coefBits=${bitW.coefBits.mkString("[",",","]")}, "+
       f"sum=${bitW.coefBits.reduce(_+_)}")
-    assert(io.in.bits.coeffs(0).asUInt(bitW.outBitW) === 0.U,
+    assert(!io.in.valid || io.in.bits.coeffs(0).asUInt(bitW.outBitW) === 0.U,
       "if nOrder==0, coefficient must be in [0, 1) and the MSB must be zero")
 
     out := io.in.bits.coeffs(0).asUInt(bitW.outBitW-1, 0) // if order==0, then there is only one parameter.
@@ -58,7 +58,7 @@ class PolynomialEval(
       val sumFull = (prod >> xminW).asSInt +& coeffs(k)
       accVec(k) := sumFull // drop the MSB (carry)
 
-      assert((k == 0).B || accVec(k) === sumFull, "PolynomialEval: horner "+
+      assert(!io.in.valid || (k == 0).B || accVec(k) === sumFull, "PolynomialEval: horner "+
         f"intermediate (k=${k}) overflowed calcBits=${bitW.calcBits(k)}")
     }
 

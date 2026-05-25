@@ -141,7 +141,7 @@ class ExpPreProcess(
   val xman2 = xprodRounded(manW + extraMan - 1, 0)
   val xex   = xex0 + xprodMoreThan2AfterRounded + xprodMoreThan2
 
-  assert(xprodMoreThan2AfterRounded +& xprodMoreThan2 =/= 2.U)
+  assert(!io.prod.valid || xprodMoreThan2AfterRounded +& xprodMoreThan2 =/= 2.U)
 
   val xexd = xprodMoreThan2AfterRounded + xprodMoreThan2
   val xVal = Cat(1.U(1.W), xman2)

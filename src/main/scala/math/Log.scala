@@ -244,7 +244,7 @@ class LogPostMultArgs(
                Mux(zres === 0.U, Fill(fracW, 1.U(1.W)), ~zres + 1.U))
   val zfull0       = Cat(info.zint, zfrac0)                       // exW + fracW bits
   val zfullShifted = (zfull0 << info.zintShift)(exW + fracW - 1, 0)
-  assert(zfullShifted(exW + fracW - 1) === 1.U || !info.xOtherwise)
+  assert(!io.info.valid || zfullShifted(exW + fracW - 1) === 1.U || !info.xOtherwise)
 
   val ymanW1 = Mux(info.x0_5to1_0, Cat(1.U(1.W), zres),                     // path 1
                Mux(info.x1_0to2_0, Cat(zres, 0.U(1.W)),                     // path 2
