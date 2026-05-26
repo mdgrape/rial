@@ -26,5 +26,14 @@ lazy val rial = (project in file("."))
       "-Xcheckinit",
       ),
     addCompilerPlugin("org.chipsalliance" % "chisel-plugin" % chiselVersion cross CrossVersion.full),
+
+    // Fat jar for the JNI binding (jni/, rialcpp): the C++ side loads a single
+    // jar via -Djava.class.path, so all runtime deps must be bundled.
+    assembly / assemblyJarName := "rial.jar",
+    assembly / assemblyMergeStrategy := {
+      case PathList("META-INF", _ @ _*)          => MergeStrategy.discard
+      case x if x.endsWith("module-info.class")  => MergeStrategy.discard
+      case _                                     => MergeStrategy.first
+    },
   )
 
