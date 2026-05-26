@@ -253,3 +253,18 @@ object LogSimGeneric {
     new RealGeneric(spec, zsgn, lnex, lnman)
   }
 }
+
+/** Software entry point: log(x) with the `standard` FP32 configuration.
+ *  Used by the JNI binding (jni/, rialcpp). */
+object LogSim {
+  import FuncKind.Log
+
+  private lazy val cfg = MathFuncConfig.standardFP32
+  private lazy val lt  = cfg.tables(Log).asInstanceOf[LogTable]
+  private lazy val cN  = lt.genNormalCoeffs  (cfg.bitW)
+  private lazy val cP  = lt.genSmallPosCoeffs(cfg.bitW)
+  private lazy val cG  = lt.genSmallNegCoeffs(cfg.bitW)
+
+  def logDefaultFP32(x: Float): Float =
+    LogSimGeneric(cN, cP, cG, RealGeneric.fromFloat(RealSpec.Float32Spec, x)).toFloat
+}

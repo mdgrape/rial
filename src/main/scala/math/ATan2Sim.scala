@@ -296,3 +296,19 @@ object ATan2Phase2SimGeneric {
     }
   }
 }
+
+/** Software entry point: atan2(y, x) = phase2(phase1(y, x)) with the `standard`
+ *  FP32 configuration. Used by the JNI binding (jni/, rialcpp). */
+object ATan2Phase2Sim {
+  import FuncKind.{Reciprocal, ATan2Phase2}
+
+  private lazy val cfg   = MathFuncConfig.standardFP32
+  private lazy val tRec  = cfg.coeffs(Reciprocal)    // phase 1 reuses the reciprocal table
+  private lazy val tATan = cfg.coeffs(ATan2Phase2)
+
+  def atan2DefaultFP32(y: Float, x: Float): Float = {
+    val yg = RealGeneric.fromFloat(RealSpec.Float32Spec, y)
+    val xg = RealGeneric.fromFloat(RealSpec.Float32Spec, x)
+    ATan2Phase2SimGeneric(tATan, ATan2Phase1SimGeneric(tRec, yg, xg)).toFloat
+  }
+}

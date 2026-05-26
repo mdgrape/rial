@@ -219,3 +219,18 @@ object ACosPhase2SimGeneric {
     new RealGeneric(spec, 0, negZEx, negZMan)
   }
 }
+
+/** Software entry point: acos(x) = phase2(phase1(x)) with the `standard` FP32
+ *  configuration. Used by the JNI binding (jni/, rialcpp). */
+object ACosPhase2Sim {
+  import FuncKind.{Sqrt, ACosPhase2}
+
+  private lazy val cfg   = MathFuncConfig.standardFP32
+  private lazy val tSqrt = cfg.coeffs(Sqrt)        // phase 1 reuses the sqrt table
+  private lazy val tACos = cfg.coeffs(ACosPhase2)
+
+  def acosDefaultFP32(x: Float): Float = {
+    val xg = RealGeneric.fromFloat(RealSpec.Float32Spec, x)
+    ACosPhase2SimGeneric(tACos, ACosPhase1SimGeneric(tSqrt, xg)).toFloat
+  }
+}
