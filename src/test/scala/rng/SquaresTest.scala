@@ -26,28 +26,8 @@ class SquaresTest extends AnyFunSpec
   addOption(CliOption.int("n", "number of test cases (default 1000)"))
   def n: Int = getOption[Int]("n").getOrElse(1000)
 
-  def squares(cnt: BigInt, key: BigInt): BigInt = {
-    val mask64 = (BigInt(1) << 64) - BigInt(1)
-    val mask32 = (BigInt(1) << 32) - BigInt(1)
-
-    var x = cnt * key
-    val y = cnt * key
-    val z = y + key
-
-    x = (((x * x) & mask64) + y) & mask64
-    x = ((x >>32) & mask32) | ((x & mask32) << 32)
-
-    x = (((x * x) & mask64) + z) & mask64
-    x = ((x >>32) & mask32) | ((x & mask32) << 32)
-
-    x = (((x * x) & mask64) + y) & mask64
-    x = ((x >>32) & mask32) | ((x & mask32) << 32)
-
-    x = (((x * x) & mask64) + z) & mask64
-    x = ((x >>32) & mask32) | ((x & mask32) << 32)
-
-    return x & mask32
-  }
+  // verify the HW against the software model (SquaresSim) used by RngSim.
+  def squares(cnt: BigInt, key: BigInt): BigInt = SquaresSim.squares32(cnt, key)
 
   def runTest(key: BigInt) = {
     simulate(new Squares32) {
@@ -85,28 +65,7 @@ class Squares32GeneratorTest extends AnyFunSpec
   addOption(CliOption.int("n", "number of test cases (default 1000)"))
   def n: Int = getOption[Int]("n").getOrElse(1000)
 
-  def squares(cnt: BigInt, key: BigInt): BigInt = {
-    val mask64 = (BigInt(1) << 64) - BigInt(1)
-    val mask32 = (BigInt(1) << 32) - BigInt(1)
-
-    var x = cnt * key
-    val y = cnt * key
-    val z = y + key
-
-    x = (((x * x) & mask64) + y) & mask64
-    x = ((x >>32) & mask32) | ((x & mask32) << 32)
-
-    x = (((x * x) & mask64) + z) & mask64
-    x = ((x >>32) & mask32) | ((x & mask32) << 32)
-
-    x = (((x * x) & mask64) + y) & mask64
-    x = ((x >>32) & mask32) | ((x & mask32) << 32)
-
-    x = (((x * x) & mask64) + z) & mask64
-    x = ((x >>32) & mask32) | ((x & mask32) << 32)
-
-    return x & mask32
-  }
+  def squares(cnt: BigInt, key: BigInt): BigInt = SquaresSim.squares32(cnt, key)
 
   def runTest(key: BigInt) = {
     simulate(new Squares32Generator) {
