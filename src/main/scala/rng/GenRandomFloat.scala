@@ -15,71 +15,42 @@ import rial.util._
  *
  * It sets random bits into the mantissa part.
  *
- * {{{
- * class GenRandomFloat12(...) extends Module {
- *   val io = IO(new Bundle {
- *     val rnds = Input(Vec(nRndInt, UInt(rndW.W)))
- *     val z    = Output(UInt(spec.W.W))
- *   })
- *   // ...
- * }
- * }}}
- *
  * @constructor    create a chisel Module.
- * @param rndW     input random number bit width.
  * @param spec     output floating-point spec.
  * @param stage    pipeline stages.
  */
 class GenRandomFloat12(
-  rndW: Int, // random number width
   spec: RealSpec,
   stage: PipelineStageConfig
 ) extends Module {
 
-  def getParam = { (rndW, spec, stage) }
+  def getParam = { (spec, stage) }
 
   val nStage = stage.total
 
   val exW  = spec.exW
   val manW = spec.manW
 
-  // required number of input integers to generate float
-  val nRndInt = (manW / rndW) + 1
-
   val io = IO(new Bundle {
-    val rnds = Input(Vec(nRndInt, UInt(rndW.W)))
-    val z    = Output(UInt(spec.W.W))
+    val rnd = Flipped(Valid(UInt(manW.W)))
+    val z   = Valid(UInt(spec.W.W))
   })
 
   val zsgn = 0.U(1.W)
   val zex  = spec.exBias.U(exW.W)
-  val zman = (io.rnds.asUInt)(manW-1, 0)
+  val zman = io.rnd.bits
 
   val z = Cat(zsgn, zex, zman)
   assert(z.getWidth == spec.W)
 
-  io.z := ShiftRegister(z, nStage)
+  io.z := Pipe(io.rnd.valid, z, nStage)
 }
 
 /** generate Float in [0, 1) based on a uniform distribution of integer.
  *
- * It requires input random number bit width larger than mantissa width.
- * After determining mantissa, we will have `rndW-manW` bits. This module
- * uses these bits to determine the exponent.
- *
- * For example, let's say you have 32bit random number and want to generate
- * float32, you can use 9 bits to determine exponent.
- * The resluting FP covers a bit finer range compared to the case of `[1,2) - 1`.
- *
- * {{{
- * class GenRandomFloat01(...) {
- *   val io = IO(new Bundle {
- *     val rnds = Input(Vec(nRndInt, UInt(rndW.W)))
- *     val z    = Output(UInt(spec.W.W))
- *   })
- *   // ...
- * }
- * }}}
+ * It interprets random integer input as a fixedpoint number rnd / (1<<rndW)
+ * and convert it to floating point. the minimum number you can get is
+ * 1 / (1<<rndW).
  *
  * @constructor    create a chisel Module.
  * @param rndW     input random number bit width.
@@ -96,198 +67,32 @@ class GenRandomFloat01(
 
   val nStage = stage.total
 
-  val exW  = spec.exW
-  val manW = spec.manW
+  val exW    = spec.exW
+  val manW   = spec.manW
   val exBias = spec.exBias
 
-  // minimum required number of input integers to generate float
-  val nRndInt = (manW / rndW) + 1
+  require(rndW > manW)
 
   val io = IO(new Bundle {
-    val rnds = Input(Vec(nRndInt, UInt(rndW.W)))
-    val z    = Output(UInt(spec.W.W))
+    val rnd = Flipped(Valid(UInt(rndW.W)))
+    val z   = Valid(UInt(spec.W.W))
   })
 
-  // consider rndBits is a fraction in [0, 1.0). 1.0 corresponds to 1 << rndBits.W.
-  val rndBits    = io.rnds.asUInt
-  val zerosAtLSB = PriorityEncoder(rndBits)
+  val rnd = io.rnd.bits
 
-  // normalize rndBits using zerrosAtLSB. First we normalize LSB as the
-  // leading 1 in FP and then reverse it.
-  val zsgn = 0.U(1.W)
-  val zex        = Mux(rndBits === 0.U, 0.U(exW.W), (exBias-1).U(exW.W) - zerosAtLSB)
-  val zmanW1     = Reverse((rndBits >> zerosAtLSB)(manW, 0))
+  val zerosAtMSB = PriorityEncoder(Reverse(rnd))
 
-  assert(exBias - (rndBits.getWidth+1) >= 0)
-  assert(zmanW1(manW) === 1.U)
+  val manW1 = (rnd << zerosAtMSB)(rndW-1, rndW-1-manW)
+  require(manW1.getWidth == manW+1)
 
-  val z = Cat(zsgn, zex, zmanW1.tail(1))
-  assert(z.getWidth == spec.W)
+  assert(!io.rnd.valid || manW1(manW) === 1.U)
 
-  io.z := ShiftRegister(z, nStage)
-}
+  val sgn = 0.U(1.W)
+  val ex  = Mux(rnd === 0.U, 0.U(exW.W), (exBias-1).U(exW.W) - zerosAtMSB)
+  val man = manW1(manW-1, 0)
 
-/** generate Float in [0, 1).
- *
- * This generates all the possible normalized numbers in [0, 1).
- * To do that, it requires a lot more random bits.
- *
- * {{{
- * class GenRandomFloat01Full(...) {
- *   val io = IO(new Bundle {
- *     val rnds = Input(Vec(nRndInt, UInt(rndW.W)))
- *     val z    = Output(UInt(spec.W.W))
- *   })
- *   // ...
- * }
- * }}}
- *
- * @constructor    create a chisel Module.
- * @param rndW     input random number bit width.
- * @param spec     output floating-point spec.
- * @param stage    pipeline stages.
- */
-class GenRandomFloat01Full(
-  rndW: Int, // random number width
-  spec: RealSpec,
-  stage: PipelineStageConfig
-) extends Module {
+  val z = Cat(sgn, ex, man)
+  require(z.getWidth == spec.W)
 
-  def getParam = { (rndW, spec, stage) }
-
-  val nStage = stage.total
-
-  val exW  = spec.exW
-  val manW = spec.manW
-  val exBias = spec.exBias
-
-  // If the exponent differs by 1, the region that has smaller exponent has
-  // 2 times less numbers than the larger exponent region. That means that,
-  // there are the same number of FP numbers between a region that corresponds
-  // to exponent = n and exponent = m where m < n. So the probability of getting
-  // exponent = n is 1/2.
-  // So, to determine the exponent, we do "coin toss" until we get "head".
-  // Each bit of random numbers should have no correlation, so we can use those
-  // bits as a result of coin toss. This means that, the exponent can be
-  // calculated as the 0s at one end (or 1s, whatever).
-
-  val nBitsForEx = 0 - (0 - exBias) // including subnormal
-  val nRndInt    = ((nBitsForEx + manW) / rndW) + 1
-
-  val io = IO(new Bundle {
-    val rnds = Input(Vec(nRndInt, UInt(rndW.W)))
-    val z    = Output(UInt(spec.W.W))
-  })
-
-  val rndBits   = io.rnds.asUInt
-
-  val rndForEx  = rndBits(nBitsForEx-1, 0)
-  val rndForMan = rndBits(manW-1 + nBitsForEx, nBitsForEx)
-
-  val zsgn = 0.U(1.W)
-  val zex  = Mux(rndForEx === 0.U, 0.U(exW.W),
-                 (exBias - 1).U(exW.W) - PriorityEncoder(rndForEx))
-  val zman0 = rndForMan
-  val zman = if(spec.disableSubnormal) {
-    Mux(zex === 0.U, 0.U(manW.W), zman0)
-  } else {
-    zman0
-  }
-
-  val z = Cat(zsgn, zex, zman)
-  assert(z.getWidth == spec.W)
-
-  io.z := ShiftRegister(z, nStage)
-}
-
-/** generate Float in [0, 1).
- *
- * This generates all the possible normalized numbers in [0, 1).
- * To do that, it requires a lot more random bits.
- *
- * It does not require multiple random numbers at a time but takes multiple
- * cycles to generate one floating-point number.
- *
- * {{{
- * class GenRandomFloat01FullPipe(...) {
- *   val io = IO(new Bundle {
- *     val rnd   = Input(UInt(rndW.W))
- *     val valid = Output(Bool())
- *     val z     = Output(UInt(spec.W.W))
- *   })
- *   // ...
- * }
- * }}}
- *
- * @constructor    create a chisel Module.
- * @param rndW     input random number bit width.
- * @param spec     output floating-point spec.
- */
-class GenRandomFloat01FullPipe(
-  rndW: Int, // random number width
-  spec: RealSpec,
-) extends Module {
-
-  def getParam = { (rndW, spec) }
-
-  val exW  = spec.exW
-  val manW = spec.manW
-  val exBias = spec.exBias
-
-  // If the exponent differs by 1, the region that has smaller exponent has
-  // 2 times less numbers than the larger exponent region. That means that,
-  // there are the same number of FP numbers between a region that corresponds
-  // to exponent = n and exponent = m where m < n. So the probability of getting
-  // exponent = n is 1/2.
-  // So, to determine the exponent, we do "coin toss" until we get "head".
-  // Each bit of random numbers should have no correlation, so we can use those
-  // bits as a result of coin toss. This means that, the exponent can be
-  // calculated as the 0s at one end (or 1s, whatever).
-
-  val nRndsForEx  = (exBias / rndW) + (if(exBias % rndW == 0) {0} else {1})
-  val nRndsForMan = (manW   / rndW) + (if(manW   % rndW == 0) {0} else {1})
-
-  val io = IO(new Bundle {
-    val rnd   = Input(UInt(rndW.W))
-    val valid = Output(Bool())
-    val z     = Output(UInt(spec.W.W))
-  })
-
-  val doneEx   = RegInit(false.B)
-  val countMan = RegInit(nRndsForMan.U)
-
-  val zsgn  = 0.U(1.W)
-  val zex   = RegInit((exBias - 1).U(exW.W))
-  val zman  = RegInit(0.U(manW.W))
-
-  // default output (overwritten later)
-  io.valid := false.B
-  io.z     := 0.U
-
-  when(doneEx) {
-    val countManNext = countMan - 1.U
-    val zmanNext     = (zman << rndW.U)(manW-1, 0) | (io.rnd)(manW.min(rndW)-1, 0)
-    when(countManNext === 0.U) {
-      // output and reset
-      val z = Cat(zsgn, zex, zmanNext)
-      assert(z.getWidth == spec.W)
-      io.z     := z
-      io.valid := true.B
-
-      zex      := (exBias-1).U(exW.W)
-      zman     := 0.U
-      doneEx   := false.B
-      countMan := nRndsForMan.U
-    } otherwise {
-      zman     := zmanNext
-      countMan := countManNext
-    }
-  } otherwise {
-    val rndHas1 = io.rnd =/= 0.U
-    val nZeros  = Mux( !rndHas1, rndW.U, PriorityEncoder(io.rnd))
-    val zexNext = zex -& nZeros
-    val zexNeg  = zexNext.head(1) === 1.U
-    zex    := Mux(zexNeg, 0.U(exW.W), zexNext)
-    doneEx := rndHas1 || zexNeg
-  }
+  io.z := Pipe(io.rnd.valid, z, nStage)
 }
