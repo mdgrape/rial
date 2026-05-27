@@ -118,9 +118,11 @@ std::optional<std::string> JVMManager::initialize()
     if(auto r = find_func("rial/math/MathSim", "exp",        "(F)F",  this->funcs_.at(FuncExp        ))) {return r;}
     if(auto r = find_func("rial/math/MathSim", "log",        "(F)F",  this->funcs_.at(FuncLog        ))) {return r;}
 
-    if(auto r = find_func("rial/rng/RngSim",   "genFloat12",  "(J)F", this->funcs_.at(FuncGenFloat12 ))) {return r;}
-    if(auto r = find_func("rial/rng/RngSim",   "genFloat01",  "(J)F", this->funcs_.at(FuncGenFloat01 ))) {return r;}
-    if(auto r = find_func("rial/rng/RngSim",   "genGaussian", "(J)F", this->funcs_.at(FuncGenGaussian))) {return r;}
+    if(auto r = find_func("rial/rng/RngSim",   "genFloat12",  "(J)F",  this->funcs_.at(FuncGenFloat12 ))) {return r;}
+    if(auto r = find_func("rial/rng/RngSim",   "genFloat01",  "(J)F",  this->funcs_.at(FuncGenFloat01 ))) {return r;}
+    if(auto r = find_func("rial/rng/RngSim",   "genGaussian", "(J)F",  this->funcs_.at(FuncGenGaussian))) {return r;}
+    if(auto r = find_func("rial/rng/RngSim",   "squares32",   "(JJ)I", this->funcs_.at(FuncSquares32  ))) {return r;}
+    if(auto r = find_func("rial/rng/RngSim",   "irwinHall",   "([J)F", this->funcs_.at(FuncIrwinHall  ))) {return r;}
 
     return std::nullopt;
 }

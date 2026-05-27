@@ -12,6 +12,15 @@ it binds the following software simulation functions to c++.
 - `float rial::exp       (float x)         ;`
 - `float rial::log       (float x)         ;`
 
+It also binds the random-number generators (input is raw random bits, standard
+FP32 config):
+
+- `float         rial::gen_float12 (std::uint64_t rnd)                       ;` // uniform [1, 2)
+- `float         rial::gen_float01 (std::uint64_t rnd)                       ;` // uniform [0, 1)
+- `float         rial::gen_gaussian(std::uint64_t rnd)                       ;` // N(0, 1)
+- `std::uint32_t rial::squares32   (std::uint64_t count, std::uint64_t key)  ;` // uniform u32
+- `float         rial::irwin_hall  (const std::array<std::uint64_t, 12>& rnd);` // approx-gaussian
+
 Currently, the configurations (e.g. table addrW, extraBits) are fixed.
 So the result might be different from customized MathFunctions instance.
 

@@ -11,6 +11,7 @@
 #include <optional>
 
 #include <cassert>
+#include <cstdint>
 
 namespace rial
 {
@@ -61,7 +62,40 @@ class JVMManager
     float call_gen_float01 (uint64_t rnd) const { return checked_call(FuncGenFloat01,  static_cast<jlong>(rnd)); }
     float call_gen_gaussian(uint64_t rnd) const { return checked_call(FuncGenGaussian, static_cast<jlong>(rnd)); }
 
+    // Squares32 returns a 32-bit uint (jint), so it uses CallIntMethod rather
+    // than the float-returning checked_call.
+    std::uint32_t call_squares32(uint64_t count, uint64_t key) const
+    {
+        const auto [obj, method] = resolve(FuncSquares32, "squares32");
+        return static_cast<std::uint32_t>(this->env_->CallIntMethod(
+            obj, method, static_cast<jlong>(count), static_cast<jlong>(key)));
+    }
+
+    // Irwin-Hall takes a long[] of n words and returns a float.
+    float call_irwin_hall(const std::uint64_t* rnds, std::size_t n) const
+    {
+        const auto [obj, method] = resolve(FuncIrwinHall, "irwinHall");
+        jlongArray arr = this->env_->NewLongArray(static_cast<jsize>(n));
+        this->env_->SetLongArrayRegion(arr, 0, static_cast<jsize>(n),
+                reinterpret_cast<const jlong*>(rnds));
+        const float r = this->env_->CallFloatMethod(obj, method, arr);
+        this->env_->DeleteLocalRef(arr);
+        return r;
+    }
+
   private:
+
+    std::pair<jobject, jmethodID> resolve(std::size_t i, const char* name) const
+    {
+        assert(i < NFunc);
+        const auto [obj, method] = funcs_.at(i);
+        if(obj == nullptr || method == nullptr)
+        {
+            throw std::runtime_error(std::string("JVMManager: ") + name +
+                    " is not found in " + std::string(RIAL_JAR_PATH));
+        }
+        return {obj, method};
+    }
 
     template<typename ... Args>
     float checked_call(std::size_t i, Args ... args) const
@@ -81,7 +115,9 @@ class JVMManager
             "log"s,
             "gen_float12"s,
             "gen_float01"s,
-            "gen_gaussian"s
+            "gen_gaussian"s,
+            "squares32"s,
+            "irwinHall"s
         }};
 
         const auto [obj, method] = funcs_.at(i);
@@ -111,7 +147,9 @@ class JVMManager
     constexpr static std::size_t FuncGenFloat12  = 9;
     constexpr static std::size_t FuncGenFloat01  = 10;
     constexpr static std::size_t FuncGenGaussian = 11;
-    constexpr static std::size_t NFunc          = 12; // size
+    constexpr static std::size_t FuncSquares32   = 12;
+    constexpr static std::size_t FuncIrwinHall   = 13;
+    constexpr static std::size_t NFunc          = 14; // size
     std::array<std::pair<jobject, jmethodID>, NFunc> funcs_;
 
     std::mutex mutex_;

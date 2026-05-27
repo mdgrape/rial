@@ -107,5 +107,17 @@ int main()
                   << rial::gen_gaussian(bits) << std::endl;
     }
 
+    const std::uint64_t key = 0x2467cb532b5ce8d1ull;
+    for (std::uint64_t cnt = 0; cnt < 5; ++cnt)
+    {
+        std::cout << "squares32(count=" << cnt << ", key) = 0x" << std::hex
+                  << rial::squares32(cnt, key) << std::dec << std::endl;
+    }
+
+    // feed 12 squares32 words into Irwin-Hall to draw an approx-gaussian sample.
+    std::array<std::uint64_t, 12> rnds{};
+    for (std::uint64_t i = 0; i < 12; ++i) { rnds[i] = rial::squares32(i, key); }
+    std::cout << "irwin_hall(squares32 x12) = " << rial::irwin_hall(rnds) << std::endl;
+
     return 0;
 }

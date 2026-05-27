@@ -29,4 +29,14 @@ object RngSim {
   /** N(0,1) gaussian from a 64-bit random word (nOrder = 3). */
   def genGaussian(rnd: Long): Float =
     GenRandomGaussianSim.genGaussian(u64(rnd), 64, spec, 3).toFloat
+
+  /** Squares32 counter-based uniform RNG: 32-bit random word for (count, key),
+   *  returned as the raw bit pattern in a jint. */
+  def squares32(count: Long, key: Long): Int =
+    SquaresSim.squares32(u64(count), u64(key)).toInt
+
+  /** Approx-gaussian via Irwin-Hall: sum of 12 uniform 32-bit words `rnds`
+   *  (low 32 bits of each used) converted to a float. */
+  def irwinHall(rnds: Array[Long]): Float =
+    IrwinHallSim.irwinHall(rnds.toIndexedSeq.map(u64), 32, spec).toFloat
 }
