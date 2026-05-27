@@ -10,6 +10,7 @@ import chisel3.util._
 class PolynomialEval(
   bitW: PolynomialBitWidth,
   stage: Int,
+  clampNegToZero: Boolean = false,
 ) extends Module {
 
   val order = bitW.nOrder
@@ -63,8 +64,14 @@ class PolynomialEval(
     }
 
     val resMax = Fill(bitW.outBitW, 1.U(1.W))
-    val res    = accVec(0).asUInt
-    out := Mux(res > resMax, resMax, res)
+    if (clampNegToZero) {
+      val res = accVec(0)
+      out := Mux(res < 0.S, 0.U,
+               Mux(res > resMax.zext, resMax, res(bitW.outBitW-1, 0)))
+    } else {
+      val res = accVec(0).asUInt
+      out := Mux(res > resMax, resMax, res)
+    }
   }
 }
 
