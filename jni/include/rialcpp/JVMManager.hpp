@@ -56,6 +56,11 @@ class JVMManager
     float call_exp        (float x)          const { return checked_call(FuncExp,        x); }
     float call_log        (float x)          const { return checked_call(FuncLog,        x); }
 
+    // RNG: argument is the raw random bits (uint64), result is the generated float.
+    float call_gen_float12 (uint64_t rnd) const { return checked_call(FuncGenFloat12,  static_cast<jlong>(rnd)); }
+    float call_gen_float01 (uint64_t rnd) const { return checked_call(FuncGenFloat01,  static_cast<jlong>(rnd)); }
+    float call_gen_gaussian(uint64_t rnd) const { return checked_call(FuncGenGaussian, static_cast<jlong>(rnd)); }
+
   private:
 
     template<typename ... Args>
@@ -73,7 +78,10 @@ class JVMManager
             "acos"s,
             "atan2"s,
             "exp"s,
-            "log"s
+            "log"s,
+            "gen_float12"s,
+            "gen_float01"s,
+            "gen_gaussian"s
         }};
 
         const auto [obj, method] = funcs_.at(i);
@@ -100,7 +108,10 @@ class JVMManager
     constexpr static std::size_t FuncAtan2      = 6;
     constexpr static std::size_t FuncExp        = 7;
     constexpr static std::size_t FuncLog        = 8;
-    constexpr static std::size_t NFunc          = 9; // size
+    constexpr static std::size_t FuncGenFloat12  = 9;
+    constexpr static std::size_t FuncGenFloat01  = 10;
+    constexpr static std::size_t FuncGenGaussian = 11;
+    constexpr static std::size_t NFunc          = 12; // size
     std::array<std::pair<jobject, jmethodID>, NFunc> funcs_;
 
     std::mutex mutex_;

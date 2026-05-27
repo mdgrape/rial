@@ -1,4 +1,5 @@
 #include <rialcpp/math.hpp>
+#include <rialcpp/rng.hpp>
 
 #include <iomanip>
 #include <iostream>
@@ -91,6 +92,20 @@ int main()
         [](float x) {return std::log(x); },
         [](float x) {return rial::log(x);}
     );
+
+    // -----------------------------------------------------------------------
+    // RNG generators: input is raw random bits, output is the generated float.
+    std::cout << "---------------------------------------------------" << std::endl;
+    std::cout << "rng" << std::endl;
+    std::cout << "gen_float12(0)          = " << rial::gen_float12(0)               << " (expect 1)"    << std::endl;
+    std::cout << "gen_float01(0x80000000) = " << rial::gen_float01(0x80000000ull)   << " (expect 0.5)"  << std::endl;
+    std::cout << "gen_float01(0xC0000000) = " << rial::gen_float01(0xC0000000ull)   << " (expect 0.75)" << std::endl;
+    for (std::uint64_t s = 1; s <= 5; ++s)
+    {
+        const std::uint64_t bits = s * 0x9E3779B97F4A7C15ull; // arbitrary spread
+        std::cout << "gen_gaussian(0x" << std::hex << bits << std::dec << ") = "
+                  << rial::gen_gaussian(bits) << std::endl;
+    }
 
     return 0;
 }

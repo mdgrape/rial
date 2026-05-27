@@ -1,5 +1,5 @@
 add_library(rialcpp SHARED
-    JVMManager.cpp math.cpp
+    JVMManager.cpp math.cpp rng.cpp
 )
 
 target_compile_features(rialcpp PRIVATE cxx_std_20)

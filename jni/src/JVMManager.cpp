@@ -67,7 +67,7 @@ std::optional<std::string> JVMManager::initialize()
         std::pair<jobject, jmethodID>& result
     ) -> std::optional<std::string> {
         using namespace std::literals::string_literals;
-        const auto objpath  = "rial/math/"s + objname + "$"s;
+        const auto objpath  = objname + "$"s; // objname is the full internal class name
         const auto Lobjpath = "L"s + objpath + ";"s;
 
         const auto obj_class = this->env_->FindClass(objpath.c_str());
@@ -106,17 +106,21 @@ std::optional<std::string> JVMManager::initialize()
         return std::nullopt;
     };
 
-    // All entries live on the stable `rial.math.MathSim` facade so this binding
-    // is decoupled from the internal per-function Sim/Table object names.
-    if(auto r = find_func("MathSim", "sqrt",       "(F)F",  this->funcs_.at(FuncSqrt       ))) {return r;}
-    if(auto r = find_func("MathSim", "invsqrt",    "(F)F",  this->funcs_.at(FuncInvsqrt    ))) {return r;}
-    if(auto r = find_func("MathSim", "reciprocal", "(F)F",  this->funcs_.at(FuncReciprocal ))) {return r;}
-    if(auto r = find_func("MathSim", "sin",        "(F)F",  this->funcs_.at(FuncSin        ))) {return r;}
-    if(auto r = find_func("MathSim", "cos",        "(F)F",  this->funcs_.at(FuncCos        ))) {return r;}
-    if(auto r = find_func("MathSim", "acos",       "(F)F",  this->funcs_.at(FuncAcos       ))) {return r;}
-    if(auto r = find_func("MathSim", "atan2",      "(FF)F", this->funcs_.at(FuncAtan2      ))) {return r;}
-    if(auto r = find_func("MathSim", "exp",        "(F)F",  this->funcs_.at(FuncExp        ))) {return r;}
-    if(auto r = find_func("MathSim", "log",        "(F)F",  this->funcs_.at(FuncLog        ))) {return r;}
+    // Stable facades: rial.math.MathSim for the math functions, rial.rng.RngSim
+    // for the generators -- the binding is decoupled from internal object names.
+    if(auto r = find_func("rial/math/MathSim", "sqrt",       "(F)F",  this->funcs_.at(FuncSqrt       ))) {return r;}
+    if(auto r = find_func("rial/math/MathSim", "invsqrt",    "(F)F",  this->funcs_.at(FuncInvsqrt    ))) {return r;}
+    if(auto r = find_func("rial/math/MathSim", "reciprocal", "(F)F",  this->funcs_.at(FuncReciprocal ))) {return r;}
+    if(auto r = find_func("rial/math/MathSim", "sin",        "(F)F",  this->funcs_.at(FuncSin        ))) {return r;}
+    if(auto r = find_func("rial/math/MathSim", "cos",        "(F)F",  this->funcs_.at(FuncCos        ))) {return r;}
+    if(auto r = find_func("rial/math/MathSim", "acos",       "(F)F",  this->funcs_.at(FuncAcos       ))) {return r;}
+    if(auto r = find_func("rial/math/MathSim", "atan2",      "(FF)F", this->funcs_.at(FuncAtan2      ))) {return r;}
+    if(auto r = find_func("rial/math/MathSim", "exp",        "(F)F",  this->funcs_.at(FuncExp        ))) {return r;}
+    if(auto r = find_func("rial/math/MathSim", "log",        "(F)F",  this->funcs_.at(FuncLog        ))) {return r;}
+
+    if(auto r = find_func("rial/rng/RngSim",   "genFloat12",  "(J)F", this->funcs_.at(FuncGenFloat12 ))) {return r;}
+    if(auto r = find_func("rial/rng/RngSim",   "genFloat01",  "(J)F", this->funcs_.at(FuncGenFloat01 ))) {return r;}
+    if(auto r = find_func("rial/rng/RngSim",   "genGaussian", "(J)F", this->funcs_.at(FuncGenGaussian))) {return r;}
 
     return std::nullopt;
 }
