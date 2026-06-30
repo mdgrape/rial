@@ -204,7 +204,11 @@ class FusedMulAddFPGeneric(
   val zManAligned   = Mux(zShiftOut, 0.U,
     zManAligned0(zManAligned0.getWidth - 1, zManAligned0.getWidth - 1 - (farProdWidth-1)))
   val prodPad       = (0.U(2.W) ## xyprod ## 0.U((farProdWidth - 2 - xyprod.getWidth).W)) // XXX FIXME
-  val sumFarProd    = prodPad + zManAligned
+  // Effective subtraction (xyzop) with the subtrahend fully shifted out of the
+  // window (zShiftOut) forces zManAligned to 0, losing the borrow: the true value
+  // is product - epsilon, just BELOW the windowed product, so a round-to-even tie
+  // must round DOWN. Apply the borrow so round/sticky see 'just below'.
+  val sumFarProd    = Mux(zShiftOut && xyzop, (prodPad + zManAligned) - 1.U, prodPad + zManAligned)
   val shiftSticky   = PriorityEncoder(zManInverted) < diffExXYZ(zShiftOutW-1, 0) || zShiftOut
 
   when(isFarProd) {
@@ -307,7 +311,7 @@ class FusedMulAddFPGeneric(
   val zManFarAddInverted = Mux(xyzop, -(zManFarAddPad.asSInt), zManFarAddPad.asSInt)
   val xyManFarAddAligned = 0.U(1.W) ## (xyprod >> diffExFarAdd(xyShiftOutW-1, 0))
   val sumFarAdd          = Mux(xyShiftOut, zManFarAddInverted, xyManFarAddAligned.asSInt + zManFarAddInverted)
-  val shiftStickyFarAdd  = PriorityEncoder(zManInverted) < diffExXYZ(xyShiftOutW-1, 0) || xyShiftOut
+  val shiftStickyFarAdd  = PriorityEncoder(xyprod) < diffExFarAdd(xyShiftOutW-1, 0) || xyShiftOut
 
   when(isFarAddend) {
     dbgPrintf("xyProd              = 0b%b(%d), width= %d\n", xyprod     , xyprod     , xyprod     .getWidth.U)
@@ -319,7 +323,8 @@ class FusedMulAddFPGeneric(
   }
 
   val farAddSgn   = Mux(xysgn.asBool, ~sumFarAdd(sumFarAdd.getWidth-1), sumFarAdd(sumFarAdd.getWidth-1))
-  val farAddAbs   = Mux(sumFarAdd(sumFarAdd.getWidth-1), -sumFarAdd, sumFarAdd)
+  val farAddAbs0  = Mux(sumFarAdd(sumFarAdd.getWidth-1), -sumFarAdd, sumFarAdd)
+  val farAddAbs   = Mux(xyzop && shiftStickyFarAdd && farAddAbs0 =/= 0.S, farAddAbs0 - 1.S, farAddAbs0)
   val shiftFarAdd = PriorityEncoder(Reverse(farAddAbs.asUInt))
 
   // 00*.****** (zex)
