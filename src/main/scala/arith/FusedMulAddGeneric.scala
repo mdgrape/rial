@@ -483,14 +483,22 @@ class FusedMulAddFPGeneric(
   val wZeroAfterAdd = (wex0.asSInt < 0.S)
   val wInfAfterAdd  = wex0 >= maskI(wSpec.exW).S
 
+  // Exact cancellation on the near path: x*y + z == 0 exactly. nearAbs is the
+  // magnitude of the near-path significand difference, so nearAbs === 0 means the
+  // exact result is zero. When that happens shiftNearSum = PriorityEncoder(
+  // Reverse(nearAbs)) is meaningless and the normalized exponent is bogus, so
+  // wZeroAfterAdd (which only catches wex0 < 0) does not fire and a spurious tiny
+  // normal is emitted. Force +0, matching the ideal RealGeneric.fmadd.
+  val nearExactZero = isNear && (nearAbs === 0.U)
+
   //----------------------------------------------------------------------
   // Final
   val infOrNaN = wInfAfterAdd  || xyzinf || xyznan
-  val wzero    = wZeroAfterAdd || (xyzero && zzero)
+  val wzero    = wZeroAfterAdd || (xyzero && zzero) || nearExactZero
 
   val wex  = Mux(infOrNaN, maskU(wSpec.exW), Mux(wzero, 0.U(wSpec.exW.W), wex0(wSpec.exW-1,0)))
   val wman = Mux(infOrNaN || wzero, xyznan ## 0.U((wSpec.manW-1).W), wman0(wSpec.manW-1, 0))
-  val wsgn = Mux(xyznan, 0.U, Mux(xyzinf, xysgn, wsgn0)) // XXX sign of NaN?
+  val wsgn = Mux(xyznan, 0.U, Mux(xyzinf, xysgn, Mux(nearExactZero, 0.U, wsgn0))) // exact cancel -> +0
   // +inf + inf = +inf, -inf - inf = inf, but inf - inf = nan.
   // so if xyzinf == true, then xysgn and zsgn should be the same.
   // if infAfterAdd == true, then xyzinf != true.
