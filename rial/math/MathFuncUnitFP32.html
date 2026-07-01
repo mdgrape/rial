@@ -1,0 +1,2342 @@
+<!DOCTYPE html >
+<html>
+        <head>
+          <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+          <title></title>
+          <meta name="description" content="" />
+          <meta name="keywords" content="" />
+          <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+          
+      
+      <link href="../../lib/index.css" media="screen" type="text/css" rel="stylesheet" />
+      <link href="../../lib/template.css" media="screen" type="text/css" rel="stylesheet" />
+      <link href="../../lib/diagrams.css" media="screen" type="text/css" rel="stylesheet" id="diagrams-css" />
+      <script type="text/javascript" src="../../lib/jquery.min.js"></script>
+      <script type="text/javascript" src="../../lib/jquery.panzoom.min.js"></script>
+      <script type="text/javascript" src="../../lib/jquery.mousewheel.min.js"></script>
+      <script type="text/javascript" src="../../lib/index.js"></script>
+      <script type="text/javascript" src="../../index.js"></script>
+      <script type="text/javascript" src="../../lib/scheduler.js"></script>
+      <script type="text/javascript" src="../../lib/template.js"></script>
+      
+      <script type="text/javascript">
+        /* this variable can be used by the JS to determine the path to the root document */
+        var toRoot = '../../';
+      </script>
+    
+        </head>
+        <body>
+      <div id="search">
+        <span id="doc-title"><span id="doc-version"></span></span>
+        <span class="close-results"><span class="left">&lt;</span> Back</span>
+        <div id="textfilter">
+          <span class="input">
+            <input autocapitalize="none" placeholder="Search" id="index-input" type="text" accesskey="/" />
+            <i class="clear material-icons"></i>
+            <i id="search-icon" class="material-icons"></i>
+          </span>
+        </div>
+    </div>
+      <div id="search-results">
+        <div id="search-progress">
+          <div id="progress-fill"></div>
+        </div>
+        <div id="results-content">
+          <div id="entity-results"></div>
+          <div id="member-results"></div>
+        </div>
+      </div>
+      <div id="content-scroll-container" style="-webkit-overflow-scrolling: touch;">
+        <div id="content-container" style="-webkit-overflow-scrolling: touch;">
+          <div id="subpackage-spacer">
+            <div id="packages">
+              <h1>Packages</h1>
+              <ul>
+                <li name="_root_.root" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="_root_"></a><a id="root:_root_"></a>
+      <span class="permalink">
+      <a href="../../index.html" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <a title="" href="../../index.html"><span class="name">root</span></a>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="../../index.html" class="extype" name="_root_">root</a></dd></dl></div>
+    </li><li name="_root_.rial" visbl="pub" class="indented1 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="rial"></a><a id="rial:rial"></a>
+      <span class="permalink">
+      <a href="../../rial/index.html" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <a title="RIKEN Arithmetic &amp; Logic (RIAL) library" href="../index.html"><span class="name">rial</span></a>
+      </span>
+      
+      <p class="shortcomment cmt">RIKEN Arithmetic &amp; Logic (RIAL) library</p><div class="fullcomment"><div class="comment cmt"><p>RIKEN Arithmetic &amp; Logic (RIAL) library</p><p>RIAL provides multiple chisel modules that are useful especially for HPC and AI.
+</p></div><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="../../index.html" class="extype" name="_root_">root</a></dd></dl></div>
+    </li><li name="rial.math" visbl="pub" class="indented2 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="math"></a><a id="math:math"></a>
+      <span class="permalink">
+      <a href="../../rial/math/index.html" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <a title="math package provides floating-point mathematical functions pipeline." href="index.html"><span class="name">math</span></a>
+      </span>
+      
+      <p class="shortcomment cmt"><code>math</code> package provides floating-point mathematical functions pipeline.</p><div class="fullcomment"><div class="comment cmt"><p><code>math</code> package provides floating-point mathematical functions pipeline.</p><p>It supports the following well-known math functions:</p><ul><li> sqrt</li><li> invsqrt</li><li> reciprocal</li><li> sin</li><li> cos</li><li> acos</li><li> atan2</li><li> exp</li><li> log</li><li> sigmoid (<code>1/(1+exp(-x))</code>)</li><li> softplus (<code>log(1+exp(x))</code>)</li></ul><p>All those functions are approximated by chebyshev polynomials after an
+appropreate mathematical conversions.
+The precision of the approximation functions provided here is typically
+within 1 or 2 bits in the mantissa.
+However, since the error depends on the function type, floating-point spec,
+and other factors, it is necessary to verify that sufficient precision is
+achieved in each specific use case.</p><p>If necessary, the order of chebyshev polynomials used and the bit width of
+temporaries while evaluating polynomiall can be configured via
+<a href="PolynomialSpec.html" class="extype" name="rial.math.PolynomialSpec">rial.math.PolynomialSpec</a>.</p><p>The <a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">rial.math.MathFunctions</a> Module takes a list of math functions to
+support and <a href="MathFuncConfig.html" class="extype" name="rial.math.MathFuncConfig">rial.math.MathFuncConfig</a> provides you a value of signal to
+select which function to be executed.</p><p>The latency and register positions can be configured via
+<a href="MathFuncPipelineConfig.html" class="extype" name="rial.math.MathFuncPipelineConfig">rial.math.MathFuncPipelineConfig</a>. Since it is fully pipeplined, it takes
+1 argument at a cycle and never stalls.</p><p>Since the complexity depends on functions, the optimal latency depends on
+which functions are supported. For example, sin/cos requires <code>x/pi</code> before
+calculating its main part and log requires <code>* ln2</code> after calculating <code>log2(x)</code>.
+Those functions automatically adds a multiplier to <a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">rial.math.MathFunctions</a>
+and it requires a lot more latency compared to simpler functions like sqrt,
+invsqrt, and reciprocal. If your list of functions contains those complicated
+functions, the optimal latency of <a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">rial.math.MathFunctions</a> increases and
+simpler functions also takes longer cycles.</p></div><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="../index.html" class="extype" name="rial">rial</a></dd></dl></div>
+    </li><li class="current-entities indented2">
+                        <span class="separator"></span>
+                        <a class="object" href="FuncKind$.html" title="Enumerator to represent which function is used in rial.math.MathFunctions."></a>
+                        <a href="FuncKind$.html" title="Enumerator to represent which function is used in rial.math.MathFunctions.">FuncKind</a>
+                      </li><li class="current-entities indented2">
+                        <a class="object" href="MathFuncConfig$.html" title="Factory for rial.math.MathFuncConfig."></a>
+                        <a class="class" href="MathFuncConfig.html" title="A Config class for rial.math.MathFunctions Module."></a>
+                        <a href="MathFuncConfig.html" title="A Config class for rial.math.MathFunctions Module.">MathFuncConfig</a>
+                      </li><li class="current-entities indented2">
+                        <a class="object" href="MathFuncPipelineConfig$.html" title="Factory for rial.math.MathFuncPipelineConfig."></a>
+                        <a class="class" href="MathFuncPipelineConfig.html" title="Config class to set pipeline stages in a rial.math.MathFunctions module."></a>
+                        <a href="MathFuncPipelineConfig.html" title="Config class to set pipeline stages in a rial.math.MathFunctions module.">MathFuncPipelineConfig</a>
+                      </li><li class="current-entities indented2">
+                        <span class="separator"></span>
+                        <a class="class" href="MathFuncUnitBF16.html" title="A specialization of MathFunctions for BrainFloat16 with all the available functions."></a>
+                        <a href="MathFuncUnitBF16.html" title="A specialization of MathFunctions for BrainFloat16 with all the available functions.">MathFuncUnitBF16</a>
+                      </li><li class="current-entities indented2">
+                        <span class="separator"></span>
+                        <a class="object" href="MathFuncUnitBF16_driver$.html" title="A driver of MathFuncUnitBF16."></a>
+                        <a href="MathFuncUnitBF16_driver$.html" title="A driver of MathFuncUnitBF16.">MathFuncUnitBF16_driver</a>
+                      </li><li class="current-entities indented2">
+                        <span class="separator"></span>
+                        <a class="class" href="" title="A specialization of MathFunctions for Float32 with all the available functions."></a>
+                        <a href="" title="A specialization of MathFunctions for Float32 with all the available functions.">MathFuncUnitFP32</a>
+                      </li><li class="current-entities indented2">
+                        <span class="separator"></span>
+                        <a class="object" href="MathFuncUnitFP32_driver$.html" title="A driver of MathFuncUnitFP32."></a>
+                        <a href="MathFuncUnitFP32_driver$.html" title="A driver of MathFuncUnitFP32.">MathFuncUnitFP32_driver</a>
+                      </li><li class="current-entities indented2">
+                        <span class="separator"></span>
+                        <a class="class" href="MathFunctions.html" title="A module that calculates math functions."></a>
+                        <a href="MathFunctions.html" title="A module that calculates math functions.">MathFunctions</a>
+                      </li><li class="current-entities indented2">
+                        <span class="separator"></span>
+                        <a class="class" href="PolynomialEval.html" title="Evaluates polynomial function."></a>
+                        <a href="PolynomialEval.html" title="Evaluates polynomial function.">PolynomialEval</a>
+                      </li><li class="current-entities indented2">
+                        <span class="separator"></span>
+                        <a class="class" href="PolynomialSpec.html" title="Config class for rial.math.PolynomialEval."></a>
+                        <a href="PolynomialSpec.html" title="Config class for rial.math.PolynomialEval.">PolynomialSpec</a>
+                      </li>
+              </ul>
+            </div>
+          </div>
+          <div id="content">
+            <body class="class type">
+      <div id="definition">
+        <div class="big-circle class">c</div>
+        <p id="owner"><a href="../index.html" class="extype" name="rial">rial</a>.<a href="index.html" class="extype" name="rial.math">math</a></p>
+        <h1>MathFuncUnitFP32<span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span></h1>
+        <h3><span class="morelinks"></span></h3>
+      </div>
+
+      <h4 id="signature" class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <span class="name">MathFuncUnitFP32</span><span class="result"> extends <a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></span>
+      </span>
+      </h4>
+
+      
+          <div id="comment" class="fullcommenttop"><div class="comment cmt"><p>A specialization of MathFunctions for Float32 with all the available functions.</p></div><div class="toggleContainer block">
+          <span class="toggle">
+            Linear Supertypes
+          </span>
+          <div class="superTypes hiddenContent"><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a>, <span class="extype" name="chisel3.Module">Module</span>, <span class="extype" name="chisel3.RawModule">RawModule</span>, <span class="extype" name="chisel3.experimental.BaseModule">BaseModule</span>, <span class="extype" name="chisel3.experimental.hierarchy.IsInstantiable">IsInstantiable</span>, <span class="extype" name="chisel3.internal.HasId">HasId</span>, <span class="extype" name="chisel3.internal.InstanceId">InstanceId</span>, <span class="extype" name="scala.AnyRef">AnyRef</span>, <span class="extype" name="scala.Any">Any</span></div>
+        </div></div>
+        
+
+      <div id="mbrsel">
+        <div class="toggle"></div>
+        <div id="memberfilter">
+          <i class="material-icons arrow"></i>
+          <span class="input">
+            <input id="mbrsel-input" placeholder="Filter all members" type="text" accesskey="/" />
+          </span>
+          <i class="clear material-icons"></i>
+        </div>
+        <div id="filterby">
+          <div id="order">
+            <span class="filtertype">Ordering</span>
+            <ol>
+              
+              <li class="alpha in"><span>Alphabetic</span></li>
+              <li class="inherit out"><span>By Inheritance</span></li>
+            </ol>
+          </div>
+          <div class="ancestors">
+                  <span class="filtertype">Inherited<br />
+                  </span>
+                  <ol id="linearization">
+                    <li class="in" name="rial.math.MathFuncUnitFP32"><span>MathFuncUnitFP32</span></li><li class="in" name="rial.math.MathFunctions"><span>MathFunctions</span></li><li class="in" name="chisel3.Module"><span>Module</span></li><li class="in" name="chisel3.RawModule"><span>RawModule</span></li><li class="in" name="chisel3.experimental.BaseModule"><span>BaseModule</span></li><li class="in" name="chisel3.experimental.hierarchy.IsInstantiable"><span>IsInstantiable</span></li><li class="in" name="chisel3.internal.HasId"><span>HasId</span></li><li class="in" name="chisel3.internal.InstanceId"><span>InstanceId</span></li><li class="in" name="scala.AnyRef"><span>AnyRef</span></li><li class="in" name="scala.Any"><span>Any</span></li>
+                  </ol>
+                </div><div class="ancestors">
+              <span class="filtertype"></span>
+              <ol>
+                <li class="hideall out"><span>Hide All</span></li>
+                <li class="showall in"><span>Show All</span></li>
+              </ol>
+            </div>
+          <div id="visbl">
+              <span class="filtertype">Visibility</span>
+              <ol><li class="public in"><span>Public</span></li><li class="all out"><span>All</span></li></ol>
+            </div>
+        </div>
+      </div>
+
+      <div id="template">
+        <div id="allMembers">
+        <div id="constructors" class="members">
+              <h3>Instance Constructors</h3>
+              <ol><li name="rial.math.MathFuncUnitFP32#&lt;init&gt;" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="&lt;init&gt;(stage:rial.math.MathFuncPipelineConfig):rial.math.MathFuncUnitFP32"></a><a id="&lt;init&gt;:MathFuncUnitFP32"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#&lt;init&gt;(stage:rial.math.MathFuncPipelineConfig):rial.math.MathFuncUnitFP32" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">new</span>
+      </span>
+      <span class="symbol">
+        <span class="name">MathFuncUnitFP32</span><span class="params">(<span name="stage">stage: <a href="MathFuncPipelineConfig.html" class="extype" name="rial.math.MathFuncPipelineConfig">MathFuncPipelineConfig</a></span>)</span>
+      </span>
+      
+      
+    </li></ol>
+            </div>
+
+        
+
+        
+
+        <div class="values members">
+              <h3>Value Members</h3>
+              <ol>
+                <li name="scala.AnyRef#!=" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="!=(x$1:Any):Boolean"></a><a id="!=(Any):Boolean"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#!=(x$1:Any):Boolean" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span title="gt4s: $bang$eq" class="name">!=</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Any">Any</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="scala.AnyRef###" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="##():Int"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html###():Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span title="gt4s: $hash$hash" class="name">##</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="scala.AnyRef#==" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="==(x$1:Any):Boolean"></a><a id="==(Any):Boolean"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#==(x$1:Any):Boolean" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span title="gt4s: $eq$eq" class="name">==</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Any">Any</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="chisel3.experimental.BaseModule#IO" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="IO[T&lt;:chisel3.Data](iodef:T):T"></a><a id="IO[T&lt;:Data](T):T"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#IO[T&lt;:chisel3.Data](iodef:T):T" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">IO</span><span class="tparams">[<span name="T">T &lt;: <span class="extype" name="chisel3.Data">Data</span></span>]</span><span class="params">(<span name="iodef">iodef: <span class="extype" name="chisel3.experimental.BaseModule.IO.T">T</span></span>)</span><span class="result">: <span class="extype" name="chisel3.experimental.BaseModule.IO.T">T</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected </dd><dt>Definition Classes</dt><dd>BaseModule</dd></dl></div>
+    </li><li name="chisel3.experimental.BaseModule#_bindIoInPlace" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="_bindIoInPlace(iodef:chisel3.Data):Unit"></a><a id="_bindIoInPlace(Data):Unit"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#_bindIoInPlace(iodef:chisel3.Data):Unit" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">_bindIoInPlace</span><span class="params">(<span name="iodef">iodef: <span class="extype" name="chisel3.Data">Data</span></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected </dd><dt>Definition Classes</dt><dd>BaseModule</dd></dl></div>
+    </li><li name="chisel3.experimental.BaseModule#_closed" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="_closed:Boolean"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#_closed:Boolean" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">var</span>
+      </span>
+      <span class="symbol">
+        <span class="name">_closed</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected </dd><dt>Definition Classes</dt><dd>BaseModule</dd></dl></div>
+    </li><li name="chisel3.experimental.BaseModule#_compatAutoWrapPorts" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="_compatAutoWrapPorts():Unit"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#_compatAutoWrapPorts():Unit" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">_compatAutoWrapPorts</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>BaseModule</dd></dl></div>
+    </li><li name="rial.math.MathFunctions#adrW" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="adrW:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#adrW:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">adrW</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="scala.Any#asInstanceOf" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="asInstanceOf[T0]:T0"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#asInstanceOf[T0]:T0" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">asInstanceOf</span><span class="tparams">[<span name="T0">T0</span>]</span><span class="result">: <span class="extype" name="scala.Any.asInstanceOf.T0">T0</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>Any</dd></dl></div>
+    </li><li name="chisel3.internal.HasId#circuitName" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="circuitName:String"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#circuitName:String" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">circuitName</span><span class="result">: <span class="extype" name="scala.Predef.String">String</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected </dd><dt>Definition Classes</dt><dd>HasId</dd></dl></div>
+    </li><li name="chisel3.Module#clock" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="clock:chisel3.Clock"></a><a id="clock:Clock"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#clock:chisel3.Clock" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">clock</span><span class="result">: <span class="extype" name="chisel3.Clock">Clock</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>Module</dd></dl></div>
+    </li><li name="scala.AnyRef#clone" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="clone():Object"></a><a id="clone():AnyRef"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#clone():Object" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">clone</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected[<span class="extype" name="java.lang">lang</span>] </dd><dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="defval" name="classOf[java.lang.CloneNotSupportedException]">...</span>
+    </span>)</span>
+              
+                <span class="name">@native</span><span class="args">()</span>
+              
+                <span class="name">@HotSpotIntrinsicCandidate</span><span class="args">()</span>
+              
+        </dd></dl></div>
+    </li><li name="chisel3.RawModule#compileOptions" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="compileOptions:chisel3.CompileOptions"></a><a id="compileOptions:CompileOptions"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#compileOptions:chisel3.CompileOptions" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">compileOptions</span><span class="result">: <span class="extype" name="chisel3.CompileOptions">CompileOptions</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>RawModule</dd></dl></div>
+    </li><li name="rial.math.MathFunctions#cpGap" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="cpGap:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#cpGap:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">cpGap</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="chisel3.experimental.BaseModule#desiredName" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="desiredName:String"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#desiredName:String" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">desiredName</span><span class="result">: <span class="extype" name="scala.Predef.String">String</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>BaseModule</dd></dl></div>
+    </li><li name="rial.math.MathFunctions#dxW0" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="dxW0:Option[Int]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#dxW0:Option[Int]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">dxW0</span><span class="result">: <span class="extype" name="scala.Option">Option</span>[<span class="extype" name="scala.Int">Int</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#enablePolynomialRounding" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="enablePolynomialRounding:Boolean"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#enablePolynomialRounding:Boolean" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">enablePolynomialRounding</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#enableRangeCheck" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="enableRangeCheck:Boolean"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#enableRangeCheck:Boolean" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">enableRangeCheck</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="scala.AnyRef#eq" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="eq(x$1:AnyRef):Boolean"></a><a id="eq(AnyRef):Boolean"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#eq(x$1:AnyRef):Boolean" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">eq</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.AnyRef">AnyRef</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
+    </li><li name="chisel3.internal.HasId#equals" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="equals(that:Any):Boolean"></a><a id="equals(Any):Boolean"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#equals(that:Any):Boolean" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">equals</span><span class="params">(<span name="that">that: <span class="extype" name="scala.Any">Any</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>HasId → AnyRef → Any</dd></dl></div>
+    </li><li name="rial.math.MathFunctions#exBias" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="exBias:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#exBias:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">exBias</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#exW" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="exW:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#exW:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">exW</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#extraBits" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="extraBits:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#extraBits:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">extraBits</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#fncfg" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="fncfg:rial.math.MathFuncConfig"></a><a id="fncfg:MathFuncConfig"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#fncfg:rial.math.MathFuncConfig" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">fncfg</span><span class="result">: <a href="MathFuncConfig.html" class="extype" name="rial.math.MathFuncConfig">MathFuncConfig</a></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="scala.AnyRef#getClass" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="getClass():Class[_]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#getClass():Class[_]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">getClass</span><span class="params">()</span><span class="result">: <span class="extype" name="java.lang.Class">Class</span>[_]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd><dt>Annotations</dt><dd>
+                <span class="name">@native</span><span class="args">()</span>
+              
+                <span class="name">@HotSpotIntrinsicCandidate</span><span class="args">()</span>
+              
+        </dd></dl></div>
+    </li><li name="chisel3.RawModule#getCommands" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="getCommands:Seq[chisel3.internal.firrtl.Command]"></a><a id="getCommands:Seq[Command]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#getCommands:Seq[chisel3.internal.firrtl.Command]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">getCommands</span><span class="result">: <span class="extype" name="scala.Seq">Seq</span>[<span class="extype" name="chisel3.internal.firrtl.Command">Command</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected </dd><dt>Definition Classes</dt><dd>RawModule</dd></dl></div>
+    </li><li name="rial.math.MathFunctions#getMaxCalcW" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="getMaxCalcW:Seq[Int]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#getMaxCalcW:Seq[Int]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">getMaxCalcW</span><span class="result">: <span class="extype" name="scala.Seq">Seq</span>[<span class="extype" name="scala.Int">Int</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#getMaxCbit" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="getMaxCbit:Seq[Int]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#getMaxCbit:Seq[Int]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">getMaxCbit</span><span class="result">: <span class="extype" name="scala.Seq">Seq</span>[<span class="extype" name="scala.Int">Int</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="chisel3.experimental.BaseModule#getModulePorts" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="getModulePorts:Seq[chisel3.Data]"></a><a id="getModulePorts:Seq[Data]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#getModulePorts:Seq[chisel3.Data]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">getModulePorts</span><span class="result">: <span class="extype" name="scala.collection.Seq">Seq</span>[<span class="extype" name="chisel3.Data">Data</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected[<span class="extype" name="chisel3">chisel3</span>] </dd><dt>Definition Classes</dt><dd>BaseModule</dd></dl></div>
+    </li><li name="rial.math.MathFunctions#getStage" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="getStage:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#getStage:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">getStage</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="chisel3.internal.HasId#hasSeed" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="hasSeed:Boolean"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#hasSeed:Boolean" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">hasSeed</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>HasId</dd></dl></div>
+    </li><li name="rial.math.MathFunctions#hasY" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="hasY:Boolean"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#hasY:Boolean" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">hasY</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="chisel3.internal.HasId#hashCode" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="hashCode():Int"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#hashCode():Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">hashCode</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>HasId → AnyRef → Any</dd></dl></div>
+    </li><li name="chisel3.experimental.BaseModule#instanceName" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="instanceName:String"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#instanceName:String" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">instanceName</span><span class="result">: <span class="extype" name="scala.Predef.String">String</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>BaseModule → HasId → InstanceId</dd></dl></div>
+    </li><li name="rial.math.MathFunctions#io" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="io:chisel3.Bundle{valsel:chisel3.UInt;valx:chisel3.UInt;valy:Option[chisel3.UInt];valz:chisel3.UInt}"></a><a id="io:Bundle{.../*4definitionsintyperefinement*/}"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#io:chisel3.Bundle{valsel:chisel3.UInt;valx:chisel3.UInt;valy:Option[chisel3.UInt];valz:chisel3.UInt}" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">io</span><span class="result">: <span class="extype" name="chisel3.Bundle">Bundle</span> { ... /* 4 definitions in type refinement */ }</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="scala.Any#isInstanceOf" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="isInstanceOf[T0]:Boolean"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#isInstanceOf[T0]:Boolean" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">isInstanceOf</span><span class="tparams">[<span name="T0">T0</span>]</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>Any</dd></dl></div>
+    </li><li name="rial.math.MathFunctions#manW" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="manW:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#manW:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">manW</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#maxCalcW" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="maxCalcW:Seq[Int]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#maxCalcW:Seq[Int]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">maxCalcW</span><span class="result">: <span class="extype" name="scala.Seq">Seq</span>[<span class="extype" name="scala.Int">Int</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#maxCbit" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="maxCbit:Seq[Int]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#maxCbit:Seq[Int]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">maxCbit</span><span class="result">: <span class="extype" name="scala.Seq">Seq</span>[<span class="extype" name="scala.Int">Int</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#nCalcStage" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="nCalcStage:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#nCalcStage:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">nCalcStage</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#nOrder" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="nOrder:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#nOrder:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">nOrder</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#nOtherStage" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="nOtherStage:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#nOtherStage:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">nOtherStage</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#nPostMulStage" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="nPostMulStage:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#nPostMulStage:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">nPostMulStage</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#nPostStage" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="nPostStage:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#nPostStage:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">nPostStage</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#nPreMulStage" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="nPreMulStage:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#nPreMulStage:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">nPreMulStage</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#nPreStage" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="nPreStage:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#nPreStage:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">nPreStage</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#nStage" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="nStage:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#nStage:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">nStage</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="chisel3.experimental.BaseModule#name" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="name:String"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#name:String" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">lazy val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">name</span><span class="result">: <span class="extype" name="scala.Predef.String">String</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>BaseModule</dd></dl></div>
+    </li><li name="chisel3.experimental.BaseModule#nameIds" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="nameIds(rootClass:Class[_]):scala.collection.mutable.HashMap[chisel3.internal.HasId,String]"></a><a id="nameIds(Class[_]):HashMap[HasId,String]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#nameIds(rootClass:Class[_]):scala.collection.mutable.HashMap[chisel3.internal.HasId,String]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">nameIds</span><span class="params">(<span name="rootClass">rootClass: <span class="extype" name="scala.Predef.Class">Class</span>[_]</span>)</span><span class="result">: <span class="extype" name="scala.collection.mutable.HashMap">HashMap</span>[<span class="extype" name="chisel3.internal.HasId">HasId</span>, <span class="extype" name="scala.Predef.String">String</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected </dd><dt>Definition Classes</dt><dd>BaseModule</dd></dl></div>
+    </li><li name="scala.AnyRef#ne" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="ne(x$1:AnyRef):Boolean"></a><a id="ne(AnyRef):Boolean"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#ne(x$1:AnyRef):Boolean" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">ne</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.AnyRef">AnyRef</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
+    </li><li name="scala.AnyRef#notify" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="notify():Unit"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#notify():Unit" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">notify</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@native</span><span class="args">()</span>
+              
+                <span class="name">@HotSpotIntrinsicCandidate</span><span class="args">()</span>
+              
+        </dd></dl></div>
+    </li><li name="scala.AnyRef#notifyAll" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="notifyAll():Unit"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#notifyAll():Unit" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">notifyAll</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@native</span><span class="args">()</span>
+              
+                <span class="name">@HotSpotIntrinsicCandidate</span><span class="args">()</span>
+              
+        </dd></dl></div>
+    </li><li name="rial.math.MathFunctions#order" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="order:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#order:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">order</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#otherStage" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="otherStage:rial.util.PipelineStageConfig"></a><a id="otherStage:PipelineStageConfig"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#otherStage:rial.util.PipelineStageConfig" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">otherStage</span><span class="result">: <a href="../util/PipelineStageConfig.html" class="extype" name="rial.util.PipelineStageConfig">PipelineStageConfig</a></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="chisel3.internal.HasId#parentModName" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="parentModName:String"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#parentModName:String" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">parentModName</span><span class="result">: <span class="extype" name="scala.Predef.String">String</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>HasId → InstanceId</dd></dl></div>
+    </li><li name="chisel3.internal.HasId#parentPathName" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="parentPathName:String"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#parentPathName:String" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">parentPathName</span><span class="result">: <span class="extype" name="scala.Predef.String">String</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>HasId → InstanceId</dd></dl></div>
+    </li><li name="chisel3.internal.HasId#pathName" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="pathName:String"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#pathName:String" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">pathName</span><span class="result">: <span class="extype" name="scala.Predef.String">String</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>HasId → InstanceId</dd></dl></div>
+    </li><li name="rial.math.MathFunctions#pcGap" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="pcGap:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#pcGap:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">pcGap</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#polySpec" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="polySpec:rial.math.PolynomialSpec"></a><a id="polySpec:PolynomialSpec"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#polySpec:rial.math.PolynomialSpec" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">polySpec</span><span class="result">: <a href="PolynomialSpec.html" class="extype" name="rial.math.PolynomialSpec">PolynomialSpec</a></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#polynomialCoef" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="polynomialCoef:chisel3.UInt"></a><a id="polynomialCoef:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#polynomialCoef:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">polynomialCoef</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#polynomialCoefs" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="polynomialCoefs:scala.collection.immutable.Map[rial.math.FuncKind.FuncKind,chisel3.UInt]"></a><a id="polynomialCoefs:Map[FuncKind,UInt]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#polynomialCoefs:scala.collection.immutable.Map[rial.math.FuncKind.FuncKind,chisel3.UInt]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">polynomialCoefs</span><span class="result">: <span class="extype" name="scala.collection.immutable.Map">Map</span>[<a href="FuncKind$.html#FuncKind=rial.math.FuncKind.Value" class="extmbr" name="rial.math.FuncKind.FuncKind">FuncKind</a>, <span class="extype" name="chisel3.UInt">UInt</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#polynomialDxs" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="polynomialDxs:Option[scala.collection.immutable.Map[rial.math.FuncKind.FuncKind,chisel3.UInt]]"></a><a id="polynomialDxs:Option[Map[FuncKind,UInt]]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#polynomialDxs:Option[scala.collection.immutable.Map[rial.math.FuncKind.FuncKind,chisel3.UInt]]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">polynomialDxs</span><span class="result">: <span class="extype" name="scala.Option">Option</span>[<span class="extype" name="scala.collection.immutable.Map">Map</span>[<a href="FuncKind$.html#FuncKind=rial.math.FuncKind.Value" class="extmbr" name="rial.math.FuncKind.FuncKind">FuncKind</a>, <span class="extype" name="chisel3.UInt">UInt</span>]]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#polynomialEval" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="polynomialEval:rial.math.PolynomialEval"></a><a id="polynomialEval:PolynomialEval"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#polynomialEval:rial.math.PolynomialEval" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">polynomialEval</span><span class="result">: <a href="PolynomialEval.html" class="extype" name="rial.math.PolynomialEval">PolynomialEval</a></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#polynomialResultCPGapReg" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="polynomialResultCPGapReg:chisel3.UInt"></a><a id="polynomialResultCPGapReg:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#polynomialResultCPGapReg:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">polynomialResultCPGapReg</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="chisel3.experimental.BaseModule#portsContains" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="portsContains(elem:chisel3.Data):Boolean"></a><a id="portsContains(Data):Boolean"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#portsContains(elem:chisel3.Data):Boolean" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">portsContains</span><span class="params">(<span name="elem">elem: <span class="extype" name="chisel3.Data">Data</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected </dd><dt>Definition Classes</dt><dd>BaseModule</dd></dl></div>
+    </li><li name="chisel3.experimental.BaseModule#portsSize" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="portsSize:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#portsSize:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">portsSize</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected </dd><dt>Definition Classes</dt><dd>BaseModule</dd></dl></div>
+    </li><li name="rial.math.MathFunctions#postProcMultEn" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="postProcMultEn:scala.collection.immutable.Map[rial.math.FuncKind.FuncKind,chisel3.Bool]"></a><a id="postProcMultEn:Map[FuncKind,Bool]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#postProcMultEn:scala.collection.immutable.Map[rial.math.FuncKind.FuncKind,chisel3.Bool]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">postProcMultEn</span><span class="result">: <span class="extype" name="scala.collection.immutable.Map">Map</span>[<a href="FuncKind$.html#FuncKind=rial.math.FuncKind.Value" class="extmbr" name="rial.math.FuncKind.FuncKind">FuncKind</a>, <span class="extype" name="chisel3.Bool">Bool</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#postProcMultLhs" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="postProcMultLhs:scala.collection.immutable.Map[rial.math.FuncKind.FuncKind,chisel3.UInt]"></a><a id="postProcMultLhs:Map[FuncKind,UInt]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#postProcMultLhs:scala.collection.immutable.Map[rial.math.FuncKind.FuncKind,chisel3.UInt]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">postProcMultLhs</span><span class="result">: <span class="extype" name="scala.collection.immutable.Map">Map</span>[<a href="FuncKind$.html#FuncKind=rial.math.FuncKind.Value" class="extmbr" name="rial.math.FuncKind.FuncKind">FuncKind</a>, <span class="extype" name="chisel3.UInt">UInt</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#postProcMultRhs" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="postProcMultRhs:scala.collection.immutable.Map[rial.math.FuncKind.FuncKind,chisel3.UInt]"></a><a id="postProcMultRhs:Map[FuncKind,UInt]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#postProcMultRhs:scala.collection.immutable.Map[rial.math.FuncKind.FuncKind,chisel3.UInt]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">postProcMultRhs</span><span class="result">: <span class="extype" name="scala.collection.immutable.Map">Map</span>[<a href="FuncKind$.html#FuncKind=rial.math.FuncKind.Value" class="extmbr" name="rial.math.FuncKind.FuncKind">FuncKind</a>, <span class="extype" name="chisel3.UInt">UInt</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#postProcMultiplier" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="postProcMultiplier:Option[rial.math.PostProcMultiplier]"></a><a id="postProcMultiplier:Option[PostProcMultiplier]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#postProcMultiplier:Option[rial.math.PostProcMultiplier]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">postProcMultiplier</span><span class="result">: <span class="extype" name="scala.Option">Option</span>[<span class="extype" name="rial.math.PostProcMultiplier">PostProcMultiplier</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#preProcMultEn" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="preProcMultEn:scala.collection.immutable.Map[rial.math.FuncKind.FuncKind,chisel3.Bool]"></a><a id="preProcMultEn:Map[FuncKind,Bool]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#preProcMultEn:scala.collection.immutable.Map[rial.math.FuncKind.FuncKind,chisel3.Bool]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">preProcMultEn</span><span class="result">: <span class="extype" name="scala.collection.immutable.Map">Map</span>[<a href="FuncKind$.html#FuncKind=rial.math.FuncKind.Value" class="extmbr" name="rial.math.FuncKind.FuncKind">FuncKind</a>, <span class="extype" name="chisel3.Bool">Bool</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#preProcMultLhs" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="preProcMultLhs:scala.collection.immutable.Map[rial.math.FuncKind.FuncKind,chisel3.UInt]"></a><a id="preProcMultLhs:Map[FuncKind,UInt]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#preProcMultLhs:scala.collection.immutable.Map[rial.math.FuncKind.FuncKind,chisel3.UInt]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">preProcMultLhs</span><span class="result">: <span class="extype" name="scala.collection.immutable.Map">Map</span>[<a href="FuncKind$.html#FuncKind=rial.math.FuncKind.Value" class="extmbr" name="rial.math.FuncKind.FuncKind">FuncKind</a>, <span class="extype" name="chisel3.UInt">UInt</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#preProcMultRhs" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="preProcMultRhs:scala.collection.immutable.Map[rial.math.FuncKind.FuncKind,chisel3.UInt]"></a><a id="preProcMultRhs:Map[FuncKind,UInt]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#preProcMultRhs:scala.collection.immutable.Map[rial.math.FuncKind.FuncKind,chisel3.UInt]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">preProcMultRhs</span><span class="result">: <span class="extype" name="scala.collection.immutable.Map">Map</span>[<a href="FuncKind$.html#FuncKind=rial.math.FuncKind.Value" class="extmbr" name="rial.math.FuncKind.FuncKind">FuncKind</a>, <span class="extype" name="chisel3.UInt">UInt</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#preProcMultiplier" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="preProcMultiplier:Option[rial.math.PreProcMultiplier]"></a><a id="preProcMultiplier:Option[PreProcMultiplier]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#preProcMultiplier:Option[rial.math.PreProcMultiplier]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">preProcMultiplier</span><span class="result">: <span class="extype" name="scala.Option">Option</span>[<span class="extype" name="rial.math.PreProcMultiplier">PreProcMultiplier</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="chisel3.Module#reset" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="reset:chisel3.Reset"></a><a id="reset:Reset"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#reset:chisel3.Reset" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">reset</span><span class="result">: <span class="extype" name="chisel3.Reset">Reset</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>Module</dd></dl></div>
+    </li><li name="rial.math.MathFunctions#roundingPost" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="roundingPost:Option[rial.math.RoundingPostProcess]"></a><a id="roundingPost:Option[RoundingPostProcess]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#roundingPost:Option[rial.math.RoundingPostProcess]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">roundingPost</span><span class="result">: <span class="extype" name="scala.Option">Option</span>[<span class="extype" name="rial.math.RoundingPostProcess">RoundingPostProcess</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#roundingPostEn" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="roundingPostEn:scala.collection.immutable.Map[rial.math.FuncKind.FuncKind,chisel3.Bool]"></a><a id="roundingPostEn:Map[FuncKind,Bool]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#roundingPostEn:scala.collection.immutable.Map[rial.math.FuncKind.FuncKind,chisel3.Bool]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">roundingPostEn</span><span class="result">: <span class="extype" name="scala.collection.immutable.Map">Map</span>[<a href="FuncKind$.html#FuncKind=rial.math.FuncKind.Value" class="extmbr" name="rial.math.FuncKind.FuncKind">FuncKind</a>, <span class="extype" name="chisel3.Bool">Bool</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#roundingPostFuncs" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="roundingPostFuncs:Seq[rial.math.FuncKind.FuncKind]"></a><a id="roundingPostFuncs:Seq[FuncKind]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#roundingPostFuncs:Seq[rial.math.FuncKind.FuncKind]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">roundingPostFuncs</span><span class="result">: <span class="extype" name="scala.collection.Seq">Seq</span>[<a href="FuncKind$.html#FuncKind=rial.math.FuncKind.Value" class="extmbr" name="rial.math.FuncKind.FuncKind">FuncKind</a>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#roundingPostZother" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="roundingPostZother:scala.collection.immutable.Map[rial.math.FuncKind.FuncKind,rial.math.RoundingNonTableOutput]"></a><a id="roundingPostZother:Map[FuncKind,RoundingNonTableOutput]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#roundingPostZother:scala.collection.immutable.Map[rial.math.FuncKind.FuncKind,rial.math.RoundingNonTableOutput]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">roundingPostZother</span><span class="result">: <span class="extype" name="scala.collection.immutable.Map">Map</span>[<a href="FuncKind$.html#FuncKind=rial.math.FuncKind.Value" class="extmbr" name="rial.math.FuncKind.FuncKind">FuncKind</a>, <span class="extype" name="rial.math.RoundingNonTableOutput">RoundingNonTableOutput</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#selCPGapReg" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="selCPGapReg:chisel3.UInt"></a><a id="selCPGapReg:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#selCPGapReg:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">selCPGapReg</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#selCPReg" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="selCPReg:chisel3.UInt"></a><a id="selCPReg:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#selCPReg:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">selCPReg</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#selPCGapReg" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="selPCGapReg:chisel3.UInt"></a><a id="selPCGapReg:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#selPCGapReg:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">selPCGapReg</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#selPCReg" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="selPCReg:chisel3.UInt"></a><a id="selPCReg:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#selPCReg:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">selPCReg</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#spec" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="spec:rial.arith.RealSpec"></a><a id="spec:RealSpec"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#spec:rial.arith.RealSpec" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">spec</span><span class="result">: <a href="../arith/RealSpec.html" class="extype" name="rial.arith.RealSpec">RealSpec</a></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#sqrtNonTableOutput" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="sqrtNonTableOutput:rial.math.RoundingNonTableOutput"></a><a id="sqrtNonTableOutput:RoundingNonTableOutput"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#sqrtNonTableOutput:rial.math.RoundingNonTableOutput" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">sqrtNonTableOutput</span><span class="result">: <span class="extype" name="rial.math.RoundingNonTableOutput">RoundingNonTableOutput</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#sqrtOtherX" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="sqrtOtherX:scala.collection.immutable.Map[rial.math.FuncKind.Value,rial.math.DecomposedRealOutput]"></a><a id="sqrtOtherX:Map[FuncKind.Value,DecomposedRealOutput]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#sqrtOtherX:scala.collection.immutable.Map[rial.math.FuncKind.Value,rial.math.DecomposedRealOutput]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">sqrtOtherX</span><span class="result">: <span class="extype" name="scala.collection.immutable.Map">Map</span>[<a href="FuncKind$.html#ValueextendsOrdered[Enumeration.this.Value]withSerializable" class="extmbr" name="rial.math.FuncKind.Value">FuncKind.Value</a>, <span class="extype" name="rial.math.DecomposedRealOutput">DecomposedRealOutput</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#sqrtPreAdrPCGapReg" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="sqrtPreAdrPCGapReg:chisel3.UInt"></a><a id="sqrtPreAdrPCGapReg:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#sqrtPreAdrPCGapReg:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">sqrtPreAdrPCGapReg</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#sqrtTableAddr" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="sqrtTableAddr:scala.collection.immutable.Map[rial.math.FuncKind.Value,chisel3.UInt]"></a><a id="sqrtTableAddr:Map[FuncKind.Value,UInt]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#sqrtTableAddr:scala.collection.immutable.Map[rial.math.FuncKind.Value,chisel3.UInt]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">sqrtTableAddr</span><span class="result">: <span class="extype" name="scala.collection.immutable.Map">Map</span>[<a href="FuncKind$.html#ValueextendsOrdered[Enumeration.this.Value]withSerializable" class="extmbr" name="rial.math.FuncKind.Value">FuncKind.Value</a>, <span class="extype" name="chisel3.UInt">UInt</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#stage" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="stage:rial.math.MathFuncPipelineConfig"></a><a id="stage:MathFuncPipelineConfig"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#stage:rial.math.MathFuncPipelineConfig" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">stage</span><span class="result">: <a href="MathFuncPipelineConfig.html" class="extype" name="rial.math.MathFuncPipelineConfig">MathFuncPipelineConfig</a></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="chisel3.internal.HasId#suggestName" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="suggestName(seed:=&gt;String):HasId.this.type"></a><a id="suggestName(⇒String):MathFuncUnitFP32.this.type"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#suggestName(seed:=&gt;String):HasId.this.type" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">suggestName</span><span class="params">(<span name="seed">seed: ⇒ <span class="extype" name="scala.Predef.String">String</span></span>)</span><span class="result">: <a href="" class="extype" name="rial.math.MathFuncUnitFP32">MathFuncUnitFP32</a>.this.type</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>HasId</dd></dl></div>
+    </li><li name="scala.AnyRef#synchronized" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="synchronized[T0](x$1:=&gt;T0):T0"></a><a id="synchronized[T0](⇒T0):T0"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#synchronized[T0](x$1:=&gt;T0):T0" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">synchronized</span><span class="tparams">[<span name="T0">T0</span>]</span><span class="params">(<span name="arg0">arg0: ⇒ <span class="extype" name="java.lang.AnyRef.synchronized.T0">T0</span></span>)</span><span class="result">: <span class="extype" name="java.lang.AnyRef.synchronized.T0">T0</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
+    </li><li name="rial.math.MathFunctions#tableCoeffWidth" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="tableCoeffWidth:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#tableCoeffWidth:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">tableCoeffWidth</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#tcGap" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="tcGap:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#tcGap:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">tcGap</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="chisel3.experimental.BaseModule#toAbsoluteTarget" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="toAbsoluteTarget:firrtl.annotations.IsModule"></a><a id="toAbsoluteTarget:IsModule"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#toAbsoluteTarget:firrtl.annotations.IsModule" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">toAbsoluteTarget</span><span class="result">: <span class="extype" name="firrtl.annotations.IsModule">IsModule</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>BaseModule → InstanceId</dd></dl></div>
+    </li><li name="chisel3.experimental.BaseModule#toNamed" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="toNamed:firrtl.annotations.ModuleName"></a><a id="toNamed:ModuleName"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#toNamed:firrtl.annotations.ModuleName" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">toNamed</span><span class="result">: <span class="extype" name="firrtl.annotations.ModuleName">ModuleName</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>BaseModule → InstanceId</dd></dl></div>
+    </li><li name="scala.AnyRef#toString" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="toString():String"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#toString():String" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">toString</span><span class="params">()</span><span class="result">: <span class="extype" name="java.lang.String">String</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="chisel3.experimental.BaseModule#toTarget" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="toTarget:firrtl.annotations.ModuleTarget"></a><a id="toTarget:ModuleTarget"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#toTarget:firrtl.annotations.ModuleTarget" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">toTarget</span><span class="result">: <span class="extype" name="firrtl.annotations.ModuleTarget">ModuleTarget</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>BaseModule → InstanceId</dd></dl></div>
+    </li><li name="scala.AnyRef#wait" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="wait(x$1:Long,x$2:Int):Unit"></a><a id="wait(Long,Int):Unit"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#wait(x$1:Long,x$2:Int):Unit" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">wait</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Long">Long</span></span>, <span name="arg1">arg1: <span class="extype" name="scala.Int">Int</span></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="defval" name="classOf[java.lang.InterruptedException]">...</span>
+    </span>)</span>
+              
+        </dd></dl></div>
+    </li><li name="scala.AnyRef#wait" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="wait(x$1:Long):Unit"></a><a id="wait(Long):Unit"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#wait(x$1:Long):Unit" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">wait</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Long">Long</span></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="defval" name="classOf[java.lang.InterruptedException]">...</span>
+    </span>)</span>
+              
+                <span class="name">@native</span><span class="args">()</span>
+              
+        </dd></dl></div>
+    </li><li name="scala.AnyRef#wait" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="wait():Unit"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#wait():Unit" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">wait</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="defval" name="classOf[java.lang.InterruptedException]">...</span>
+    </span>)</span>
+              
+        </dd></dl></div>
+    </li><li name="rial.math.MathFunctions#xdecCPGapReg" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="xdecCPGapReg:rial.math.DecomposedRealOutput"></a><a id="xdecCPGapReg:DecomposedRealOutput"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#xdecCPGapReg:rial.math.DecomposedRealOutput" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">xdecCPGapReg</span><span class="result">: <span class="extype" name="rial.math.DecomposedRealOutput">DecomposedRealOutput</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#xdecCPReg" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="xdecCPReg:rial.math.DecomposedRealOutput"></a><a id="xdecCPReg:DecomposedRealOutput"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#xdecCPReg:rial.math.DecomposedRealOutput" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">xdecCPReg</span><span class="result">: <span class="extype" name="rial.math.DecomposedRealOutput">DecomposedRealOutput</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#xdecPCGapReg" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="xdecPCGapReg:rial.math.DecomposedRealOutput"></a><a id="xdecPCGapReg:DecomposedRealOutput"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#xdecPCGapReg:rial.math.DecomposedRealOutput" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">xdecPCGapReg</span><span class="result">: <span class="extype" name="rial.math.DecomposedRealOutput">DecomposedRealOutput</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#xdecPCReg" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="xdecPCReg:rial.math.DecomposedRealOutput"></a><a id="xdecPCReg:DecomposedRealOutput"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#xdecPCReg:rial.math.DecomposedRealOutput" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">xdecPCReg</span><span class="result">: <span class="extype" name="rial.math.DecomposedRealOutput">DecomposedRealOutput</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#xdecomp" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="xdecomp:rial.math.DecomposeReal"></a><a id="xdecomp:DecomposeReal"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#xdecomp:rial.math.DecomposeReal" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">xdecomp</span><span class="result">: <span class="extype" name="rial.math.DecomposeReal">DecomposeReal</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#yAbsLarger" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="yAbsLarger:chisel3.Bool"></a><a id="yAbsLarger:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#yAbsLarger:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">yAbsLarger</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#yAbsLargerCPGapReg" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="yAbsLargerCPGapReg:chisel3.Bool"></a><a id="yAbsLargerCPGapReg:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#yAbsLargerCPGapReg:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">yAbsLargerCPGapReg</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#yAbsLargerCPReg" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="yAbsLargerCPReg:chisel3.Bool"></a><a id="yAbsLargerCPReg:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#yAbsLargerCPReg:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">yAbsLargerCPReg</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#yAbsLargerPCGapReg" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="yAbsLargerPCGapReg:chisel3.Bool"></a><a id="yAbsLargerPCGapReg:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#yAbsLargerPCGapReg:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">yAbsLargerPCGapReg</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#yAbsLargerPCReg" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="yAbsLargerPCReg:chisel3.Bool"></a><a id="yAbsLargerPCReg:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#yAbsLargerPCReg:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">yAbsLargerPCReg</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#ydecCPGapReg" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="ydecCPGapReg:rial.math.DecomposedRealOutput"></a><a id="ydecCPGapReg:DecomposedRealOutput"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#ydecCPGapReg:rial.math.DecomposedRealOutput" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">ydecCPGapReg</span><span class="result">: <span class="extype" name="rial.math.DecomposedRealOutput">DecomposedRealOutput</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#ydecCPReg" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="ydecCPReg:rial.math.DecomposedRealOutput"></a><a id="ydecCPReg:DecomposedRealOutput"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#ydecCPReg:rial.math.DecomposedRealOutput" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">ydecCPReg</span><span class="result">: <span class="extype" name="rial.math.DecomposedRealOutput">DecomposedRealOutput</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#ydecPCGapReg" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="ydecPCGapReg:rial.math.DecomposedRealOutput"></a><a id="ydecPCGapReg:DecomposedRealOutput"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#ydecPCGapReg:rial.math.DecomposedRealOutput" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">ydecPCGapReg</span><span class="result">: <span class="extype" name="rial.math.DecomposedRealOutput">DecomposedRealOutput</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#ydecPCReg" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="ydecPCReg:rial.math.DecomposedRealOutput"></a><a id="ydecPCReg:DecomposedRealOutput"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#ydecPCReg:rial.math.DecomposedRealOutput" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">ydecPCReg</span><span class="result">: <span class="extype" name="rial.math.DecomposedRealOutput">DecomposedRealOutput</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#ydecomp" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="ydecomp:Option[rial.math.DecomposeReal]"></a><a id="ydecomp:Option[DecomposeReal]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#ydecomp:Option[rial.math.DecomposeReal]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">ydecomp</span><span class="result">: <span class="extype" name="scala.Option">Option</span>[<span class="extype" name="rial.math.DecomposeReal">DecomposeReal</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li><li name="rial.math.MathFunctions#zs" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="zs:scala.collection.immutable.Map[rial.math.FuncKind.FuncKind,chisel3.UInt]"></a><a id="zs:Map[FuncKind,UInt]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#zs:scala.collection.immutable.Map[rial.math.FuncKind.FuncKind,chisel3.UInt]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">zs</span><span class="result">: <span class="extype" name="scala.collection.immutable.Map">Map</span>[<a href="FuncKind$.html#FuncKind=rial.math.FuncKind.Value" class="extmbr" name="rial.math.FuncKind.FuncKind">FuncKind</a>, <span class="extype" name="chisel3.UInt">UInt</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></dd></dl></div>
+    </li>
+              </ol>
+            </div>
+
+        
+
+        <div class="values members">
+              <h3>Deprecated Value Members</h3>
+              <ol><li name="scala.AnyRef#finalize" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="finalize():Unit"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#finalize():Unit" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name deprecated" title="Deprecated: (Since version ) see corresponding Javadoc for more information.">finalize</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected[<span class="extype" name="java.lang">lang</span>] </dd><dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="symbol">classOf[java.lang.Throwable]</span>
+    </span>)</span>
+              
+                <span class="name">@Deprecated</span>
+              
+                <span class="name">@deprecated</span>
+              
+        </dd><dt>Deprecated</dt><dd class="cmt"><p><i>(Since version )</i> see corresponding Javadoc for more information.</p></dd></dl></div>
+    </li><li name="chisel3.RawModule#getPorts" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="getPorts:Seq[chisel3.internal.firrtl.Port]"></a><a id="getPorts:Seq[Port]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#getPorts:Seq[chisel3.internal.firrtl.Port]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">lazy val</span>
+      </span>
+      <span class="symbol">
+        <span class="name deprecated" title="Deprecated: (Since version Chisel 3.5) Use DataMirror.modulePorts instead. this API will be removed in Chisel 3.6">getPorts</span><span class="result">: <span class="extype" name="scala.Seq">Seq</span>[<span class="extype" name="chisel3.internal.firrtl.Port">Port</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>RawModule</dd><dt>Annotations</dt><dd>
+                <span class="name">@deprecated</span>
+              
+        </dd><dt>Deprecated</dt><dd class="cmt"><p><i>(Since version Chisel 3.5)</i> Use DataMirror.modulePorts instead. this API will be removed in Chisel 3.6</p></dd></dl></div>
+    </li><li name="chisel3.Module#override_clock" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="override_clock:Option[chisel3.Clock]"></a><a id="override_clock:Option[Clock]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#override_clock:Option[chisel3.Clock]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name deprecated" title="Deprecated: (Since version Chisel 3.5) Use withClock at Module instantiation">override_clock</span><span class="result">: <span class="extype" name="scala.Option">Option</span>[<span class="extype" name="chisel3.Clock">Clock</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected </dd><dt>Definition Classes</dt><dd>Module</dd><dt>Annotations</dt><dd>
+                <span class="name">@deprecated</span>
+              
+        </dd><dt>Deprecated</dt><dd class="cmt"><p><i>(Since version Chisel 3.5)</i> Use withClock at Module instantiation</p></dd></dl></div>
+    </li><li name="chisel3.Module#override_clock_=" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="override_clock_=(rhs:Option[chisel3.Clock]):Unit"></a><a id="override_clock_=(Option[Clock]):Unit"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#override_clock_=(rhs:Option[chisel3.Clock]):Unit" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span title="gt4s: override_clock_$eq. Deprecated: (Since version Chisel 3.5) Use withClock at Module instantiation" class="name deprecated">override_clock_=</span><span class="params">(<span name="rhs">rhs: <span class="extype" name="scala.Option">Option</span>[<span class="extype" name="chisel3.Clock">Clock</span>]</span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected </dd><dt>Definition Classes</dt><dd>Module</dd><dt>Annotations</dt><dd>
+                <span class="name">@deprecated</span>
+              
+        </dd><dt>Deprecated</dt><dd class="cmt"><p><i>(Since version Chisel 3.5)</i> Use withClock at Module instantiation</p></dd></dl></div>
+    </li><li name="chisel3.Module#override_reset" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="override_reset:Option[chisel3.Bool]"></a><a id="override_reset:Option[Bool]"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#override_reset:Option[chisel3.Bool]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name deprecated" title="Deprecated: (Since version Chisel 3.5) Use withClock at Module instantiation">override_reset</span><span class="result">: <span class="extype" name="scala.Option">Option</span>[<span class="extype" name="chisel3.Bool">Bool</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected </dd><dt>Definition Classes</dt><dd>Module</dd><dt>Annotations</dt><dd>
+                <span class="name">@deprecated</span>
+              
+        </dd><dt>Deprecated</dt><dd class="cmt"><p><i>(Since version Chisel 3.5)</i> Use withClock at Module instantiation</p></dd></dl></div>
+    </li><li name="chisel3.Module#override_reset_=" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="override_reset_=(rhs:Option[chisel3.Bool]):Unit"></a><a id="override_reset_=(Option[Bool]):Unit"></a>
+      <span class="permalink">
+      <a href="../../rial/math/MathFuncUnitFP32.html#override_reset_=(rhs:Option[chisel3.Bool]):Unit" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span title="gt4s: override_reset_$eq. Deprecated: (Since version Chisel 3.5) Use withClock at Module instantiation" class="name deprecated">override_reset_=</span><span class="params">(<span name="rhs">rhs: <span class="extype" name="scala.Option">Option</span>[<span class="extype" name="chisel3.Bool">Bool</span>]</span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected </dd><dt>Definition Classes</dt><dd>Module</dd><dt>Annotations</dt><dd>
+                <span class="name">@deprecated</span>
+              
+        </dd><dt>Deprecated</dt><dd class="cmt"><p><i>(Since version Chisel 3.5)</i> Use withClock at Module instantiation</p></dd></dl></div>
+    </li></ol>
+            </div>
+        </div>
+
+        <div id="inheritedMembers">
+        <div class="parent" name="rial.math.MathFunctions">
+              <h3>Inherited from <a href="MathFunctions.html" class="extype" name="rial.math.MathFunctions">MathFunctions</a></h3>
+            </div><div class="parent" name="chisel3.Module">
+              <h3>Inherited from <span class="extype" name="chisel3.Module">Module</span></h3>
+            </div><div class="parent" name="chisel3.RawModule">
+              <h3>Inherited from <span class="extype" name="chisel3.RawModule">RawModule</span></h3>
+            </div><div class="parent" name="chisel3.experimental.BaseModule">
+              <h3>Inherited from <span class="extype" name="chisel3.experimental.BaseModule">BaseModule</span></h3>
+            </div><div class="parent" name="chisel3.experimental.hierarchy.IsInstantiable">
+              <h3>Inherited from <span class="extype" name="chisel3.experimental.hierarchy.IsInstantiable">IsInstantiable</span></h3>
+            </div><div class="parent" name="chisel3.internal.HasId">
+              <h3>Inherited from <span class="extype" name="chisel3.internal.HasId">HasId</span></h3>
+            </div><div class="parent" name="chisel3.internal.InstanceId">
+              <h3>Inherited from <span class="extype" name="chisel3.internal.InstanceId">InstanceId</span></h3>
+            </div><div class="parent" name="scala.AnyRef">
+              <h3>Inherited from <span class="extype" name="scala.AnyRef">AnyRef</span></h3>
+            </div><div class="parent" name="scala.Any">
+              <h3>Inherited from <span class="extype" name="scala.Any">Any</span></h3>
+            </div>
+        
+        </div>
+
+        <div id="groupedMembers">
+        <div class="group" name="Ungrouped">
+              <h3>Ungrouped</h3>
+              
+            </div>
+        </div>
+
+      </div>
+
+      <div id="tooltip"></div>
+
+      <div id="footer">  </div>
+    </body>
+          </div>
+        </div>
+      </div>
+    </body>
+      </html>

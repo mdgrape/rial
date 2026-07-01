@@ -1,0 +1,410 @@
+<!DOCTYPE html >
+<html>
+        <head>
+          <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+          <title></title>
+          <meta name="description" content="" />
+          <meta name="keywords" content="" />
+          <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+          
+      
+      <link href="../../lib/index.css" media="screen" type="text/css" rel="stylesheet" />
+      <link href="../../lib/template.css" media="screen" type="text/css" rel="stylesheet" />
+      <link href="../../lib/diagrams.css" media="screen" type="text/css" rel="stylesheet" id="diagrams-css" />
+      <script type="text/javascript" src="../../lib/jquery.min.js"></script>
+      <script type="text/javascript" src="../../lib/jquery.panzoom.min.js"></script>
+      <script type="text/javascript" src="../../lib/jquery.mousewheel.min.js"></script>
+      <script type="text/javascript" src="../../lib/index.js"></script>
+      <script type="text/javascript" src="../../index.js"></script>
+      <script type="text/javascript" src="../../lib/scheduler.js"></script>
+      <script type="text/javascript" src="../../lib/template.js"></script>
+      
+      <script type="text/javascript">
+        /* this variable can be used by the JS to determine the path to the root document */
+        var toRoot = '../../';
+      </script>
+    
+        </head>
+        <body>
+      <div id="search">
+        <span id="doc-title"><span id="doc-version"></span></span>
+        <span class="close-results"><span class="left">&lt;</span> Back</span>
+        <div id="textfilter">
+          <span class="input">
+            <input autocapitalize="none" placeholder="Search" id="index-input" type="text" accesskey="/" />
+            <i class="clear material-icons"></i>
+            <i id="search-icon" class="material-icons"></i>
+          </span>
+        </div>
+    </div>
+      <div id="search-results">
+        <div id="search-progress">
+          <div id="progress-fill"></div>
+        </div>
+        <div id="results-content">
+          <div id="entity-results"></div>
+          <div id="member-results"></div>
+        </div>
+      </div>
+      <div id="content-scroll-container" style="-webkit-overflow-scrolling: touch;">
+        <div id="content-container" style="-webkit-overflow-scrolling: touch;">
+          <div id="subpackage-spacer">
+            <div id="packages">
+              <h1>Packages</h1>
+              <ul>
+                <li name="_root_.root" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="_root_"></a><a id="root:_root_"></a>
+      <span class="permalink">
+      <a href="../../index.html" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <a title="" href="../../index.html"><span class="name">root</span></a>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="../../index.html" class="extype" name="_root_">root</a></dd></dl></div>
+    </li><li name="_root_.rial" visbl="pub" class="indented1 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="rial"></a><a id="rial:rial"></a>
+      <span class="permalink">
+      <a href="../../rial/index.html" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <a title="RIKEN Arithmetic &amp; Logic (RIAL) library" href="../index.html"><span class="name">rial</span></a>
+      </span>
+      
+      <p class="shortcomment cmt">RIKEN Arithmetic &amp; Logic (RIAL) library</p><div class="fullcomment"><div class="comment cmt"><p>RIKEN Arithmetic &amp; Logic (RIAL) library</p><p>RIAL provides multiple chisel modules that are useful especially for HPC and AI.
+</p></div><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="../../index.html" class="extype" name="_root_">root</a></dd></dl></div>
+    </li><li name="rial.arith" visbl="pub" class="indented2 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="arith"></a><a id="arith:arith"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/index.html" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <a title="Arith package provides floating-point arithmetics." href="../arith/index.html"><span class="name">arith</span></a>
+      </span>
+      
+      <p class="shortcomment cmt">Arith package provides floating-point arithmetics.</p><div class="fullcomment"><div class="comment cmt"><p>Arith package provides floating-point arithmetics.</p><p> For all the modules provided here, the following parameters can be customized
+ by users: latency, floating point specification, and rounding mode.</p><p> The modules take <a href="../arith/RealSpec.html" class="extype" name="rial.arith.RealSpec">rial.arith.RealSpec</a> of each argument,
+ <a href="../arith/RoundSpec.html" class="extype" name="rial.arith.RoundSpec">rial.arith.RoundSpec</a>, and <a href="../util/PipelineStageConfig.html" class="extype" name="rial.util.PipelineStageConfig">rial.util.PipelineStageConfig</a> in their
+ constructor. You can freely specify each parameters.
+</p></div><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="../index.html" class="extype" name="rial">rial</a></dd></dl></div>
+    </li><li name="rial.ecc" visbl="pub" class="indented2 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="ecc"></a><a id="ecc:ecc"></a>
+      <span class="permalink">
+      <a href="../../rial/ecc/index.html" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <a title="ecc package provides checksums for error detection and correction." href="../ecc/index.html"><span class="name">ecc</span></a>
+      </span>
+      
+      <p class="shortcomment cmt"><code>ecc</code> package provides checksums for error detection and correction.</p><div class="fullcomment"><div class="comment cmt"><p><code>ecc</code> package provides checksums for error detection and correction.
+</p></div><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="../index.html" class="extype" name="rial">rial</a></dd></dl></div>
+    </li><li name="rial.fixed" visbl="pub" class="indented2 current" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="fixed"></a><a id="fixed:fixed"></a>
+      <span class="permalink">
+      <a href="../../rial/fixed/index.html" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <span class="name">fixed</span>
+      </span>
+      
+      <p class="shortcomment cmt"><code>fixed</code> package provides fixed point and floating point conversion.</p><div class="fullcomment"><div class="comment cmt"><p><code>fixed</code> package provides fixed point and floating point conversion.</p></div><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="../index.html" class="extype" name="rial">rial</a></dd></dl></div>
+    </li><li class="current-entities indented2">
+                        <span class="separator"></span>
+                        <a class="class" href="FixedSpec.html" title="Fixed point spec."></a>
+                        <a href="FixedSpec.html" title="Fixed point spec.">FixedSpec</a>
+                      </li><li class="current-entities indented2">
+                        <span class="separator"></span>
+                        <a class="class" href="FixedToFloatGeneric.html" title="Fixed point number -&gt; floating point number."></a>
+                        <a href="FixedToFloatGeneric.html" title="Fixed point number -&gt; floating point number.">FixedToFloatGeneric</a>
+                      </li><li class="current-entities indented2">
+                        <span class="separator"></span>
+                        <a class="class" href="FloatToFixedGeneric.html" title="Floating point number -&gt; Fixed point number"></a>
+                        <a href="FloatToFixedGeneric.html" title="Floating point number -&gt; Fixed point number">FloatToFixedGeneric</a>
+                      </li><li class="current-entities indented2">
+                        <span class="separator"></span>
+                        <a class="class" href="ScaledFixedToFloatGeneric.html" title="Calculate Fixed * Float and convert it into another Float."></a>
+                        <a href="ScaledFixedToFloatGeneric.html" title="Calculate Fixed * Float and convert it into another Float.">ScaledFixedToFloatGeneric</a>
+                      </li><li name="rial.math" visbl="pub" class="indented2 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="math"></a><a id="math:math"></a>
+      <span class="permalink">
+      <a href="../../rial/math/index.html" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <a title="math package provides floating-point mathematical functions pipeline." href="../math/index.html"><span class="name">math</span></a>
+      </span>
+      
+      <p class="shortcomment cmt"><code>math</code> package provides floating-point mathematical functions pipeline.</p><div class="fullcomment"><div class="comment cmt"><p><code>math</code> package provides floating-point mathematical functions pipeline.</p><p>It supports the following well-known math functions:</p><ul><li> sqrt</li><li> invsqrt</li><li> reciprocal</li><li> sin</li><li> cos</li><li> acos</li><li> atan2</li><li> exp</li><li> log</li><li> sigmoid (<code>1/(1+exp(-x))</code>)</li><li> softplus (<code>log(1+exp(x))</code>)</li></ul><p>All those functions are approximated by chebyshev polynomials after an
+appropreate mathematical conversions.
+The precision of the approximation functions provided here is typically
+within 1 or 2 bits in the mantissa.
+However, since the error depends on the function type, floating-point spec,
+and other factors, it is necessary to verify that sufficient precision is
+achieved in each specific use case.</p><p>If necessary, the order of chebyshev polynomials used and the bit width of
+temporaries while evaluating polynomiall can be configured via
+<a href="../math/PolynomialSpec.html" class="extype" name="rial.math.PolynomialSpec">rial.math.PolynomialSpec</a>.</p><p>The <a href="../math/MathFunctions.html" class="extype" name="rial.math.MathFunctions">rial.math.MathFunctions</a> Module takes a list of math functions to
+support and <a href="../math/MathFuncConfig.html" class="extype" name="rial.math.MathFuncConfig">rial.math.MathFuncConfig</a> provides you a value of signal to
+select which function to be executed.</p><p>The latency and register positions can be configured via
+<a href="../math/MathFuncPipelineConfig.html" class="extype" name="rial.math.MathFuncPipelineConfig">rial.math.MathFuncPipelineConfig</a>. Since it is fully pipeplined, it takes
+1 argument at a cycle and never stalls.</p><p>Since the complexity depends on functions, the optimal latency depends on
+which functions are supported. For example, sin/cos requires <code>x/pi</code> before
+calculating its main part and log requires <code>* ln2</code> after calculating <code>log2(x)</code>.
+Those functions automatically adds a multiplier to <a href="../math/MathFunctions.html" class="extype" name="rial.math.MathFunctions">rial.math.MathFunctions</a>
+and it requires a lot more latency compared to simpler functions like sqrt,
+invsqrt, and reciprocal. If your list of functions contains those complicated
+functions, the optimal latency of <a href="../math/MathFunctions.html" class="extype" name="rial.math.MathFunctions">rial.math.MathFunctions</a> increases and
+simpler functions also takes longer cycles.</p></div><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="../index.html" class="extype" name="rial">rial</a></dd></dl></div>
+    </li><li name="rial.rng" visbl="pub" class="indented2 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="rng"></a><a id="rng:rng"></a>
+      <span class="permalink">
+      <a href="../../rial/rng/index.html" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <a title="" href="../rng/index.html"><span class="name">rng</span></a>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="../index.html" class="extype" name="rial">rial</a></dd></dl></div>
+    </li><li name="rial.util" visbl="pub" class="indented2 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="util"></a><a id="util:util"></a>
+      <span class="permalink">
+      <a href="../../rial/util/index.html" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <a title="util package provides utility functions mainly for internal use." href="../util/index.html"><span class="name">util</span></a>
+      </span>
+      
+      <p class="shortcomment cmt"><code>util</code> package provides utility functions mainly for internal use.</p><div class="fullcomment"><div class="comment cmt"><p><code>util</code> package provides utility functions mainly for internal use.
+</p></div><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="../index.html" class="extype" name="rial">rial</a></dd></dl></div>
+    </li>
+              </ul>
+            </div>
+          </div>
+          <div id="content">
+            <body class="package value">
+      <div id="definition">
+        <div class="big-circle package">p</div>
+        <p id="owner"><a href="../index.html" class="extype" name="rial">rial</a></p>
+        <h1>fixed<span class="permalink">
+      <a href="../../rial/fixed/index.html" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span></h1>
+        
+      </div>
+
+      <h4 id="signature" class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <span class="name">fixed</span>
+      </span>
+      </h4>
+
+      
+          <div id="comment" class="fullcommenttop"><div class="comment cmt"><p><code>fixed</code> package provides fixed point and floating point conversion.</p></div><div class="toggleContainer block">
+          <span class="toggle">
+            Linear Supertypes
+          </span>
+          <div class="superTypes hiddenContent"><span class="extype" name="scala.AnyRef">AnyRef</span>, <span class="extype" name="scala.Any">Any</span></div>
+        </div></div>
+        
+
+      
+
+      <div id="template">
+        <div id="allMembers">
+        
+
+        <div id="types" class="types members">
+              <h3>Type Members</h3>
+              <ol><li name="rial.fixed.FixedSpec" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="FixedSpecextendsProductwithSerializable"></a><a id="FixedSpec:FixedSpec"></a>
+      <span class="permalink">
+      <a href="../../rial/fixed/FixedSpec.html" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a title="Fixed point spec." href="FixedSpec.html"><span class="name">FixedSpec</span></a><span class="params">(<span name="totalW">totalW: <span class="extype" name="scala.Int">Int</span></span>, <span name="fracW">fracW: <span class="extype" name="scala.Int">Int</span></span>, <span name="signed">signed: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">true</span></span>, <span name="saturate">saturate: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">true</span></span>)</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      
+      <p class="shortcomment cmt">Fixed point spec.</p><div class="fullcomment"><div class="comment cmt"><p>Fixed point spec.</p><p>It contains the width of the fractional part.
+In conversion modules, the fracW value can be overwritten by the second
+(optional) input. If the second port is not defined (set None), the default
+fracW is used. Otherwise, fracW will not be referenced.
+</p></div><dl class="paramcmts block"><dt class="param">totalW</dt><dd class="cmt"><p>total width of the fixed point number.</p></dd><dt class="param">fracW</dt><dd class="cmt"><p>the default length of the fractional part.</p></dd><dt class="param">signed</dt><dd class="cmt"><p>spec of the output floating point number.</p></dd><dt class="param">saturate</dt><dd class="cmt"><p>Determines how many registers needed.</p></dd></dl></div>
+    </li><li name="rial.fixed.FixedToFloatGeneric" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="FixedToFloatGenericextendsModule"></a><a id="FixedToFloatGeneric:FixedToFloatGeneric"></a>
+      <span class="permalink">
+      <a href="../../rial/fixed/FixedToFloatGeneric.html" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a title="Fixed point number -&gt; floating point number." href="FixedToFloatGeneric.html"><span class="name">FixedToFloatGeneric</span></a><span class="result"> extends <span class="extype" name="chisel3.Module">Module</span></span>
+      </span>
+      
+      <p class="shortcomment cmt">Fixed point number -&gt; floating point number.</p><div class="fullcomment"><div class="comment cmt"><p>Fixed point number -&gt; floating point number.</p><pre><span class="kw">class</span> FixedToFloatGeneric(...) <span class="kw">extends</span> Module {
+  <span class="kw">val</span> io = IO(<span class="kw">new</span> Bundle{
+    <span class="kw">val</span> x = Input (UInt(xSpec.W.W))
+    <span class="kw">val</span> y = Input (UInt(w.W)) <span class="cmt">// defined only if `yintW` is defined</span>
+    <span class="kw">val</span> z = Output(UInt(zSpec.W.W))
+  })
+  <span class="cmt">//...</span>
+}</pre><p>First input is the input fixed point number.
+Second input (optional) is the current fraction width.
+If yintW is not given (be <code>None</code>), it uses xSpec.fracW that will be hard-coded.</p><p>0 means the fixed point value is an integer (w/o fractional part).
+Since, in most cases, fixed point is signed, it results a weird result if
+fracW &gt; totalW in a fixed point value.
+Take care of the width of the second input, y.
+</p></div></div>
+    </li><li name="rial.fixed.FloatToFixedGeneric" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="FloatToFixedGenericextendsModule"></a><a id="FloatToFixedGeneric:FloatToFixedGeneric"></a>
+      <span class="permalink">
+      <a href="../../rial/fixed/FloatToFixedGeneric.html" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a title="Floating point number -&gt; Fixed point number" href="FloatToFixedGeneric.html"><span class="name">FloatToFixedGeneric</span></a><span class="result"> extends <span class="extype" name="chisel3.Module">Module</span></span>
+      </span>
+      
+      <p class="shortcomment cmt">Floating point number -&gt; Fixed point number</p><div class="fullcomment"><div class="comment cmt"><p>Floating point number -&gt; Fixed point number</p><pre><span class="kw">class</span> FloatToFixedGeneric(...) <span class="kw">extends</span> Module {
+  <span class="kw">val</span> io = IO(<span class="kw">new</span> Bundle{
+    <span class="kw">val</span> x = Input (UInt(xSpec.W.W))
+    <span class="kw">val</span> y = Input (UInt(w.W)) <span class="cmt">// defined only if `yintW` is defined</span>
+    <span class="kw">val</span> z = Output(UInt(zSpec.W.W))
+  })
+  <span class="cmt">//...</span>
+}</pre><p>First input is the input floating point number.
+Second input (optional) is the current fraction width.
+If yintW is not given (be <code>None</code>), it uses zSpec.fracW that will be hard-coded.</p><p>0 means the fixed point value is an integer (w/o fractional part).
+Since, in most cases, fixed point is signed, it results a weird result if
+fracW &gt; totalW in a fixed point value.
+Take care of the width of the second input, y.
+</p></div></div>
+    </li><li name="rial.fixed.ScaledFixedToFloatGeneric" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="ScaledFixedToFloatGenericextendsModule"></a><a id="ScaledFixedToFloatGeneric:ScaledFixedToFloatGeneric"></a>
+      <span class="permalink">
+      <a href="../../rial/fixed/ScaledFixedToFloatGeneric.html" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a title="Calculate Fixed * Float and convert it into another Float." href="ScaledFixedToFloatGeneric.html"><span class="name">ScaledFixedToFloatGeneric</span></a><span class="result"> extends <span class="extype" name="chisel3.Module">Module</span></span>
+      </span>
+      
+      <p class="shortcomment cmt">Calculate Fixed * Float and convert it into another Float.</p><div class="fullcomment"><div class="comment cmt"><p>Calculate Fixed * Float and convert it into another Float.</p><pre><span class="kw">class</span> ScaledFixedToFloatGeneric(...) <span class="kw">extends</span> Module {
+  <span class="kw">val</span> io = IO(<span class="kw">new</span> Bundle{
+    <span class="kw">val</span> x = Input (UInt(xSpec.W.W))
+    <span class="kw">val</span> y = Input (UInt(w.W)) <span class="cmt">// defined only if `yintW` is defined</span>
+    <span class="kw">val</span> z = Output(UInt(zSpec.W.W))
+  })
+  <span class="cmt">//...</span>
+}</pre><p>It takes a fixedpoint <code>x</code> and floating point <code>y</code> and returns a floating point <code>z = x * y</code>.
+</p></div></div>
+    </li></ol>
+            </div>
+
+        
+
+        
+
+        
+
+        
+        </div>
+
+        <div id="inheritedMembers">
+        <div class="parent" name="scala.AnyRef">
+              <h3>Inherited from <span class="extype" name="scala.AnyRef">AnyRef</span></h3>
+            </div><div class="parent" name="scala.Any">
+              <h3>Inherited from <span class="extype" name="scala.Any">Any</span></h3>
+            </div>
+        
+        </div>
+
+        <div id="groupedMembers">
+        <div class="group" name="Ungrouped">
+              <h3>Ungrouped</h3>
+              
+            </div>
+        </div>
+
+      </div>
+
+      <div id="tooltip"></div>
+
+      <div id="footer">  </div>
+    </body>
+          </div>
+        </div>
+      </div>
+    </body>
+      </html>

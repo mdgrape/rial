@@ -1,0 +1,2762 @@
+<!DOCTYPE html >
+<html>
+        <head>
+          <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+          <title></title>
+          <meta name="description" content="" />
+          <meta name="keywords" content="" />
+          <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+          
+      
+      <link href="../../lib/index.css" media="screen" type="text/css" rel="stylesheet" />
+      <link href="../../lib/template.css" media="screen" type="text/css" rel="stylesheet" />
+      <link href="../../lib/diagrams.css" media="screen" type="text/css" rel="stylesheet" id="diagrams-css" />
+      <script type="text/javascript" src="../../lib/jquery.min.js"></script>
+      <script type="text/javascript" src="../../lib/jquery.panzoom.min.js"></script>
+      <script type="text/javascript" src="../../lib/jquery.mousewheel.min.js"></script>
+      <script type="text/javascript" src="../../lib/index.js"></script>
+      <script type="text/javascript" src="../../index.js"></script>
+      <script type="text/javascript" src="../../lib/scheduler.js"></script>
+      <script type="text/javascript" src="../../lib/template.js"></script>
+      
+      <script type="text/javascript">
+        /* this variable can be used by the JS to determine the path to the root document */
+        var toRoot = '../../';
+      </script>
+    
+        </head>
+        <body>
+      <div id="search">
+        <span id="doc-title"><span id="doc-version"></span></span>
+        <span class="close-results"><span class="left">&lt;</span> Back</span>
+        <div id="textfilter">
+          <span class="input">
+            <input autocapitalize="none" placeholder="Search" id="index-input" type="text" accesskey="/" />
+            <i class="clear material-icons"></i>
+            <i id="search-icon" class="material-icons"></i>
+          </span>
+        </div>
+    </div>
+      <div id="search-results">
+        <div id="search-progress">
+          <div id="progress-fill"></div>
+        </div>
+        <div id="results-content">
+          <div id="entity-results"></div>
+          <div id="member-results"></div>
+        </div>
+      </div>
+      <div id="content-scroll-container" style="-webkit-overflow-scrolling: touch;">
+        <div id="content-container" style="-webkit-overflow-scrolling: touch;">
+          <div id="subpackage-spacer">
+            <div id="packages">
+              <h1>Packages</h1>
+              <ul>
+                <li name="_root_.root" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="_root_"></a><a id="root:_root_"></a>
+      <span class="permalink">
+      <a href="../../index.html" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <a title="" href="../../index.html"><span class="name">root</span></a>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="../../index.html" class="extype" name="_root_">root</a></dd></dl></div>
+    </li><li name="_root_.rial" visbl="pub" class="indented1 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="rial"></a><a id="rial:rial"></a>
+      <span class="permalink">
+      <a href="../../rial/index.html" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <a title="RIKEN Arithmetic &amp; Logic (RIAL) library" href="../index.html"><span class="name">rial</span></a>
+      </span>
+      
+      <p class="shortcomment cmt">RIKEN Arithmetic &amp; Logic (RIAL) library</p><div class="fullcomment"><div class="comment cmt"><p>RIKEN Arithmetic &amp; Logic (RIAL) library</p><p>RIAL provides multiple chisel modules that are useful especially for HPC and AI.
+</p></div><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="../../index.html" class="extype" name="_root_">root</a></dd></dl></div>
+    </li><li name="rial.arith" visbl="pub" class="indented2 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="arith"></a><a id="arith:arith"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/index.html" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <a title="Arith package provides floating-point arithmetics." href="index.html"><span class="name">arith</span></a>
+      </span>
+      
+      <p class="shortcomment cmt">Arith package provides floating-point arithmetics.</p><div class="fullcomment"><div class="comment cmt"><p>Arith package provides floating-point arithmetics.</p><p> For all the modules provided here, the following parameters can be customized
+ by users: latency, floating point specification, and rounding mode.</p><p> The modules take <a href="RealSpec.html" class="extype" name="rial.arith.RealSpec">rial.arith.RealSpec</a> of each argument,
+ <a href="RoundSpec.html" class="extype" name="rial.arith.RoundSpec">rial.arith.RoundSpec</a>, and <a href="../util/PipelineStageConfig.html" class="extype" name="rial.util.PipelineStageConfig">rial.util.PipelineStageConfig</a> in their
+ constructor. You can freely specify each parameters.
+</p></div><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="../index.html" class="extype" name="rial">rial</a></dd></dl></div>
+    </li><li class="current-entities indented2">
+                        <span class="separator"></span>
+                        <a class="class" href="AddFP64.html" title="Specialization of AddFPGeneric for FP64."></a>
+                        <a href="AddFP64.html" title="Specialization of AddFPGeneric for FP64.">AddFP64</a>
+                      </li><li class="current-entities indented2">
+                        <span class="separator"></span>
+                        <a class="object" href="AddFP64_driver$.html" title="AddFP64 generator."></a>
+                        <a href="AddFP64_driver$.html" title="AddFP64 generator.">AddFP64_driver</a>
+                      </li><li class="current-entities indented2">
+                        <span class="separator"></span>
+                        <a class="class" href="" title="Generic Floating-Point Adder."></a>
+                        <a href="" title="Generic Floating-Point Adder.">AddFPGeneric</a>
+                      </li><li class="current-entities indented2">
+                        <span class="separator"></span>
+                        <a class="object" href="FloatChiselUtil$.html" title="utility functions for floating-point handling."></a>
+                        <a href="FloatChiselUtil$.html" title="utility functions for floating-point handling.">FloatChiselUtil</a>
+                      </li><li class="current-entities indented2">
+                        <span class="separator"></span>
+                        <a class="class" href="FusedMulAddFP64.html" title="specialization of FusedMulAddFPGeneric for FP64."></a>
+                        <a href="FusedMulAddFP64.html" title="specialization of FusedMulAddFPGeneric for FP64.">FusedMulAddFP64</a>
+                      </li><li class="current-entities indented2">
+                        <span class="separator"></span>
+                        <a class="object" href="FusedMulAddFP64_driver$.html" title="FusedMulAddFP64 generator."></a>
+                        <a href="FusedMulAddFP64_driver$.html" title="FusedMulAddFP64 generator.">FusedMulAddFP64_driver</a>
+                      </li><li class="current-entities indented2">
+                        <span class="separator"></span>
+                        <a class="class" href="FusedMulAddFPGeneric.html" title="Generic Floating-Point Fused Multiply-Adder."></a>
+                        <a href="FusedMulAddFPGeneric.html" title="Generic Floating-Point Fused Multiply-Adder.">FusedMulAddFPGeneric</a>
+                      </li><li class="current-entities indented2">
+                        <span class="separator"></span>
+                        <a class="class" href="MultFP64.html" title="Specialization of MultFPGeneric for FP64."></a>
+                        <a href="MultFP64.html" title="Specialization of MultFPGeneric for FP64.">MultFP64</a>
+                      </li><li class="current-entities indented2">
+                        <span class="separator"></span>
+                        <a class="class" href="MultFPGeneric.html" title="Generic Floating-Point Multiplier."></a>
+                        <a href="MultFPGeneric.html" title="Generic Floating-Point Multiplier.">MultFPGeneric</a>
+                      </li><li class="current-entities indented2">
+                        <span class="separator"></span>
+                        <a class="class" href="MultFPInt64.html" title="Specialization of MultFPIntGeneric for FP64."></a>
+                        <a href="MultFPInt64.html" title="Specialization of MultFPIntGeneric for FP64.">MultFPInt64</a>
+                      </li><li class="current-entities indented2">
+                        <span class="separator"></span>
+                        <a class="class" href="MultFPIntGeneric.html" title="Generic Floating-Point and Integer Multiplier."></a>
+                        <a href="MultFPIntGeneric.html" title="Generic Floating-Point and Integer Multiplier.">MultFPIntGeneric</a>
+                      </li><li class="current-entities indented2">
+                        <a class="object" href="RealGeneric$.html" title="Utility functions for software floating point emulation"></a>
+                        <a class="class" href="RealGeneric.html" title="Software emulation of floating point arithmetic."></a>
+                        <a href="RealGeneric.html" title="Software emulation of floating point arithmetic.">RealGeneric</a>
+                      </li><li class="current-entities indented2">
+                        <a class="object" href="RealSpec$.html" title="Default specs for famous floating point numbers."></a>
+                        <a class="class" href="RealSpec.html" title="Floating point settings."></a>
+                        <a href="RealSpec.html" title="Floating point settings.">RealSpec</a>
+                      </li><li class="current-entities indented2">
+                        <a class="object" href="RoundSpec$.html" title="Enumerator to select Rounding Algorithm."></a>
+                        <a class="trait" href="RoundSpec.html" title="Enumerator to select Rounding Algorithm."></a>
+                        <a href="RoundSpec.html" title="Enumerator to select Rounding Algorithm.">RoundSpec</a>
+                      </li><li class="current-entities indented2">
+                        <span class="separator"></span>
+                        <a class="object" href="Rounding$.html" title="Rounding functions for software emulator"></a>
+                        <a href="Rounding$.html" title="Rounding functions for software emulator">Rounding</a>
+                      </li>
+              </ul>
+            </div>
+          </div>
+          <div id="content">
+            <body class="class type">
+      <div id="definition">
+        <div class="big-circle class">c</div>
+        <p id="owner"><a href="../index.html" class="extype" name="rial">rial</a>.<a href="index.html" class="extype" name="rial.arith">arith</a></p>
+        <h1>AddFPGeneric<span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span></h1>
+        <h3><span class="morelinks"></span></h3>
+      </div>
+
+      <h4 id="signature" class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <span class="name">AddFPGeneric</span><span class="result"> extends <span class="extype" name="chisel3.Module">Module</span> with <a href="../util/DebugControlSlave.html" class="extype" name="rial.util.DebugControlSlave">DebugControlSlave</a></span>
+      </span>
+      </h4>
+
+      
+          <div id="comment" class="fullcommenttop"><div class="comment cmt"><p>Generic Floating-Point Adder.</p><p>It takes <code>x</code> and <code>y</code> and returns <code>z</code> as <code>z = x + y</code>.</p><p>All the input/output floating-point spec are configurable through <a href="RealSpec.html" class="extype" name="rial.arith.RealSpec">rial.arith.RealSpec</a>.</p><p>The latency of this module can be configured via <a href="../util/PipelineStageConfig.html" class="extype" name="rial.util.PipelineStageConfig">rial.util.PipelineStageConfig</a>.</p><pre><span class="kw">class</span> AddFPGeneric(...) <span class="kw">extends</span> Module {
+  <span class="kw">val</span> io = IO(<span class="kw">new</span> Bundle{
+    <span class="kw">val</span> x = Input (UInt(xSpec.W.W))
+    <span class="kw">val</span> y = Input (UInt(ySpec.W.W))
+    <span class="kw">val</span> z = Output(UInt(zSpec.W.W))
+  })
+  <span class="cmt">//...</span>
+}</pre></div><dl class="attributes block"> <dt>See also</dt><dd><span class="cmt"><p><a href="RealSpec.html" class="extype" name="rial.arith.RealSpec">rial.arith.RealSpec</a></p></span><span class="cmt"><p><a href="RoundSpec.html" class="extype" name="rial.arith.RoundSpec">rial.arith.RoundSpec</a></p></span><span class="cmt"><p><a href="../util/PipelineStageConfig.html" class="extype" name="rial.util.PipelineStageConfig">rial.util.PipelineStageConfig</a></p></span></dd></dl><div class="toggleContainer block">
+          <span class="toggle">
+            Linear Supertypes
+          </span>
+          <div class="superTypes hiddenContent"><a href="../util/DebugControlSlave.html" class="extype" name="rial.util.DebugControlSlave">DebugControlSlave</a>, <span class="extype" name="chisel3.Module">Module</span>, <span class="extype" name="chisel3.RawModule">RawModule</span>, <span class="extype" name="chisel3.experimental.BaseModule">BaseModule</span>, <span class="extype" name="chisel3.experimental.hierarchy.IsInstantiable">IsInstantiable</span>, <span class="extype" name="chisel3.internal.HasId">HasId</span>, <span class="extype" name="chisel3.internal.InstanceId">InstanceId</span>, <span class="extype" name="scala.AnyRef">AnyRef</span>, <span class="extype" name="scala.Any">Any</span></div>
+        </div><div class="toggleContainer block">
+            <span class="toggle">
+              Known Subclasses
+            </span>
+            <div class="subClasses hiddenContent"><a href="AddFP64.html" class="extype" name="rial.arith.AddFP64">AddFP64</a></div>
+          </div></div>
+        
+
+      <div id="mbrsel">
+        <div class="toggle"></div>
+        <div id="memberfilter">
+          <i class="material-icons arrow"></i>
+          <span class="input">
+            <input id="mbrsel-input" placeholder="Filter all members" type="text" accesskey="/" />
+          </span>
+          <i class="clear material-icons"></i>
+        </div>
+        <div id="filterby">
+          <div id="order">
+            <span class="filtertype">Ordering</span>
+            <ol>
+              
+              <li class="alpha in"><span>Alphabetic</span></li>
+              <li class="inherit out"><span>By Inheritance</span></li>
+            </ol>
+          </div>
+          <div class="ancestors">
+                  <span class="filtertype">Inherited<br />
+                  </span>
+                  <ol id="linearization">
+                    <li class="in" name="rial.arith.AddFPGeneric"><span>AddFPGeneric</span></li><li class="in" name="rial.util.DebugControlSlave"><span>DebugControlSlave</span></li><li class="in" name="chisel3.Module"><span>Module</span></li><li class="in" name="chisel3.RawModule"><span>RawModule</span></li><li class="in" name="chisel3.experimental.BaseModule"><span>BaseModule</span></li><li class="in" name="chisel3.experimental.hierarchy.IsInstantiable"><span>IsInstantiable</span></li><li class="in" name="chisel3.internal.HasId"><span>HasId</span></li><li class="in" name="chisel3.internal.InstanceId"><span>InstanceId</span></li><li class="in" name="scala.AnyRef"><span>AnyRef</span></li><li class="in" name="scala.Any"><span>Any</span></li>
+                  </ol>
+                </div><div class="ancestors">
+              <span class="filtertype"></span>
+              <ol>
+                <li class="hideall out"><span>Hide All</span></li>
+                <li class="showall in"><span>Show All</span></li>
+              </ol>
+            </div>
+          <div id="visbl">
+              <span class="filtertype">Visibility</span>
+              <ol><li class="public in"><span>Public</span></li><li class="all out"><span>All</span></li></ol>
+            </div>
+        </div>
+      </div>
+
+      <div id="template">
+        <div id="allMembers">
+        <div id="constructors" class="members">
+              <h3>Instance Constructors</h3>
+              <ol><li name="rial.arith.AddFPGeneric#&lt;init&gt;" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="&lt;init&gt;(xSpec:rial.arith.RealSpec,ySpec:rial.arith.RealSpec,zSpec:rial.arith.RealSpec,roundSpec:rial.arith.RoundSpec,stage:rial.util.PipelineStageConfig,enableDebug:Boolean,useParallelLZA:Boolean):rial.arith.AddFPGeneric"></a><a id="&lt;init&gt;:AddFPGeneric"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#&lt;init&gt;(xSpec:rial.arith.RealSpec,ySpec:rial.arith.RealSpec,zSpec:rial.arith.RealSpec,roundSpec:rial.arith.RoundSpec,stage:rial.util.PipelineStageConfig,enableDebug:Boolean,useParallelLZA:Boolean):rial.arith.AddFPGeneric" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">new</span>
+      </span>
+      <span class="symbol">
+        <span class="name">AddFPGeneric</span><span class="params">(<span name="xSpec">xSpec: <a href="RealSpec.html" class="extype" name="rial.arith.RealSpec">RealSpec</a></span>, <span name="ySpec">ySpec: <a href="RealSpec.html" class="extype" name="rial.arith.RealSpec">RealSpec</a></span>, <span name="zSpec">zSpec: <a href="RealSpec.html" class="extype" name="rial.arith.RealSpec">RealSpec</a></span>, <span name="roundSpec">roundSpec: <a href="RoundSpec.html" class="extype" name="rial.arith.RoundSpec">RoundSpec</a></span>, <span name="stage">stage: <a href="../util/PipelineStageConfig.html" class="extype" name="rial.util.PipelineStageConfig">PipelineStageConfig</a></span>, <span name="enableDebug">enableDebug: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">false</span></span>, <span name="useParallelLZA">useParallelLZA: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">false</span></span>)</span>
+      </span>
+      
+      <p class="shortcomment cmt">create a chisel Module AddFPGeneric</p><div class="fullcomment"><div class="comment cmt"><p>create a chisel Module AddFPGeneric</p></div><dl class="paramcmts block"><dt class="param">xSpec</dt><dd class="cmt"><p>floating point spec of the left hand side input</p></dd><dt class="param">ySpec</dt><dd class="cmt"><p>floating point spec of the right hand side input</p></dd><dt class="param">zSpec</dt><dd class="cmt"><p>floating point spec of the output</p></dd><dt class="param">roundSpec</dt><dd class="cmt"><p>rounding algorithm</p></dd><dt class="param">stage</dt><dd class="cmt"><p>number of pipeline stages in this module.</p></dd><dt class="param">enableDebug</dt><dd class="cmt"><p>
+  add some additional printf and assertions. by default, false.</p></dd><dt class="param">useParallelLZA</dt><dd class="cmt"><p>
+  do LZA for faster latency. by default, false.
+For parameters, see also:</p></dd></dl></div>
+    </li></ol>
+            </div>
+
+        
+
+        
+
+        <div class="values members">
+              <h3>Value Members</h3>
+              <ol>
+                <li name="scala.AnyRef#!=" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="!=(x$1:Any):Boolean"></a><a id="!=(Any):Boolean"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#!=(x$1:Any):Boolean" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span title="gt4s: $bang$eq" class="name">!=</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Any">Any</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="scala.AnyRef###" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="##():Int"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html###():Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span title="gt4s: $hash$hash" class="name">##</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="scala.AnyRef#==" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="==(x$1:Any):Boolean"></a><a id="==(Any):Boolean"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#==(x$1:Any):Boolean" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span title="gt4s: $eq$eq" class="name">==</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Any">Any</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="chisel3.experimental.BaseModule#IO" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="IO[T&lt;:chisel3.Data](iodef:T):T"></a><a id="IO[T&lt;:Data](T):T"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#IO[T&lt;:chisel3.Data](iodef:T):T" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">IO</span><span class="tparams">[<span name="T">T &lt;: <span class="extype" name="chisel3.Data">Data</span></span>]</span><span class="params">(<span name="iodef">iodef: <span class="extype" name="chisel3.experimental.BaseModule.IO.T">T</span></span>)</span><span class="result">: <span class="extype" name="chisel3.experimental.BaseModule.IO.T">T</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected </dd><dt>Definition Classes</dt><dd>BaseModule</dd></dl></div>
+    </li><li name="chisel3.experimental.BaseModule#_bindIoInPlace" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="_bindIoInPlace(iodef:chisel3.Data):Unit"></a><a id="_bindIoInPlace(Data):Unit"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#_bindIoInPlace(iodef:chisel3.Data):Unit" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">_bindIoInPlace</span><span class="params">(<span name="iodef">iodef: <span class="extype" name="chisel3.Data">Data</span></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected </dd><dt>Definition Classes</dt><dd>BaseModule</dd></dl></div>
+    </li><li name="chisel3.experimental.BaseModule#_closed" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="_closed:Boolean"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#_closed:Boolean" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">var</span>
+      </span>
+      <span class="symbol">
+        <span class="name">_closed</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected </dd><dt>Definition Classes</dt><dd>BaseModule</dd></dl></div>
+    </li><li name="chisel3.experimental.BaseModule#_compatAutoWrapPorts" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="_compatAutoWrapPorts():Unit"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#_compatAutoWrapPorts():Unit" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">_compatAutoWrapPorts</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>BaseModule</dd></dl></div>
+    </li><li name="rial.arith.AddFPGeneric#additionalStickeyFar" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="additionalStickeyFar:chisel3.Bool"></a><a id="additionalStickeyFar:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#additionalStickeyFar:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">additionalStickeyFar</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="scala.Any#asInstanceOf" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="asInstanceOf[T0]:T0"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#asInstanceOf[T0]:T0" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">asInstanceOf</span><span class="tparams">[<span name="T0">T0</span>]</span><span class="result">: <span class="extype" name="scala.Any.asInstanceOf.T0">T0</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>Any</dd></dl></div>
+    </li><li name="chisel3.internal.HasId#circuitName" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="circuitName:String"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#circuitName:String" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">circuitName</span><span class="result">: <span class="extype" name="scala.Predef.String">String</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected </dd><dt>Definition Classes</dt><dd>HasId</dd></dl></div>
+    </li><li name="chisel3.Module#clock" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="clock:chisel3.Clock"></a><a id="clock:Clock"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#clock:chisel3.Clock" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">clock</span><span class="result">: <span class="extype" name="chisel3.Clock">Clock</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>Module</dd></dl></div>
+    </li><li name="scala.AnyRef#clone" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="clone():Object"></a><a id="clone():AnyRef"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#clone():Object" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">clone</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected[<span class="extype" name="java.lang">lang</span>] </dd><dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="defval" name="classOf[java.lang.CloneNotSupportedException]">...</span>
+    </span>)</span>
+              
+                <span class="name">@native</span><span class="args">()</span>
+              
+                <span class="name">@HotSpotIntrinsicCandidate</span><span class="args">()</span>
+              
+        </dd></dl></div>
+    </li><li name="chisel3.RawModule#compileOptions" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="compileOptions:chisel3.CompileOptions"></a><a id="compileOptions:CompileOptions"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#compileOptions:chisel3.CompileOptions" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">compileOptions</span><span class="result">: <span class="extype" name="chisel3.CompileOptions">CompileOptions</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>RawModule</dd></dl></div>
+    </li><li name="rial.util.DebugControlSlave#dbgPrintf" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="dbgPrintf(fmt:String,data:chisel3.Bits*):Any"></a><a id="dbgPrintf(String,Bits*):Any"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#dbgPrintf(fmt:String,data:chisel3.Bits*):Any" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">dbgPrintf</span><span class="params">(<span name="fmt">fmt: <span class="extype" name="scala.Predef.String">String</span></span>, <span name="data">data: <span class="extype" name="chisel3.Bits">Bits</span>*</span>)</span><span class="result">: <span class="extype" name="scala.Any">Any</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="../util/DebugControlSlave.html" class="extype" name="rial.util.DebugControlSlave">DebugControlSlave</a></dd></dl></div>
+    </li><li name="chisel3.experimental.BaseModule#desiredName" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="desiredName:String"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#desiredName:String" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">desiredName</span><span class="result">: <span class="extype" name="scala.Predef.String">String</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>BaseModule</dd></dl></div>
+    </li><li name="rial.arith.AddFPGeneric#diffExW" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="diffExW:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#diffExW:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">diffExW</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#diffExXY" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="diffExXY:chisel3.SInt"></a><a id="diffExXY:SInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#diffExXY:chisel3.SInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">diffExXY</span><span class="result">: <span class="extype" name="chisel3.SInt">SInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#diffExYX" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="diffExYX:chisel3.SInt"></a><a id="diffExYX:SInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#diffExYX:chisel3.SInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">diffExYX</span><span class="result">: <span class="extype" name="chisel3.SInt">SInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#diffFar" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="diffFar:chisel3.UInt"></a><a id="diffFar:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#diffFar:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">diffFar</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#diffFarLessThan2" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="diffFarLessThan2:chisel3.Bool"></a><a id="diffFarLessThan2:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#diffFarLessThan2:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">diffFarLessThan2</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#diffFarMinus2" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="diffFarMinus2:chisel3.UInt"></a><a id="diffFarMinus2:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#diffFarMinus2:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">diffFarMinus2</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#diffMaxXY" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="diffMaxXY:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#diffMaxXY:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">diffMaxXY</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#diffMaxYX" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="diffMaxYX:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#diffMaxYX:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">diffMaxYX</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#diffSgn" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="diffSgn:chisel3.Bool"></a><a id="diffSgn:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#diffSgn:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">diffSgn</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#diffWz" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="diffWz:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#diffWz:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">diffWz</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#enableDebug" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="enableDebug:Boolean"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#enableDebug:Boolean" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">enableDebug</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="" class="extype" name="rial.arith.AddFPGeneric">AddFPGeneric</a> → <a href="../util/DebugControlSlave.html" class="extype" name="rial.util.DebugControlSlave">DebugControlSlave</a></dd></dl></div>
+    </li><li name="scala.AnyRef#eq" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="eq(x$1:AnyRef):Boolean"></a><a id="eq(AnyRef):Boolean"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#eq(x$1:AnyRef):Boolean" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">eq</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.AnyRef">AnyRef</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
+    </li><li name="chisel3.internal.HasId#equals" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="equals(that:Any):Boolean"></a><a id="equals(Any):Boolean"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#equals(that:Any):Boolean" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">equals</span><span class="params">(<span name="that">that: <span class="extype" name="scala.Any">Any</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>HasId → AnyRef → Any</dd></dl></div>
+    </li><li name="rial.arith.AddFPGeneric#exSub" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="exSub:chisel3.SInt"></a><a id="exSub:SInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#exSub:chisel3.SInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">exSub</span><span class="result">: <span class="extype" name="chisel3.SInt">SInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#exSubFar" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="exSubFar:chisel3.SInt"></a><a id="exSubFar:SInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#exSubFar:chisel3.SInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">exSubFar</span><span class="result">: <span class="extype" name="chisel3.SInt">SInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#exXlargerThanY" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="exXlargerThanY:chisel3.Bool"></a><a id="exXlargerThanY:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#exXlargerThanY:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">exXlargerThanY</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="scala.AnyRef#getClass" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="getClass():Class[_]"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#getClass():Class[_]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">getClass</span><span class="params">()</span><span class="result">: <span class="extype" name="java.lang.Class">Class</span>[_]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd><dt>Annotations</dt><dd>
+                <span class="name">@native</span><span class="args">()</span>
+              
+                <span class="name">@HotSpotIntrinsicCandidate</span><span class="args">()</span>
+              
+        </dd></dl></div>
+    </li><li name="chisel3.RawModule#getCommands" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="getCommands:Seq[chisel3.internal.firrtl.Command]"></a><a id="getCommands:Seq[Command]"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#getCommands:Seq[chisel3.internal.firrtl.Command]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">getCommands</span><span class="result">: <span class="extype" name="scala.Seq">Seq</span>[<span class="extype" name="chisel3.internal.firrtl.Command">Command</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected </dd><dt>Definition Classes</dt><dd>RawModule</dd></dl></div>
+    </li><li name="chisel3.experimental.BaseModule#getModulePorts" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="getModulePorts:Seq[chisel3.Data]"></a><a id="getModulePorts:Seq[Data]"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#getModulePorts:Seq[chisel3.Data]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">getModulePorts</span><span class="result">: <span class="extype" name="scala.collection.Seq">Seq</span>[<span class="extype" name="chisel3.Data">Data</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected[<span class="extype" name="chisel3">chisel3</span>] </dd><dt>Definition Classes</dt><dd>BaseModule</dd></dl></div>
+    </li><li name="rial.arith.AddFPGeneric#getParam" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="getParam:(rial.arith.RealSpec,rial.arith.RealSpec,rial.arith.RealSpec,rial.arith.RoundSpec,Int)"></a><a id="getParam:(RealSpec,RealSpec,RealSpec,RoundSpec,Int)"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#getParam:(rial.arith.RealSpec,rial.arith.RealSpec,rial.arith.RealSpec,rial.arith.RoundSpec,Int)" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">getParam</span><span class="result">: (<a href="RealSpec.html" class="extype" name="rial.arith.RealSpec">RealSpec</a>, <a href="RealSpec.html" class="extype" name="rial.arith.RealSpec">RealSpec</a>, <a href="RealSpec.html" class="extype" name="rial.arith.RealSpec">RealSpec</a>, <a href="RoundSpec.html" class="extype" name="rial.arith.RoundSpec">RoundSpec</a>, <span class="extype" name="scala.Int">Int</span>)</span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#getStage" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="getStage:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#getStage:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">getStage</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      
+    </li><li name="rial.util.DebugControlSlave#globalDynamicDebugEnable" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="globalDynamicDebugEnable:chisel3.Bool"></a><a id="globalDynamicDebugEnable:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#globalDynamicDebugEnable:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">globalDynamicDebugEnable</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="../util/DebugControlSlave.html" class="extype" name="rial.util.DebugControlSlave">DebugControlSlave</a></dd></dl></div>
+    </li><li name="rial.arith.AddFPGeneric#guardFar" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="guardFar:chisel3.UInt"></a><a id="guardFar:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#guardFar:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">guardFar</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#guardFarNeg" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="guardFarNeg:chisel3.UInt"></a><a id="guardFarNeg:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#guardFarNeg:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">guardFarNeg</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="chisel3.internal.HasId#hasSeed" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="hasSeed:Boolean"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#hasSeed:Boolean" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">hasSeed</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>HasId</dd></dl></div>
+    </li><li name="chisel3.internal.HasId#hashCode" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="hashCode():Int"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#hashCode():Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">hashCode</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>HasId → AnyRef → Any</dd></dl></div>
+    </li><li name="rial.arith.AddFPGeneric#incFar" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="incFar:chisel3.Bool"></a><a id="incFar:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#incFar:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">incFar</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#incNear" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="incNear:chisel3.Bool"></a><a id="incNear:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#incNear:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">incNear</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#incSel" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="incSel:chisel3.Bool"></a><a id="incSel:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#incSel:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">incSel</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#infAfterAdd" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="infAfterAdd:chisel3.Bool"></a><a id="infAfterAdd:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#infAfterAdd:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">infAfterAdd</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#infOrNaN" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="infOrNaN:chisel3.Bool"></a><a id="infOrNaN:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#infOrNaN:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">infOrNaN</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="chisel3.experimental.BaseModule#instanceName" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="instanceName:String"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#instanceName:String" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">instanceName</span><span class="result">: <span class="extype" name="scala.Predef.String">String</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>BaseModule → HasId → InstanceId</dd></dl></div>
+    </li><li name="rial.arith.AddFPGeneric#io" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="io:chisel3.Bundle{valx:chisel3.UInt;valy:chisel3.UInt;valz:chisel3.UInt}"></a><a id="io:Bundle{.../*3definitionsintyperefinement*/}"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#io:chisel3.Bundle{valx:chisel3.UInt;valy:chisel3.UInt;valz:chisel3.UInt}" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">io</span><span class="result">: <span class="extype" name="chisel3.Bundle">Bundle</span> { ... /* 3 definitions in type refinement */ }</span>
+      </span>
+      
+      
+    </li><li name="scala.Any#isInstanceOf" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="isInstanceOf[T0]:Boolean"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#isInstanceOf[T0]:Boolean" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">isInstanceOf</span><span class="tparams">[<span name="T0">T0</span>]</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>Any</dd></dl></div>
+    </li><li name="rial.arith.AddFPGeneric#maxManWxy" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="maxManWxy:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#maxManWxy:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">maxManWxy</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#maxManWxyz" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="maxManWxyz:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#maxManWxyz:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">maxManWxyz</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#minManW" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="minManW:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#minManW:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">minManW</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#nStage" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="nStage:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#nStage:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">nStage</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      
+    </li><li name="chisel3.experimental.BaseModule#name" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="name:String"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#name:String" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">lazy val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">name</span><span class="result">: <span class="extype" name="scala.Predef.String">String</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>BaseModule</dd></dl></div>
+    </li><li name="chisel3.experimental.BaseModule#nameIds" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="nameIds(rootClass:Class[_]):scala.collection.mutable.HashMap[chisel3.internal.HasId,String]"></a><a id="nameIds(Class[_]):HashMap[HasId,String]"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#nameIds(rootClass:Class[_]):scala.collection.mutable.HashMap[chisel3.internal.HasId,String]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">nameIds</span><span class="params">(<span name="rootClass">rootClass: <span class="extype" name="scala.Predef.Class">Class</span>[_]</span>)</span><span class="result">: <span class="extype" name="scala.collection.mutable.HashMap">HashMap</span>[<span class="extype" name="chisel3.internal.HasId">HasId</span>, <span class="extype" name="scala.Predef.String">String</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected </dd><dt>Definition Classes</dt><dd>BaseModule</dd></dl></div>
+    </li><li name="scala.AnyRef#ne" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="ne(x$1:AnyRef):Boolean"></a><a id="ne(AnyRef):Boolean"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#ne(x$1:AnyRef):Boolean" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">ne</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.AnyRef">AnyRef</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
+    </li><li name="rial.arith.AddFPGeneric#near" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="near:chisel3.Bool"></a><a id="near:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#near:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">near</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#nearShift" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="nearShift:chisel3.Bool"></a><a id="nearShift:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#nearShift:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">nearShift</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#nearSign" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="nearSign:chisel3.Bool"></a><a id="nearSign:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#nearSign:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">nearSign</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#negIncFar" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="negIncFar:chisel3.Bool"></a><a id="negIncFar:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#negIncFar:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">negIncFar</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="scala.AnyRef#notify" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="notify():Unit"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#notify():Unit" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">notify</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@native</span><span class="args">()</span>
+              
+                <span class="name">@HotSpotIntrinsicCandidate</span><span class="args">()</span>
+              
+        </dd></dl></div>
+    </li><li name="scala.AnyRef#notifyAll" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="notifyAll():Unit"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#notifyAll():Unit" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">notifyAll</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@native</span><span class="args">()</span>
+              
+                <span class="name">@HotSpotIntrinsicCandidate</span><span class="args">()</span>
+              
+        </dd></dl></div>
+    </li><li name="rial.arith.AddFPGeneric#onePosFromLSB" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="onePosFromLSB:chisel3.UInt"></a><a id="onePosFromLSB:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#onePosFromLSB:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">onePosFromLSB</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="chisel3.internal.HasId#parentModName" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="parentModName:String"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#parentModName:String" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">parentModName</span><span class="result">: <span class="extype" name="scala.Predef.String">String</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>HasId → InstanceId</dd></dl></div>
+    </li><li name="chisel3.internal.HasId#parentPathName" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="parentPathName:String"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#parentPathName:String" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">parentPathName</span><span class="result">: <span class="extype" name="scala.Predef.String">String</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>HasId → InstanceId</dd></dl></div>
+    </li><li name="chisel3.internal.HasId#pathName" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="pathName:String"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#pathName:String" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">pathName</span><span class="result">: <span class="extype" name="scala.Predef.String">String</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>HasId → InstanceId</dd></dl></div>
+    </li><li name="chisel3.experimental.BaseModule#portsContains" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="portsContains(elem:chisel3.Data):Boolean"></a><a id="portsContains(Data):Boolean"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#portsContains(elem:chisel3.Data):Boolean" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">portsContains</span><span class="params">(<span name="elem">elem: <span class="extype" name="chisel3.Data">Data</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected </dd><dt>Definition Classes</dt><dd>BaseModule</dd></dl></div>
+    </li><li name="chisel3.experimental.BaseModule#portsSize" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="portsSize:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#portsSize:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">portsSize</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected </dd><dt>Definition Classes</dt><dd>BaseModule</dd></dl></div>
+    </li><li name="chisel3.Module#reset" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="reset:chisel3.Reset"></a><a id="reset:Reset"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#reset:chisel3.Reset" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">reset</span><span class="result">: <span class="extype" name="chisel3.Reset">Reset</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>Module</dd></dl></div>
+    </li><li name="rial.arith.AddFPGeneric#roundFarSel" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="roundFarSel:chisel3.Bool"></a><a id="roundFarSel:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#roundFarSel:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">roundFarSel</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#shiftOut" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="shiftOut:chisel3.Bool"></a><a id="shiftOut:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#shiftOut:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">shiftOut</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#shiftSum" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="shiftSum:chisel3.UInt"></a><a id="shiftSum:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#shiftSum:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">shiftSum</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#shiftW" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="shiftW:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#shiftW:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">shiftW</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#shiftW0" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="shiftW0:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#shiftW0:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">shiftW0</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#stickeyFar" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="stickeyFar:chisel3.Bool"></a><a id="stickeyFar:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#stickeyFar:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">stickeyFar</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="chisel3.internal.HasId#suggestName" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="suggestName(seed:=&gt;String):HasId.this.type"></a><a id="suggestName(⇒String):AddFPGeneric.this.type"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#suggestName(seed:=&gt;String):HasId.this.type" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">suggestName</span><span class="params">(<span name="seed">seed: ⇒ <span class="extype" name="scala.Predef.String">String</span></span>)</span><span class="result">: <a href="" class="extype" name="rial.arith.AddFPGeneric">AddFPGeneric</a>.this.type</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>HasId</dd></dl></div>
+    </li><li name="rial.arith.AddFPGeneric#sumFar" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="sumFar:chisel3.UInt"></a><a id="sumFar:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#sumFar:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">sumFar</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#sumFarWithGuard" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="sumFarWithGuard:chisel3.UInt"></a><a id="sumFarWithGuard:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#sumFarWithGuard:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">sumFarWithGuard</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#sumNear" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="sumNear:chisel3.UInt"></a><a id="sumNear:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#sumNear:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">sumNear</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#sumNearAbs" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="sumNearAbs:chisel3.UInt"></a><a id="sumNearAbs:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#sumNearAbs:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">sumNearAbs</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#sumNearNorm" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="sumNearNorm:chisel3.UInt"></a><a id="sumNearNorm:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#sumNearNorm:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">sumNearNorm</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#sumNearSign" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="sumNearSign:chisel3.Bool"></a><a id="sumNearSign:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#sumNearSign:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">sumNearSign</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#sumNearZero" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="sumNearZero:chisel3.Bool"></a><a id="sumNearZero:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#sumNearZero:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">sumNearZero</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="scala.AnyRef#synchronized" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="synchronized[T0](x$1:=&gt;T0):T0"></a><a id="synchronized[T0](⇒T0):T0"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#synchronized[T0](x$1:=&gt;T0):T0" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">synchronized</span><span class="tparams">[<span name="T0">T0</span>]</span><span class="params">(<span name="arg0">arg0: ⇒ <span class="extype" name="java.lang.AnyRef.synchronized.T0">T0</span></span>)</span><span class="result">: <span class="extype" name="java.lang.AnyRef.synchronized.T0">T0</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
+    </li><li name="chisel3.experimental.BaseModule#toAbsoluteTarget" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="toAbsoluteTarget:firrtl.annotations.IsModule"></a><a id="toAbsoluteTarget:IsModule"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#toAbsoluteTarget:firrtl.annotations.IsModule" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">toAbsoluteTarget</span><span class="result">: <span class="extype" name="firrtl.annotations.IsModule">IsModule</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>BaseModule → InstanceId</dd></dl></div>
+    </li><li name="chisel3.experimental.BaseModule#toNamed" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="toNamed:firrtl.annotations.ModuleName"></a><a id="toNamed:ModuleName"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#toNamed:firrtl.annotations.ModuleName" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">toNamed</span><span class="result">: <span class="extype" name="firrtl.annotations.ModuleName">ModuleName</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>BaseModule → InstanceId</dd></dl></div>
+    </li><li name="scala.AnyRef#toString" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="toString():String"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#toString():String" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">toString</span><span class="params">()</span><span class="result">: <span class="extype" name="java.lang.String">String</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="chisel3.experimental.BaseModule#toTarget" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="toTarget:firrtl.annotations.ModuleTarget"></a><a id="toTarget:ModuleTarget"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#toTarget:firrtl.annotations.ModuleTarget" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">toTarget</span><span class="result">: <span class="extype" name="firrtl.annotations.ModuleTarget">ModuleTarget</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>BaseModule → InstanceId</dd></dl></div>
+    </li><li name="rial.arith.AddFPGeneric#useParallelLZA" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="useParallelLZA:Boolean"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#useParallelLZA:Boolean" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">useParallelLZA</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      
+      
+    </li><li name="scala.AnyRef#wait" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="wait(x$1:Long,x$2:Int):Unit"></a><a id="wait(Long,Int):Unit"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#wait(x$1:Long,x$2:Int):Unit" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">wait</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Long">Long</span></span>, <span name="arg1">arg1: <span class="extype" name="scala.Int">Int</span></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="defval" name="classOf[java.lang.InterruptedException]">...</span>
+    </span>)</span>
+              
+        </dd></dl></div>
+    </li><li name="scala.AnyRef#wait" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="wait(x$1:Long):Unit"></a><a id="wait(Long):Unit"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#wait(x$1:Long):Unit" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">wait</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Long">Long</span></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="defval" name="classOf[java.lang.InterruptedException]">...</span>
+    </span>)</span>
+              
+                <span class="name">@native</span><span class="args">()</span>
+              
+        </dd></dl></div>
+    </li><li name="scala.AnyRef#wait" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="wait():Unit"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#wait():Unit" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">wait</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="defval" name="classOf[java.lang.InterruptedException]">...</span>
+    </span>)</span>
+              
+        </dd></dl></div>
+    </li><li name="rial.arith.AddFPGeneric#xFar" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="xFar:chisel3.UInt"></a><a id="xFar:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#xFar:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">xFar</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#xFarSign" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="xFarSign:chisel3.Bool"></a><a id="xFarSign:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#xFarSign:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">xFarSign</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#xNear" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="xNear:chisel3.UInt"></a><a id="xNear:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#xNear:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">xNear</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#xex" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="xex:chisel3.UInt"></a><a id="xex:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#xex:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">xex</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#xinf" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="xinf:chisel3.Bool"></a><a id="xinf:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#xinf:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">xinf</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#xman" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="xman:chisel3.UInt"></a><a id="xman:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#xman:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">xman</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#xmanPadXyz" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="xmanPadXyz:chisel3.UInt"></a><a id="xmanPadXyz:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#xmanPadXyz:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">xmanPadXyz</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#xnan" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="xnan:chisel3.Bool"></a><a id="xnan:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#xnan:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">xnan</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#xsgn" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="xsgn:chisel3.UInt"></a><a id="xsgn:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#xsgn:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">xsgn</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#xyBothZero" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="xyBothZero:chisel3.Bool"></a><a id="xyBothZero:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#xyBothZero:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">xyBothZero</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#xyInf" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="xyInf:chisel3.Bool"></a><a id="xyInf:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#xyInf:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">xyInf</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#xyInfSgn" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="xyInfSgn:chisel3.Bool"></a><a id="xyInfSgn:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#xyInfSgn:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">xyInfSgn</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#xyNaN" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="xyNaN:chisel3.Bool"></a><a id="xyNaN:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#xyNaN:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">xyNaN</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#xzero" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="xzero:chisel3.Bool"></a><a id="xzero:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#xzero:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">xzero</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#yAddFar" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="yAddFar:chisel3.UInt"></a><a id="yAddFar:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#yAddFar:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">yAddFar</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#yFar" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="yFar:chisel3.UInt"></a><a id="yFar:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#yFar:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">yFar</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#yFarR" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="yFarR:chisel3.UInt"></a><a id="yFarR:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#yFarR:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">yFarR</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#yFarShift" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="yFarShift:chisel3.UInt"></a><a id="yFarShift:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#yFarShift:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">yFarShift</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#yFarW" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="yFarW:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#yFarW:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">yFarW</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#yNear" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="yNear:chisel3.UInt"></a><a id="yNear:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#yNear:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">yNear</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#yNearShift" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="yNearShift:chisel3.UInt"></a><a id="yNearShift:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#yNearShift:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">yNearShift</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#yex" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="yex:chisel3.UInt"></a><a id="yex:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#yex:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">yex</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#yinf" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="yinf:chisel3.Bool"></a><a id="yinf:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#yinf:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">yinf</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#yman" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="yman:chisel3.UInt"></a><a id="yman:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#yman:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">yman</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#ymanPadXyz" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="ymanPadXyz:chisel3.UInt"></a><a id="ymanPadXyz:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#ymanPadXyz:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">ymanPadXyz</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#ynan" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="ynan:chisel3.Bool"></a><a id="ynan:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#ynan:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">ynan</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#ysgn" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="ysgn:chisel3.UInt"></a><a id="ysgn:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#ysgn:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">ysgn</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#yzero" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="yzero:chisel3.Bool"></a><a id="yzero:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#yzero:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">yzero</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#yzeroFar" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="yzeroFar:chisel3.Bool"></a><a id="yzeroFar:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#yzeroFar:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">yzeroFar</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#z0" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="z0:chisel3.UInt"></a><a id="z0:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#z0:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">z0</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#zero" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="zero:chisel3.Bool"></a><a id="zero:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#zero:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">zero</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#zeroAfterAdd" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="zeroAfterAdd:chisel3.Bool"></a><a id="zeroAfterAdd:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#zeroAfterAdd:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">zeroAfterAdd</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#zeroSel" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="zeroSel:chisel3.Bool"></a><a id="zeroSel:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#zeroSel:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">zeroSel</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#zex" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="zex:chisel3.UInt"></a><a id="zex:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#zex:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">zex</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#zex0" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="zex0:chisel3.SInt"></a><a id="zex0:SInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#zex0:chisel3.SInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">zex0</span><span class="result">: <span class="extype" name="chisel3.SInt">SInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#zexBaseMax" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="zexBaseMax:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#zexBaseMax:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">zexBaseMax</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#zexBaseMin" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="zexBaseMin:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#zexBaseMin:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">zexBaseMin</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#zexBaseW" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="zexBaseW:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#zexBaseW:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">zexBaseW</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#zexMax" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="zexMax:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#zexMax:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">zexMax</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#zexMin" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="zexMin:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#zexMin:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">zexMin</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#zexNorm" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="zexNorm:chisel3.SInt"></a><a id="zexNorm:SInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#zexNorm:chisel3.SInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">zexNorm</span><span class="result">: <span class="extype" name="chisel3.SInt">SInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#zexW" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="zexW:Int"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#zexW:Int" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">zexW</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#zman" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="zman:chisel3.UInt"></a><a id="zman:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#zman:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">zman</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#zman0" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="zman0:chisel3.UInt"></a><a id="zman0:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#zman0:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">zman0</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#zmanFar" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="zmanFar:chisel3.UInt"></a><a id="zmanFar:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#zmanFar:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">zmanFar</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#zmanNear" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="zmanNear:chisel3.UInt"></a><a id="zmanNear:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#zmanNear:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">zmanNear</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#zmanSel" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="zmanSel:chisel3.UInt"></a><a id="zmanSel:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#zmanSel:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">zmanSel</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#zsgn" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="zsgn:chisel3.UInt"></a><a id="zsgn:UInt"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#zsgn:chisel3.UInt" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">zsgn</span><span class="result">: <span class="extype" name="chisel3.UInt">UInt</span></span>
+      </span>
+      
+      
+    </li><li name="rial.arith.AddFPGeneric#zsgn0" visbl="pub" class="indented0 " data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="zsgn0:chisel3.Bool"></a><a id="zsgn0:Bool"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#zsgn0:chisel3.Bool" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">zsgn0</span><span class="result">: <span class="extype" name="chisel3.Bool">Bool</span></span>
+      </span>
+      
+      
+    </li>
+              </ol>
+            </div>
+
+        
+
+        <div class="values members">
+              <h3>Deprecated Value Members</h3>
+              <ol><li name="scala.AnyRef#finalize" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="finalize():Unit"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#finalize():Unit" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name deprecated" title="Deprecated: (Since version ) see corresponding Javadoc for more information.">finalize</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected[<span class="extype" name="java.lang">lang</span>] </dd><dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="symbol">classOf[java.lang.Throwable]</span>
+    </span>)</span>
+              
+                <span class="name">@Deprecated</span>
+              
+                <span class="name">@deprecated</span>
+              
+        </dd><dt>Deprecated</dt><dd class="cmt"><p><i>(Since version )</i> see corresponding Javadoc for more information.</p></dd></dl></div>
+    </li><li name="chisel3.RawModule#getPorts" visbl="pub" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="getPorts:Seq[chisel3.internal.firrtl.Port]"></a><a id="getPorts:Seq[Port]"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#getPorts:Seq[chisel3.internal.firrtl.Port]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">lazy val</span>
+      </span>
+      <span class="symbol">
+        <span class="name deprecated" title="Deprecated: (Since version Chisel 3.5) Use DataMirror.modulePorts instead. this API will be removed in Chisel 3.6">getPorts</span><span class="result">: <span class="extype" name="scala.Seq">Seq</span>[<span class="extype" name="chisel3.internal.firrtl.Port">Port</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>RawModule</dd><dt>Annotations</dt><dd>
+                <span class="name">@deprecated</span>
+              
+        </dd><dt>Deprecated</dt><dd class="cmt"><p><i>(Since version Chisel 3.5)</i> Use DataMirror.modulePorts instead. this API will be removed in Chisel 3.6</p></dd></dl></div>
+    </li><li name="chisel3.Module#override_clock" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="override_clock:Option[chisel3.Clock]"></a><a id="override_clock:Option[Clock]"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#override_clock:Option[chisel3.Clock]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name deprecated" title="Deprecated: (Since version Chisel 3.5) Use withClock at Module instantiation">override_clock</span><span class="result">: <span class="extype" name="scala.Option">Option</span>[<span class="extype" name="chisel3.Clock">Clock</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected </dd><dt>Definition Classes</dt><dd>Module</dd><dt>Annotations</dt><dd>
+                <span class="name">@deprecated</span>
+              
+        </dd><dt>Deprecated</dt><dd class="cmt"><p><i>(Since version Chisel 3.5)</i> Use withClock at Module instantiation</p></dd></dl></div>
+    </li><li name="chisel3.Module#override_clock_=" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="override_clock_=(rhs:Option[chisel3.Clock]):Unit"></a><a id="override_clock_=(Option[Clock]):Unit"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#override_clock_=(rhs:Option[chisel3.Clock]):Unit" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span title="gt4s: override_clock_$eq. Deprecated: (Since version Chisel 3.5) Use withClock at Module instantiation" class="name deprecated">override_clock_=</span><span class="params">(<span name="rhs">rhs: <span class="extype" name="scala.Option">Option</span>[<span class="extype" name="chisel3.Clock">Clock</span>]</span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected </dd><dt>Definition Classes</dt><dd>Module</dd><dt>Annotations</dt><dd>
+                <span class="name">@deprecated</span>
+              
+        </dd><dt>Deprecated</dt><dd class="cmt"><p><i>(Since version Chisel 3.5)</i> Use withClock at Module instantiation</p></dd></dl></div>
+    </li><li name="chisel3.Module#override_reset" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="override_reset:Option[chisel3.Bool]"></a><a id="override_reset:Option[Bool]"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#override_reset:Option[chisel3.Bool]" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name deprecated" title="Deprecated: (Since version Chisel 3.5) Use withClock at Module instantiation">override_reset</span><span class="result">: <span class="extype" name="scala.Option">Option</span>[<span class="extype" name="chisel3.Bool">Bool</span>]</span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected </dd><dt>Definition Classes</dt><dd>Module</dd><dt>Annotations</dt><dd>
+                <span class="name">@deprecated</span>
+              
+        </dd><dt>Deprecated</dt><dd class="cmt"><p><i>(Since version Chisel 3.5)</i> Use withClock at Module instantiation</p></dd></dl></div>
+    </li><li name="chisel3.Module#override_reset_=" visbl="prt" class="indented0 " data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="override_reset_=(rhs:Option[chisel3.Bool]):Unit"></a><a id="override_reset_=(Option[Bool]):Unit"></a>
+      <span class="permalink">
+      <a href="../../rial/arith/AddFPGeneric.html#override_reset_=(rhs:Option[chisel3.Bool]):Unit" title="Permalink">
+        <i class="material-icons"></i>
+      </a>
+    </span>
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span title="gt4s: override_reset_$eq. Deprecated: (Since version Chisel 3.5) Use withClock at Module instantiation" class="name deprecated">override_reset_=</span><span class="params">(<span name="rhs">rhs: <span class="extype" name="scala.Option">Option</span>[<span class="extype" name="chisel3.Bool">Bool</span>]</span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected </dd><dt>Definition Classes</dt><dd>Module</dd><dt>Annotations</dt><dd>
+                <span class="name">@deprecated</span>
+              
+        </dd><dt>Deprecated</dt><dd class="cmt"><p><i>(Since version Chisel 3.5)</i> Use withClock at Module instantiation</p></dd></dl></div>
+    </li></ol>
+            </div>
+        </div>
+
+        <div id="inheritedMembers">
+        <div class="parent" name="rial.util.DebugControlSlave">
+              <h3>Inherited from <a href="../util/DebugControlSlave.html" class="extype" name="rial.util.DebugControlSlave">DebugControlSlave</a></h3>
+            </div><div class="parent" name="chisel3.Module">
+              <h3>Inherited from <span class="extype" name="chisel3.Module">Module</span></h3>
+            </div><div class="parent" name="chisel3.RawModule">
+              <h3>Inherited from <span class="extype" name="chisel3.RawModule">RawModule</span></h3>
+            </div><div class="parent" name="chisel3.experimental.BaseModule">
+              <h3>Inherited from <span class="extype" name="chisel3.experimental.BaseModule">BaseModule</span></h3>
+            </div><div class="parent" name="chisel3.experimental.hierarchy.IsInstantiable">
+              <h3>Inherited from <span class="extype" name="chisel3.experimental.hierarchy.IsInstantiable">IsInstantiable</span></h3>
+            </div><div class="parent" name="chisel3.internal.HasId">
+              <h3>Inherited from <span class="extype" name="chisel3.internal.HasId">HasId</span></h3>
+            </div><div class="parent" name="chisel3.internal.InstanceId">
+              <h3>Inherited from <span class="extype" name="chisel3.internal.InstanceId">InstanceId</span></h3>
+            </div><div class="parent" name="scala.AnyRef">
+              <h3>Inherited from <span class="extype" name="scala.AnyRef">AnyRef</span></h3>
+            </div><div class="parent" name="scala.Any">
+              <h3>Inherited from <span class="extype" name="scala.Any">Any</span></h3>
+            </div>
+        
+        </div>
+
+        <div id="groupedMembers">
+        <div class="group" name="Ungrouped">
+              <h3>Ungrouped</h3>
+              
+            </div>
+        </div>
+
+      </div>
+
+      <div id="tooltip"></div>
+
+      <div id="footer">  </div>
+    </body>
+          </div>
+        </div>
+      </div>
+    </body>
+      </html>
