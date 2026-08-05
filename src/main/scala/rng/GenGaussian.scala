@@ -233,7 +233,7 @@ class GenRandomGaussian(
   )
 
   val zsgn = ShiftRegister(rnd.bits(rndW-1), polynomialStage + mulStage, 0.U, true.B)
-  val zex  = ShiftRegister(mulEx + prodMoreThan2,   , mulStage, 0.U, true.B)
+  val zex  = ShiftRegister(mulEx + prodMoreThan2,     mulStage, 0.U, true.B)
   val zman = ShiftRegister(prodManW1(spec.manW-1, 0), mulStage, 0.U, true.B)
 
   val z = Cat(zsgn, zex, zman)
