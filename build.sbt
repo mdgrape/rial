@@ -9,8 +9,6 @@ lazy val rial = (project in file("."))
     libraryDependencies ++= Seq(
       "org.chipsalliance" %% "chisel" % chiselVersion,
       "org.scalatest" %% "scalatest" % "3.2.19" % "test",
-      "net.java.dev.jna" % "jna" % "5.10.0",
-      "net.java.dev.jna" % "jna-platform" % "5.10.0",
       "org.jfree" % "jfreechart" % "1.5.0",
 
       "org.apache.commons" % "commons-math3" % "3.2",
