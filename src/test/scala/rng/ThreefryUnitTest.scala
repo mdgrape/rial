@@ -14,89 +14,71 @@ import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig
 import rial.rng._
 
-import java.io.File
-
 import scala.util.Random
-import scala.math._
 import scala.collection.mutable.Queue
 import scala.language.reflectiveCalls
 
-import crial._
+//
+// Known-answer vectors anchoring [[ThreefrySim]] to the reference implementation.
+//
+class ThreefryKatTest extends AnyFunSpec {
 
-class ThreefryTest extends AnyFunSpec
-  with ChiselSim with EmitVcd {
+  // (count, key, expected)
+  val kat: Seq[(Seq[Long], Seq[Long], Seq[Long])] = Seq(
+    (Seq(0x00000000L, 0x00000000L, 0x00000000L, 0x00000000L),
+     Seq(0x00000000L, 0x00000000L, 0x00000000L, 0x00000000L),
+     Seq(0x9c6ca96aL, 0xe17eae66L, 0xfc10ecd4L, 0x5256a7d8L)),
+    (Seq(0xffffffffL, 0xffffffffL, 0xffffffffL, 0xffffffffL),
+     Seq(0xffffffffL, 0xffffffffL, 0xffffffffL, 0xffffffffL),
+     Seq(0x2a881696L, 0x57012287L, 0xf6c7446eL, 0xa16a6732L)),
+    (Seq(0x243f6a88L, 0x85a308d3L, 0x13198a2eL, 0x03707344L),
+     Seq(0xa4093822L, 0x299f31d0L, 0x082efa98L, 0xec4e6c89L),
+     Seq(0x59cd1dbbL, 0xb8879579L, 0x86b5d00cL, 0xac8b6d84L)),
+    (Seq(0x00000000L, 0x00000000L, 0x00000000L, 0x00000000L),
+     Seq(0x11111111L, 0x22222222L, 0x00000000L, 0x00000000L),
+     Seq(0x81831df8L, 0xd92ae0d7L, 0x30ef273eL, 0x63d4e43bL)),
+    (Seq(0x00000001L, 0x00000000L, 0x00000000L, 0x00000000L),
+     Seq(0x11111111L, 0x22222222L, 0x00000000L, 0x00000000L),
+     Seq(0xf5a9e3deL, 0x3a23e829L, 0x0dffafa2L, 0x68bc1ac8L)),
+    (Seq(0xffffffffL, 0x00000000L, 0x00000000L, 0x00000000L),
+     Seq(0x11111111L, 0x22222222L, 0x00000000L, 0x00000000L),
+     Seq(0xae6b3e91L, 0xa7a9034eL, 0x36bac8a8L, 0x1d364609L)),
+    (Seq(0x00000000L, 0x00000000L, 0x00000000L, 0x00000001L),
+     Seq(0x0badc0deL, 0xdeadbeefL, 0x00000001L, 0x80000000L),
+     Seq(0x939eba18L, 0x3dea0587L, 0x550e4e3aL, 0x94773692L)),
+    (Seq(0x89abcdefL, 0x01234567L, 0xfedcba98L, 0x76543210L),
+     Seq(0x00000001L, 0x00000000L, 0x00000000L, 0x00000000L),
+     Seq(0x55902d76L, 0xf4968568L, 0x8c3da80bL, 0xa00f6461L))
+  )
 
-
-  addOption(CliOption.int("n", "number of test cases (default 1000)"))
-  def n: Int = getOption[Int]("n").getOrElse(1000)
-
-  def runTest(r: Int, rotStage: Int) = {
-    simulate(new Threefry4_32(r, rotStage)) {
-      c => {
-        val (r, rotStage) = c.getParam
-        println(f"Threefry4_32 parameters rotation=$r%d stage between rotation=$rotStage%d, nStage = ${c.nStage}")
-
-        val threefry = c
-        threefry.io.en.poke(true.B)
-
-        val key = Array( 0x11111111, 0x22222222, 0, 0 )
-        val ctr = Array( 0, 0, 0, 0 )
-        threefry.io.input.valid.poke(true.B)
-        threefry.io.input.key(0).poke(0x11111111.U)
-        threefry.io.input.key(1).poke(0x22222222.U)
-        threefry.io.input.key(2).poke(0.U)
-        threefry.io.input.key(3).poke(0.U)
-
-        val rng = crial.threefry4x32_init( ctr, key )
-
-        for (i <- 0 to n-1) {
-          //val key = "".U
-          //val count = Wire(UInt(128.W)); count = i.U
-
-          threefry.io.input.count(0).poke(i.U)
-          threefry.io.input.count(1).poke(0.U)
-          threefry.io.input.count(2).poke(0.U)
-          threefry.io.input.count(3).poke(0.U)
-
-          threefry.io.output.valid.expect((i >= threefry.nStage).B)
-
-          if(i >= threefry.nStage) {
-            val r = crial.threefry4x32( rng )
-            for (j <- 0 to 3) {
-              val y : Long = if (r(j)<0) {
-                r(j) + 0x100000000L
-              } else {
-                r(j)
-              }
-              val x = threefry.io.output.rand(j).peek().litValue.toLong
-              if(x != y) {
-                println(f"actual=${x}%08x, expected=${y}%08x")
-              }
-              threefry.io.output.rand(j).expect(y.U)
-            }
-          }
-          c.clock.step(1)
-        }
-      }
+  it("ThreefrySim should reproduce the Random123 known-answer vectors") {
+    for ((count, key, expected) <- kat) {
+      val got = new ThreefrySim(20, key).gen(count)
+      assert(got == expected,
+        f"count=${count.map(c => f"$c%08x").mkString(",")} " +
+        f"key=${key.map(k => f"$k%08x").mkString(",")}: " +
+        f"got=${got.map(g => f"$g%08x").mkString(",")} " +
+        f"expected=${expected.map(e => f"$e%08x").mkString(",")}")
     }
   }
 
-  it("Threefry should be equal to crial C impl") {
-    runTest(20, 0)
-    runTest(20, 20)
-    runTest(20, 10)
-    runTest(20, 5)
-    runTest(20, 4)
-    runTest(20, 2)
+  it("RngSim.threefry4x32 should agree with ThreefrySim (jint word interface)") {
+    for ((count, key, expected) <- kat) {
+      val got = RngSim.threefry4x32(count.map(_.toInt).toArray, key.map(_.toInt).toArray)
+      assert(got.toSeq.map(w => w.toLong & 0xFFFFFFFFL) == expected)
+    }
   }
 }
 
-class ThreefrySimTest extends AnyFunSpec
-  with ChiselSim with EmitVcd {
-
+//
+// Threefry4_32 vs ThreefrySim.
+//
+class ThreefryTest extends AnyFunSpec with ChiselSim with EmitVcd {
 
   addOption(CliOption.int("n", "number of test cases (default 1000)"))
   def n: Int = getOption[Int]("n").getOrElse(1000)
+
+  val nKey = 3
 
   def runTest(r: Int, rotStage: Int) = {
     simulate(new Threefry4_32(r, rotStage)) {
@@ -105,42 +87,54 @@ class ThreefrySimTest extends AnyFunSpec
         println(f"Threefry4_32 parameters rotation=$r%d stage between rotation=$rotStage%d, nStage = ${c.nStage}")
 
         val threefry = c
+        val nStage   = c.nStage
+        val rng      = new Random(19660809 + rotStage)
+
+        // counts: edge cases first, then random over the full 128-bit range.
+        def count(i: Int): Seq[Long] = i match {
+          case 0 => Seq(0x00000000L, 0x00000000L, 0x00000000L, 0x00000000L)
+          case 1 => Seq(0xffffffffL, 0xffffffffL, 0xffffffffL, 0xffffffffL)
+          case 2 => Seq(0x80000000L, 0x00000000L, 0x00000000L, 0x80000000L)
+          case _ => Seq.fill(4)(rng.nextInt().toLong & 0xffffffffL)
+        }
+
+        val keys = Seq(Seq(0x11111111L, 0x22222222L, 0L, 0L)) ++
+          Seq.tabulate(nKey - 1)(_ => Seq.fill(4)(rng.nextInt().toLong & 0xffffffffL))
+
         threefry.io.en.poke(true.B)
-
-        val key = Array( 0x11111111, 0x22222222, 0, 0 )
-        val ctr = Array( 0, 0, 0, 0 )
         threefry.io.input.valid.poke(true.B)
-        threefry.io.input.key(0).poke(0x11111111.U)
-        threefry.io.input.key(1).poke(0x22222222.U)
-        threefry.io.input.key(2).poke(0.U)
-        threefry.io.input.key(3).poke(0.U)
 
-        val sim = new ThreefrySim(r, Seq(0x11111111L, 0x22222222L, 0L, 0L))
+        for ((key, ki) <- keys.zipWithIndex) {
+          for (j <- 0 to 3) threefry.io.input.key(j).poke(key(j).U(32.W))
 
-        for (i <- 0 to n-1) {
-          //val key = "".U
-          //val count = Wire(UInt(128.W)); count = i.U
+          val sim = new ThreefrySim(r, key)
+          val q   = new Queue[Seq[Long]]
 
-          threefry.io.input.count(0).poke(i.U)
-          threefry.io.input.count(1).poke(0.U)
-          threefry.io.input.count(2).poke(0.U)
-          threefry.io.input.count(3).poke(0.U)
+          for (i <- 0 to n + nStage - 1) {
+            val cnt = count(i)
+            q += cnt
+            for (j <- 0 to 3) { threefry.io.input.count(j).poke(cnt(j).U(32.W)) }
 
-          threefry.io.output.valid.expect((i >= threefry.nStage).B)
-
-          if(i >= threefry.nStage) {
-            val r = sim.gen(Seq(i-threefry.nStage, 0, 0, 0))
-            for (j <- 0 to 3) {
-              val y = r(j)
-              val x = threefry.io.output.rand(j).peek().litValue.toLong
-              if(x != y) {
-                println(f"actual=${x}%08x, expected=${y}%08x")
-                c.clock.step(1)
-              }
-              threefry.io.output.rand(j).expect(y.U)
+            // valid only ramps up on the first key; afterwards the pipeline
+            // stays full across the key change.
+            if (ki == 0) {
+              threefry.io.output.valid.expect((i >= nStage).B)
             }
+
+            if (i >= nStage) {
+              val expected = sim.gen(q.dequeue())
+              for (j <- 0 to 3) {
+                val y = expected(j)
+                val x = threefry.io.output.rand(j).peek().litValue.toLong
+                if (x != y) {
+                  println(f"actual=${x}%08x, expected=${y}%08x")
+                }
+                threefry.io.output.rand(j).expect(y.U)
+              }
+            }
+            c.clock.step(1)
           }
-          c.clock.step(1)
+          q.clear()
         }
       }
     }
@@ -148,11 +142,11 @@ class ThreefrySimTest extends AnyFunSpec
 
   it("Threefry should be equal to software impl") {
     runTest(20, 0)
-    // runTest(20, 20)
-    // runTest(20, 10)
-    // runTest(20, 5)
-    // runTest(20, 4)
-    // runTest(20, 2)
+    runTest(20, 20)
+    runTest(20, 10)
+    runTest(20, 5)
+    runTest(20, 4)
+    runTest(20, 2)
   }
 }
 
@@ -164,6 +158,19 @@ class ThreefryGeneratorTest extends AnyFunSpec
   addOption(CliOption.int("n", "number of test cases (default 1000)"))
   def n: Int = getOption[Int]("n").getOrElse(1000)
 
+  /** 128-bit little-endian counter increment, matching Threefry4x32Generator. */
+  def increment(count: Seq[Long]): Seq[Long] = {
+    val next = count.toArray
+    var j    = 0
+    var carry = true
+    while (carry && j < 4) {
+      next(j) = (next(j) + 1) & 0xffffffffL
+      carry   = next(j) == 0
+      j      += 1
+    }
+    next.toSeq
+  }
+
   def runTest(r: Int, rotStage: Int) = {
     simulate(new Threefry4x32Generator(r, rotStage)) {
       c => {
@@ -172,36 +179,25 @@ class ThreefryGeneratorTest extends AnyFunSpec
 
         val threefry = c
 
-        val key = Array( 0x11111111, 0x22222222, 0, 0 )
-        val ctr = Array( 0, 0, 0, 0 )
+        val key = Seq( 0x11111111L, 0x22222222L, 0L, 0L )
+        val ctr = Seq( 0L, 0L, 0L, 0L )
 
         threefry.io.initialized.expect(false.B)
 
         threefry.io.init.en.poke(true.B)
-        threefry.io.init.key  (0).poke(key(0).U)
-        threefry.io.init.key  (1).poke(key(1).U)
-        threefry.io.init.key  (2).poke(key(2).U)
-        threefry.io.init.key  (3).poke(key(3).U)
-        threefry.io.init.count(0).poke(ctr(0).U)
-        threefry.io.init.count(1).poke(ctr(1).U)
-        threefry.io.init.count(2).poke(ctr(2).U)
-        threefry.io.init.count(3).poke(ctr(3).U)
+        for (j <- 0 to 3) { threefry.io.init.key  (j).poke(key(j).U(32.W)) }
+        for (j <- 0 to 3) { threefry.io.init.count(j).poke(ctr(j).U(32.W)) }
 
         threefry.clock.step(1) // --------------------------------------------
 
         threefry.io.initialized.expect(true.B)
 
         threefry.io.init.en.poke(false.B)
-        threefry.io.init.key(0).poke(0.U)
-        threefry.io.init.key(1).poke(0.U)
-        threefry.io.init.key(2).poke(0.U)
-        threefry.io.init.key(3).poke(0.U)
-        threefry.io.init.count(0).poke(0.U)
-        threefry.io.init.count(1).poke(0.U)
-        threefry.io.init.count(2).poke(0.U)
-        threefry.io.init.count(3).poke(0.U)
+        for (j <- 0 to 3) { threefry.io.init.key  (j).poke(0.U) }
+        for (j <- 0 to 3) { threefry.io.init.count(j).poke(0.U) }
 
-        val rng = crial.threefry4x32_init( ctr, key )
+        val sim   = new ThreefrySim(r, key)
+        var count = ctr
 
         threefry.io.rand.ready.poke(true.B)
         for (i <- 0 to n-1) {
@@ -209,13 +205,10 @@ class ThreefryGeneratorTest extends AnyFunSpec
           threefry.io.rand.valid.expect( (i >= (threefry.nStage)).B )
           if(threefry.io.rand.valid.peek().litValue == 1) {
 
-            val r = crial.threefry4x32( rng )
+            val expected = sim.gen(count)
+            count = increment(count)
             for (j <- 0 to 3) {
-              val y : Long = if (r(j)<0) {
-                r(j) + 0x100000000L
-              } else {
-                r(j)
-              }
+              val y = expected(j)
               val x = threefry.io.rand.bits(j).peek().litValue.toLong
               if(x != y) {
                 println(f"actual=${x}%08x, expected=${y}%08x")
@@ -230,7 +223,7 @@ class ThreefryGeneratorTest extends AnyFunSpec
     }
   }
 
-  it("Threefry should be equal to crial C impl") {
+  it("Threefry should be equal to software impl") {
     runTest(20, 0)  // latency  0 + 1 (queue)
     runTest(20, 20) // latency  1 + 1
     runTest(20, 10) // latency  2 + 1
@@ -239,88 +232,3 @@ class ThreefryGeneratorTest extends AnyFunSpec
     runTest(20, 2)  // latency 10 + 1
   }
 }
-
-
-// /**
-//   * This is a trivial example of how to run this Specification
-//   * From within sbt use:
-//   * {{{
-//   * testOnly pipe.ThreefryTester
-//   * }}}
-//   *
-//   * From a terminal shell use:
-//   * {{{
-//   * sbt 'testOnly gcd.ThreefryTester'
-//   * }}}
-//   */
-// class ThreefryQTester extends ChiselFlatSpec {
-//   private val r = 20
-//   private val rotStage = 0 
-//   // Disable this until we fix isCommandAvailable to swallow stderr along with stdout
-//   private val backendNames = if (firrtl.FileUtils.isCommandAvailable(Seq("verilator", "--version"))) {
-//     Array("firrtl", "verilator")
-//   }
-//   else {
-//     Array("firrtl")
-//   }
-//   for (backendName <- backendNames) {
-//     "Threefry" should s"calculate distance between atoms (with $backendName)" in {
-//       Driver(() => new Threefry4_32(r, rotStage), backendName) {
-//         c => new ThreefryUnitTester(c)
-//       } should be(true)
-//     }
-//   }
-//
-//   "Basic test using Driver.execute" should "be used as an alternative way to run specification" in {
-//     iotesters.Driver.execute(Array(), () => new Threefry4_32(r, rotStage)) {
-//       c => new ThreefryUnitTester(c)
-//     } should be(true)
-//   }
-//
-//   if (backendNames.contains("verilator")) {
-//     "using --backend-name verilator" should "be an alternative way to run using verilator" in {
-//       iotesters.Driver.execute(Array("--backend-name", "verilator"), () => new Threefry4_32(r, rotStage)) {
-//         c => new ThreefryUnitTester(c)
-//       } should be(true)
-//     }
-//   }
-//
-//   "running with --is-verbose" should "show more about what's going on in your tester" in {
-//     iotesters.Driver.execute(Array("--is-verbose"), () => new Threefry4_32(r, rotStage)) {
-//       c => new ThreefryUnitTester(c)
-//     } should be(true)
-//   }
-//
-//   /**
-//     *
-//     * By default verilator backend produces vcd file, and firrtl and treadle backends do not.
-//     * Following examples show you how to turn on vcd for firrtl and treadle and how to turn it off for verilator
-//     */
-//
-//   "running with --generate-vcd-output on" should "create a vcd file from your test" in {
-//     iotesters.Driver.execute(
-//       Array("--generate-vcd-output", "on", "--target-dir", "test_run_dir/make_a_vcd", "--top-name", "make_a_vcd"),
-//       () => new Threefry4_32(r, rotStage)
-//     ) {
-//
-//       c => new ThreefryUnitTester(c)
-//     } should be(true)
-//
-//     new File("test_run_dir/make_a_vcd/make_a_vcd.vcd").exists should be(true)
-//   }
-//
-//   "running with --generate-vcd-output off" should "not create a vcd file from your test" in {
-//     iotesters.Driver.execute(
-//       Array("--generate-vcd-output", "off", "--target-dir", "test_run_dir/make_no_vcd", "--top-name", "make_no_vcd",
-//         "--backend-name", "verilator"),
-//       () => new Threefry4_32(r, rotStage)
-//     ) {
-//
-//       c => new ThreefryUnitTester(c)
-//     } should be(true)
-//
-//     new File("test_run_dir/make_no_vcd/make_a_vcd.vcd").exists should be(false)
-//
-//   }
-//
-// }
