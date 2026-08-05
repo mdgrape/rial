@@ -248,6 +248,11 @@ class Threefry4_32(
 }
 
 
+/** Bit-exact software model of [[Threefry4_32]].
+ *
+ *  @param round number of rotations (20 for the standard Threefry-4x32-20)
+ *  @param key   the 4-word key
+ */
 class ThreefrySim(
   val round: Int       = 20,
   val key  : Seq[Long] = Seq(0x11111111L, 0x22222222L, 0x0L, 0x0L)

@@ -39,4 +39,15 @@ object RngSim {
    *  (low 32 bits of each used) converted to a float. */
   def irwinHall(rnds: Array[Long]): Float =
     IrwinHallSim.irwinHall(rnds.toIndexedSeq.map(u64), 32, spec).toFloat
+
+  /** Threefry-4x32, 20 round */
+  def threefry4x32(count: Array[Int], key: Array[Int]): Array[Int] = {
+    require(count.length == 4, s"threefry4x32: count must have 4 words, got ${count.length}")
+    require(key.length   == 4, s"threefry4x32: key must have 4 words, got ${key.length}")
+    val sim = new ThreefrySim(20, key.toIndexedSeq.map(u32))
+    sim.gen(count.toIndexedSeq.map(u32)).map(_.toInt).toArray
+  }
+
+  // reinterpret a jint as its unsigned 32-bit value
+  private def u32(w: Int): Long = w.toLong & 0xFFFFFFFFL
 }
