@@ -7,33 +7,29 @@
 package rial.tests
 
 import chisel3._
-import chiseltest._
-import chiseltest.VerilatorBackendAnnotation
+import chisel3.simulator.scalatest.ChiselSim
+
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+
 import rial.arith.{FusedMulAddFPGeneric, RealGeneric, RealSpec, RoundSpec}
 import rial.util.PipelineStageConfig
+
 import spire.math.SafeLong
 import scala.util.Random
 
-class FusedMulAddRoundingSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
+class FusedMulAddRoundingSpec extends AnyFlatSpec with ChiselSim with Matchers {
   private val s = RealSpec.BFloat16Spec
 
-  private class Fma extends Module {
-    val io = IO(new Bundle {
-      val x = Input(UInt(16.W)); val y = Input(UInt(16.W))
-      val z = Input(UInt(16.W)); val w = Output(UInt(16.W))
-    })
-    val u = Module(new FusedMulAddFPGeneric(s, s, s, s, RoundSpec.roundToEven, PipelineStageConfig.none))
-    u.io.x := io.x; u.io.y := io.y; u.io.z := io.z; io.w := u.io.w
-  }
+  private def fma =
+    new FusedMulAddFPGeneric(s, s, s, s, RoundSpec.roundToEven, PipelineStageConfig.none)
 
   private def ideal(x: Int, y: Int, z: Int): Int =
     new RealGeneric(s, SafeLong(x))
       .fmadd(s, RoundSpec.roundToEven, new RealGeneric(s, SafeLong(y)), new RealGeneric(s, SafeLong(z)))
       .value.toBigInt.toInt & 0xffff
 
-  private def hw(c: Fma, x: Int, y: Int, z: Int): Int = {
+  private def hw(c: FusedMulAddFPGeneric, x: Int, y: Int, z: Int): Int = {
     c.io.x.poke(x.U(16.W)); c.io.y.poke(y.U(16.W)); c.io.z.poke(z.U(16.W))
     c.io.w.peek().litValue.toInt & 0xffff
   }
@@ -46,14 +42,14 @@ class FusedMulAddRoundingSpec extends AnyFlatSpec with ChiselScalatestTester wit
   behavior of "FusedMulAddFPGeneric round-once correctness on effective subtraction"
 
   it should "round the documented far-prod / far-addend tie cases down (match RealGeneric.fmadd)" in {
-    test(new Fma).withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
+    simulate(fma) { c =>
       hw(c, 0x88f0, 0xefd8, 0x81a1) shouldBe 0x394a // far-prod   (pre-fix 0x394b)
       hw(c, 0xa1b7, 0xb728, 0x9be4) shouldBe 0x9bdc // far-addend (pre-fix 0x9bdd)
     }
   }
 
   it should "be 0-ULP vs RealGeneric.fmadd over a normal-finite sweep (non-cancelling)" in {
-    test(new Fma).withAnnotations(Seq(VerilatorBackendAnnotation)) { c =>
+    simulate(fma) { c =>
       val r = new Random(2024)
       var bad = 0
       val ex = scala.collection.mutable.ArrayBuffer[String]()
