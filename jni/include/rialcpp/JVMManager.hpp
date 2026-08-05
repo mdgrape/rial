@@ -71,6 +71,30 @@ class JVMManager
             obj, method, static_cast<jlong>(count), static_cast<jlong>(key)));
     }
 
+    // Threefry-4x32-20 takes two int[4] (counter and key) and returns an int[4].
+    std::array<std::uint32_t, 4> call_threefry4x32(
+            const std::array<std::uint32_t, 4>& ctr,
+            const std::array<std::uint32_t, 4>& key) const
+    {
+        const auto [obj, method] = resolve(FuncThreefry4x32, "threefry4x32");
+
+        jintArray jctr = this->env_->NewIntArray(4);
+        jintArray jkey = this->env_->NewIntArray(4);
+        this->env_->SetIntArrayRegion(jctr, 0, 4, reinterpret_cast<const jint*>(ctr.data()));
+        this->env_->SetIntArrayRegion(jkey, 0, 4, reinterpret_cast<const jint*>(key.data()));
+
+        jintArray result = static_cast<jintArray>(
+                this->env_->CallObjectMethod(obj, method, jctr, jkey));
+
+        std::array<std::uint32_t, 4> r{};
+        this->env_->GetIntArrayRegion(result, 0, 4, reinterpret_cast<jint*>(r.data()));
+
+        this->env_->DeleteLocalRef(result);
+        this->env_->DeleteLocalRef(jkey);
+        this->env_->DeleteLocalRef(jctr);
+        return r;
+    }
+
     // Irwin-Hall takes a long[] of n words and returns a float.
     float call_irwin_hall(const std::uint64_t* rnds, std::size_t n) const
     {
@@ -117,7 +141,8 @@ class JVMManager
             "gen_float01"s,
             "gen_gaussian"s,
             "squares32"s,
-            "irwinHall"s
+            "irwinHall"s,
+            "threefry4x32"s
         }};
 
         const auto [obj, method] = funcs_.at(i);
@@ -135,21 +160,22 @@ class JVMManager
     JNIEnv* env_;
 
     // list of currently supported funcs (to cache java ref)
-    constexpr static std::size_t FuncSqrt       = 0;
-    constexpr static std::size_t FuncInvsqrt    = 1;
-    constexpr static std::size_t FuncReciprocal = 2;
-    constexpr static std::size_t FuncSin        = 3;
-    constexpr static std::size_t FuncCos        = 4;
-    constexpr static std::size_t FuncAcos       = 5;
-    constexpr static std::size_t FuncAtan2      = 6;
-    constexpr static std::size_t FuncExp        = 7;
-    constexpr static std::size_t FuncLog        = 8;
-    constexpr static std::size_t FuncGenFloat12  = 9;
-    constexpr static std::size_t FuncGenFloat01  = 10;
-    constexpr static std::size_t FuncGenGaussian = 11;
-    constexpr static std::size_t FuncSquares32   = 12;
-    constexpr static std::size_t FuncIrwinHall   = 13;
-    constexpr static std::size_t NFunc          = 14; // size
+    constexpr static std::size_t FuncSqrt         =  0;
+    constexpr static std::size_t FuncInvsqrt      =  1;
+    constexpr static std::size_t FuncReciprocal   =  2;
+    constexpr static std::size_t FuncSin          =  3;
+    constexpr static std::size_t FuncCos          =  4;
+    constexpr static std::size_t FuncAcos         =  5;
+    constexpr static std::size_t FuncAtan2        =  6;
+    constexpr static std::size_t FuncExp          =  7;
+    constexpr static std::size_t FuncLog          =  8;
+    constexpr static std::size_t FuncGenFloat12   =  9;
+    constexpr static std::size_t FuncGenFloat01   = 10;
+    constexpr static std::size_t FuncGenGaussian  = 11;
+    constexpr static std::size_t FuncSquares32    = 12;
+    constexpr static std::size_t FuncIrwinHall    = 13;
+    constexpr static std::size_t FuncThreefry4x32 = 14;
+    constexpr static std::size_t NFunc            = 15; // size
     std::array<std::pair<jobject, jmethodID>, NFunc> funcs_;
 
     std::mutex mutex_;

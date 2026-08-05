@@ -20,6 +20,7 @@ FP32 config):
 - `float         rial::gen_gaussian(std::uint64_t rnd)                       ;` // N(0, 1)
 - `std::uint32_t rial::squares32   (std::uint64_t count, std::uint64_t key)  ;` // uniform u32
 - `float         rial::irwin_hall  (const std::array<std::uint64_t, 12>& rnd);` // approx-gaussian
+- `std::array<std::uint32_t, 4> rial::threefry4x32(const std::array<std::uint32_t, 4>& ctr, const std::array<std::uint32_t, 4>& key);` // Threefry-4x32-20
 
 Currently, the configurations (e.g. table addrW, extraBits) are fixed.
 So the result might be different from customized MathFunctions instance.

@@ -18,4 +18,11 @@ float irwin_hall(const std::array<std::uint64_t, 12>& rnds)
     return detail::JVMManager::get_instance().call_irwin_hall(rnds.data(), rnds.size());
 }
 
+std::array<std::uint32_t, 4> threefry4x32(
+        const std::array<std::uint32_t, 4>& ctr,
+        const std::array<std::uint32_t, 4>& key)
+{
+    return detail::JVMManager::get_instance().call_threefry4x32(ctr, key);
+}
+
 } // rial

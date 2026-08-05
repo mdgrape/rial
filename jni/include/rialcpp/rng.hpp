@@ -22,5 +22,11 @@ std::uint32_t squares32(std::uint64_t count, std::uint64_t key);
 // used) summed and converted to a float.
 float irwin_hall(const std::array<std::uint64_t, 12>& rnds);
 
+// Threefry-4x32-20 counter-based RNG (Salmon et al. 2011): the four 32-bit
+// random words for (ctr, key).
+std::array<std::uint32_t, 4> threefry4x32(
+        const std::array<std::uint32_t, 4>& ctr,
+        const std::array<std::uint32_t, 4>& key);
+
 } // rial
 #endif//RIALCPP_RNG_HPP
