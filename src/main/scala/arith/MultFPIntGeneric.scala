@@ -142,7 +142,7 @@ class MultFPIntGeneric(
 
   // Final mantissa
   val zman = Mux(exZN || exInf || znan, znan ## 0.U((zSpec.manW-1).W), resMan)
-  val zsgn = ( !(exZN || znan) ) && zsgn0.asBool
+  val zsgn = ( !znan ) && zsgn0.asBool
   val z0 = if (zSpec.disableSign) (zex ## zman) else (zsgn ## zex ## zman)
 
 //   printf("z = %b|%b(%d)|%b\n", zsgn, zex, zex-zSpec.exBias.U, zman)

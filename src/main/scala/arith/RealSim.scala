@@ -92,7 +92,8 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
     val resSgn = this.sgn ^ that.sgn
 
     if (this.isZero || that.isZero) {
-      return zero(resSpec)
+      // IEEE 754 (2019) 6.3: a zero product keeps the XORed sign.
+      return zero(resSpec, resSgn)
     } else if (this.isNaN || that.isNaN) {
       if (resSpec.disableNaN) {
         return inf(resSpec, resSgn)
@@ -122,7 +123,8 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
     val resEx = exNobias + resSpec.exBias
 
     if (resEx <= 0) { // result is zero : currently subnormal not supported
-      zero(resSpec)
+      // IEEE 754 (2019) 6.3: an underflowed product keeps the XORed sign.
+      zero(resSpec, resSgn)
     } else if (resEx >= maskI(resSpec.exW)) { // result is inf
       inf(resSpec, resSgn)
     } else {

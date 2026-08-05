@@ -148,7 +148,7 @@ class MultFPGeneric(
   // Final mantissa
   val zman =
     Mux(exZN || exInf || znan, znan ## 0.U((zSpec.manW-1).W), resMan)
-  val zsgn = ( !(exZN || znan) ) && zsgn0.asBool
+  val zsgn = ( !znan ) && zsgn0.asBool
   //printf("%x\n", zman)
 
   assert(zman.getWidth == zSpec.manW)
