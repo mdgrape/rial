@@ -73,7 +73,11 @@ class FloatToFixedGeneric(
     (zSpec.W - 1).U - io.y.get // intW = totalW - fracW
   }
 
-  val zTmpShiftBits = log2Up(zSpec.W)
+  // one extra bit so a full-width shift (= zSpec.W, needed when the
+  // scaled magnitude lies in [0.5, 1) and only the round/sticky bits
+  // survive) does not wrap to 0. Larger shifts are covered by the
+  // isZZero guard below.
+  val zTmpShiftBits = log2Up(zSpec.W) + 1
   val zTmpShift     = if(yintW.isEmpty) {
     ((zSpec.intW-1 + xSpec.exBias).U - xex)(zTmpShiftBits-1, 0)
   } else {
@@ -86,7 +90,7 @@ class FloatToFixedGeneric(
   val zTmpSticky = zTmpShifted(xSpec.manW-1, 0).orR
   val zTmpInc    = FloatChiselUtil.roundIncBySpec(roundSpec, zTmpLSB, zTmpRound, zTmpSticky)
 
-  val zAbs = zTmpShifted(zSpec.W + xSpec.manW, xSpec.manW+1)
+  val zAbs = zTmpShifted(zSpec.W + xSpec.manW, xSpec.manW+1) + zTmpInc.asUInt
   val z    = Mux(xsgn === 0.U, zAbs, ~zAbs + 1.U)
 
   // -----------------------------------------------------------------------
