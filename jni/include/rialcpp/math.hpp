@@ -10,16 +10,23 @@ namespace rial
 
 /** Software emulation of the approximated math functions.
  *
- *  The result of every function depends on the floating point format and on the
- *  table/polynomial parameters, so there is no single `rial::sqrt(x)`: build a
- *  MathSim for the configuration you want and call it through that.
+ *  The result of every function depends on the floating point format, on the
+ *  table/polynomial parameters and on which functions are supported, so there
+ *  is no single `rial::sqrt(x)`: build a MathSim for the configuration you want
+ *  and call it through that.
  *
  *  {{{
  *  const rial::MathSim fp32; // the standard FP32 setup
  *  const rial::MathSim bf16(rial::RealSpec::bfloat16(),
  *                           rial::MathFuncConfig::bf16());
  *
- *  std::cout << fp32.sqrt(2.0f) << " " << bf16.sqrt(2.0f) << std::endl;
+ *  // a module that only does sqrt/invsqrt/reciprocal: its narrower shared
+ *  // tables make it differ from `fp32` by about a ULP.
+ *  const rial::MathSim simple(rial::RealSpec::float32(),
+ *                             rial::MathFuncConfig::fp32(rial::Func::simple));
+ *
+ *  std::cout << fp32.sqrt(2.0f) << " " << bf16.sqrt(2.0f) << " "
+ *            << simple.sqrt(2.0f) << std::endl;
  *  }}}
  *
  *  Constructing one generates the approximation tables on the Scala side, which
@@ -29,7 +36,8 @@ namespace rial
  *
  *  Not thread-safe: every call goes into the single JNI environment.
  *  Throws std::runtime_error if the JVM or the Scala side reports a problem
- *  (an invalid configuration is reported when the MathSim is constructed).
+ *  (an invalid configuration is reported when the MathSim is constructed), or
+ *  if a function outside `config().funcs` is called.
  */
 class MathSim
 {
@@ -56,11 +64,23 @@ class MathSim
     float atan2      (float y, float x) const;
     float exp        (float x)          const;
     float log        (float x)          const;
+    float sigmoid    (float x)          const;
+    float softplus   (float x)          const;
+    float scale_mixture_gaussian(float x) const;
 
-    const RealSpec&       spec  () const noexcept {return this->spec_;}
+    const RealSpec& spec() const noexcept {return this->spec_;}
+
+    /** The configuration, with `funcs` updated to the effective function set:
+     *  the dependencies a requested function pulled in are included. */
     const MathFuncConfig& config() const noexcept {return this->config_;}
 
+    /** Shorthand for `has(config().funcs, f)`. */
+    bool supports(Func f) const noexcept {return has(this->config_.funcs, f);}
+
   private:
+
+    /** throws unless `f` is in the effective function set. */
+    void require(Func f) const;
 
     struct Impl;
 

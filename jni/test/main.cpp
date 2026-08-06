@@ -175,23 +175,87 @@ int main()
     );
 
     // -----------------------------------------------------------------------
-    // A second configuration, living alongside the FP32 one: BFloat16 with a
-    // plain lookup table (nOrder = 0). Both instances keep their own tables.
+    // Other configurations, living alongside the FP32 one. Each instance keeps
+    // its own tables and none of them shares any state.
 
+    // BFloat16 with a plain lookup table (nOrder = 0).
     const rial::MathSim bf16(rial::RealSpec::bfloat16(),
                              rial::MathFuncConfig::bf16());
 
+    // FP32 again, but supporting sqrt/invsqrt/reciprocal only. The tables of
+    // the supported functions share one merged set of bit widths, so a narrower
+    // function set gives (slightly) different results -- which is the point:
+    // this is what a MathFunctions module built with `simple` produces.
+    const rial::MathSim simple(rial::RealSpec::float32(),
+                               rial::MathFuncConfig::fp32(rial::Func::simple));
+
+    // ... and one supporting everything, which needs a wider polynomial output
+    // (see MathFuncConfig::fp32_all).
+    const rial::MathSim all(rial::RealSpec::float32(),
+                            rial::MathFuncConfig::fp32_all());
+
+    // sqrt alone: the shared widths now come from the sqrt table only.
+    const rial::MathSim sqrt_only(rial::RealSpec::float32(),
+                                  rial::MathFuncConfig::fp32(rial::Func::sqrt));
+
     std::cout << "---------------------------------------------------" << std::endl;
-    std::cout << "sqrt: fp32 vs bf16 configuration" << std::endl;
-    std::cout << "x libm fp32 bf16" << std::endl;
+    std::cout << "sqrt under different configurations" << std::endl;
+    std::cout << "x libm standard sqrt-only simple all bf16" << std::endl;
     for(std::size_t i=1; i<=10; ++i)
     {
         const float x = 0.4f * i;
-        std::cout << std::setw(15) << std::setprecision(10) << x              << " "
-                  << std::setw(15) << std::setprecision(10) << std::sqrt(x)   << " "
-                  << std::setw(15) << std::setprecision(10) << math.sqrt(x)   << " "
-                  << std::setw(15) << std::setprecision(10) << bf16.sqrt(x)   << std::endl;
+        std::cout << std::setw(15) << std::setprecision(10) << x                 << " "
+                  << std::setw(15) << std::setprecision(10) << std::sqrt(x)      << " "
+                  << std::setw(15) << std::setprecision(10) << math.sqrt(x)      << " "
+                  << std::setw(15) << std::setprecision(10) << sqrt_only.sqrt(x) << " "
+                  << std::setw(15) << std::setprecision(10) << simple.sqrt(x)    << " "
+                  << std::setw(15) << std::setprecision(10) << all.sqrt(x)       << " "
+                  << std::setw(15) << std::setprecision(10) << bf16.sqrt(x)      << std::endl;
     }
+
+    // How often each configuration's sqrt disagrees with the `standard` one.
+    // Not every function set changes the widths -- `simple` already contains
+    // reciprocal, whose table dominates the merge in FP32, so it matches
+    // `standard` exactly; sqrt on its own does not.
+    {
+        constexpr std::size_t n = 20000;
+        const auto count = [&](const rial::MathSim& sim)
+        {
+            std::size_t differ = 0;
+            for(std::size_t i=0; i<=n; ++i)
+            {
+                const float x = 4.0f * i / n;
+                if(sim.sqrt(x) != math.sqrt(x)) {++differ;}
+            }
+            return differ;
+        };
+        std::cout << "sqrt differing from `standard` over " << n+1 << " inputs: "
+                  << "sqrt-only=" << count(sqrt_only)
+                  << ", simple="  << count(simple)
+                  << ", all="     << count(all) << std::endl;
+    }
+
+    // functions outside the configured set are rejected, and a function pulled
+    // in as a dependency (acos needs the sqrt table) becomes available too.
+    const rial::MathSim acos_only(rial::RealSpec::float32(),
+                                  rial::MathFuncConfig::fp32(rial::Func::acos));
+    std::cout << "acos-only config: supports sqrt = "
+              << acos_only.supports(rial::Func::sqrt) << ", supports exp = "
+              << acos_only.supports(rial::Func::exp)  << std::endl;
+    try
+    {
+        std::cout << acos_only.exp(1.0f) << std::endl;
+        std::cout << "FAILED: exp should not be available" << std::endl;
+        return 1;
+    }
+    catch(const std::exception& e)
+    {
+        std::cout << "  rejected as expected: " << e.what() << std::endl;
+    }
+
+    std::cout << "sigmoid(0.5)  = " << all.sigmoid(0.5f)  << std::endl;
+    std::cout << "softplus(0.5) = " << all.softplus(0.5f) << std::endl;
+    std::cout << "smg(0.5)      = " << all.scale_mixture_gaussian(0.5f) << std::endl;
 
     // -----------------------------------------------------------------------
     // RNG generators: input is raw random bits, output is the generated float.

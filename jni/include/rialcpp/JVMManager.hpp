@@ -65,6 +65,17 @@ class JVMManager
      *  reference to it.  Release it with `release_object`. */
     jobject create_object(const char* class_name, const std::vector<jint>& args) const;
 
+    /** Same, for a constructor with a mixed signature.  `args` must match
+     *  `ctor_sig`; local references inside it stay owned by the caller. */
+    jobject create_object(const char* class_name, const char* ctor_sig,
+                          const std::vector<jvalue>& args) const;
+
+    /** Builds a java String[]; the returned local reference is the caller's. */
+    jobjectArray new_string_array(const std::vector<std::string>& strs) const;
+
+    /** Copies a java String[] out; `arr` stays the caller's. */
+    std::vector<std::string> to_string_vector(jobjectArray arr) const;
+
     /** Returns a global reference to the singleton instance of the Scala
      *  `object class_name` (its `MODULE$` field). */
     jobject singleton_object(const char* class_name) const;

@@ -158,9 +158,21 @@ jobject JVMManager::create_object(const char* class_name,
 {
     using namespace std::literals::string_literals;
 
-    const jclass cls = this->find_class(class_name);
+    std::vector<jvalue> argv(args.size());
+    for(std::size_t i=0; i<args.size(); ++i) {argv.at(i).i = args.at(i);}
 
     const auto sig = "("s + std::string(args.size(), 'I') + ")V"s;
+    return this->create_object(class_name, sig.c_str(), argv);
+}
+
+jobject JVMManager::create_object(const char* class_name, const char* ctor_sig,
+        const std::vector<jvalue>& argv) const
+{
+    using namespace std::literals::string_literals;
+
+    const jclass cls = this->find_class(class_name);
+
+    const std::string sig(ctor_sig);
     const jmethodID ctor = this->env_->GetMethodID(cls, "<init>", sig.c_str());
     if(ctor == nullptr)
     {
@@ -170,9 +182,6 @@ jobject JVMManager::create_object(const char* class_name,
                 " has no constructor "s + sig + " in "s +
                 std::string(RIAL_JAR_PATH));
     }
-
-    std::vector<jvalue> argv(args.size());
-    for(std::size_t i=0; i<args.size(); ++i) {argv.at(i).i = args.at(i);}
 
     const jobject local = this->env_->NewObjectA(cls, ctor, argv.data());
     this->check_exception((std::string(class_name) + " constructor"s).c_str());
@@ -228,6 +237,60 @@ jobject JVMManager::singleton_object(const char* class_name) const
         throw std::runtime_error("rial: NewGlobalRef failed for "s + objpath);
     }
     return global;
+}
+
+jobjectArray JVMManager::new_string_array(const std::vector<std::string>& strs) const
+{
+    using namespace std::literals::string_literals;
+
+    const jclass cls = this->find_class("java/lang/String");
+
+    const jobjectArray arr = this->env_->NewObjectArray(
+            static_cast<jsize>(strs.size()), cls, nullptr);
+    this->env_->DeleteLocalRef(cls);
+    if(arr == nullptr)
+    {
+        this->check_exception("new_string_array");
+        throw std::runtime_error("rial: NewObjectArray(String) failed"s);
+    }
+
+    for(std::size_t i=0; i<strs.size(); ++i)
+    {
+        const jstring str = this->env_->NewStringUTF(strs.at(i).c_str());
+        if(str == nullptr)
+        {
+            this->env_->DeleteLocalRef(arr);
+            this->check_exception("new_string_array");
+            throw std::runtime_error("rial: NewStringUTF failed for "s + strs.at(i));
+        }
+        this->env_->SetObjectArrayElement(arr, static_cast<jsize>(i), str);
+        this->env_->DeleteLocalRef(str);
+    }
+    return arr;
+}
+
+std::vector<std::string> JVMManager::to_string_vector(jobjectArray arr) const
+{
+    std::vector<std::string> strs;
+    if(arr == nullptr) {return strs;}
+
+    const jsize n = this->env_->GetArrayLength(arr);
+    strs.reserve(static_cast<std::size_t>(n));
+    for(jsize i=0; i<n; ++i)
+    {
+        const jstring str = static_cast<jstring>(
+                this->env_->GetObjectArrayElement(arr, i));
+        if(str == nullptr) {continue;}
+
+        const char* chars = this->env_->GetStringUTFChars(str, nullptr);
+        if(chars != nullptr)
+        {
+            strs.emplace_back(chars);
+            this->env_->ReleaseStringUTFChars(str, chars);
+        }
+        this->env_->DeleteLocalRef(str);
+    }
+    return strs;
 }
 
 jmethodID JVMManager::method_of(jobject obj, const char* name, const char* sig) const

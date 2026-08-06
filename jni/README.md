@@ -2,12 +2,13 @@
 
 It binds the software simulation of `rial` to C++.
 
-Both the floating point format and the approximation parameters are
-configurable, and the result depends on them, so there is no plain
-`rial::sqrt(x)`: you build an object for the configuration you want and call
-the math functions on it. The approximation tables are generated once, when the
-object is constructed, and reused by every call. Objects with different
-configurations are independent, so mixing precisions in one program is fine.
+The floating point format, the approximation parameters and the set of
+supported functions are all configurable, and the result depends on all three,
+so there is no plain `rial::sqrt(x)`: you build an object for the configuration
+you want and call the math functions on it. The approximation tables are
+generated once, when the object is constructed, and reused by every call.
+Objects with different configurations are independent, so mixing precisions in
+one program is fine.
 
 ```cpp
 #include <rialcpp/math.hpp>
@@ -18,18 +19,24 @@ const rial::MathSim fp32;
 // a BFloat16 setup with a plain lookup table (nOrder = 0)
 const rial::MathSim bf16(rial::RealSpec::bfloat16(), rial::MathFuncConfig::bf16());
 
-// ... or spell the table parameters out to match a specific MathFunctions module
-const rial::MathSim custom(rial::RealSpec::float32(),
-    rial::MathFuncConfig{/*nOrder=*/1, /*addrW=*/9, /*inBitW=*/14, /*outBitW=*/26});
+// FP32, but supporting sqrt/invsqrt/reciprocal only
+const rial::MathSim simple(rial::RealSpec::float32(),
+    rial::MathFuncConfig::fp32(rial::Func::simple));
+
+// ... or spell everything out to match a specific MathFunctions module
+const rial::MathSim custom(rial::RealSpec::float32(), rial::MathFuncConfig{
+    rial::Func::sqrt | rial::Func::exp,
+    /*nOrder=*/1, /*addrW=*/9, /*inBitW=*/14, /*outBitW=*/26});
 
 std::cout << fp32.sqrt(2.0f) << " " << bf16.sqrt(2.0f) << std::endl;
 ```
 
 `rial::RealSpec` (`exW`, `exBias`, `manW`) mirrors `rial.arith.RealSpec`, and
-`rial::MathFuncConfig` (`nOrder`, `addrW`, `inBitW`, `outBitW`) mirrors
-`rial.math.MathFuncConfig`, so a `MathSim` built from the same numbers as a
-hardware `MathFunctions` module reproduces its results bit-exactly. Presets:
-`RealSpec::float32() / float16() / bfloat16()`, `MathFuncConfig::fp32() / bf16()`.
+`rial::MathFuncConfig` (`funcs`, `nOrder`, `addrW`, `inBitW`, `outBitW`, plus
+the ScaleMixtureGaussian sigmas) mirrors `rial.math.MathFuncConfig`, so a
+`MathSim` built from the same numbers as a hardware `MathFunctions` module
+reproduces its results bit-exactly. Presets: `RealSpec::float32() / float16() /
+bfloat16()`, `MathFuncConfig::fp32() / bf16() / fp32_all() / bf16_all()`.
 
 `rial::MathSim` provides:
 
@@ -42,6 +49,28 @@ hardware `MathFunctions` module reproduces its results bit-exactly. Presets:
 - `float atan2     (float y, float x);`
 - `float exp       (float x)         ;`
 - `float log       (float x)         ;`
+- `float sigmoid   (float x)         ;`
+- `float softplus  (float x)         ;`
+- `float scale_mixture_gaussian(float x);`
+
+### The function set matters
+
+`MathFuncConfig::funcs` is a bit set of `rial::Func` (`Func::sqrt | Func::exp`,
+or the presets `Func::simple / standard / all`, mirroring the ones in the
+`MathFuncConfig` companion object). It is not just an access-control switch:
+the tables of the supported functions share one merged set of coefficient and
+intermediate bit widths, the same way the hardware shares one polynomial
+evaluator, so **a narrower function set can change the results**. In FP32, sqrt
+from a sqrt-only instance disagrees with the `standard` one on about 0.5% of
+inputs, by a ULP. (Not every subset changes something: `Func::simple` already
+contains reciprocal, whose table dominates the merge in FP32, so its sqrt is
+identical to `standard`'s.)
+
+Functions pull in what they need -- `Func::acos` also gives you `sqrt`, since
+its first phase reuses the sqrt table, and `Func::atan2` gives you
+`reciprocal` -- exactly as in the hardware. `config().funcs` reports the
+effective set after those additions, and `supports(Func)` queries it. Calling a
+function outside the set throws `std::runtime_error`.
 
 ## Random number generators
 
