@@ -118,4 +118,4 @@ test-rialcpp:
     - cd test
     - cmake -B ./build
     - cmake --build ./build
-    - ./build/main | tail
+    - ./build/main > rialcpp-test.log || (tail -n 50 rialcpp-test.log; exit 1)
