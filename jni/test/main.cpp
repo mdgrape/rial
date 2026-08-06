@@ -18,6 +18,8 @@
 #include <cmath>
 #include <cstdint>
 
+constexpr int threefry_rounds = 20;
+
 // checks if threefry reference impl and scala emulation in rial matches.
 std::size_t check_threefry(std::size_t n)
 {
@@ -26,7 +28,7 @@ std::size_t check_threefry(std::size_t n)
     {
         threefry4x32_ctr_t ctr{{c[0], c[1], c[2], c[3]}};
         threefry4x32_key_t key{{k[0], k[1], k[2], k[3]}};
-        const threefry4x32_ctr_t r = threefry4x32_R(20, ctr, key);
+        const threefry4x32_ctr_t r = threefry4x32_R(threefry_rounds, ctr, key);
         return std::array<std::uint32_t, 4>{{r.v[0], r.v[1], r.v[2], r.v[3]}};
     };
 
@@ -59,7 +61,7 @@ std::size_t check_threefry(std::size_t n)
     std::size_t mismatch = 0;
     for (const auto& [ctr, key] : cases)
     {
-        const auto rial = rial::threefry4x32(ctr, key);
+        const auto rial = rial::threefry4x32(ctr, key, threefry_rounds);
         const auto ref  = reference(ctr, key);
         if (rial != ref)
         {
@@ -105,34 +107,39 @@ int main()
 {
     constexpr float pi = 3.14159265;
 
+    // The approximation depends on the float format and on the table
+    // parameters, so pick a configuration and keep the instance around: the
+    // tables are generated once, when it is constructed.
+    const rial::MathSim math; // == MathSim(RealSpec::float32(), MathFuncConfig::fp32())
+
     check("sqrt", 0.0, 4.0,
         [](float x) {return std::sqrt(x); },
-        [](float x) {return rial::sqrt(x);}
+        [&](float x) {return math.sqrt(x);}
     );
 
     check("invsqrt", 0.5, 4.0,
         [](float x) {return 1.0f / std::sqrt(x); },
-        [](float x) {return rial::invsqrt(x);}
+        [&](float x) {return math.invsqrt(x);}
     );
 
     check("reciprocal", 0.5, 4.0,
         [](float x) {return 1.0f / x; },
-        [](float x) {return rial::reciprocal(x);}
+        [&](float x) {return math.reciprocal(x);}
     );
 
     check("sin", -pi, pi,
         [](float x) {return std::sin(x); },
-        [](float x) {return rial::sin(x);}
+        [&](float x) {return math.sin(x);}
     );
 
     check("cos", -pi, pi,
         [](float x) {return std::cos(x); },
-        [](float x) {return rial::cos(x);}
+        [&](float x) {return math.cos(x);}
     );
 
     check("acos", -1.0, 1.0,
         [](float x) {return std::acos(x); },
-        [](float x) {return rial::acos(x);}
+        [&](float x) {return math.acos(x);}
     );
 
 
@@ -146,7 +153,7 @@ int main()
         const float x = 0.01f * (-1.0f * i + 1.0f * (100 - i));
         const float y = 0.01f * (-1.0f * j + 1.0f * (100 - j));
         const auto libm = std::atan2(y, x);
-        const auto rial = rial::atan2(y, x);
+        const auto rial = math.atan2(y, x);
         const auto diff = std::abs(libm - rial);
 
         std::cout << std::setw(15) << std::setprecision(10) << x    << " "
@@ -159,26 +166,47 @@ int main()
 
     check("exp", 0.1, 3.1,
         [](float x) {return std::exp(x); },
-        [](float x) {return rial::exp(x);}
+        [&](float x) {return math.exp(x);}
     );
 
     check("log", 0.1, 3.1,
         [](float x) {return std::log(x); },
-        [](float x) {return rial::log(x);}
+        [&](float x) {return math.log(x);}
     );
 
     // -----------------------------------------------------------------------
+    // A second configuration, living alongside the FP32 one: BFloat16 with a
+    // plain lookup table (nOrder = 0). Both instances keep their own tables.
+
+    const rial::MathSim bf16(rial::RealSpec::bfloat16(),
+                             rial::MathFuncConfig::bf16());
+
+    std::cout << "---------------------------------------------------" << std::endl;
+    std::cout << "sqrt: fp32 vs bf16 configuration" << std::endl;
+    std::cout << "x libm fp32 bf16" << std::endl;
+    for(std::size_t i=1; i<=10; ++i)
+    {
+        const float x = 0.4f * i;
+        std::cout << std::setw(15) << std::setprecision(10) << x              << " "
+                  << std::setw(15) << std::setprecision(10) << std::sqrt(x)   << " "
+                  << std::setw(15) << std::setprecision(10) << math.sqrt(x)   << " "
+                  << std::setw(15) << std::setprecision(10) << bf16.sqrt(x)   << std::endl;
+    }
+
+    // -----------------------------------------------------------------------
     // RNG generators: input is raw random bits, output is the generated float.
+    const rial::RngSim rng; // == RngSim(RealSpec::float32(), RngConfig::standard())
+
     std::cout << "---------------------------------------------------" << std::endl;
     std::cout << "rng" << std::endl;
-    std::cout << "gen_float12(0)          = " << rial::gen_float12(0)               << " (expect 1)"    << std::endl;
-    std::cout << "gen_float01(0x80000000) = " << rial::gen_float01(0x80000000ull)   << " (expect 0.5)"  << std::endl;
-    std::cout << "gen_float01(0xC0000000) = " << rial::gen_float01(0xC0000000ull)   << " (expect 0.75)" << std::endl;
+    std::cout << "gen_float12(0)          = " << rng.gen_float12(0)             << " (expect 1)"    << std::endl;
+    std::cout << "gen_float01(0x80000000) = " << rng.gen_float01(0x80000000ull) << " (expect 0.5)"  << std::endl;
+    std::cout << "gen_float01(0xC0000000) = " << rng.gen_float01(0xC0000000ull) << " (expect 0.75)" << std::endl;
     for (std::uint64_t s = 1; s <= 5; ++s)
     {
         const std::uint64_t bits = s * 0x9E3779B97F4A7C15ull; // arbitrary spread
         std::cout << "gen_gaussian(0x" << std::hex << bits << std::dec << ") = "
-                  << rial::gen_gaussian(bits) << std::endl;
+                  << rng.gen_gaussian(bits) << std::endl;
     }
 
     const std::uint64_t key = 0x2467cb532b5ce8d1ull;
@@ -191,7 +219,7 @@ int main()
     // feed 12 squares32 words into Irwin-Hall to draw an approx-gaussian sample.
     std::array<std::uint64_t, 12> rnds{};
     for (std::uint64_t i = 0; i < 12; ++i) { rnds[i] = rial::squares32(i, key); }
-    std::cout << "irwin_hall(squares32 x12) = " << rial::irwin_hall(rnds) << std::endl;
+    std::cout << "irwin_hall(squares32 x12) = " << rng.irwin_hall(rnds) << std::endl;
 
     // -----------------------------------------------------------------------
     // Threefry emulation vs the reference implementation.
