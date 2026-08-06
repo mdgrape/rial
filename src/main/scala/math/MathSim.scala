@@ -20,6 +20,8 @@ package rial.math
 import rial.arith.{RealGeneric, RealSpec}
 import rial.table.PolynomialCoefficients
 
+import spire.math.SafeLong
+
 /** Software simulation of the [[rial.math.MathFunctions]] module.
  *
  *  @constructor build the polynomial tables for the given configuration.
@@ -155,6 +157,47 @@ class MathSim(
     val (sgmA, sgmB) = config.scaleMixtureGaussianSigma.get
     ScaleMixtureGaussianSimGeneric(cSMG, real(x), sgmA, sgmB).toFloat
   }
+
+  // --------------------------------------------------------------------------
+  // The same functions on raw bit patterns of `spec`, for formats a Float
+  // cannot carry (manW > 23, exW > 8, ...). Bits above `spec.W` are ignored.
+
+  private def realOf(x: Long): RealGeneric = {
+    new RealGeneric(spec, SafeLong(BigInt(x) & MathSim.maskOf(spec.W)))
+  }
+  private def bitsOf(r: RealGeneric): Long = {
+    (r.value.toBigInt & MathSim.maskOf(spec.W)).toLong
+  }
+
+  def sqrtBits      (x: Long): Long = { bitsOf(SqrtSimGeneric      (cSqrt,       realOf(x))) }
+  def invsqrtBits   (x: Long): Long = { bitsOf(InvSqrtSimGeneric   (cInvSqrt,    realOf(x))) }
+  def reciprocalBits(x: Long): Long = { bitsOf(ReciprocalSimGeneric(cReciprocal, realOf(x))) }
+  def sinBits       (x: Long): Long = { bitsOf(SinCosSimGeneric    (true,  cSin, realOf(x))) }
+  def cosBits       (x: Long): Long = { bitsOf(SinCosSimGeneric    (false, cCos, realOf(x))) }
+  def expBits       (x: Long): Long = { bitsOf(ExpSimGeneric       (cExp,        realOf(x))) }
+  def sigmoidBits   (x: Long): Long = { bitsOf(SigmoidSimGeneric   (cSigmoid,    realOf(x))) }
+
+  def acosBits(x: Long): Long = {
+    bitsOf(ACosPhase2SimGeneric(cACos, ACosPhase1SimGeneric(cACosPhase1, realOf(x))))
+  }
+
+  def atan2Bits(y: Long, x: Long): Long = {
+    bitsOf(ATan2Phase2SimGeneric(cATan2,
+      ATan2Phase1SimGeneric(cATan2Phase1, realOf(y), realOf(x))))
+  }
+
+  def logBits(x: Long): Long = {
+    bitsOf(LogSimGeneric(cLogNormal, cLogSmallPos, cLogSmallNeg, realOf(x)))
+  }
+
+  def softplusBits(x: Long): Long = {
+    bitsOf(SoftPlusSimGeneric(cSoftPlusPos, cSoftPlusNeg, realOf(x)))
+  }
+
+  def scaleMixtureGaussianBits(x: Long): Long = {
+    val (sgmA, sgmB) = config.scaleMixtureGaussianSigma.get
+    bitsOf(ScaleMixtureGaussianSimGeneric(cSMG, realOf(x), sgmA, sgmB))
+  }
 }
 
 /** Function names and default configurations for [[MathSim]]. */
@@ -182,6 +225,8 @@ object MathSim {
   )
 
   private val kindNames: Map[FuncKind, String] = funcNames.map(_.swap)
+
+  private def maskOf(w: Int): BigInt = { (BigInt(1) << w) - 1 }
 
   /** Translates the binding's function names into [[FuncKind]]s.  The result is
    *  not normalized; [[MathSim]] normalizes it. */

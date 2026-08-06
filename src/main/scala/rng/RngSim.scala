@@ -22,7 +22,7 @@
 //
 package rial.rng
 
-import rial.arith.RealSpec
+import rial.arith.{RealGeneric, RealSpec}
 
 /** Software simulation of the float-producing random-number generators.
  *
@@ -66,6 +66,26 @@ class RngSim(
    *  `rnds` (low bits of each used) converted to a float. */
   def irwinHall(rnds: Array[Long]): Float =
     IrwinHallSim.irwinHall(rnds.toIndexedSeq.map(RngSim.u64), irwinHallW, spec).toFloat
+
+  // --------------------------------------------------------------------------
+  // The same generators returning the raw bit pattern of `spec`, for formats a
+  // Float cannot carry (manW > 23, exW > 8, ...).
+
+  private def bitsOf(r: RealGeneric): Long =
+    (r.value.toBigInt & ((BigInt(1) << spec.W) - 1)).toLong
+
+  def genFloat12Bits (rnd: Long): Long =
+    bitsOf(GenRandomFloatSim.genFloat12(RngSim.u64(rnd), spec))
+
+  def genFloat01Bits (rnd: Long): Long =
+    bitsOf(GenRandomFloatSim.genFloat01(RngSim.u64(rnd), float01W, spec))
+
+  def genGaussianBits(rnd: Long): Long =
+    bitsOf(GenRandomGaussianSim.genGaussian(RngSim.u64(rnd), gaussianW, spec,
+      gaussianOrder, gaussianLumpOctaves))
+
+  def irwinHallBits(rnds: Array[Long]): Long =
+    bitsOf(IrwinHallSim.irwinHall(rnds.toIndexedSeq.map(RngSim.u64), irwinHallW, spec))
 }
 
 /** Default configurations for [[RngSim]]. */
