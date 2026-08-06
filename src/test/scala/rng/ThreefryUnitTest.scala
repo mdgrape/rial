@@ -62,9 +62,10 @@ class ThreefryKatTest extends AnyFunSpec {
     }
   }
 
-  it("RngSim.threefry4x32 should agree with ThreefrySim (jint word interface)") {
+  it("BitRngSim.threefry4x32 should agree with ThreefrySim (jint word interface)") {
     for ((count, key, expected) <- kat) {
-      val got = RngSim.threefry4x32(count.map(_.toInt).toArray, key.map(_.toInt).toArray)
+      val got = BitRngSim.threefry4x32(
+        count.map(_.toInt).toArray, key.map(_.toInt).toArray, 20)
       assert(got.toSeq.map(w => w.toLong & 0xFFFFFFFFL) == expected)
     }
   }
