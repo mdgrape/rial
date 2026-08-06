@@ -117,6 +117,19 @@ struct MathSim::Impl
         this->softplus_   = jvm.method_of(this->obj_, "softplus",   "(F)F");
         this->smg_        = jvm.method_of(this->obj_, "scaleMixtureGaussian", "(F)F");
 
+        this->sqrt_bits_       = jvm.method_of(this->obj_, "sqrtBits",       "(J)J");
+        this->invsqrt_bits_    = jvm.method_of(this->obj_, "invsqrtBits",    "(J)J");
+        this->reciprocal_bits_ = jvm.method_of(this->obj_, "reciprocalBits", "(J)J");
+        this->sin_bits_        = jvm.method_of(this->obj_, "sinBits",        "(J)J");
+        this->cos_bits_        = jvm.method_of(this->obj_, "cosBits",        "(J)J");
+        this->acos_bits_       = jvm.method_of(this->obj_, "acosBits",       "(J)J");
+        this->atan2_bits_      = jvm.method_of(this->obj_, "atan2Bits",     "(JJ)J");
+        this->exp_bits_        = jvm.method_of(this->obj_, "expBits",        "(J)J");
+        this->log_bits_        = jvm.method_of(this->obj_, "logBits",        "(J)J");
+        this->sigmoid_bits_    = jvm.method_of(this->obj_, "sigmoidBits",    "(J)J");
+        this->softplus_bits_   = jvm.method_of(this->obj_, "softplusBits",   "(J)J");
+        this->smg_bits_        = jvm.method_of(this->obj_, "scaleMixtureGaussianBits", "(J)J");
+
         this->supported_  = jvm.method_of(this->obj_, "supportedFuncs",
                                           "()[Ljava/lang/String;");
     }
@@ -160,6 +173,16 @@ struct MathSim::Impl
         return result;
     }
 
+    template<typename ... Args>
+    std::uint64_t call_bits(jmethodID method, const char* name, Args ... args) const
+    {
+        const auto& jvm = detail::JVMManager::get_instance();
+        const jlong result = jvm.env()->CallLongMethod(this->obj_, method,
+                static_cast<jlong>(args)...);
+        jvm.check_exception(name);
+        return static_cast<std::uint64_t>(result);
+    }
+
     jobject   obj_;
     jmethodID sqrt_;
     jmethodID invsqrt_;
@@ -173,6 +196,20 @@ struct MathSim::Impl
     jmethodID sigmoid_;
     jmethodID softplus_;
     jmethodID smg_;
+
+    jmethodID sqrt_bits_;
+    jmethodID invsqrt_bits_;
+    jmethodID reciprocal_bits_;
+    jmethodID sin_bits_;
+    jmethodID cos_bits_;
+    jmethodID acos_bits_;
+    jmethodID atan2_bits_;
+    jmethodID exp_bits_;
+    jmethodID log_bits_;
+    jmethodID sigmoid_bits_;
+    jmethodID softplus_bits_;
+    jmethodID smg_bits_;
+
     jmethodID supported_;
 };
 
@@ -218,6 +255,32 @@ float MathSim::atan2(float y, float x) const
 {
     require(Func::atan2);
     return impl_->call(impl_->atan2_, "MathSim::atan2", y, x);
+}
+
+// -----------------------------------------------------------------------------
+// bit-pattern interface
+
+std::uint64_t MathSim::sqrt_bits      (std::uint64_t x) const {require(Func::sqrt);       return impl_->call_bits(impl_->sqrt_bits_,       "MathSim::sqrt_bits",       x);}
+std::uint64_t MathSim::invsqrt_bits   (std::uint64_t x) const {require(Func::invsqrt);    return impl_->call_bits(impl_->invsqrt_bits_,    "MathSim::invsqrt_bits",    x);}
+std::uint64_t MathSim::reciprocal_bits(std::uint64_t x) const {require(Func::reciprocal); return impl_->call_bits(impl_->reciprocal_bits_, "MathSim::reciprocal_bits", x);}
+std::uint64_t MathSim::sin_bits       (std::uint64_t x) const {require(Func::sin);        return impl_->call_bits(impl_->sin_bits_,        "MathSim::sin_bits",        x);}
+std::uint64_t MathSim::cos_bits       (std::uint64_t x) const {require(Func::cos);        return impl_->call_bits(impl_->cos_bits_,        "MathSim::cos_bits",        x);}
+std::uint64_t MathSim::acos_bits      (std::uint64_t x) const {require(Func::acos);       return impl_->call_bits(impl_->acos_bits_,       "MathSim::acos_bits",       x);}
+std::uint64_t MathSim::exp_bits       (std::uint64_t x) const {require(Func::exp);        return impl_->call_bits(impl_->exp_bits_,        "MathSim::exp_bits",        x);}
+std::uint64_t MathSim::log_bits       (std::uint64_t x) const {require(Func::log);        return impl_->call_bits(impl_->log_bits_,        "MathSim::log_bits",        x);}
+std::uint64_t MathSim::sigmoid_bits   (std::uint64_t x) const {require(Func::sigmoid);    return impl_->call_bits(impl_->sigmoid_bits_,    "MathSim::sigmoid_bits",    x);}
+std::uint64_t MathSim::softplus_bits  (std::uint64_t x) const {require(Func::softplus);   return impl_->call_bits(impl_->softplus_bits_,   "MathSim::softplus_bits",   x);}
+
+std::uint64_t MathSim::scale_mixture_gaussian_bits(std::uint64_t x) const
+{
+    require(Func::scale_mixture_gaussian);
+    return impl_->call_bits(impl_->smg_bits_, "MathSim::scale_mixture_gaussian_bits", x);
+}
+
+std::uint64_t MathSim::atan2_bits(std::uint64_t y, std::uint64_t x) const
+{
+    require(Func::atan2);
+    return impl_->call_bits(impl_->atan2_bits_, "MathSim::atan2_bits", y, x);
 }
 
 } // rial

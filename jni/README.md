@@ -72,6 +72,32 @@ its first phase reuses the sqrt table, and `Func::atan2` gives you
 effective set after those additions, and `supports(Func)` queries it. Calling a
 function outside the set throws `std::runtime_error`.
 
+### Formats a `float` cannot carry
+
+The `float` interface above is fine as long as the emulated format fits in an
+IEEE-754 binary32 (FP32, BF16, FP16, ...). For anything wider there is a
+parallel interface working on the raw bit pattern of `spec()`, as a
+`std::uint64_t`: `sqrt_bits`, `invsqrt_bits`, ... `atan2_bits(y, x)`, and
+`gen_float12_bits` / ... / `irwin_hall_bits` on `RngSim`. Bits above the spec
+width are ignored.
+
+`to_bits` / `to_double` / `to_float` convert in and out using the instance's
+own spec (`rialcpp/real.hpp` has the same as free functions taking a
+`RealSpec`, for when you have a bit pattern but no instance).
+
+```cpp
+const rial::MathSim fp64(rial::RealSpec{11, 0x3FF, 52},
+    rial::MathFuncConfig{rial::Func::sqrt, /*nOrder=*/2, /*addrW=*/8,
+                         /*inBitW=*/44, /*outBitW=*/55});
+
+std::cout << fp64.to_double(fp64.sqrt_bits(fp64.to_bits(2.0))) << std::endl;
+```
+
+The two interfaces agree wherever both apply. Note that `double` itself tops
+out at 52 mantissa bits, so a still wider format can only be inspected as bits
+-- though a table-based approximation is not what you would reach for at that
+precision anyway.
+
 ## Random number generators
 
 The generators that turn raw random bits into a float depend on the floating

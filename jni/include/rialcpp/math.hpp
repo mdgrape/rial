@@ -2,8 +2,11 @@
 #define RIALCPP_MATH_HPP
 
 #include <rialcpp/config.hpp>
+#include <rialcpp/real.hpp>
 
 #include <memory>
+
+#include <cstdint>
 
 namespace rial
 {
@@ -67,6 +70,36 @@ class MathSim
     float sigmoid    (float x)          const;
     float softplus   (float x)          const;
     float scale_mixture_gaussian(float x) const;
+
+    // -------------------------------------------------------------------------
+    // The same functions on the raw bit pattern of spec(), for formats a float
+    // cannot carry (manW > 23, exW > 8, ...).  Bits above the spec width are
+    // ignored.  Use to_double() / to_bits() to get in and out.
+    //
+    // {{{
+    // const rial::MathSim fp64(rial::RealSpec{11, 0x3FF, 52},
+    //                          rial::MathFuncConfig{rial::Func::sqrt, 2, 8, 44, 55});
+    // std::cout << fp64.to_double(fp64.sqrt_bits(fp64.to_bits(2.0))) << std::endl;
+    // }}}
+
+    std::uint64_t sqrt_bits       (std::uint64_t x) const;
+    std::uint64_t invsqrt_bits    (std::uint64_t x) const;
+    std::uint64_t reciprocal_bits (std::uint64_t x) const;
+    std::uint64_t sin_bits        (std::uint64_t x) const;
+    std::uint64_t cos_bits        (std::uint64_t x) const;
+    std::uint64_t acos_bits       (std::uint64_t x) const;
+    std::uint64_t atan2_bits      (std::uint64_t y, std::uint64_t x) const;
+    std::uint64_t exp_bits        (std::uint64_t x) const;
+    std::uint64_t log_bits        (std::uint64_t x) const;
+    std::uint64_t sigmoid_bits    (std::uint64_t x) const;
+    std::uint64_t softplus_bits   (std::uint64_t x) const;
+    std::uint64_t scale_mixture_gaussian_bits(std::uint64_t x) const;
+
+    // conversion between spec() bit patterns and ordinary numbers
+    double        to_double(std::uint64_t bits) const {return rial::to_double(spec_, bits);}
+    float         to_float (std::uint64_t bits) const {return rial::to_float (spec_, bits);}
+    std::uint64_t to_bits  (double x)           const {return rial::to_bits  (spec_, x);}
+    std::uint64_t to_bits  (float  x)           const {return rial::to_bits  (spec_, x);}
 
     const RealSpec& spec() const noexcept {return this->spec_;}
 

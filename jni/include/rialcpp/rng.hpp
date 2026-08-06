@@ -2,6 +2,7 @@
 #define RIALCPP_RNG_HPP
 
 #include <rialcpp/config.hpp>
+#include <rialcpp/real.hpp>
 
 #include <array>
 #include <memory>
@@ -50,6 +51,19 @@ class RngSim
     /** approx-gaussian via Irwin-Hall: 12 uniform words (the low `irwinHallW`
      *  bits of each are used) summed and converted to a float. */
     float irwin_hall(const std::array<std::uint64_t, 12>& rnds) const;
+
+    // The same generators returning the raw bit pattern of spec(), for formats
+    // a float cannot carry.  Use to_double() to read one back.
+    std::uint64_t gen_float12_bits (std::uint64_t rnd) const;
+    std::uint64_t gen_float01_bits (std::uint64_t rnd) const;
+    std::uint64_t gen_gaussian_bits(std::uint64_t rnd) const;
+    std::uint64_t irwin_hall_bits(const std::array<std::uint64_t, 12>& rnds) const;
+
+    // conversion between spec() bit patterns and ordinary numbers
+    double        to_double(std::uint64_t bits) const {return rial::to_double(spec_, bits);}
+    float         to_float (std::uint64_t bits) const {return rial::to_float (spec_, bits);}
+    std::uint64_t to_bits  (double x)           const {return rial::to_bits  (spec_, x);}
+    std::uint64_t to_bits  (float  x)           const {return rial::to_bits  (spec_, x);}
 
     const RealSpec&  spec  () const noexcept {return this->spec_;}
     const RngConfig& config() const noexcept {return this->config_;}

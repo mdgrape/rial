@@ -258,6 +258,40 @@ int main()
     std::cout << "smg(0.5)      = " << all.scale_mixture_gaussian(0.5f) << std::endl;
 
     // -----------------------------------------------------------------------
+    // The bit-pattern interface, for formats a float cannot carry. The spec is
+    // the instance's own, so to_bits()/to_double() get you in and out.
+
+    std::cout << "---------------------------------------------------" << std::endl;
+    std::cout << "bit-pattern interface" << std::endl;
+
+    // it agrees with the float interface where both apply
+    if (math.to_float(math.sqrt_bits(math.to_bits(2.0f))) != math.sqrt(2.0f))
+    {
+        std::cout << "FAILED: sqrt_bits disagrees with sqrt in FP32" << std::endl;
+        return 1;
+    }
+    std::cout << "fp32: sqrt_bits(0x" << std::hex << math.to_bits(2.0f) << ") = 0x"
+              << math.sqrt_bits(math.to_bits(2.0f)) << std::dec
+              << " = " << math.to_double(math.sqrt_bits(math.to_bits(2.0f)))
+              << " (matches sqrt(2.0f))" << std::endl;
+
+    // an FP64-shaped format: a float would throw most of this away
+    const rial::MathSim fp64(rial::RealSpec{11, 0x3FF, 52},
+        rial::MathFuncConfig{rial::Func::sqrt, /*nOrder=*/2, /*addrW=*/8,
+                             /*inBitW=*/44, /*outBitW=*/55});
+
+    std::cout << "fp64-shaped (exW=11, manW=52), sqrt:" << std::endl;
+    std::cout << "x libm rial diff" << std::endl;
+    for(const double x : {0.5, 2.0, 3.0, 10.0, 1234.5})
+    {
+        const double r = fp64.to_double(fp64.sqrt_bits(fp64.to_bits(x)));
+        std::cout << std::setw(15) << std::setprecision(17) << x         << " "
+                  << std::setw(24) << std::setprecision(17) << std::sqrt(x) << " "
+                  << std::setw(24) << std::setprecision(17) << r         << " "
+                  << std::abs(std::sqrt(x) - r) << std::endl;
+    }
+
+    // -----------------------------------------------------------------------
     // RNG generators: input is raw random bits, output is the generated float.
     const rial::RngSim rng; // == RngSim(RealSpec::float32(), RngConfig::standard())
 
@@ -284,6 +318,17 @@ int main()
     std::array<std::uint64_t, 12> rnds{};
     for (std::uint64_t i = 0; i < 12; ++i) { rnds[i] = rial::squares32(i, key); }
     std::cout << "irwin_hall(squares32 x12) = " << rng.irwin_hall(rnds) << std::endl;
+
+    // the generators have a bit-pattern interface too
+    if (rng.to_float(rng.gen_gaussian_bits(0x9E3779B97F4A7C15ull)) !=
+        rng.gen_gaussian(0x9E3779B97F4A7C15ull))
+    {
+        std::cout << "FAILED: gen_gaussian_bits disagrees with gen_gaussian" << std::endl;
+        return 1;
+    }
+    std::cout << "gen_gaussian_bits(0x9e3779b97f4a7c15) = 0x" << std::hex
+              << rng.gen_gaussian_bits(0x9E3779B97F4A7C15ull) << std::dec
+              << " (matches gen_gaussian)" << std::endl;
 
     // -----------------------------------------------------------------------
     // Threefry emulation vs the reference implementation.

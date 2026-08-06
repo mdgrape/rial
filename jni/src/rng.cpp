@@ -24,6 +24,11 @@ struct RngSim::Impl
         this->gen_float01_  = jvm.method_of(this->obj_, "genFloat01",  "(J)F");
         this->gen_gaussian_ = jvm.method_of(this->obj_, "genGaussian", "(J)F");
         this->irwin_hall_   = jvm.method_of(this->obj_, "irwinHall",  "([J)F");
+
+        this->gen_float12_bits_  = jvm.method_of(this->obj_, "genFloat12Bits",  "(J)J");
+        this->gen_float01_bits_  = jvm.method_of(this->obj_, "genFloat01Bits",  "(J)J");
+        this->gen_gaussian_bits_ = jvm.method_of(this->obj_, "genGaussianBits", "(J)J");
+        this->irwin_hall_bits_   = jvm.method_of(this->obj_, "irwinHallBits",  "([J)J");
     }
     ~Impl()
     {
@@ -47,11 +52,45 @@ struct RngSim::Impl
         return result;
     }
 
+    std::uint64_t call_bits(jmethodID method, const char* name, std::uint64_t rnd) const
+    {
+        const auto& jvm = detail::JVMManager::get_instance();
+        const jlong result = jvm.env()->CallLongMethod(
+                this->obj_, method, static_cast<jlong>(rnd));
+        jvm.check_exception(name);
+        return static_cast<std::uint64_t>(result);
+    }
+
+    /** builds the long[] Irwin-Hall takes; the local reference is the
+     *  caller's. */
+    jlongArray new_rnd_array(const std::array<std::uint64_t, 12>& rnds,
+                             const char* name) const
+    {
+        const auto& jvm = detail::JVMManager::get_instance();
+        JNIEnv* env = jvm.env();
+
+        const jsize      n   = static_cast<jsize>(rnds.size());
+        const jlongArray arr = env->NewLongArray(n);
+        if(arr == nullptr)
+        {
+            jvm.check_exception(name);
+            throw std::runtime_error(std::string("rial: ") + name +
+                    ": NewLongArray failed");
+        }
+        env->SetLongArrayRegion(arr, 0, n,
+                reinterpret_cast<const jlong*>(rnds.data()));
+        return arr;
+    }
+
     jobject   obj_;
     jmethodID gen_float12_;
     jmethodID gen_float01_;
     jmethodID gen_gaussian_;
     jmethodID irwin_hall_;
+    jmethodID gen_float12_bits_;
+    jmethodID gen_float01_bits_;
+    jmethodID gen_gaussian_bits_;
+    jmethodID irwin_hall_bits_;
 };
 
 RngSim::RngSim(const RealSpec& spec, const RngConfig& config)
@@ -72,20 +111,29 @@ float RngSim::irwin_hall(const std::array<std::uint64_t, 12>& rnds) const
     const auto& jvm = detail::JVMManager::get_instance();
     JNIEnv* env = jvm.env();
 
-    const jsize      n   = static_cast<jsize>(rnds.size());
-    const jlongArray arr = env->NewLongArray(n);
-    if(arr == nullptr)
-    {
-        jvm.check_exception("RngSim::irwin_hall");
-        throw std::runtime_error("rial: RngSim::irwin_hall: NewLongArray failed");
-    }
-    env->SetLongArrayRegion(arr, 0, n, reinterpret_cast<const jlong*>(rnds.data()));
-
+    const jlongArray arr = impl_->new_rnd_array(rnds, "RngSim::irwin_hall");
     const float result = env->CallFloatMethod(this->impl_->obj_,
             this->impl_->irwin_hall_, arr);
     env->DeleteLocalRef(arr);
     jvm.check_exception("RngSim::irwin_hall");
     return result;
+}
+
+std::uint64_t RngSim::gen_float12_bits (std::uint64_t rnd) const {return impl_->call_bits(impl_->gen_float12_bits_,  "RngSim::gen_float12_bits",  rnd);}
+std::uint64_t RngSim::gen_float01_bits (std::uint64_t rnd) const {return impl_->call_bits(impl_->gen_float01_bits_,  "RngSim::gen_float01_bits",  rnd);}
+std::uint64_t RngSim::gen_gaussian_bits(std::uint64_t rnd) const {return impl_->call_bits(impl_->gen_gaussian_bits_, "RngSim::gen_gaussian_bits", rnd);}
+
+std::uint64_t RngSim::irwin_hall_bits(const std::array<std::uint64_t, 12>& rnds) const
+{
+    const auto& jvm = detail::JVMManager::get_instance();
+    JNIEnv* env = jvm.env();
+
+    const jlongArray arr = impl_->new_rnd_array(rnds, "RngSim::irwin_hall_bits");
+    const jlong result = env->CallLongMethod(this->impl_->obj_,
+            this->impl_->irwin_hall_bits_, arr);
+    env->DeleteLocalRef(arr);
+    jvm.check_exception("RngSim::irwin_hall_bits");
+    return static_cast<std::uint64_t>(result);
 }
 
 // -----------------------------------------------------------------------------
