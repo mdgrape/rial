@@ -255,7 +255,7 @@ object LogSimGeneric {
 }
 
 /** Software entry point: log(x) with the `standard` FP32 configuration.
- *  Used by the JNI binding (jni/, rialcpp). */
+ *  For other configurations, see [[rial.math.MathSim]]. */
 object LogSim {
   import FuncKind.Log
 

@@ -298,7 +298,7 @@ object ATan2Phase2SimGeneric {
 }
 
 /** Software entry point: atan2(y, x) = phase2(phase1(y, x)) with the `standard`
- *  FP32 configuration. Used by the JNI binding (jni/, rialcpp). */
+ *  FP32 configuration. For other configurations, see [[rial.math.MathSim]]. */
 object ATan2Phase2Sim {
   import FuncKind.{Reciprocal, ATan2Phase2}
 

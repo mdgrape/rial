@@ -221,7 +221,7 @@ object ACosPhase2SimGeneric {
 }
 
 /** Software entry point: acos(x) = phase2(phase1(x)) with the `standard` FP32
- *  configuration. Used by the JNI binding (jni/, rialcpp). */
+ *  configuration. For other configurations, see [[rial.math.MathSim]]. */
 object ACosPhase2Sim {
   import FuncKind.{Sqrt, ACosPhase2}
 
