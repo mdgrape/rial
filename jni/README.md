@@ -143,15 +143,24 @@ $ sbt assembly
 $ cd -
 ```
 
-Then, build this repo and install it to your favorite location.
-
-installation prefix MUST BE given via `CMAKE_INSTALL_PREFIX` if you use a directory other than the default.
-If you use `cmake --install ./build --prefix=/path/to/somewhere`, it does not work.
+Then build.
 
 ```console
-$ cmake -B ./build -DCMAKE_INSTALL_PREFIX=/home/${you}/.local
+$ cmake -B ./build
 $ cmake --build ./build
-$ cmake --install ./build
+$ ctest --test-dir ./build
 ```
 
-Then you can use `find_package(rialcpp)`. see `test/`.
+To install, pick a prefix whichever way you like.
+
+```console
+$ cmake --install ./build --prefix /path/to/dir
+```
+
+Then you can use `find_package(rialcpp)`.
+
+### path to `rial.jar`
+
+`<directory holding librialcpp>/../share/rialcpp/rial.jar` is automatically loaded.
+
+Set `RIALCPP_JAR` to a path to override the lookup.
