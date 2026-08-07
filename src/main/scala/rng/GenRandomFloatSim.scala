@@ -22,9 +22,12 @@ object GenRandomFloatSim {
   /** Bit-exact model of [[GenRandomFloat01]]: interpret the rndW-bit input as a
    *  fixed-point fraction rnd / 2^rndW in [0, 1); the leading-zero count sets the
    *  exponent and the bits below the leading 1 form the mantissa. */
-  def genFloat01(rnd: BigInt, rndW: Int, spec: RealSpec): RealGeneric = {
+  def genFloat01(rnd0: BigInt, rndW: Int, spec: RealSpec): RealGeneric = {
     val manW   = spec.manW
     val exBias = spec.exBias
+
+    val rnd = rnd0 & ((BigInt(1) << rndW) - 1)
+
     if (rnd == 0) {
       new RealGeneric(spec, SafeLong(BigInt(0))) // sgn=0, ex=0, man=0
     } else {
