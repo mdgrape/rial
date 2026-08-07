@@ -1,11 +1,11 @@
 #include "rialcpp/JVMManager.hpp"
 
-#ifndef RIAL_JAR_PATH
-#error "RIAL_JAR_PATH must be defined"
-#endif
+#include <dlfcn.h>
 
 #include <array>
 #include <string>
+
+#include <cstdlib>
 
 namespace rial
 {
@@ -18,6 +18,66 @@ namespace
 // static destruction phase, where objects holding global references may still
 // be running their destructors after JVMManager is gone.
 std::atomic<bool> g_jvm_alive{false};
+
+/** Where rial.jar is, worked out at run time rather than baked in.
+ *
+ *  The jar and the library are one unit -- the scala classes have to be the
+ *  ones this build was written against -- so the library looks for the jar
+ *  beside itself:
+ *
+ *      <directory holding librialcpp>/../share/rialcpp/rial.jar
+ *
+ *  which is where `cmake --install` puts it, and where the build tree stages it
+ *  too, so nothing has to be installed to run out of a build directory. Since
+ *  the path is relative to the library rather than absolute, several installs
+ *  can sit side by side and each one finds its own jar; nothing is tied to the
+ *  prefix the library happened to be configured with.
+ *
+ *  `RIALCPP_JAR` overrides it, for pointing a build at a jar somewhere else.
+ */
+std::string resolve_jar_path()
+{
+    if (const char* env = std::getenv("RIALCPP_JAR"); env != nullptr && *env != '\0')
+    {
+        return std::string(env);
+    }
+
+    // any address inside this library will do; dladdr reports the file it was
+    // loaded from.
+    Dl_info info;
+    if (::dladdr(reinterpret_cast<const void*>(&resolve_jar_path), &info) != 0 &&
+        info.dli_fname != nullptr)
+    {
+        std::string self(info.dli_fname);
+
+        // it may be relative to the working directory, which the caller is free
+        // to change later on
+        if (char* abs = ::realpath(self.c_str(), nullptr); abs != nullptr)
+        {
+            self.assign(abs);
+            std::free(abs);
+        }
+
+        // .../lib/librialcpp.so -> .../lib -> ...
+        const auto lib = self.find_last_of('/');
+        if (lib != std::string::npos)
+        {
+            const auto prefix = self.find_last_of('/', lib - 1);
+            if (prefix != std::string::npos)
+            {
+                return self.substr(0, prefix) + "/share/rialcpp/rial.jar";
+            }
+        }
+    }
+
+    return "rial.jar"; // nothing better to go on; let the JVM try the cwd
+}
+
+const std::string& jar_path()
+{
+    static const std::string path = resolve_jar_path();
+    return path;
+}
 } // namespace
 
 bool jvm_is_alive() noexcept
@@ -52,7 +112,7 @@ std::optional<std::string> JVMManager::initialize()
     JavaVMInitArgs vm_args;
     std::array<JavaVMOption, 1> options;
 
-    std::string jarpath("-Djava.class.path=" RIAL_JAR_PATH);
+    std::string jarpath("-Djava.class.path=" + jar_path());
     options.at(0).optionString = jarpath.data();
 
     vm_args.version  = JNI_VERSION_1_8;
@@ -148,7 +208,7 @@ jclass JVMManager::find_class(const std::string& name) const
         this->env_->ExceptionDescribe();
         this->env_->ExceptionClear();
         throw std::runtime_error("rial: class "s + name + " is not found in "s +
-                std::string(RIAL_JAR_PATH));
+                jar_path());
     }
     return cls;
 }
@@ -180,7 +240,7 @@ jobject JVMManager::create_object(const char* class_name, const char* ctor_sig,
         this->env_->DeleteLocalRef(cls);
         throw std::runtime_error("rial: "s + class_name +
                 " has no constructor "s + sig + " in "s +
-                std::string(RIAL_JAR_PATH));
+                jar_path());
     }
 
     const jobject local = this->env_->NewObjectA(cls, ctor, argv.data());
@@ -218,7 +278,7 @@ jobject JVMManager::singleton_object(const char* class_name) const
         this->env_->ExceptionClear();
         this->env_->DeleteLocalRef(cls);
         throw std::runtime_error("rial: "s + objpath +
-                " has no MODULE$ field in "s + std::string(RIAL_JAR_PATH));
+                " has no MODULE$ field in "s + jar_path());
     }
 
     const jobject local = this->env_->GetStaticObjectField(cls, module);
@@ -310,7 +370,7 @@ jmethodID JVMManager::method_of(jobject obj, const char* name, const char* sig) 
     {
         this->env_->ExceptionClear();
         throw std::runtime_error("rial: method "s + name + " : "s + sig +
-                " is not found in "s + std::string(RIAL_JAR_PATH));
+                " is not found in "s + jar_path());
     }
     return method;
 }
