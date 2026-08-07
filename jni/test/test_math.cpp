@@ -1,13 +1,4 @@
-// Loose comparison of MathSim against libm.
-//
-// How accurate the approximation is settled on the Scala side, where it is
-// checked against the hardware; repeating that here would only duplicate it.
-// What is tested here is the binding: that `sqrt` reaches the sqrt table and
-// not some other one, and that the RealSpec and the function set make it across
-// JNI. The tolerance is therefore far above the emulation's own error -- a
-// wrongly bound function is off by orders of magnitude and gets caught, while a
-// change on the Scala side that keeps sqrt an approximation of sqrt does not
-// move it.
+// Loose comparison of MathSim against libm. (strict tests are done in Scala)
 
 #include <rialcpp/config.hpp>
 #include <rialcpp/math.hpp>
@@ -21,12 +12,6 @@
 #include <cmath>
 #include <cstddef>
 
-namespace
-{
-
-/** d/dx log p(x) for the 2-Gaussian mixture scale_mixture_gaussian
- *  approximates, with the Scala side's default sigmas (exp(-1), exp(-6)).
- *  See the header comment of ScaleMixtureGaussianSim.scala. */
 double smg_ref(double x)
 {
     const double sgm_a = std::exp(-1.0);
@@ -145,8 +130,6 @@ rial::MathFuncConfig single_func_config(rial::Func f)
     config.funcs = f;
     return config;
 }
-
-} // namespace
 
 TEST_CASE("MathSim agrees with libm to within 1e-3 in FP32")
 {

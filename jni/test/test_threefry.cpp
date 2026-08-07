@@ -18,9 +18,6 @@
 
 #include <cstdint>
 
-namespace
-{
-
 using word4 = std::array<std::uint32_t, 4>;
 
 word4 reference_threefry4x32(const word4& c, const word4& k, int rounds)
@@ -100,8 +97,6 @@ std::size_t compare(const std::vector<std::pair<word4, word4>>& cases, int round
     }
     return mismatch;
 }
-
-} // namespace
 
 TEST_CASE("threefry4x32-20 matches the Random123 reference")
 {

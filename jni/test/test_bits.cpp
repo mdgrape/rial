@@ -1,12 +1,5 @@
 // rial::to_bits / to_double / to_float against the encoding they are supposed
 // to implement.
-//
-// Where the RealSpec is one of the ordinary IEEE formats the answer is fixed:
-// the bit pattern is the one std::bit_cast produces, and anything else is a
-// binding or a bias bug. Where the spec is narrower there is a choice of
-// rounding, so what is checked is the part that no rounding mode can move: a
-// value the format represents exactly has to come back exactly, and a value it
-// does not has to land on one of the two patterns bracketing it.
 
 #include <rialcpp/config.hpp>
 #include <rialcpp/real.hpp>
@@ -20,9 +13,6 @@
 #include <bit>
 #include <cmath>
 #include <cstdint>
-
-namespace
-{
 
 std::uint64_t mask(int w)
 {
@@ -76,8 +66,6 @@ std::vector<std::uint64_t> normal_patterns(const rial::RealSpec& spec,
     }
     return patterns;
 }
-
-} // namespace
 
 TEST_CASE("to_bits and to_float are bit_cast in FP32")
 {
