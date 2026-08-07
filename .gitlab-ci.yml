@@ -115,7 +115,5 @@ test-rialcpp:
     - cmake -B ./build
     - cmake --build ./build
     - cmake --install ./build
-    - cd test
-    - cmake -B ./build
-    - cmake --build ./build
-    - ./build/main > rialcpp-test.log || (tail -n 50 rialcpp-test.log; exit 1)
+    - ctest --test-dir ./build --output-on-failure
+    - ./build/test/main > rialcpp-test.log || (tail -n 50 rialcpp-test.log; exit 1)

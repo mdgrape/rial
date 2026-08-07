@@ -26,15 +26,11 @@ target_include_directories(random123_lib INTERFACE
 add_executable(main main.cpp)
 target_compile_features(main PRIVATE cxx_std_20)
 target_compile_options (main PRIVATE -Wall -Wextra -Wpedantic)
-target_link_libraries  (main PRIVATE rialcpp random123_lib)
+target_link_libraries  (main PRIVATE rialcpp)
 
 # ------------------------------------------------------------------------------
 
 add_executable(test_rialcpp
-    test_math.cpp
-    test_config.cpp
-    test_bits.cpp
-    test_rng.cpp
     test_threefry.cpp
 )
 target_compile_features(test_rialcpp PRIVATE cxx_std_20)
@@ -43,6 +39,5 @@ target_link_libraries  (test_rialcpp PRIVATE
     rialcpp random123_lib doctest::doctest_with_main
 )
 
-include(CTest)
 include(${doctest_SOURCE_DIR}/scripts/cmake/doctest.cmake)
 doctest_discover_tests(test_rialcpp)
