@@ -31,6 +31,7 @@ target_link_libraries  (main PRIVATE rialcpp)
 # ------------------------------------------------------------------------------
 
 add_executable(test_rialcpp
+    test_math.cpp
     test_threefry.cpp
 )
 target_compile_features(test_rialcpp PRIVATE cxx_std_20)
