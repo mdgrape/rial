@@ -38,27 +38,30 @@ std::string to_hex(const word4& w)
     return oss.str();
 }
 
-constexpr std::uint32_t lo = 0x00000000u;
-constexpr std::uint32_t hi = 0xffffffffu;
-constexpr std::uint32_t sb = 0x80000000u;
-
 // edge cases: all-zero / all-one counters and keys, and the sign bit alone.
-const std::vector<std::pair<word4, word4>> edge_cases{
-    {{{lo, lo, lo, lo}}, {{lo, lo, lo, lo}}},
-    {{{hi, hi, hi, hi}}, {{hi, hi, hi, hi}}},
-    {{{lo, lo, lo, lo}}, {{hi, hi, hi, hi}}},
-    {{{hi, hi, hi, hi}}, {{lo, lo, lo, lo}}},
-    {{{sb, lo, lo, sb}}, {{0x11111111u, 0x22222222u, lo, lo}}},
-    {{{lo, lo, lo, lo}}, {{0x11111111u, 0x22222222u, lo, lo}}},
-    {{{1u, lo, lo, lo}}, {{0x11111111u, 0x22222222u, lo, lo}}},
-    {{{hi, lo, lo, lo}}, {{0x11111111u, 0x22222222u, lo, lo}}},
-};
+std::vector<std::pair<word4, word4>> edge_cases()
+{
+    constexpr std::uint32_t lo = 0x00000000u;
+    constexpr std::uint32_t hi = 0xffffffffu;
+    constexpr std::uint32_t sb = 0x80000000u;
+
+    return {
+        {{{lo, lo, lo, lo}}, {{lo, lo, lo, lo}}},
+        {{{hi, hi, hi, hi}}, {{hi, hi, hi, hi}}},
+        {{{lo, lo, lo, lo}}, {{hi, hi, hi, hi}}},
+        {{{hi, hi, hi, hi}}, {{lo, lo, lo, lo}}},
+        {{{sb, lo, lo, sb}}, {{0x11111111u, 0x22222222u, lo, lo}}},
+        {{{lo, lo, lo, lo}}, {{0x11111111u, 0x22222222u, lo, lo}}},
+        {{{1u, lo, lo, lo}}, {{0x11111111u, 0x22222222u, lo, lo}}},
+        {{{hi, lo, lo, lo}}, {{0x11111111u, 0x22222222u, lo, lo}}},
+    };
+}
 
 // a deterministic sweep over the full parameter space, `n` cases of it.
 std::vector<std::pair<word4, word4>> random_cases(std::size_t n, std::uint32_t seed)
 {
     std::mt19937 rng(seed);
-    std::uniform_int_distribution<std::uint32_t> word(lo, hi);
+    std::uniform_int_distribution<std::uint32_t> word(0x00000000u, 0xffffffffu);
 
     std::vector<std::pair<word4, word4>> cases;
     cases.reserve(n);
@@ -104,7 +107,7 @@ TEST_CASE("threefry4x32-20 matches the Random123 reference")
 {
     SUBCASE("edge cases")
     {
-        CHECK(compare(edge_cases, 20) == 0);
+        CHECK(compare(edge_cases(),20) == 0);
     }
 
     SUBCASE("random counters and keys")
@@ -118,7 +121,7 @@ TEST_CASE("threefry4x32 matches the reference for other round counts")
     for (const int rounds : {1, 2, 3, 4, 5, 13, 32, 72})
     {
         CAPTURE(rounds);
-        CHECK(compare(edge_cases, rounds) == 0);
+        CHECK(compare(edge_cases(),rounds) == 0);
         CHECK(compare(random_cases(64, 19660809 + rounds), rounds) == 0);
     }
 }
