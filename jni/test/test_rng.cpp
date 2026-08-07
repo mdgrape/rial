@@ -64,16 +64,15 @@ TEST_CASE("gen_float01 is the random bits read as a fraction")
     const rial::RngSim rng;
     const int rndW = rng.config().float01W;
 
-    // rng.hpp: "uniform in [0, 1) from the low float01W bits of rnd". Inputs
-    // wider than that are left out on purpose -- they are not masked off on the
-    // way in, so the result leaves [0, 1) (gen_float01(1 << 32) == 1.0).
+    // rng.hpp: "uniform in [0, 1) from the low float01W bits of rnd". The input
+    // is a full 64 bit word, so everything above float01W has to be dropped.
     std::mt19937_64 gen(123456789);
     for (std::size_t i = 0; i < 1000; ++i)
     {
-        const std::uint64_t rnd = gen() & mask(rndW);
+        const std::uint64_t rnd = gen();
         CAPTURE(rnd);
 
-        const double ref = std::ldexp(static_cast<double>(rnd), -rndW);
+        const double ref = std::ldexp(static_cast<double>(rnd & mask(rndW)), -rndW);
         const double got = rng.gen_float01(rnd);
 
         CHECK(std::abs(got - ref) <= ulp_tol(rng.spec()) * std::max(ref, 0.0));
@@ -86,6 +85,23 @@ TEST_CASE("gen_float01 is the random bits read as a fraction")
         CHECK(rng.gen_float01(0) == 0.0f);
         CHECK(rng.gen_float01(mask(rndW)) <  1.0f);
         CHECK(rng.gen_float01(mask(rndW)) >= 1.0f - ulp_tol(rng.spec()));
+    }
+
+    SUBCASE("only the low float01W bits count")
+    {
+        // A sweep reaches the case where the bits to be dropped are the only
+        // ones set with probability 2^-float01W, so those are spelled out: each
+        // of them is the same draw as rnd == 0.
+        for (int i = 0; i < 64 - rndW; ++i)
+        {
+            CAPTURE(i);
+            CHECK(rng.gen_float01(std::uint64_t(1) << (rndW + i)) == 0.0f);
+        }
+        CHECK(rng.gen_float01(~mask(rndW)) == 0.0f);
+
+        // and the low bits read the same whatever sits above them
+        CHECK(rng.gen_float01(1) == rng.gen_float01(~mask(rndW) | 1));
+        CHECK(rng.gen_float01(mask(rndW)) == rng.gen_float01(~std::uint64_t(0)));
     }
 }
 
