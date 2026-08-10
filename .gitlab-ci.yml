@@ -1,5 +1,5 @@
 default:
-  image: 10.5.6.16:5050/mdg5/chipenv:verilator4
+  image: 10.5.6.16:5050/mdg5/chipenv:verilator5
 
 stages:
   - test
@@ -12,6 +12,8 @@ test-arith:
     - sbt "testOnly rial.tests.MultFPTest"
     - sbt "testOnly rial.tests.MultFPIntTest"
     - sbt "testOnly rial.tests.FMAFPTest"
+    - sbt "testOnly rial.tests.FusedMulAddRoundingSpec"
+    - sbt "testOnly rial.tests.FusedMulAddCancellationSpec"
 
 test-fixed:
   stage: test
@@ -26,22 +28,31 @@ test-ecc:
     - sbt "testOnly rial.tests.CRC16Test"
     - sbt "testOnly rial.tests.FletchersChecksumTest"
 
+test-dyn:
+  stage: test
+  script:
+    - sbt "testOnly rial.tests.DynCompareTest"
+    - sbt "testOnly rial.tests.DynMinMaxTest"
+
 test-rng:
   stage: test
   script:
     - make
     - sbt "testOnly rial.tests.ThreefryTest"
     - sbt "testOnly rial.tests.ThreefryGeneratorTest"
+    - sbt "testOnly rial.tests.ThreefryKatTest"
     - sbt "testOnly rial.tests.SquaresTest"
     - sbt "testOnly rial.tests.Squares32GeneratorTest"
     - sbt -J-Xmx4G "testOnly rial.tests.IrwinHallTest"
     - sbt -J-Xmx4G "testOnly rial.tests.IrwinHallGeneratorTest"
-    - sbt "testOnly rial.testsUniform01OpenCloseTest"
-    - sbt "testOnly rial.testsUniform12Test"
-    - sbt "testOnly rial.testsUniform01Test"
-    - sbt "testOnly rial.testsUniform01FullTest"
-    - sbt "testOnly rial.testsUniform01FullPipeTest"
-    - sbt "testOnly rial.testsBoxMullerTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.IrwinHallSimMatchTest"
+    - sbt "testOnly rial.tests.Uniform01Test"
+    - sbt "testOnly rial.tests.Uniform01CloseTest"
+    - sbt "testOnly rial.tests.Uniform12Test"
+    - sbt "testOnly rial.tests.GenRandomFloatSimMatchTest"
+    - sbt "testOnly rial.tests.GenGaussianTest"
+    - sbt "testOnly rial.tests.GenGaussianTailTest"
+    - sbt "testOnly rial.tests.GenRandomGaussianSimMatchTest"
 
 test-math-simple:
   stage: test
