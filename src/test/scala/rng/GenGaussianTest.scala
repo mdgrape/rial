@@ -45,11 +45,10 @@ class GenGaussianTest extends AnyFunSpec
     rndW: Int,
     spec: RealSpec,
     nOrder: Int,
-    polyStage: Int,
-    mulStage: Int,
+    stage: PipelineStageConfig,
   ) = {
-    it(f"GenGaussian(x) chi^2 w/ ${spec.toStringShort}, stage=(${polyStage}, ${mulStage})") {
-      simulate(new GenRandomGaussian(rndW, spec, nOrder, polyStage, mulStage)) { c =>
+    it(f"GenGaussian(x) chi^2 w/ ${spec.toStringShort}, stage=(${stage.getString})") {
+      simulate(new GenRandomGaussian(rndW, spec, nOrder, stage)) { c =>
         {
           val zs = scala.collection.mutable.ArrayBuffer.empty[Double]
 
@@ -139,20 +138,30 @@ class GenGaussianTest extends AnyFunSpec
     }
   }
 
+  // combinational
   runTest(
-    rndW      = 64,
-    spec      = RealSpec.Float32Spec,
-    nOrder    = 3,
-    polyStage = 0,
-    mulStage  = 0,
+    rndW   = 64,
+    spec   = RealSpec.Float32Spec,
+    nOrder = 3,
+    stage  = PipelineStageConfig.none,
   )
 
-  // runTest(
-  //   rndW      = 64,
-  //   spec      = RealSpec.Float32Spec,
-  //   nOrder    = 3,
-  //   polyStage = 3,
-  //   mulStage  = 2,
-  //
-  // )
+  // placed by the module; three registers already reach inside the polynomial
+  runTest(
+    rndW   = 64,
+    spec   = RealSpec.Float32Spec,
+    nOrder = 3,
+    stage  = PipelineStageConfig.default(3),
+  )
+
+  // one register at every declared boundary, the ones of the polynomial
+  // included
+  runTest(
+    rndW   = 64,
+    spec   = RealSpec.Float32Spec,
+    nOrder = 3,
+    stage  = PipelineStageConfig.specify(
+      "in" -> 1, "table" -> 1, "poly.step1" -> 1, "poly.step2" -> 1,
+      "poly.step3" -> 1, "poly.out" -> 1, "mul" -> 1, "out" -> 1),
+  )
 }

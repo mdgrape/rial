@@ -11,6 +11,7 @@ import org.apache.commons.math3.special.Erf
 
 import rial.arith.{RealSpec, RealGeneric}
 import rial.rng._
+import rial.util.PipelineStageConfig
 
 import scala.math._
 
@@ -99,7 +100,7 @@ class GenGaussianTailTest extends AnyFunSpec with ChiselSim with EmitVcd {
     // intervals (multiple comparisons push the max up).
     val threshold   = 3.0
 
-    simulate(new GenRandomGaussian(rndW, spec, nOrder, 0, 0)) { c =>
+    simulate(new GenRandomGaussian(rndW, spec, nOrder, PipelineStageConfig.none)) { c =>
       c.io.rnd.valid.poke(true.B)
       var worstChi2 = 0.0
       var worstK    = -1
@@ -120,7 +121,7 @@ class GenGaussianTailTest extends AnyFunSpec with ChiselSim with EmitVcd {
         for (_ <- 0 until n) {
           val rnd = tailInput(k)
           c.io.rnd.bits.poke(rnd.U(rndW.W))
-          c.clock.step(1) // push input through the 1-cycle input Pipe
+          c.clock.step(1 + c.getStage) // hold the input and flush the pipeline
           val zi = c.io.z.bits.peek().litValue
           val az = abs(new RealGeneric(spec, zi).toDouble)
           if (az < a - tol || az >= b + tol) outOfRange += 1
@@ -177,7 +178,7 @@ class GenGaussianTailTest extends AnyFunSpec with ChiselSim with EmitVcd {
     val xHi   = pow(2.0, -(xex0Width + 1))            // 2^-40, near |z| ~ 7.14
     val xLo   = pow(2.0, -(xex0Width + manW + 1))     // 2^-63, near the cap ~9.1
 
-    simulate(new GenRandomGaussian(rndW, spec, nOrder, 0, 0)) { c =>
+    simulate(new GenRandomGaussian(rndW, spec, nOrder, PipelineStageConfig.none)) { c =>
       c.io.rnd.valid.poke(true.B)
       val counts = Array.fill(nbins)(0)
       var outOfRange = 0
@@ -186,7 +187,7 @@ class GenGaussianTailTest extends AnyFunSpec with ChiselSim with EmitVcd {
       for (_ <- 0 until n) {
         val rnd = tailInput(xex0Width) // xex0 == 0 -> deepest bucket
         c.io.rnd.bits.poke(rnd.U(rndW.W))
-        c.clock.step(1)
+        c.clock.step(1 + c.getStage)
         val az    = abs(new RealGeneric(spec, c.io.z.bits.peek().litValue).toDouble)
         zmin = min(zmin, az); zmax = max(zmax, az); zsum += az
         val xObs  = Erf.erfc(az / sqrt2)
@@ -226,13 +227,13 @@ class GenGaussianTailTest extends AnyFunSpec with ChiselSim with EmitVcd {
   // A spike (|z| ~ 2*edge) makes x_obs = erfc(|z|/sqrt2) collapse far below the
   // octave's shallow x; require it to stay close instead.
   it("no 2x-magnitude spike at octave shallow endpoints (xman mantissa = 0)") {
-    simulate(new GenRandomGaussian(rndW, spec, nOrder, 0, 0)) { c =>
+    simulate(new GenRandomGaussian(rndW, spec, nOrder, PipelineStageConfig.none)) { c =>
       c.io.rnd.valid.poke(true.B)
       val bad = scala.collection.mutable.ArrayBuffer.empty[String]
 
       def check(label: String, rnd: BigInt, shallowX: Double): Unit = {
         c.io.rnd.bits.poke(rnd.U(rndW.W))
-        c.clock.step(1)
+        c.clock.step(1 + c.getStage)
         val az   = abs(new RealGeneric(spec, c.io.z.bits.peek().litValue).toDouble)
         val xObs = Erf.erfc(az / sqrt2)
         // a 2x spike pushes |z| to ~2*edge, so x_obs ~ shallowX^2 << shallowX.

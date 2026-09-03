@@ -8,6 +8,7 @@ import chisel3.simulator.scalatest.HasCliOptions.CliOption
 
 import rial.rng._
 import rial.arith.RealSpec
+import rial.util.PipelineStageConfig
 
 import scala.util.Random
 
@@ -61,14 +62,14 @@ class GenRandomGaussianSimMatchTest extends AnyFunSpec with ChiselSim with EmitV
 
   it("GenRandomGaussian HW == GenRandomGaussianSim across every interval window") {
     val n = getOption[Int]("n").getOrElse(16)
-    simulate(new GenRandomGaussian(rndW, spec, nOrder, 0, 0, lump)) { c =>
+    simulate(new GenRandomGaussian(rndW, spec, nOrder, PipelineStageConfig.none, lump)) { c =>
       c.io.rnd.valid.poke(true.B)
       var checked = 0
       val fails = scala.collection.mutable.ArrayBuffer.empty[String]
 
       def check(window: String, rnd: BigInt): Unit = {
         c.io.rnd.bits.poke(rnd.U(rndW.W))
-        c.clock.step(1) // push through the 1-cycle input Pipe
+        c.clock.step(1 + c.getStage) // hold the input and flush the pipeline
         val hw  = c.io.z.bits.peek().litValue
         val sim = GenRandomGaussianSim.genGaussian(rnd, rndW, spec, nOrder, lump).value.toBigInt
         checked += 1
