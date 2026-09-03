@@ -123,13 +123,7 @@ class FloatToFixedGeneric(
 
   //----------------------------------------------------------------------
   // S2 : alignment shift
-  val zTmpWidth = xSpec.manW + 1 + zSpec.W
   val zTmp      = Cat(xmanW1Unpack, Fill(zSpec.W, 0.U(1.W)))
-  val zTmpEx    = if(yintW.isEmpty) {
-    zSpec.intW - 1
-  } else {
-    (zSpec.W - 1).U - yUnpack.get // intW = totalW - fracW
-  }
 
   // one extra bit so a full-width shift (= zSpec.W, needed when the
   // scaled magnitude lies in [0.5, 1) and only the round/sticky bits

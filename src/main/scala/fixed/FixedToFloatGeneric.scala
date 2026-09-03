@@ -153,10 +153,12 @@ class FixedToFloatGeneric(
     val padding = zSpec.manW+1 - xSpec.W
     assert(0 < padding)
     zman0 := Cat(xShiftedNorm(xSpec.W-2, 0), Fill(padding, 0.U(1.W)))
+    zexInc := 0.U // no rounding, so no carry into the exponent
 
   } else if(xSpec.W == zSpec.manW+1) {
     // no padding needed
     zman0 := xShiftedNorm(zSpec.manW-1, 0) // remove the leading 1
+    zexInc := 0.U // no rounding, so no carry into the exponent
 
   } else if(xSpec.W == zSpec.manW+2) {
     // rounding, but sticky bit is always 0

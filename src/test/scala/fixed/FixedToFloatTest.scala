@@ -109,6 +109,15 @@ class FixedToFloatTest extends AnyFunSpec with ChiselSim with EmitVcd {
         RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-1))
 
     }
+    // Inputs narrower than the output mantissa: no rounding is needed.
+    it(f"Converter signed Q8 (16 bit) to Float with pipereg 0") {
+      convTest( new FixedSpec(16, 8, true, true), None, RealSpec.Float32Spec,
+        RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 16-8-1))
+    }
+    it(f"Converter signed Q16 to Double with pipereg 0") {
+      convTest( new FixedSpec(32, 16, true, true), None, RealSpec.Float64Spec,
+        RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-16-1))
+    }
   }
 
   // Pipelined configurations. A representative subset only: one verilator
