@@ -2,7 +2,7 @@ package rial.tests
 
 import org.scalatest.funspec.AnyFunSpec
 
-import rial.util.{PipelineStageConfig, PipelineStages, StagePoint}
+import rial.util.{PipelineStageConfig, PipelineStages, StageElem, StageGroup, StagePoint}
 
 /** Pure-Scala unit tests of the pipeline stage placement.
  *
@@ -303,16 +303,317 @@ class PipelineStageConfigTest extends AnyFunSpec {
 
   /** [[segmentsOf]] for an arbitrary point list. */
   def segmentsOf0(points: Seq[StagePoint], s: PipelineStages): Seq[Double] = {
+    flatSegments(points.map(p => p.name -> p.weight), s)
+  }
+
+  // ==========================================================================
+  // hierarchy
+  // ==========================================================================
+
+  /** The boundary list of a submodule, in the style of a polynomial. */
+  val child: Seq[StagePoint] = Seq(
+    StagePoint("step1", 3), StagePoint("step2", 3), StagePoint("out", 1))
+
+  /** A parent that instantiates that submodule on its datapath. */
+  val parent: Seq[StageElem] = Seq(
+    StagePoint("addr", 2), StageGroup("poly", child), StagePoint("out", 2))
+
+  /** The flattened form of [[parent]]: name and weight, in datapath order. */
+  val parentFlat: Seq[(String, Double)] = Seq(
+    "addr" -> 2.0, "poly.in" -> 0.0, "poly.step1" -> 3.0,
+    "poly.step2" -> 3.0, "poly.out" -> 1.0, "out" -> 2.0)
+
+  /** lengths of the segments left by the cuts of a flattened point list */
+  def flatSegments(flat: Seq[(String, Double)], s: PipelineStages): Seq[Double] = {
     val b = Seq.newBuilder[Double]
     var acc = 0.0
-    for (p <- points) {
-      acc += p.weight
-      if ((p.name != "out") && (s.at(p.name) > 0)) {
+    for ((n, w) <- flat) {
+      acc += w
+      if ((n != "out") && (s.at(n) > 0)) {
         b += acc
         acc = 0.0
       }
     }
     b += acc
     b.result()
+  }
+
+  /** names of the flattened points that carry a register, in datapath order */
+  def flatCuts(flat: Seq[(String, Double)], s: PipelineStages): Seq[String] = {
+    flat.map(_._1).filter(n => s.at(n) > 0)
+  }
+
+  describe("PipelineStageConfig.resolve: a group of points") {
+
+    it("flattens a group into dot separated names") {
+      val s = PipelineStageConfig.none.resolve(parent)
+      assert(s.getString ==
+        "in:0 addr:0 poly.in:0 poly.step1:0 poly.step2:0 poly.out:0 out:0")
+      assert(s.total == 0)
+    }
+
+    it("balances the whole hierarchy at once") {
+      val s1 = PipelineStageConfig.default(1).resolve(parent)
+      // 2+0+3 | 3+1+2 is the best single cut
+      assert(flatCuts(parentFlat, s1) == Seq("poly.step1"))
+      assert(flatSegments(parentFlat, s1) == Seq(5.0, 6.0))
+
+      val s2 = PipelineStageConfig.default(2).resolve(parent)
+      assert(flatCuts(parentFlat, s2) == Seq("poly.step1", "poly.step2"))
+      assert(flatSegments(parentFlat, s2) == Seq(5.0, 3.0, 3.0))
+
+      val s3 = PipelineStageConfig.default(3).resolve(parent)
+      assert(flatCuts(parentFlat, s3) ==
+        Seq("addr", "poly.step1", "poly.step2"))
+      assert(flatSegments(parentFlat, s3) == Seq(2.0, 3.0, 3.0, 3.0))
+    }
+
+    it("never picks the 'in' of a group automatically") {
+      for (n <- 0 to 4) {
+        val s = PipelineStageConfig.default(n).resolve(parent)
+        assert(s.at("poly.in") == 0, s"poly.in was cut for n=$n")
+      }
+      // every other internal point is cut before the surplus is stacked
+      val s = PipelineStageConfig.default(4).resolve(parent)
+      assert(flatCuts(parentFlat, s) ==
+        Seq("addr", "poly.step1", "poly.step2", "poly.out"))
+    }
+
+    it("stacks the surplus inside the group when it is the longest segment") {
+      val s = PipelineStageConfig.default(5).resolve(parent)
+      assert(s.total == 5)
+      assert(s.at("poly.step1") == 2)
+    }
+
+    it("accepts a dotted name in specify") {
+      val s = PipelineStageConfig.specify("poly.step2" -> 1, "addr" -> 1).resolve(parent)
+      assert(s.total == 2)
+      assert(flatCuts(parentFlat, s) == Seq("addr", "poly.step2"))
+    }
+
+    it("reads the name of a group as the group's out") {
+      val s = PipelineStageConfig.specify("poly" -> 2).resolve(parent)
+      assert(s.total == 2)
+      assert(s.at("poly.out") == 2)
+      assert(s.at("poly") == 2)
+      assert(flatCuts(parentFlat, s) == Seq("poly.out"))
+    }
+
+    it("places the automatic registers around a register inside the group") {
+      val c = PipelineStageConfig(Map("poly.step2" -> 1), auto = 1)
+      val s = c.resolve(parent)
+      assert(s.total == 2)
+      assert(flatCuts(parentFlat, s) == Seq("poly.step1", "poly.step2"))
+    }
+
+    it("keeps total invariant for every n") {
+      for (n <- 0 to 8) {
+        val c = PipelineStageConfig.default(n)
+        assert(c.resolve(parent).total == n, s"total mismatch for n=$n")
+      }
+    }
+
+    it("lists the dotted names when a name is unknown") {
+      val e = intercept[IllegalArgumentException] {
+        PipelineStageConfig.specify("step1" -> 1).resolve(parent)
+      }
+      val m = e.getMessage
+      for ((n, _) <- parentFlat) {
+        assert(m.contains(n), s"message should list '$n': $m")
+      }
+      assert(m.contains("poly"))
+    }
+
+    it("rejects a malformed child list") {
+      intercept[IllegalArgumentException] { // the child does not end with 'out'
+        PipelineStageConfig.none.resolve(Seq(
+          StageGroup("poly", Seq(StagePoint("step1", 1))), StagePoint("out", 1)))
+      }
+      intercept[IllegalArgumentException] { // '.' is reserved
+        PipelineStageConfig.none.resolve(Seq(
+          StagePoint("a.b", 1), StagePoint("out", 1)))
+      }
+    }
+  }
+
+  describe("PipelineStages.sub: handing a group down to a submodule") {
+
+    it("reproduces the parent's decision in the submodule") {
+      for (n <- 0 to 6) {
+        val s = PipelineStageConfig.default(n).resolve(parent)
+        val c = s.sub("poly")
+        assert(c.auto == 0)
+        val inner = c.resolve(child)
+        for (p <- child) {
+          assert(inner.at(p.name) == s.at("poly." + p.name),
+            s"mismatch at '${p.name}' for n=$n")
+        }
+        assert(inner.at("in") == s.at("poly.in"))
+        assert(inner.total == s.at("poly.in") + child.map(p => s.at("poly." + p.name)).sum)
+      }
+    }
+
+    it("works through two levels of hierarchy") {
+      val outer: Seq[StageElem] = Seq(
+        StagePoint("pre", 2),
+        StageGroup("a", Seq(StagePoint("x", 3), StageGroup("b", child),
+          StagePoint("out", 1))),
+        StagePoint("out", 1))
+      val s = PipelineStageConfig.default(4).resolve(outer)
+      assert(namesOf(s) == Seq("in", "pre", "a.in", "a.x", "a.b.in",
+        "a.b.step1", "a.b.step2", "a.b.out", "a.out", "out"))
+      val inner = s.sub("a")
+      val innerPoints: Seq[StageElem] =
+        Seq(StagePoint("x", 3), StageGroup("b", child), StagePoint("out", 1))
+      val ri = inner.resolve(innerPoints)
+      assert(ri.at("x") == s.at("a.x"))
+      assert(ri.at("b.step1") == s.at("a.b.step1"))
+      assert(ri.at("b.out") == s.at("a.b.out"))
+      assert(ri.at("out") == s.at("a.out"))
+      // and one level further down
+      val leaf = ri.sub("b").resolve(child)
+      assert(leaf.at("step1") == s.at("a.b.step1"))
+      assert(leaf.at("out") == s.at("a.b.out"))
+    }
+
+    it("rejects an unknown group") {
+      val s = PipelineStageConfig.default(2).resolve(parent)
+      val e = intercept[IllegalArgumentException] {
+        s.sub("nope")
+      }
+      assert(e.getMessage.contains("poly"))
+    }
+  }
+
+  // ==========================================================================
+  // the exact placement, checked against a brute force
+  // ==========================================================================
+
+  /** All the ways to place `n` cuts among `avail`, best first.
+   *
+   * The cost of a placement is (longest segment, sum of squared segment
+   * lengths, cut indices), compared lexicographically: exactly what
+   * [[rial.util.PipelineStageConfig.resolve]] is expected to minimise.
+   */
+  def bruteForce(weights: Seq[Double], forced: Set[Int], avail: Seq[Int],
+    n: Int): (Double, Double, Seq[Int]) = {
+    val nPoints = weights.length
+    def segs(cuts: Set[Int]): Seq[Double] = {
+      val b = Seq.newBuilder[Double]
+      var acc = 0.0
+      for (i <- 0 until nPoints) {
+        acc += weights(i)
+        if (cuts.contains(i)) {
+          b += acc
+          acc = 0.0
+        }
+      }
+      b += acc
+      b.result()
+    }
+    var best: (Double, Double, Seq[Int]) = null
+    for (sel <- avail.combinations(n)) {
+      val s = segs(forced ++ sel)
+      val c = (s.max, s.map(x => x * x).sum, sel.sorted.toSeq)
+      if ((best == null) || cheaper(c, best)) {
+        best = c
+      }
+    }
+    best
+  }
+
+  /** Lexicographic comparison of two brute force costs. */
+  def cheaper(a: (Double, Double, Seq[Int]), b: (Double, Double, Seq[Int])): Boolean = {
+    if (a._1 != b._1) {
+      a._1 < b._1
+    } else if (a._2 != b._2) {
+      a._2 < b._2
+    } else {
+      a._3.zip(b._3).find { case (x, y) => x != y } match {
+        case Some((x, y)) => {
+          x < y
+        }
+        case None => {
+          a._3.length < b._3.length
+        }
+      }
+    }
+  }
+
+  /** The declared point names, in datapath order, from a resolved result. */
+  def namesOf(s: PipelineStages): Seq[String] = {
+    s.getString.split(" ").toSeq.map(t => t.substring(0, t.lastIndexOf(':')))
+  }
+
+  describe("PipelineStageConfig.resolve: exact placement") {
+
+    it("matches a brute force on random point lists") {
+      val rng = new scala.util.Random(20240517)
+      for (trial <- 0 until 400) {
+        val k = 2 + rng.nextInt(9) // 2 .. 10 points, 'out' included
+        val weights = Seq.fill(k)(1.0 + rng.nextInt(5))
+        val points = (0 until k - 1).map(i => StagePoint(s"p$i", weights(i))) :+
+          StagePoint("out", weights(k - 1))
+        val internal = (0 until k - 1)
+        // cut a few points explicitly, place the rest automatically
+        val forced = internal.filter(_ => rng.nextInt(4) == 0).toSet
+        val avail  = internal.filterNot(forced.contains)
+        val n = if (avail.isEmpty) {
+          0
+        } else {
+          rng.nextInt(avail.length + 1)
+        }
+        val cfg = PipelineStageConfig(
+          explicit = forced.map(i => points(i).name -> 1).toMap, auto = n)
+        val s = cfg.resolve(points)
+        assert(s.total == forced.size + n, s"total mismatch in trial $trial")
+        val got = internal.filter(i => s.at(points(i).name) > 0)
+          .filterNot(forced.contains)
+        val (bestMax, bestSq, bestSel) = bruteForce(weights, forced, avail, n)
+        val segs = flatSegments(points.map(p => p.name -> p.weight), s)
+        assert(segs.max == bestMax,
+          s"trial $trial: longest segment ${segs.max} != $bestMax " +
+          s"(weights $weights, forced $forced, n=$n)")
+        assert(segs.map(x => x * x).sum == bestSq,
+          s"trial $trial: sum of squares mismatch (weights $weights)")
+        assert(got == bestSel,
+          s"trial $trial: cuts $got != $bestSel (weights $weights)")
+      }
+    }
+
+    it("matches a brute force on random hierarchies") {
+      val rng = new scala.util.Random(19660809)
+      for (trial <- 0 until 200) {
+        val nInner = 1 + rng.nextInt(4)
+        val innerW = Seq.fill(nInner + 1)(1.0 + rng.nextInt(5))
+        val inner: Seq[StagePoint] =
+          (0 until nInner).map(i => StagePoint(s"q$i", innerW(i))) :+
+            StagePoint("out", innerW(nInner))
+        val nPre  = 1 + rng.nextInt(3)
+        val preW  = Seq.fill(nPre)(1.0 + rng.nextInt(5))
+        val postW = 1.0 + rng.nextInt(5)
+        val points: Seq[StageElem] =
+          (0 until nPre).map(i => StagePoint(s"p$i", preW(i))) ++
+          Seq(StageGroup("g", inner), StagePoint("out", postW))
+
+        val flatNames = (0 until nPre).map(i => s"p$i") ++ Seq("g.in") ++
+          (0 until nInner).map(i => s"g.q$i") ++ Seq("g.out", "out")
+        val flatW = preW ++ Seq(0.0) ++ innerW.init ++
+          Seq(innerW(nInner), postW)
+        val k = flatW.length
+        // 'g.in' is never available to the automatic placement
+        val avail = (0 until k - 1).filterNot(_ == nPre)
+
+        val n = rng.nextInt(avail.length + 1)
+        val s = PipelineStageConfig.default(n).resolve(points)
+        assert(s.total == n)
+        val got = avail.filter(i => s.at(flatNames(i)) > 0)
+        val (bestMax, bestSq, bestSel) = bruteForce(flatW, Set.empty, avail, n)
+        val segs = flatSegments(flatNames.zip(flatW), s)
+        assert(segs.max == bestMax, s"trial $trial: $segs vs $bestMax")
+        assert(segs.map(x => x * x).sum == bestSq, s"trial $trial: $segs")
+        assert(got == bestSel, s"trial $trial: $got != $bestSel")
+      }
+    }
   }
 }

@@ -7,13 +7,69 @@ import rial.util._
 import chisel3._
 import chisel3.util._
 
+/** Evaluates one interval polynomial with Horner's scheme.
+ *
+ * The coefficients of the interval and, for a polynomial of order greater than
+ * zero, the position `x` inside it are given on `io.in`; the result is
+ * `io.out`, an unsigned value in `[0.0, 1.0)` scaled by `1 << bitW.outBitW`.
+ *
+ * The pipeline registers are placed by [[rial.util.PipelineStageConfig]]. The
+ * declared boundaries, in datapath order, are
+ *
+ *  - `"step1"` ... `"stepN"` (`N` = `bitW.nOrder`): one boundary after each
+ *    multiply-add of Horner's scheme. The accumulator, `x`, the coefficients
+ *    still to be used and the `valid` flag cross these boundaries;
+ *  - `"out"`: the module output. The clamping of the result belongs to the
+ *    logic just before it.
+ *
+ * A polynomial of order zero is a plain table lookup and declares `"out"`
+ * only. `"in"` is implicit, as always.
+ *
+ * {{{
+ * // let the module place two registers
+ * new PolynomialEval(bitW, PipelineStageConfig.default(2))
+ * // one register after the first multiply-add
+ * new PolynomialEval(bitW, PipelineStageConfig.specify("step1" -> 1))
+ * // all the registers at the output, which is what a plain Int means
+ * new PolynomialEval(bitW, 2)
+ * }}}
+ *
+ * @constructor create a chisel Module PolynomialEval
+ * @param bitW           widths of the input, the coefficients and the
+ *                       intermediate results
+ * @param stage          pipeline configuration of this module
+ * @param clampNegToZero clamp a negative result to zero instead of letting it
+ *                       wrap around
+ *
+ * @see [[rial.util.PipelineStageConfig]]
+ * @see [[rial.util.StagePoint]]
+ */
 class PolynomialEval(
   bitW: PolynomialBitWidth,
-  stage: Int,
+  stage: PipelineStageConfig,
   clampNegToZero: Boolean = false,
 ) extends Module {
 
+  /** `n` registers at the output, as a plain `Int` has always meant here. */
+  def this(bitW: PolynomialBitWidth, stage: Int, clampNegToZero: Boolean) = {
+    this(bitW, PipelineStageConfig.atOut(stage), clampNegToZero)
+  }
+
+  /** `n` registers at the output, as a plain `Int` has always meant here. */
+  def this(bitW: PolynomialBitWidth, stage: Int) = {
+    this(bitW, PipelineStageConfig.atOut(stage), false)
+  }
+
   val order = bitW.nOrder
+
+  /** Boundaries of the datapath at which pipeline registers can be placed. */
+  val stagePoints = PolynomialEval.stagePoints(order)
+
+  val stages = stage.resolve(stagePoints)
+
+  val nStage = stages.total
+
+  def getStage = nStage
 
   val io = IO(new Bundle {
     val in = Flipped(Valid(new Bundle {
@@ -23,8 +79,21 @@ class PolynomialEval(
     val out = Valid(UInt(bitW.outBitW.W)) // [0.0, 1.0)
   })
 
-  val out = WireDefault(0.U(bitW.outBitW.W))
-  io.out := Pipe(io.in.valid, out, stage)
+  // ----------------------------------------------------------------------
+  // input registers ("in")
+
+  val nIn      = stages.at("in")
+  val validIn  = ShiftRegister(io.in.valid, nIn, false.B, true.B)
+  val coeffsIn = ShiftRegister(io.in.bits.coeffs, nIn)
+  val xInOpt   = if (order != 0) {
+    Some(ShiftRegister(io.in.bits.x.get, nIn))
+  } else {
+    None
+  }
+
+  val out      = WireDefault(0.U(bitW.outBitW.W))
+  val validOut = WireDefault(false.B)
+  io.out := Pipe(validOut, out, stages.at("out"))
 
   if(order == 0) {
     assert(bitW.coefBits.length == 1)
@@ -32,16 +101,16 @@ class PolynomialEval(
     assert(bitW.outBitW+1 == bitW.coefBits.reduce(_+_),
       f"outBitW=${bitW.outBitW}, coefBits=${bitW.coefBits.mkString("[",",","]")}, "+
       f"sum=${bitW.coefBits.reduce(_+_)}")
-    assert(!io.in.valid || io.in.bits.coeffs(0).asUInt(bitW.outBitW) === 0.U,
+    assert(!validIn || coeffsIn(0).asUInt(bitW.outBitW) === 0.U,
       "if nOrder==0, coefficient must be in [0, 1) and the MSB must be zero")
 
-    out := io.in.bits.coeffs(0).asUInt(bitW.outBitW-1, 0) // if order==0, then there is only one parameter.
+    out := coeffsIn(0).asUInt(bitW.outBitW-1, 0) // if order==0, then there is only one parameter.
+
+    validOut := validIn
 
   } else {
 
     // conversion to SInt (-1 ~ +1 range) must be done outside
-    val x      = io.in.bits.x.get
-    val coeffs = io.in.bits.coeffs
     val xPrec  = bitW.inPrec
 
     //           ((c2) * x + c1) * x + c0
@@ -50,28 +119,42 @@ class PolynomialEval(
     // accVec(0)= ^^^^^^^^^^^^^^^^^^^^^^^ -> out
     //
     val accVec = Wire(MixedVec((0 to order).map(k => SInt(bitW.calcBits(k).W))))
-    accVec(order) := coeffs(order)
+    accVec(order) := coeffsIn(order)
+
+    // the signals that cross the "step" boundaries: the accumulator, x, the
+    // coefficients that are still to be used, and valid
+    var accCur   = accVec(order)
+    var xCur     = xInOpt.get
+    var coefCur  = coeffsIn
+    var validCur = validIn
 
     for(k <- (order-1) to 0 by -1) {
-      val prev    = accVec(k+1)
-      val xminW   = min(prev.getWidth, xPrec) // min(calcBits, xPrec)
-      val prod    = x(xPrec, xPrec - xminW).asSInt * prev
-      val sumFull = (prod >> xminW).asSInt +& coeffs(k)
+      val xminW   = min(accCur.getWidth, xPrec) // min(calcBits, xPrec)
+      val prod    = xCur(xPrec, xPrec - xminW).asSInt * accCur
+      val sumFull = (prod >> xminW).asSInt +& coefCur(k)
       accVec(k) := sumFull // drop the MSB (carry)
 
-      assert(!io.in.valid || (k == 0).B || accVec(k) === sumFull, "PolynomialEval: horner "+
+      assert(!validCur || (k == 0).B || accVec(k) === sumFull, "PolynomialEval: horner "+
         f"intermediate (k=${k}) overflowed calcBits=${bitW.calcBits(k)}")
+
+      val nStep = stages.at(s"step${order - k}")
+      accCur   = ShiftRegister(accVec(k), nStep)
+      xCur     = ShiftRegister(xCur,      nStep)
+      coefCur  = ShiftRegister(coefCur,   nStep)
+      validCur = ShiftRegister(validCur,  nStep, false.B, true.B)
     }
 
     val resMax = Fill(bitW.outBitW, 1.U(1.W))
     if (clampNegToZero) {
-      val res = accVec(0)
+      val res = accCur
       out := Mux(res < 0.S, 0.U,
                Mux(res > resMax.zext, resMax, res(bitW.outBitW-1, 0)))
     } else {
-      val res = accVec(0).asUInt
+      val res = accCur.asUInt
       out := Mux(res > resMax, resMax, res)
     }
+
+    validOut := validCur
   }
 }
 
@@ -79,6 +162,19 @@ class PolynomialEval(
 // software
 
 object PolynomialEval {
+
+  /** Boundaries of the datapath of a polynomial of order `nOrder`.
+   *
+   * One boundary after each multiply-add of Horner's scheme, named `"step1"`
+   * to `"stepN"` in evaluation order, then the module output. A polynomial of
+   * order zero is a plain table lookup and has no `"step"` boundary. The
+   * weights are rough, target-independent estimates of the delay of the logic
+   * that ends at each boundary: a multiply-add against the final clamp and
+   * select.
+   */
+  def stagePoints(nOrder: Int): Seq[StagePoint] = {
+    (1 to nOrder).map(k => StagePoint(s"step$k", 3.0)) :+ StagePoint("out", 1.0)
+  }
 
   private def evalInterval(
     x: BigInt,
