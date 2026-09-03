@@ -231,5 +231,73 @@ class FMAFPTest extends AnyFunSpec with ChiselSim with EmitVcd {
         RealSpec.BFloat16Spec, RoundSpec.roundToEven, n, PipelineStageConfig.default(3))
     }
   }
+
+  // Every sign combination of the cases where the result is a zero whose sign
+  // is decided by IEEE 754 (2019) 6.3 rather than by the datapath:
+  //  - a zero product plus a zero addend, of every sign combination
+  //  - a product that underflows to zero plus a zero addend
+  //  - a zero product plus a normal addend
+  def zeroSignTriples( spec : RealSpec ) = {
+    val sgns = Seq(0, 1)
+    def zero( s : Int ) = {
+      new RealGeneric(spec, s, 0, 0)
+    }
+    def a( s : Int ) = {
+      new RealGeneric(spec, s, spec.exBias+2, maskSL(spec.manW-1))
+    }
+    def c( s : Int ) = {
+      new RealGeneric(spec, s, spec.exBias-5, maskSL(spec.manW)-1)
+    }
+    // the smallest normal : its square underflows to zero
+    def tiny( s : Int ) = {
+      new RealGeneric(spec, s, 1, 0)
+    }
+    val triples = for(xs <- sgns; ys <- sgns; zs <- sgns) yield {
+      Seq((zero(xs), zero(ys), zero(zs)), // (+-0) * (+-0) + (+-0)
+          (zero(xs), a   (ys), zero(zs)), // (+-0) * (+-a) + (+-0)
+          (a   (xs), zero(ys), zero(zs)), // (+-a) * (+-0) + (+-0)
+          (tiny(xs), tiny(ys), zero(zs)), // underflowing product  + (+-0)
+          (zero(xs), zero(ys), c   (zs))) // (+-0) * (+-0) + (+-c)
+    }
+    triples.flatten
+  }
+
+  def fmaZeroSignTest( spec : RealSpec, roundSpec : RoundSpec ) = {
+    simulate(new FusedMulAddFPGeneric( spec, spec, spec, spec, roundSpec,
+      PipelineStageConfig.none, true )) { c =>
+      {
+        c.debugEnableIO.get.poke(false.B)
+
+        for((xr, yr, zr) <- zeroSignTriples(spec)) {
+          val xi = xr.value.toBigInt
+          val yi = yr.value.toBigInt
+          val zi = zr.value.toBigInt
+
+          val wid = xr.fmadd(spec, roundSpec, yr, zr).value.toBigInt
+
+          c.io.x.poke(xi.U(spec.W.W))
+          c.io.y.poke(yi.U(spec.W.W))
+          c.io.z.poke(zi.U(spec.W.W))
+
+          val wi0 = c.io.w.peek().litValue.toBigInt
+
+          assert(wi0 == wid, s"x=${xi.toString(16)} y=${yi.toString(16)} " +
+            s"z=${zi.toString(16)} : test(${wi0.toString(16)}) != ref(${wid.toString(16)})")
+
+          c.clock.step(1)
+        }
+      }
+    }
+  }
+
+  // One verilator build per rounding mode. `truncate` is this library's
+  // stand-in for roundTowardNegative, so it flips the sign of the zero.
+  describe("Test the sign of a zero x*y+z") {
+    for(roundSpec <- Seq(RoundSpec.roundToEven, RoundSpec.truncate)) {
+      it(f"FMA float32 zero signs with ${roundSpec}") {
+        fmaZeroSignTest( RealSpec.Float32Spec, roundSpec )
+      }
+    }
+  }
 }
 

@@ -228,6 +228,7 @@ class FusedMulAddFPGeneric(
   val xyzinfUnpack      = cutUnpack(xyzinf)
   val xyzeroUnpack      = cutUnpack(xyzero)
   val zzeroUnpack       = cutUnpack(zzero)
+  val zsgnUnpack        = cutUnpack(zsgn)
   val isFarAddendUnpack = cutUnpackDbg(isFarAddend) // dbgPrintf only
   val zexUnpack         = cutUnpackDbg(zex)         // dbgPrintf only
 
@@ -262,6 +263,7 @@ class FusedMulAddFPGeneric(
   val xyzinfMul      = cutMul(xyzinfUnpack)
   val xyzeroMul      = cutMul(xyzeroUnpack)
   val zzeroMul       = cutMul(zzeroUnpack)
+  val zsgnMul        = cutMul(zsgnUnpack)
   val isFarAddendMul = cutMulDbg(isFarAddendUnpack) // dbgPrintf only
   val zexMul         = cutMulDbg(zexUnpack)         // dbgPrintf only
 
@@ -344,6 +346,7 @@ class FusedMulAddFPGeneric(
   val xyzinfAlign       = cutAlign(xyzinfMul)
   val xyzeroAlign       = cutAlign(xyzeroMul)
   val zzeroAlign        = cutAlign(zzeroMul)
+  val zsgnAlign         = cutAlign(zsgnMul)
   val isFarAddendAlign  = cutAlignDbg(isFarAddendMul) // dbgPrintf only
   val zexAlign          = cutAlignDbg(zexMul)         // dbgPrintf only
   val zManPadAlign      = cutAlignDbg(zManPad)        // dbgPrintf only
@@ -402,6 +405,7 @@ class FusedMulAddFPGeneric(
   val xyzinfAdd      = cutAdd(xyzinfAlign)
   val xyzeroAdd      = cutAdd(xyzeroAlign)
   val zzeroAdd       = cutAdd(zzeroAlign)
+  val zsgnAdd        = cutAdd(zsgnAlign)
   val isFarAddendAdd = cutAddDbg(isFarAddendAlign) // dbgPrintf only
   val zexAdd         = cutAddDbg(zexAlign)         // dbgPrintf only
   val xyprodAdd      = cutAddDbg(xyprodAlign)      // dbgPrintf only
@@ -452,6 +456,7 @@ class FusedMulAddFPGeneric(
   val xyzinfNorm       = cutNorm(xyzinfAdd)
   val xyzeroNorm       = cutNorm(xyzeroAdd)
   val zzeroNorm        = cutNorm(zzeroAdd)
+  val zsgnNorm         = cutNorm(zsgnAdd)
   val isFarAddendNorm  = cutNormDbg(isFarAddendAdd) // dbgPrintf only
   val zexNorm          = cutNormDbg(zexAdd)         // dbgPrintf only
 
@@ -775,6 +780,7 @@ class FusedMulAddFPGeneric(
   val xysgnRound         = cutRound(xysgnNorm)
   val xyzeroRound        = cutRound(xyzeroNorm)
   val zzeroRound         = cutRound(zzeroNorm)
+  val zsgnRound          = cutRound(zsgnNorm)
 
   //----------------------------------------------------------------------
   // Final
@@ -783,7 +789,20 @@ class FusedMulAddFPGeneric(
 
   val wex  = Mux(infOrNaN, maskU(wSpec.exW), Mux(wzero, 0.U(wSpec.exW.W), wexBitsRound))
   val wman = Mux(infOrNaN || wzero, Cat(xyznanRound, 0.U((wSpec.manW-1).W)), wman0Round(wSpec.manW-1, 0))
-  val wsgn = Mux(xyznanRound, 0.U, Mux(xyzinfRound, xysgnRound, Mux(nearExactZeroRound, 0.U, wsgn0Round))) // exact cancel -> +0
+  // IEEE 754 (2019) 6.3 : if both the product and z are zero, the zero result
+  // is negative only when both of the two signs are negative. `truncate`
+  // stands for roundTowardNegative here (the same convention as
+  // AddFPGeneric), where it is negative unless both are positive. This
+  // matches RealGeneric.fmadd.
+  val wzeroBothSgn = if(roundSpec == RoundSpec.truncate) {
+    xysgnRound | zsgnRound
+  } else {
+    xysgnRound & zsgnRound
+  }
+  val wsgn = Mux(xyznanRound, 0.U,
+    Mux(xyzinfRound, xysgnRound,
+      Mux(xyzeroRound && zzeroRound, wzeroBothSgn,
+        Mux(nearExactZeroRound, 0.U, wsgn0Round)))) // exact cancel -> +0
   // +inf + inf = +inf, -inf - inf = inf, but inf - inf = nan.
   // so if xyzinf == true, then xysgn and zsgn should be the same.
   // if infAfterAdd == true, then xyzinf != true.
