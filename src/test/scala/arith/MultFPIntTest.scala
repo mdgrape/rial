@@ -5,13 +5,13 @@ import org.scalatest.funspec.AnyFunSpec
 
 import chisel3._
 import chisel3.util._
-import chisel3.simulator.scalatest.ChiselSim
 import chisel3.simulator.scalatest.Cli.EmitVcd
 import chisel3.simulator.scalatest.HasCliOptions.CliOption
 
 import rial.arith._
 import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig
+import rial.testUtil.RialChiselSim
 
 import scala.math._
 import scala.util.Random
@@ -24,7 +24,7 @@ import spire.implicits._
 // Testing Pow2F32 using ChiselTest
 //
 
-class MultFPIntTest extends AnyFunSpec with ChiselSim with EmitVcd {
+class MultFPIntTest extends AnyFunSpec with RialChiselSim with EmitVcd {
 
   addOption(CliOption.int("n", "number of test cases (default 1000)"))
   def n: Int = getOption[Int]("n").getOrElse(1000)

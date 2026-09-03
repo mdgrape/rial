@@ -5,7 +5,6 @@ import org.scalatest._
 import chisel3._
 import chisel3.experimental.BundleLiterals._
 import chisel3.util._
-import chisel3.simulator.scalatest.ChiselSim
 import chisel3.simulator.scalatest.Cli.EmitVcd
 import chisel3.simulator.scalatest.HasCliOptions.CliOption
 import org.scalatest.funspec.AnyFunSpec
@@ -13,6 +12,7 @@ import org.scalatest.funspec.AnyFunSpec
 import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig
 import rial.rng._
+import rial.testUtil.RialChiselSim
 
 import scala.util.Random
 import scala.collection.mutable.Queue
@@ -74,7 +74,7 @@ class ThreefryKatTest extends AnyFunSpec {
 //
 // Threefry4_32 vs ThreefrySim.
 //
-class ThreefryTest extends AnyFunSpec with ChiselSim with EmitVcd {
+class ThreefryTest extends AnyFunSpec with RialChiselSim with EmitVcd {
 
   addOption(CliOption.int("n", "number of test cases (default 1000)"))
   def n: Int = getOption[Int]("n").getOrElse(1000)
@@ -153,7 +153,7 @@ class ThreefryTest extends AnyFunSpec with ChiselSim with EmitVcd {
 
 // test of wrapper
 class ThreefryGeneratorTest extends AnyFunSpec
-  with ChiselSim with EmitVcd {
+  with RialChiselSim with EmitVcd {
 
 
   addOption(CliOption.int("n", "number of test cases (default 1000)"))

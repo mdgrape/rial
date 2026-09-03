@@ -11,15 +11,15 @@
 package rial.tests
 
 import chisel3._
-import chisel3.simulator.scalatest.ChiselSim
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import rial.arith.{FusedMulAddFPGeneric, RealSpec, RoundSpec}
 import rial.util.PipelineStageConfig
+import rial.testUtil.RialChiselSim
 
-class FusedMulAddCancellationSpec extends AnyFlatSpec with ChiselSim with Matchers {
+class FusedMulAddCancellationSpec extends AnyFlatSpec with RialChiselSim with Matchers {
 
   /** Combinational FMA over `s` (PipelineStageConfig.none), driven by raw bit encodings. */
   private def fma(s: RealSpec) =

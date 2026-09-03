@@ -4,10 +4,10 @@ import org.scalatest._
 import org.scalatest.funspec.AnyFunSpec
 
 import rial.dyn._
+import rial.testUtil.RialChiselSim
 
 import chisel3._
 import chisel3.util._
-import chisel3.simulator.scalatest.ChiselSim
 import chisel3.simulator.scalatest.Cli.EmitVcd
 import chisel3.simulator.scalatest.HasCliOptions.CliOption
 
@@ -15,7 +15,7 @@ import scala.collection.mutable.Queue
 import scala.util.Random
 import scala.math._
 
-class DynCompareTest extends AnyFunSpec with ChiselSim with EmitVcd {
+class DynCompareTest extends AnyFunSpec with RialChiselSim with EmitVcd {
 
   addOption(CliOption.int("n", "number of test cases (default 1000)"))
 

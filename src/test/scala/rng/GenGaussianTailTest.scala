@@ -3,7 +3,6 @@ package rial.tests
 import org.scalatest.funspec.AnyFunSpec
 
 import chisel3._
-import chisel3.simulator.scalatest.ChiselSim
 import chisel3.simulator.scalatest.Cli.EmitVcd
 import chisel3.simulator.scalatest.HasCliOptions.CliOption
 
@@ -11,6 +10,7 @@ import org.apache.commons.math3.special.Erf
 
 import rial.arith.{RealSpec, RealGeneric}
 import rial.rng._
+import rial.testUtil.RialChiselSim
 
 import scala.math._
 
@@ -37,7 +37,7 @@ import scala.math._
 // restricted to that interval's z-range, with conditional CDF
 //   F(t) = (Phi(t) - Phi(a)) / (Phi(b) - Phi(a)),   a <= t <= b,
 // which we check by Pearson's chi^2.
-class GenGaussianTailTest extends AnyFunSpec with ChiselSim with EmitVcd {
+class GenGaussianTailTest extends AnyFunSpec with RialChiselSim with EmitVcd {
 
   addOption(CliOption.int("n",    "chi^2 samples per tail interval (default 5000)"))
   addOption(CliOption.int("kmin", "smallest tail interval xex to test (default 2)"))

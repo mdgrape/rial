@@ -2,12 +2,12 @@ package rial.tests
 
 import org.scalatest.funspec.AnyFunSpec
 import chisel3._
-import chisel3.simulator.scalatest.ChiselSim
 import chisel3.simulator.scalatest.Cli.EmitVcd
 import chisel3.simulator.scalatest.HasCliOptions.CliOption
 
 import rial.rng._
 import rial.arith.RealSpec
+import rial.testUtil.RialChiselSim
 
 import scala.util.Random
 
@@ -17,7 +17,7 @@ import scala.util.Random
 // window -- each main octave (xex), each deep octave (xman leading-zero count),
 // the lumped deepest interval, and the central page-0 region -- by forcing the
 // bit fields that select that window. This exercises every table entry.
-class GenRandomGaussianSimMatchTest extends AnyFunSpec with ChiselSim with EmitVcd {
+class GenRandomGaussianSimMatchTest extends AnyFunSpec with RialChiselSim with EmitVcd {
   addOption(CliOption.int("n", "samples per interval window (default 16)"))
 
   val spec   = RealSpec.Float32Spec

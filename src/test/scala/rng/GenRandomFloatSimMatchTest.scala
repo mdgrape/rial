@@ -2,19 +2,19 @@ package rial.tests
 
 import org.scalatest.funspec.AnyFunSpec
 import chisel3._
-import chisel3.simulator.scalatest.ChiselSim
 import chisel3.simulator.scalatest.Cli.EmitVcd
 import chisel3.simulator.scalatest.HasCliOptions.CliOption
 
 import rial.rng._
 import rial.arith.RealSpec
 import rial.util.PipelineStageConfig
+import rial.testUtil.RialChiselSim
 
 import scala.util.Random
 
 // Bit-exact match between the GenRandomFloat* hardware and GenRandomFloatSim,
 // driving both with the same random input bits.
-class GenRandomFloatSimMatchTest extends AnyFunSpec with ChiselSim with EmitVcd {
+class GenRandomFloatSimMatchTest extends AnyFunSpec with RialChiselSim with EmitVcd {
   addOption(CliOption.int("n", "number of random inputs (default 10000)"))
 
   it("GenRandomFloat12 HW == GenRandomFloatSim.genFloat12 (bit-exact)") {

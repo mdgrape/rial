@@ -2,12 +2,12 @@ package rial.tests
 
 import org.scalatest.funspec.AnyFunSpec
 import chisel3._
-import chisel3.simulator.scalatest.ChiselSim
 import chisel3.simulator.scalatest.Cli.EmitVcd
 import chisel3.simulator.scalatest.HasCliOptions.CliOption
 
 import rial.rng._
 import rial.arith.RealSpec
+import rial.testUtil.RialChiselSim
 
 import scala.util.Random
 import scala.language.reflectiveCalls
@@ -15,7 +15,7 @@ import scala.language.reflectiveCalls
 // Bit-exact match between the IrwinHall hardware and IrwinHallSim, driving both
 // with the same 12 random words. The pipeline has nStage latency, so the output
 // at cycle t corresponds to the inputs poked at cycle t - nStage.
-class IrwinHallSimMatchTest extends AnyFunSpec with ChiselSim with EmitVcd {
+class IrwinHallSimMatchTest extends AnyFunSpec with RialChiselSim with EmitVcd {
   addOption(CliOption.int("n", "number of random inputs (default 10000)"))
 
   it("IrwinHall HW == IrwinHallSim.irwinHall (bit-exact)") {

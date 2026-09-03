@@ -3,7 +3,6 @@ package rial.tests
 import org.scalatest._
 
 import chisel3._
-import chisel3.simulator.scalatest.ChiselSim
 import chisel3.simulator.scalatest.Cli.EmitVcd
 import chisel3.simulator.scalatest.HasCliOptions.CliOption
 
@@ -16,6 +15,7 @@ import spire.math.SafeLong
 import rial.arith.{RealSpec, RealGeneric}
 import rial.rng._
 import rial.util.ScalaUtil._
+import rial.testUtil.RialChiselSim
 
 import scala.util.Random
 import scala.math._
@@ -25,7 +25,7 @@ import scala.language.reflectiveCalls
 // Test IrwinHall distribution
 //
 class IrwinHallTest extends AnyFunSpec
-    with ChiselSim with EmitVcd {
+    with RialChiselSim with EmitVcd {
 
 
   addOption(CliOption.int("n", "number of test cases (default 100000)"))
@@ -149,7 +149,7 @@ class IrwinHallTest extends AnyFunSpec
 // Test IrwinHall gaussian generator
 //
 class IrwinHallGeneratorTest extends AnyFunSpec
-    with ChiselSim with EmitVcd {
+    with RialChiselSim with EmitVcd {
 
 
   addOption(CliOption.int("n", "number of test cases (default 100000)"))

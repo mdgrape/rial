@@ -6,6 +6,14 @@ import scala.math._
 import scala.util.Random
 
 import spire.math.SafeLong
+
+import org.scalatest.TestSuite
+
+import chisel3.simulator.HasSimulator
+import chisel3.simulator.scalatest.ChiselSim
+import svsim.verilator.Backend.CompilationSettings
+import svsim.verilator.Backend.CompilationSettings.Parallelism
+
 import rial.arith._
 import rial.util.ScalaUtil._
 
@@ -49,4 +57,28 @@ object ScalaTestUtil {
   }
 
 
+}
+
+//
+// ChiselSim with single-threaded verilation.
+//
+// Verilator 5.020 intermittently aborts with
+//   %Error: Internal Error: attempted to destroy locked Thread Pool
+// while verilating. The ChiselSim default backend settings pass `-j 0`, which
+// makes both the verilation stage and the C++ build use every core; the bug is
+// in the verilation thread pool only. Here verilation is pinned to a single
+// thread (`--verilate-jobs 1`) while the C++ build keeps every core
+// (`--build-jobs 0`), so suites stay fast. Everything else is taken from the
+// default settings.
+//
+trait RialChiselSim extends ChiselSim {
+  self : TestSuite =>
+
+  implicit def rialSimulator : HasSimulator = {
+    HasSimulator.simulators.verilator(
+      verilatorSettings = CompilationSettings.default.withParallelism(
+        Some(Parallelism.Different.default.withBuild(Some(0)).withVerilate(Some(1)))
+      )
+    )
+  }
 }
