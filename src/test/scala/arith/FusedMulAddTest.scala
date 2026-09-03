@@ -208,5 +208,28 @@ class FMAFPTest extends AnyFunSpec with ChiselSim with EmitVcd {
         RoundSpec.roundToEven, n, PipelineStageConfig.none)
     }
   }
+
+  // Pipelined configurations. A representative subset only: one verilator
+  // build per configuration, so this is deliberately not a sweep.
+  //  - default(n) : the registers are placed by FusedMulAddFPGeneric itself
+  //  - specify    : one register at every declared point, which exercises
+  //                 every single pipeline register of the three paths
+  describe("Test x*y+z with pipeline registers") {
+    for (stage <- Seq(
+      PipelineStageConfig.default(1),
+      PipelineStageConfig.default(2),
+      PipelineStageConfig.default(3),
+      PipelineStageConfig.specify("unpack" -> 1, "mul" -> 1, "align" -> 1,
+                                  "add" -> 1, "norm" -> 1, "round" -> 1))) {
+      it(f"FMA float32 with pipereg [${stage.getString}]") {
+        fmaTest( RealSpec.Float32Spec, RealSpec.Float32Spec, RealSpec.Float32Spec,
+          RealSpec.Float32Spec, RoundSpec.roundToEven, n, stage)
+      }
+    }
+    it(f"FMA BFloat16 with pipereg [${PipelineStageConfig.default(3).getString}]") {
+      fmaTest( RealSpec.BFloat16Spec, RealSpec.BFloat16Spec, RealSpec.BFloat16Spec,
+        RealSpec.BFloat16Spec, RoundSpec.roundToEven, n, PipelineStageConfig.default(3))
+    }
+  }
 }
 

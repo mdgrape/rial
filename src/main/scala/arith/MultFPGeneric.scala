@@ -22,6 +22,26 @@ import rial.util.PipelineStageConfig._
  * All the input/output floating-point spec are configurable through [[rial.arith.RealSpec]].
  *
  * The latency of this module can be configured via [[rial.util.PipelineStageConfig]].
+ * The multiplier declares the boundaries of its datapath, so the registers can
+ * be placed inside it - either automatically or by name:
+ *
+ *  - `"in"`     the module input
+ *  - `"unpack"` after decompose / classify
+ *  - `"mul"`    after the mantissa product
+ *  - `"norm"`   after the normalisation shift and the round / sticky selection,
+ *               and after the exponent sum that runs in parallel with them
+ *  - `"round"`  after the rounding increment and the exponent adjustment
+ *  - `"out"`    the module output
+ *
+ * {{{
+ * // three registers, placed by the module
+ * new MultFPGeneric(spec, spec, spec, RoundSpec.roundToEven, 3)
+ * // hand-picked positions
+ * new MultFPGeneric(spec, spec, spec, RoundSpec.roundToEven,
+ *   PipelineStageConfig.specify("mul" -> 1, "norm" -> 1, "round" -> 1))
+ * // everything at the output, as before
+ * new MultFPGeneric(spec, spec, spec, RoundSpec.roundToEven, PipelineStageConfig.atOut(3))
+ * }}}
  *
  * {{{
  * class MultFPGeneric(...) extends Module {
@@ -45,6 +65,7 @@ import rial.util.PipelineStageConfig._
  * @see [[rial.arith.RealSpec]]
  * @see [[rial.arith.RoundSpec]]
  * @see [[rial.util.PipelineStageConfig]]
+ * @see [[rial.util.StagePoint]]
  *
  */
 class MultFPGeneric(
@@ -53,7 +74,14 @@ class MultFPGeneric(
   stage : PipelineStageConfig
 ) extends Module {
 
-  val nStage = stage.total
+  /** Boundaries of the datapath at which pipeline registers can be placed.
+   * The weights are rough, target-independent estimates of the delay of the
+   * logic that ends at each boundary. */
+  val stagePoints = MultFPGeneric.stagePoints
+
+  val stages = stage.resolve(stagePoints)
+
+  val nStage = stages.total
 
   def getParam = { (xSpec, ySpec, zSpec, roundSpec, nStage) }
 
@@ -65,10 +93,17 @@ class MultFPGeneric(
     val z   = Output(UInt(zSpec.W.W))
   })
 
-  val (xsgn, xex, xman) = FloatChiselUtil.decomposeWithLeading1(xSpec, io.x)
-  val (ysgn, yex, yman) = FloatChiselUtil.decomposeWithLeading1(ySpec, io.y)
-  val (xzero, xinf, xnan) = FloatChiselUtil.checkValue(xSpec, io.x)
-  val (yzero, yinf, ynan) = FloatChiselUtil.checkValue(ySpec, io.y)
+  //----------------------------------------------------------------------
+  // S0 : input registers ("in")
+  val xIn = ShiftRegister(io.x, stages.at("in"))
+  val yIn = ShiftRegister(io.y, stages.at("in"))
+
+  //----------------------------------------------------------------------
+  // S1 : decompose / classify
+  val (xsgn, xex, xman) = FloatChiselUtil.decomposeWithLeading1(xSpec, xIn)
+  val (ysgn, yex, yman) = FloatChiselUtil.decomposeWithLeading1(ySpec, yIn)
+  val (xzero, xinf, xnan) = FloatChiselUtil.checkValue(xSpec, xIn)
+  val (yzero, yinf, ynan) = FloatChiselUtil.checkValue(ySpec, yIn)
   val zsgn0 = xsgn ^ ysgn
 
   val zzero = (xzero | yzero).asBool
@@ -77,43 +112,91 @@ class MultFPGeneric(
   //printf("%x %x\n",  io.x, io.y)
   //printf("%b %b %b\n",  zzero, zinf, znan)
 
+  //--------------------------- stage "unpack" ---------------------------
+  private def cutUnpack[T <: Data](x: T): T = {
+    ShiftRegister(x, stages.at("unpack"))
+  }
+
+  val xmanUnpack  = cutUnpack(xman)
+  val ymanUnpack  = cutUnpack(yman)
+  val xexUnpack   = cutUnpack(xex)
+  val yexUnpack   = cutUnpack(yex)
+  val zsgn0Unpack = cutUnpack(zsgn0)
+  val zzeroUnpack = cutUnpack(zzero)
+  val zinfUnpack  = cutUnpack(zinf)
+  val znanUnpack  = cutUnpack(znan)
+
   //----------------------------------------------------------------------
-  // Mantissa
-  val prod = xman * yman
+  // S2 : Mantissa product
+  val prod = xmanUnpack * ymanUnpack
+
+  //---------------------------- stage "mul" -----------------------------
+  private def cutMul[T <: Data](x: T): T = {
+    ShiftRegister(x, stages.at("mul"))
+  }
+
+  val prodMul  = cutMul(prod)
+  val xexMul   = cutMul(xexUnpack)
+  val yexMul   = cutMul(yexUnpack)
+  val zsgn0Mul = cutMul(zsgn0Unpack)
+  val zzeroMul = cutMul(zzeroUnpack)
+  val zinfMul  = cutMul(zinfUnpack)
+  val znanMul  = cutMul(znanUnpack)
+
+  //----------------------------------------------------------------------
+  // S3 : normalisation shift and round / sticky selection; in parallel, the
+  //      exponent sum (see the exponent section below)
   val bp = xSpec.manW+ySpec.manW
   val roundBits = bp-zSpec.manW
-  val moreThan2 = prod(bp+1)
+  val moreThan2 = prodMul(bp+1)
+
+  //---------------------------- stage "norm" ----------------------------
+  // The normalisation shift and the rounding increment live in the same Scala
+  // block below, so the registers of this point are inserted inside it, right
+  // after the shift and the round / sticky selection.
+  private def cutNorm[T <: Data](x: T): T = {
+    ShiftRegister(x, stages.at("norm"))
+  }
 
   val (moreThan2AfterRound, resMan) =
     if(roundBits >= 0) {
       val stickey = if(roundBits >= 2) {
-        prod(roundBits-2,0).orR | (moreThan2 & prod(roundBits-1))
+        prodMul(roundBits-2,0).orR | (moreThan2 & prodMul(roundBits-1))
       } else if(roundBits == 0) {
-        moreThan2 & prod(roundBits-1)
+        moreThan2 & prodMul(roundBits-1)
       } else {
         0.U(1.W).asBool
       }
       val round = if(roundBits >= 1) {
-        Mux(moreThan2, prod(roundBits), prod(roundBits-1))
+        Mux(moreThan2, prodMul(roundBits), prodMul(roundBits-1))
       } else {
-        moreThan2 & prod(0)
+        moreThan2 & prodMul(0)
       }
-      val prodShift = Mux(moreThan2, prod(bp, roundBits+1), prod(bp-1, roundBits))
+      val prodShift = Mux(moreThan2, prodMul(bp, roundBits+1), prodMul(bp-1, roundBits))
       val lsb   = prodShift(0)
       // RoundSpec : truncate/ceil always towards 0/infinite
       val inc = FloatChiselUtil.roundIncBySpec(roundSpec, lsb, round, stickey)
-      val prodRound = prodShift +& inc
+      val prodShiftNorm = cutNorm(prodShift)
+      val incNorm       = cutNorm(inc)
+      val prodRound = prodShiftNorm +& incNorm
       val moreThan2AfterRound = prodRound(zSpec.manW)
       (moreThan2AfterRound, prodRound(zSpec.manW-1, 0))
     } else {
-      val prodShift = Mux(moreThan2, prod, Cat(prod(prod.getWidth-2, 0), 0.U(1.W)))
-      assert(prodShift.getWidth == prod.getWidth)
+      val prodShift = Mux(moreThan2, prodMul, Cat(prodMul(prodMul.getWidth-2, 0), 0.U(1.W)))
+      assert(prodShift.getWidth == prodMul.getWidth)
       assert(prodShift(prodShift.getWidth-1) === 1.U(1.W))
       assert(-1 >= roundBits)
       val prodRound = Cat(prodShift, Fill(-roundBits-1, 0.U(1.W)))
       assert(prodRound(zSpec.manW) === 1.U(1.W))
-      (0.U(1.W), prodRound(zSpec.manW-1, 0))
+      // no rounding increment on this path, so the cut is a plain rewiring
+      (0.U(1.W), cutNorm(prodRound(zSpec.manW-1, 0)))
     }
+
+  val moreThan2Norm = cutNorm(moreThan2)
+  val zsgn0Norm     = cutNorm(zsgn0Mul)
+  val zzeroNorm     = cutNorm(zzeroMul)
+  val zinfNorm      = cutNorm(zinfMul)
+  val znanNorm      = cutNorm(znanMul)
 
   //----------------------------------------------------------------------
   // Exponent
@@ -126,37 +209,67 @@ class MultFPGeneric(
   val exW  = if (minEx<0) {exW0+1} else {exW0} // width for calculation
   //println(f"maxEX=$maxEx%x minEx=-${-minEx}%x exW=$exW%d")
   val exAdd = (-xSpec.exBias-ySpec.exBias+zSpec.exBias).S(exW.W).asUInt
-  val ex0 = xex.pad(exW) + yex.pad(exW) + exAdd
+  // the exponent sum runs in parallel with the normalisation / round selection
+  val ex0 = xexMul.pad(exW) + yexMul.pad(exW) + exAdd
+  val ex0Norm = cutNorm(ex0)
 
-  val exInc = ex0 + (moreThan2 | moreThan2AfterRound)
+  //----------------------------------------------------------------------
+  // S4 : rounding increment (above) and exponent adjustment
+  val exInc = ex0Norm + (moreThan2Norm | moreThan2AfterRound)
 
   val exZero = !exInc.orR.asBool
   val exNeg  = (minEx<0).B && (exInc(exW-1)=/=0.U)
-  val exZN   = exZero || exNeg || zzero
+  val exZN   = exZero || exNeg || zzeroNorm
   val exInf  = if(exW > zSpec.exW) {
-    zinf || exInc(zSpec.exW-1,0).andR | exInc(exW-1, zSpec.exW).orR
+    zinfNorm || exInc(zSpec.exW-1,0).andR | exInc(exW-1, zSpec.exW).orR
   } else if(exW == zSpec.exW) {
-    zinf || exInc(zSpec.exW-1,0).andR
+    zinfNorm || exInc(zSpec.exW-1,0).andR
   } else {
-    zinf
+    zinfNorm
   }
 
+  //--------------------------- stage "round" ----------------------------
+  private def cutRound[T <: Data](x: T): T = {
+    ShiftRegister(x, stages.at("round"))
+  }
+
+  val resManRound  = cutRound(resMan)
+  val zexBitsRound = cutRound(exInc(zSpec.exW-1,0))
+  val exZNRound    = cutRound(exZN)
+  val exInfRound   = cutRound(exInf)
+  val znanRound    = cutRound(znanNorm)
+  val zsgn0Round   = cutRound(zsgn0Norm)
+
+  //----------------------------------------------------------------------
+  // S5 : Final (special case muxes)
   val zex =
-    Mux(exZN, 0.U(zSpec.exW.W),
-      Mux(exInf | znan, Fill(zSpec.exW,1.U(1.W)), exInc(zSpec.exW-1,0)) )
+    Mux(exZNRound, 0.U(zSpec.exW.W),
+      Mux(exInfRound | znanRound, Fill(zSpec.exW,1.U(1.W)), zexBitsRound) )
 
   // Final mantissa
   val zman =
-    Mux(exZN || exInf || znan, znan ## 0.U((zSpec.manW-1).W), resMan)
-  val zsgn = ( !znan ) && zsgn0.asBool
+    Mux(exZNRound || exInfRound || znanRound, Cat(znanRound, 0.U((zSpec.manW-1).W)), resManRound)
+  val zsgn = ( !znanRound ) && zsgn0Round.asBool
   //printf("%x\n", zman)
 
   assert(zman.getWidth == zSpec.manW)
 
-  val z0 = if (zSpec.disableSign) {(zex ## zman)} else {(zsgn ## zex ## zman)}
+  val z0 = if (zSpec.disableSign) {Cat(zex, zman)} else {Cat(zsgn, zex, zman)}
 
-  io.z   := ShiftRegister(z0, nStage)
+  io.z   := ShiftRegister(z0, stages.at("out"))
   //printf("x=%x y=%x z=%x\n", io.x, io.y, io.z)
+}
+
+/** Pipeline stage points of [[rial.arith.MultFPGeneric]].
+ *
+ * @see [[rial.util.StagePoint]]
+ */
+object MultFPGeneric {
+  /** Ordered boundaries of the multiplier datapath, with a rough,
+   *  target-independent estimate of the delay of the logic ending at each. */
+  val stagePoints: Seq[StagePoint] = Seq(
+    StagePoint("unpack", 2), StagePoint("mul",   4), StagePoint("norm", 2),
+    StagePoint("round",  3), StagePoint("out",   1))
 }
 
 /** Specialization of MultFPGeneric for FP64.
@@ -168,4 +281,3 @@ class MultFP64( stage : PipelineStageConfig )
       RealSpec.Float64Spec,  RealSpec.Float64Spec,
       RoundSpec.roundToEven, stage) {
 }
-

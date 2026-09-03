@@ -111,5 +111,28 @@ class MultFPIntTest extends AnyFunSpec with ChiselSim with EmitVcd {
         RoundSpec.roundToEven, n, PipelineStageConfig.none)
     }
   }
+
+  // Pipelined configurations. A representative subset only: one verilator
+  // build per configuration, so this is deliberately not a sweep.
+  //  - default(n) : the registers are placed by MultFPIntGeneric itself
+  //  - specify    : one register at every declared point, which exercises
+  //                 every single pipeline register of the datapath
+  describe("Test x:Float * y:Int with pipeline registers") {
+    for (stage <- Seq(
+      PipelineStageConfig.default(1),
+      PipelineStageConfig.default(2),
+      PipelineStageConfig.default(3),
+      PipelineStageConfig.specify("unpack" -> 1, "mul" -> 1, "norm" -> 1,
+                                  "round" -> 1))) {
+      it(f"Multiplier Float * SInt8 with pipereg [${stage.getString}]") {
+        multTest( RealSpec.Float32Spec, 8, true, RealSpec.Float32Spec,
+          RoundSpec.roundToEven, n, stage)
+      }
+    }
+    it(f"Multiplier BFloat16 * SInt8 with pipereg [${PipelineStageConfig.default(3).getString}]") {
+      multTest( RealSpec.BFloat16Spec, 8, true, RealSpec.BFloat16Spec,
+        RoundSpec.roundToEven, n, PipelineStageConfig.default(3))
+    }
+  }
 }
 
