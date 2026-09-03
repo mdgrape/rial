@@ -9,6 +9,7 @@ import chisel3._
 import chisel3.experimental.BundleLiterals._
 import chisel3.util._
 
+import chisel3.simulator.scalatest.ChiselSim
 import chisel3.simulator.scalatest.Cli.EmitVcd
 import chisel3.simulator.scalatest.HasCliOptions.CliOption
 
@@ -17,10 +18,9 @@ import org.scalatest.funspec.AnyFunSpec
 import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig
 import rial.rng._
-import rial.testUtil.RialChiselSim
 
 class SquaresTest extends AnyFunSpec
-  with RialChiselSim with EmitVcd {
+  with ChiselSim with EmitVcd {
 
 
   addOption(CliOption.int("n", "number of test cases (default 1000)"))
@@ -59,7 +59,7 @@ class SquaresTest extends AnyFunSpec
 }
 
 class Squares32GeneratorTest extends AnyFunSpec
-  with RialChiselSim with EmitVcd {
+  with ChiselSim with EmitVcd {
 
 
   addOption(CliOption.int("n", "number of test cases (default 1000)"))

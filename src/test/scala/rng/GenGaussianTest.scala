@@ -3,6 +3,7 @@ package rial.tests
 import org.scalatest._
 
 import chisel3._
+import chisel3.simulator.scalatest.ChiselSim
 import chisel3.simulator.scalatest.Cli.EmitVcd
 import chisel3.simulator.scalatest.HasCliOptions.CliOption
 
@@ -19,7 +20,6 @@ import rial.math._
 import rial.rng._
 import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig
-import rial.testUtil.RialChiselSim
 
 import scala.util.Random
 import scala.math._
@@ -27,7 +27,7 @@ import scala.collection.mutable.Queue
 import scala.language.reflectiveCalls
 
 class GenGaussianTest extends AnyFunSpec
-    with RialChiselSim with EmitVcd {
+    with ChiselSim with EmitVcd {
 
 
   addOption(CliOption.int("n", "number of test cases (default 100000)"))

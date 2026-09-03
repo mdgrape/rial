@@ -7,18 +7,18 @@
 package rial.tests
 
 import chisel3._
+import chisel3.simulator.scalatest.ChiselSim
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import rial.arith.{FusedMulAddFPGeneric, RealGeneric, RealSpec, RoundSpec}
 import rial.util.PipelineStageConfig
-import rial.testUtil.RialChiselSim
 
 import spire.math.SafeLong
 import scala.util.Random
 
-class FusedMulAddRoundingSpec extends AnyFlatSpec with RialChiselSim with Matchers {
+class FusedMulAddRoundingSpec extends AnyFlatSpec with ChiselSim with Matchers {
   private val s = RealSpec.BFloat16Spec
 
   private def fma =

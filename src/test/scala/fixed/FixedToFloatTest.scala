@@ -5,6 +5,7 @@ import org.scalatest.funspec.AnyFunSpec
 
 import chisel3._
 import chisel3.util._
+import chisel3.simulator.scalatest.ChiselSim
 import chisel3.simulator.scalatest.Cli.EmitVcd
 import chisel3.simulator.scalatest.HasCliOptions.CliOption
 
@@ -12,7 +13,6 @@ import rial.arith._
 import rial.fixed._
 import rial.util.ScalaUtil._
 import rial.util.PipelineStageConfig
-import rial.testUtil.RialChiselSim
 
 import scala.util.Random
 import scala.math._
@@ -25,7 +25,7 @@ import spire.implicits._
 // Testing Fixed -> Float using ChiselTest
 //
 
-class FixedToFloatTest extends AnyFunSpec with RialChiselSim with EmitVcd {
+class FixedToFloatTest extends AnyFunSpec with ChiselSim with EmitVcd {
 
   addOption(CliOption.int("n", "number of test cases (default 10000)"))
   def n: Int = getOption[Int]("n").getOrElse(10000)

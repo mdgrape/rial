@@ -3,6 +3,7 @@ package rial.tests
 import org.scalatest._
 
 import chisel3._
+import chisel3.simulator.scalatest.ChiselSim
 import chisel3.simulator.scalatest.Cli.EmitVcd
 
 import org.scalatest.funspec.AnyFunSpec
@@ -10,7 +11,6 @@ import org.scalatest.funspec.AnyFunSpec
 import rial.math._
 import rial.math.FuncKind._
 import rial.arith._
-import rial.testUtil.RialChiselSim
 
 import java.io.PrintWriter
 import scala.collection.mutable.ArrayBuffer
@@ -31,7 +31,7 @@ import scala.collection.mutable.ArrayBuffer
 // Run with:  sbt "testOnly rial.tests.FuncDumpTest"
 //
 class FuncDumpTest extends AnyFunSpec
-    with RialChiselSim with EmitVcd {
+    with ChiselSim with EmitVcd {
 
   val spec   = RealSpec.Float32Spec
   val stage  = MathFuncPipelineConfig.none
