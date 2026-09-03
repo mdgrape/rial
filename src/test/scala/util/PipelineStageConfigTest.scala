@@ -21,11 +21,14 @@ class PipelineStageConfigTest extends AnyFunSpec {
   val allNames: Seq[String] = "in" +: adder.map(_.name)
 
   /** names of the points that carry at least one register, in declared order */
-  def cutsOf(s: PipelineStages): Seq[String] = allNames.filter(n => s.at(n) > 0)
+  def cutsOf(s: PipelineStages): Seq[String] = {
+    allNames.filter(n => s.at(n) > 0)
+  }
 
   /** counts of the points that carry at least one register, in declared order */
-  def countsOf(s: PipelineStages): Seq[(String, Int)] =
+  def countsOf(s: PipelineStages): Seq[(String, Int)] = {
     allNames.map(n => n -> s.at(n)).filter(_._2 > 0)
+  }
 
   /** lengths of the segments of logic left by the cuts, in datapath order */
   def segmentsOf(s: PipelineStages): Seq[Double] = {
@@ -33,7 +36,10 @@ class PipelineStageConfigTest extends AnyFunSpec {
     var acc = 0.0
     for (p <- adder) {
       acc += p.weight
-      if ((p.name != "out") && (s.at(p.name) > 0)) { b += acc; acc = 0.0 }
+      if ((p.name != "out") && (s.at(p.name) > 0)) {
+        b += acc
+        acc = 0.0
+      }
     }
     b += acc
     b.result()
@@ -206,7 +212,9 @@ class PipelineStageConfigTest extends AnyFunSpec {
       }
       val m = e.getMessage
       assert(m.contains("shift"))
-      for (n <- allNames) assert(m.contains(n), s"message should list '$n': $m")
+      for (n <- allNames) {
+        assert(m.contains(n), s"message should list '$n': $m")
+      }
       assert(m.contains("default"))
       assert(m.contains("atOut"))
     }
@@ -245,7 +253,9 @@ class PipelineStageConfigTest extends AnyFunSpec {
 
     it("rejects an unknown name in PipelineStages.at") {
       val s = PipelineStageConfig.none.resolve(adder)
-      val e = intercept[IllegalArgumentException] { s.at("nope") }
+      val e = intercept[IllegalArgumentException] {
+        s.at("nope")
+      }
       assert(e.getMessage.contains("unpack"))
     }
   }
@@ -253,7 +263,9 @@ class PipelineStageConfigTest extends AnyFunSpec {
   describe("PipelineStageConfig: shorthands and strings") {
 
     it("converts an Int implicitly into an automatic configuration") {
-      def f(c: PipelineStageConfig): Int = c.auto
+      def f(c: PipelineStageConfig): Int = {
+        c.auto
+      }
       assert(f(3) == 3)
       assert(PipelineStageConfig.default(3) == PipelineStageConfig(auto = 3))
     }
@@ -295,7 +307,10 @@ class PipelineStageConfigTest extends AnyFunSpec {
     var acc = 0.0
     for (p <- points) {
       acc += p.weight
-      if ((p.name != "out") && (s.at(p.name) > 0)) { b += acc; acc = 0.0 }
+      if ((p.name != "out") && (s.at(p.name) > 0)) {
+        b += acc
+        acc = 0.0
+      }
     }
     b += acc
     b.result()

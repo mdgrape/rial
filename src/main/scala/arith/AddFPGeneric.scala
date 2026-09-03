@@ -178,34 +178,42 @@ class AddFPGeneric(
   val maxManWxyz = maxManWxy.max(zSpec.manW)
   //val manXlargerThanY = xman(xSpec.manW-1, xSpec.manW-minManW) > yman(ySpec.manW-1, ySpec.manW-minManW)
 
-  val xmanPadXyz = Mux(xzero, 0.U((maxManWxyz+1).W), 1.U(1.W) ## padLSB(maxManWxyz, xman))
-  val ymanPadXyz = Mux(yzero, 0.U((maxManWxyz+1).W), 1.U(1.W) ## padLSB(maxManWxyz, yman))
+  val xmanPadXyz = Mux(xzero, 0.U((maxManWxyz+1).W), Cat(1.U(1.W), padLSB(maxManWxyz, xman)))
+  val ymanPadXyz = Mux(yzero, 0.U((maxManWxyz+1).W), Cat(1.U(1.W), padLSB(maxManWxyz, yman)))
 
   val yzeroFar = Mux(exXlargerThanY, xzero, yzero)
 
   //---------------------------- stage "unpack" --------------------------
-  private def cutUnpack[T <: Data](x: T): T = ShiftRegister(x, stages.at("unpack"))
+  private def cutUnpack[T <: Data](x: T): T = {
+    ShiftRegister(x, stages.at("unpack"))
+  }
   // Signals read by `dbgPrintf` only must not create registers in a normal
   // (non-debug) build, so they are piped only when the printfs exist.
-  private def cutUnpackDbg[T <: Data](x: T): T = if (enableDebug) cutUnpack(x) else x
+  private def cutUnpackDbg[T <: Data](x: T): T = {
+    if (enableDebug) {
+      cutUnpack(x)
+    } else {
+      x
+    }
+  }
 
-  val xmanPadXyz_1   = cutUnpack(xmanPadXyz)
-  val ymanPadXyz_1   = cutUnpack(ymanPadXyz)
-  val exXlargerThanY_1 = cutUnpack(exXlargerThanY)
-  val diffExXY_1     = cutUnpack(diffExXY)
-  val diffExYX_1     = cutUnpack(diffExYX)
-  val near_1         = cutUnpack(near)
-  val nearShift_1    = cutUnpack(nearShift)
-  val zexNorm_1      = cutUnpack(zexNorm)
-  val diffSgn_1      = cutUnpack(diffSgn)
-  val xman_1         = cutUnpackDbg(xman)   // dbgPrintf only
-  val yman_1         = cutUnpackDbg(yman)   // dbgPrintf only
-  val xsgn_1         = cutUnpack(xsgn)
-  val ysgn_1         = cutUnpack(ysgn)
-  val xyNaN_1        = cutUnpack(xyNaN)
-  val xyInf_1        = cutUnpack(xyInf)
-  val xyInfSgn_1     = cutUnpack(xyInfSgn)
-  val xyBothZero_1   = cutUnpack(xyBothZero)
+  val xmanPadXyzUnpack     = cutUnpack(xmanPadXyz)
+  val ymanPadXyzUnpack     = cutUnpack(ymanPadXyz)
+  val exXlargerThanYUnpack = cutUnpack(exXlargerThanY)
+  val diffExXYUnpack       = cutUnpack(diffExXY)
+  val diffExYXUnpack       = cutUnpack(diffExYX)
+  val nearUnpack           = cutUnpack(near)
+  val nearShiftUnpack      = cutUnpack(nearShift)
+  val zexNormUnpack        = cutUnpack(zexNorm)
+  val diffSgnUnpack        = cutUnpack(diffSgn)
+  val xmanUnpack           = cutUnpackDbg(xman) // dbgPrintf only
+  val ymanUnpack           = cutUnpackDbg(yman) // dbgPrintf only
+  val xsgnUnpack           = cutUnpack(xsgn)
+  val ysgnUnpack           = cutUnpack(ysgn)
+  val xyNaNUnpack          = cutUnpack(xyNaN)
+  val xyInfUnpack          = cutUnpack(xyInf)
+  val xyInfSgnUnpack       = cutUnpack(xyInfSgn)
+  val xyBothZeroUnpack     = cutUnpack(xyBothZero)
 
   //----------------------------------------------------------------------
   // S2 : operand swap (larger exponent -> xFar)
@@ -215,56 +223,64 @@ class AddFPGeneric(
   //     -1/2 < y < 2, and then 1/2 < x+y < 4.
   //
   //   currently, separate barrel shifters/adders are used for far/near paths.
-  val xFar = 0.U(1.W) ## Mux(exXlargerThanY_1, xmanPadXyz_1, ymanPadXyz_1)
-  val yFar = Mux(exXlargerThanY_1, ymanPadXyz_1, xmanPadXyz_1)
-  val xFarSign = Mux(exXlargerThanY_1, xsgn_1, ysgn_1).asBool
+  val xFar = Cat(0.U(1.W), Mux(exXlargerThanYUnpack, xmanPadXyzUnpack, ymanPadXyzUnpack))
+  val yFar = Mux(exXlargerThanYUnpack, ymanPadXyzUnpack, xmanPadXyzUnpack)
+  val xFarSign = Mux(exXlargerThanYUnpack, xsgnUnpack, ysgnUnpack).asBool
   // Drop sign bit
-  val diffFar = Mux(exXlargerThanY_1, diffExXY_1(diffExW-2,0), diffExYX_1(diffExW-2,0))
+  val diffFar = Mux(exXlargerThanYUnpack, diffExXYUnpack(diffExW-2,0), diffExYXUnpack(diffExW-2,0))
 
   //---------------------------- stage "swap" ----------------------------
-  private def cutSwap[T <: Data](x: T): T = ShiftRegister(x, stages.at("swap"))
-  private def cutSwapDbg[T <: Data](x: T): T = if (enableDebug) cutSwap(x) else x
+  private def cutSwap[T <: Data](x: T): T = {
+    ShiftRegister(x, stages.at("swap"))
+  }
+  private def cutSwapDbg[T <: Data](x: T): T = {
+    if (enableDebug) {
+      cutSwap(x)
+    } else {
+      x
+    }
+  }
 
-  val xFar_2       = cutSwap(xFar)
-  val yFar_2       = cutSwap(yFar)
-  val xFarSign_2   = cutSwap(xFarSign)
-  val diffFar_2    = cutSwap(diffFar)
-  val near_2       = cutSwap(near_1)
-  val nearShift_2  = cutSwap(nearShift_1)
-  val zexNorm_2    = cutSwap(zexNorm_1)
-  val diffSgn_2    = cutSwap(diffSgn_1)
-  val xman_2       = cutSwapDbg(xman_1)     // dbgPrintf only
-  val yman_2       = cutSwapDbg(yman_1)     // dbgPrintf only
-  val xmanPadXyz_2 = cutSwapDbg(xmanPadXyz_1) // dbgPrintf only
-  val ymanPadXyz_2 = cutSwapDbg(ymanPadXyz_1) // dbgPrintf only
-  val xsgn_2       = cutSwap(xsgn_1)
-  val ysgn_2       = cutSwap(ysgn_1)
-  val xyNaN_2      = cutSwap(xyNaN_1)
-  val xyInf_2      = cutSwap(xyInf_1)
-  val xyInfSgn_2   = cutSwap(xyInfSgn_1)
-  val xyBothZero_2 = cutSwap(xyBothZero_1)
+  val xFarSwap       = cutSwap(xFar)
+  val yFarSwap       = cutSwap(yFar)
+  val xFarSignSwap   = cutSwap(xFarSign)
+  val diffFarSwap    = cutSwap(diffFar)
+  val nearSwap       = cutSwap(nearUnpack)
+  val nearShiftSwap  = cutSwap(nearShiftUnpack)
+  val zexNormSwap    = cutSwap(zexNormUnpack)
+  val diffSgnSwap    = cutSwap(diffSgnUnpack)
+  val xmanSwap       = cutSwapDbg(xmanUnpack)       // dbgPrintf only
+  val ymanSwap       = cutSwapDbg(ymanUnpack)       // dbgPrintf only
+  val xmanPadXyzSwap = cutSwapDbg(xmanPadXyzUnpack) // dbgPrintf only
+  val ymanPadXyzSwap = cutSwapDbg(ymanPadXyzUnpack) // dbgPrintf only
+  val xsgnSwap       = cutSwap(xsgnUnpack)
+  val ysgnSwap       = cutSwap(ysgnUnpack)
+  val xyNaNSwap      = cutSwap(xyNaNUnpack)
+  val xyInfSwap      = cutSwap(xyInfUnpack)
+  val xyInfSgnSwap   = cutSwap(xyInfSgnUnpack)
+  val xyBothZeroSwap = cutSwap(xyBothZeroUnpack)
 
   //----------------------------------------------------------------------
   // S3 : far path alignment shift + sticky, near path pre-shift
-  val yFarR = yFar_2 ## 0.U(2.W)
+  val yFarR = Cat(yFarSwap, 0.U(2.W))
 
   // Shift y
   //   Actually, shift amount here is always larger than or equal to 2.
   val shiftW0 = log2Up(maxManWxyz+1+2+1) // +2 for round bits, +1 for Leading 1
   // Note diffExW includes the width for sign bit
   val (shiftW, shiftOut) =
-    if   (shiftW0<(diffExW-2)) {(shiftW0, dropLSB(shiftW0,diffFar_2).orR)}
+    if   (shiftW0<(diffExW-2)) {(shiftW0, dropLSB(shiftW0,diffFarSwap).orR)}
     else {(diffExW-1, false.B)} // Usually this never happens
-  val yFarShift = Mux(shiftOut, 0.U, yFarR >> diffFar_2(shiftW-1, 0))
-  println(f"shiftW = $shiftW%d diffExW = $diffExW%d ${diffFar_2.getWidth}%d")
-  when (!near_2) {
-    dbgPrintf("xman=%x yman=%x\n",  xman_2, yman_2)
-    dbgPrintf("xmanPadXyz=%x ymanPadXyz=%x\n", xmanPadXyz_2, ymanPadXyz_2)
-    dbgPrintf("xFar=%x yFarShift=%x\n", xFar_2, yFarShift)
+  val yFarShift = Mux(shiftOut, 0.U, yFarR >> diffFarSwap(shiftW-1, 0))
+  println(f"shiftW = $shiftW%d diffExW = $diffExW%d ${diffFarSwap.getWidth}%d")
+  when (!nearSwap) {
+    dbgPrintf("xman=%x yman=%x\n",  xmanSwap, ymanSwap)
+    dbgPrintf("xmanPadXyz=%x ymanPadXyz=%x\n", xmanPadXyzSwap, ymanPadXyzSwap)
+    dbgPrintf("xFar=%x yFarShift=%x\n", xFarSwap, yFarShift)
     //dbgPrintf("%b\n%b\n", yFar, yFarShift)
   }
-  val diffFarMinus2    = diffFar_2(shiftW-1,0) - 2.U
-  val diffFarLessThan2 = !diffFar_2(diffFar_2.getWidth-1,shiftW-1).orR && diffFarMinus2(shiftW-1)
+  val diffFarMinus2    = diffFarSwap(shiftW-1,0) - 2.U
+  val diffFarLessThan2 = !diffFarSwap(diffFarSwap.getWidth-1,shiftW-1).orR && diffFarMinus2(shiftW-1)
 
   // Y shifted = (main value)-round0-round1-stickey
   //    these round0/round1 can be combined to stickey
@@ -276,15 +292,16 @@ class AddFPGeneric(
   //   PriorityEncoder in Chisel returns bit position of 1 from lsb
   //     0 returns all 1; unfortunately if bit width of input is 2^w,
   //     2^(w-1) will return the same result as 0.
-  val onePosFromLSB = PriorityEncoder(yFar_2)
-  val yFarW = yFar_2.getWidth
+  val onePosFromLSB = PriorityEncoder(yFarSwap)
+  val yFarW = yFarSwap.getWidth
   // Since always a leading 1 bit exists, stickey == 1 when shiftOut, but round should be 0
   val stickeyFar = ( onePosFromLSB < diffFarMinus2) && !diffFarLessThan2
   // Increment for negative value occurs only rounded bits are all 0
-  val guardFarNeg = (~(yFarShift(1,0) ## stickeyFar)) +& 1.U
-  val guardFar    = Mux(diffSgn_2, guardFarNeg(2,1), yFarShift(1,0))
-  val negIncFar   = diffSgn_2 && guardFarNeg(3)
-  val yAddFar = diffSgn_2 ## Mux(diffSgn_2,~yFarShift(maxManWxyz+2,2),yFarShift(maxManWxyz+2,2))
+  val guardFarNeg = (~Cat(yFarShift(1,0), stickeyFar)) +& 1.U
+  val guardFar    = Mux(diffSgnSwap, guardFarNeg(2,1), yFarShift(1,0))
+  val negIncFar   = diffSgnSwap && guardFarNeg(3)
+  val yAddFar = Cat(diffSgnSwap,
+    Mux(diffSgnSwap,~yFarShift(maxManWxyz+2,2),yFarShift(maxManWxyz+2,2)))
 
   //----------------------------------------------------------------------
   // Near path
@@ -295,52 +312,60 @@ class AddFPGeneric(
   //     in this case, -1 < x+y < 1+1/2.
   //
   // Implementation without mantissa comparison - use XFar/YFar
-  val xNear = getMSB(2+maxManWxy, xFar_2) ## 0.U(1.W)
-  val yNear = getMSB(2+maxManWxy, yFar_2)
+  val xNear = Cat(getMSB(2+maxManWxy, xFarSwap), 0.U(1.W))
+  val yNear = getMSB(2+maxManWxy, yFarSwap)
 
-  val yNearShift = Mux( nearShift_2, 0.U(2.W) ## yNear, 0.U(1.W) ## yNear ## 0.U(1.W) )
+  val yNearShift = Mux( nearShiftSwap, Cat(0.U(2.W), yNear), Cat(0.U(1.W), yNear, 0.U(1.W)) )
 
   //--------------------------- stage "align" ----------------------------
-  private def cutAlign[T <: Data](x: T): T = ShiftRegister(x, stages.at("align"))
-  private def cutAlignDbg[T <: Data](x: T): T = if (enableDebug) cutAlign(x) else x
+  private def cutAlign[T <: Data](x: T): T = {
+    ShiftRegister(x, stages.at("align"))
+  }
+  private def cutAlignDbg[T <: Data](x: T): T = {
+    if (enableDebug) {
+      cutAlign(x)
+    } else {
+      x
+    }
+  }
 
-  val xFar_3       = cutAlign(xFar_2)
-  val yAddFar_3    = cutAlign(yAddFar)
-  val negIncFar_3  = cutAlign(negIncFar)
-  val guardFar_3   = cutAlign(guardFar)
-  val stickeyFar_3 = cutAlign(stickeyFar)
-  val xNear_3      = cutAlign(xNear)
-  val yNearShift_3 = cutAlign(yNearShift)
-  val near_3       = cutAlign(near_2)
-  val xFarSign_3   = cutAlign(xFarSign_2)
-  val zexNorm_3    = cutAlign(zexNorm_2)
-  val xsgn_3       = cutAlign(xsgn_2)
-  val ysgn_3       = cutAlign(ysgn_2)
-  val xyNaN_3      = cutAlign(xyNaN_2)
-  val xyInf_3      = cutAlign(xyInf_2)
-  val xyInfSgn_3   = cutAlign(xyInfSgn_2)
-  val xyBothZero_3 = cutAlign(xyBothZero_2)
-  val yNear_3         = cutAlignDbg(yNear)           // dbgPrintf only
-  val nearShift_3     = cutAlignDbg(nearShift_2)     // dbgPrintf only
-  val yFar_3          = cutAlignDbg(yFar_2)          // dbgPrintf only
-  val onePosFromLSB_3 = cutAlignDbg(onePosFromLSB)   // dbgPrintf only
-  val diffFar_3       = cutAlignDbg(diffFar_2)       // dbgPrintf only
-  val shiftOut_3      = cutAlignDbg(shiftOut)        // dbgPrintf only
-  val diffSgn_3       = cutAlignDbg(diffSgn_2)       // dbgPrintf only
+  val xFarAlign          = cutAlign(xFarSwap)
+  val yAddFarAlign       = cutAlign(yAddFar)
+  val negIncFarAlign     = cutAlign(negIncFar)
+  val guardFarAlign      = cutAlign(guardFar)
+  val stickeyFarAlign    = cutAlign(stickeyFar)
+  val xNearAlign         = cutAlign(xNear)
+  val yNearShiftAlign    = cutAlign(yNearShift)
+  val nearAlign          = cutAlign(nearSwap)
+  val xFarSignAlign      = cutAlign(xFarSignSwap)
+  val zexNormAlign       = cutAlign(zexNormSwap)
+  val xsgnAlign          = cutAlign(xsgnSwap)
+  val ysgnAlign          = cutAlign(ysgnSwap)
+  val xyNaNAlign         = cutAlign(xyNaNSwap)
+  val xyInfAlign         = cutAlign(xyInfSwap)
+  val xyInfSgnAlign      = cutAlign(xyInfSgnSwap)
+  val xyBothZeroAlign    = cutAlign(xyBothZeroSwap)
+  val yNearAlign         = cutAlignDbg(yNear)         // dbgPrintf only
+  val nearShiftAlign     = cutAlignDbg(nearShiftSwap) // dbgPrintf only
+  val yFarAlign          = cutAlignDbg(yFarSwap)      // dbgPrintf only
+  val onePosFromLSBAlign = cutAlignDbg(onePosFromLSB) // dbgPrintf only
+  val diffFarAlign       = cutAlignDbg(diffFarSwap)   // dbgPrintf only
+  val shiftOutAlign      = cutAlignDbg(shiftOut)      // dbgPrintf only
+  val diffSgnAlign       = cutAlignDbg(diffSgnSwap)   // dbgPrintf only
 
   //----------------------------------------------------------------------
   // S4 : significand add (far) / subtract (near)
   // Width = maxManWxyz+2
-  val sumFar = xFar_3 + yAddFar_3 + negIncFar_3
-  when (!near_3) {
+  val sumFar = xFarAlign + yAddFarAlign + negIncFarAlign
+  when (!nearAlign) {
     dbgPrintf("yFar=%x onePosFromLSB=%d diffFar=%d(%x) shiftOut=%d\n",
-      yFar_3, onePosFromLSB_3, diffFar_3, diffFar_3, shiftOut_3)
-    dbgPrintf("guardFar=%x stickeyFar=%d\n", guardFar_3, stickeyFar_3)
+      yFarAlign, onePosFromLSBAlign, diffFarAlign, diffFarAlign, shiftOutAlign)
+    dbgPrintf("guardFar=%x stickeyFar=%d\n", guardFarAlign, stickeyFarAlign)
     dbgPrintf("diffSgn=%d sumFar=%x yAddFar=%x negIncFar=%b\n",
-      diffSgn_3, sumFar, yAddFar_3, negIncFar_3)
+      diffSgnAlign, sumFar, yAddFarAlign, negIncFarAlign)
   }
 
-  val sumNear = xNear_3 - yNearShift_3
+  val sumNear = xNearAlign - yNearShiftAlign
   // The below includes 1.xxxx+round bit
   //  width = maxManWxy+2
   val sumNearSign = getMSB1(0,sumNear)
@@ -350,8 +375,8 @@ class AddFPGeneric(
   // leading zero anticipation, in parallel with the subtraction above
   // (TODO: carry correction does not run in parallel)
   val shiftApprox = if(useParallelLZA) {
-    val sumNearG  =   xNear_3  & (~yNearShift_3) // x > y  (Greater)
-    val sumNearS  = (~xNear_3) &   yNearShift_3  // x < y  (Smaller)
+    val sumNearG  =   xNearAlign  & (~yNearShiftAlign) // x > y  (Greater)
+    val sumNearS  = (~xNearAlign) &   yNearShiftAlign  // x < y  (Smaller)
     val sumNearE  = ~(sumNearG | sumNearS)       // x == y (otherwise)
     val sumNearF  = VecInit(Seq.tabulate(sumNearE.getWidth)( i => {
         val eNext = if(i+1 < sumNearE.getWidth) {sumNearE(i+1)} else {1.U(1.W)}
@@ -372,34 +397,42 @@ class AddFPGeneric(
   }
 
   //---------------------------- stage "add" -----------------------------
-  private def cutAdd[T <: Data](x: T): T = ShiftRegister(x, stages.at("add"))
-  private def cutAddDbg[T <: Data](x: T): T = if (enableDebug) cutAdd(x) else x
+  private def cutAdd[T <: Data](x: T): T = {
+    ShiftRegister(x, stages.at("add"))
+  }
+  private def cutAddDbg[T <: Data](x: T): T = {
+    if (enableDebug) {
+      cutAdd(x)
+    } else {
+      x
+    }
+  }
 
-  val sumFar_4       = cutAdd(sumFar)
-  val guardFar_4     = cutAdd(guardFar_3)
-  val stickeyFar_4   = cutAdd(stickeyFar_3)
-  val sumNear_4      = cutAddDbg(sumNear)      // dbgPrintf only
-  val sumNearAbs_4   = cutAdd(sumNearAbs)
-  val sumNearSign_4  = cutAdd(sumNearSign)
-  val sumNearZero_4  = cutAdd(sumNearZero)
-  val shiftApprox_4  = shiftApprox.map(cutAdd(_))
-  val xNear_4        = cutAddDbg(xNear_3)      // dbgPrintf only
-  val yNear_4        = cutAddDbg(yNear_3)      // dbgPrintf only
-  val nearShift_4    = cutAddDbg(nearShift_3)  // dbgPrintf only
-  val yNearShift_4   = cutAddDbg(yNearShift_3) // dbgPrintf only
-  val near_4         = cutAdd(near_3)
-  val xFarSign_4     = cutAdd(xFarSign_3)
-  val zexNorm_4      = cutAdd(zexNorm_3)
-  val xsgn_4         = cutAdd(xsgn_3)
-  val ysgn_4         = cutAdd(ysgn_3)
-  val xyNaN_4        = cutAdd(xyNaN_3)
-  val xyInf_4        = cutAdd(xyInf_3)
-  val xyInfSgn_4     = cutAdd(xyInfSgn_3)
-  val xyBothZero_4   = cutAdd(xyBothZero_3)
+  val sumFarAdd      = cutAdd(sumFar)
+  val guardFarAdd    = cutAdd(guardFarAlign)
+  val stickeyFarAdd  = cutAdd(stickeyFarAlign)
+  val sumNearAdd     = cutAddDbg(sumNear)         // dbgPrintf only
+  val sumNearAbsAdd  = cutAdd(sumNearAbs)
+  val sumNearSignAdd = cutAdd(sumNearSign)
+  val sumNearZeroAdd = cutAdd(sumNearZero)
+  val shiftApproxAdd = shiftApprox.map(cutAdd(_))
+  val xNearAdd       = cutAddDbg(xNearAlign)      // dbgPrintf only
+  val yNearAdd       = cutAddDbg(yNearAlign)      // dbgPrintf only
+  val nearShiftAdd   = cutAddDbg(nearShiftAlign)  // dbgPrintf only
+  val yNearShiftAdd  = cutAddDbg(yNearShiftAlign) // dbgPrintf only
+  val nearAdd        = cutAdd(nearAlign)
+  val xFarSignAdd    = cutAdd(xFarSignAlign)
+  val zexNormAdd     = cutAdd(zexNormAlign)
+  val xsgnAdd        = cutAdd(xsgnAlign)
+  val ysgnAdd        = cutAdd(ysgnAlign)
+  val xyNaNAdd       = cutAdd(xyNaNAlign)
+  val xyInfAdd       = cutAdd(xyInfAlign)
+  val xyInfSgnAdd    = cutAdd(xyInfSgnAlign)
+  val xyBothZeroAdd  = cutAdd(xyBothZeroAlign)
 
   //----------------------------------------------------------------------
   // S5 : normalisation (near), mantissa / round selection (far), merge
-  val sumFarWithGuard = sumFar_4 ## guardFar_4
+  val sumFarWithGuard = Cat(sumFarAdd, guardFarAdd)
 
   // Rounding
   val zmanFar     = Wire(UInt(zSpec.manW.W)) // This omit leading zero
@@ -407,13 +440,13 @@ class AddFPGeneric(
   val additionalStickeyFar = Wire(Bool())
   val exSubFar    = Wire(SInt(2.W))
   val diffWz = maxManWxyz-zSpec.manW // >=0
-  when (sumFar_4(maxManWxyz+1).asBool) { // >=2
-    zmanFar      := sumFar_4(maxManWxyz, diffWz+1)
-    roundFarSel  := sumFar_4(diffWz)
+  when (sumFarAdd(maxManWxyz+1).asBool) { // >=2
+    zmanFar      := sumFarAdd(maxManWxyz, diffWz+1)
+    roundFarSel  := sumFarAdd(diffWz)
     additionalStickeyFar := orRLSB(diffWz+2, sumFarWithGuard)
     exSubFar     := -1.S
-  }.elsewhen (sumFar_4(maxManWxyz)===1.U) { // >=1
-    zmanFar      := sumFar_4(maxManWxyz-1, diffWz)
+  }.elsewhen (sumFarAdd(maxManWxyz)===1.U) { // >=1
+    zmanFar      := sumFarAdd(maxManWxyz-1, diffWz)
     roundFarSel  := sumFarWithGuard(diffWz+1)
     additionalStickeyFar := orRLSB(diffWz+1, sumFarWithGuard)
     exSubFar     := 0.S
@@ -423,21 +456,21 @@ class AddFPGeneric(
     additionalStickeyFar := orRLSB(diffWz, sumFarWithGuard)
     exSubFar     := 1.S
   }
-  when (!near_4) { dbgPrintf("zmanFar=%x\n", zmanFar) }
+  when (!nearAdd) { dbgPrintf("zmanFar=%x\n", zmanFar) }
 
   val incFar = FloatChiselUtil.roundIncBySpec(roundSpec, zmanFar(0), roundFarSel,
-    stickeyFar_4 || additionalStickeyFar)
+    stickeyFarAdd || additionalStickeyFar)
 
   // Near path normalisation
   val (shiftSum, sumNearNorm) = if(useParallelLZA) {
-    val shiftApproxR = shiftApprox_4.get
-    val sumNearNorm0 = (sumNearAbs_4 << shiftApproxR)(maxManWxy+2,0)
+    val shiftApproxR = shiftApproxAdd.get
+    val sumNearNorm0 = (sumNearAbsAdd << shiftApproxR)(maxManWxy+2,0)
     val sumNearNorm  = Mux(sumNearNorm0(maxManWxy+2) === 1.U, // carry correction
       sumNearNorm0(maxManWxy+1,1), sumNearNorm0(maxManWxy,0))
     val shiftSum = shiftApproxR - sumNearNorm0(maxManWxy+2)
 
     if(enableDebug) {
-      val shiftRef = PriorityEncoder(Reverse(sumNearAbs_4))
+      val shiftRef = PriorityEncoder(Reverse(sumNearAbsAdd))
       assert(shiftRef === shiftSum)
     }
 
@@ -446,12 +479,12 @@ class AddFPGeneric(
   } else {
     // 0 .. >=1
     // 1 .. >=1/2 ...
-    val shiftSum    = PriorityEncoder(Reverse(sumNearAbs_4))
-    val sumNearNorm = (sumNearAbs_4 << shiftSum)(maxManWxy,0) // include (possible) round bit
+    val shiftSum    = PriorityEncoder(Reverse(sumNearAbsAdd))
+    val sumNearNorm = (sumNearAbsAdd << shiftSum)(maxManWxy,0) // include (possible) round bit
     (shiftSum, sumNearNorm)
   }
 
-  val nearSign = (!sumNearZero_4) && (sumNearSign_4 ^ xFarSign_4)
+  val nearSign = (!sumNearZeroAdd) && (sumNearSignAdd ^ xFarSignAdd)
 
   // Rounding
   val zmanNear = Wire(UInt((zSpec.manW).W))
@@ -469,88 +502,92 @@ class AddFPGeneric(
     incNear  := 0.U(1.W)
     zmanNear := padLSB( zSpec.manW, sumNearNorm(maxManWxy, 0) )
   }
-  when (near_4) {
+  when (nearAdd) {
     dbgPrintf("xNear=%b yNear=%b nearShift=%d yNearShift=%b\n",
-      xNear_4, yNear_4, nearShift_4, yNearShift_4)
-    dbgPrintf("sumNear=%b sumNearAbs=%b\n", sumNear_4, sumNearAbs_4)
-    dbgPrintf("sumNearAbs=%b\n", sumNearAbs_4)
+      xNearAdd, yNearAdd, nearShiftAdd, yNearShiftAdd)
+    dbgPrintf("sumNear=%b sumNearAbs=%b\n", sumNearAdd, sumNearAbsAdd)
+    dbgPrintf("sumNearAbs=%b\n", sumNearAbsAdd)
     dbgPrintf("shiftSum=%d(%b) sumNearNorm=%b incNear=%b\n", shiftSum, shiftSum, sumNearNorm, incNear)
   }
 
   //----------------------------------------------------------------------
   // Merge Far / Near
-  val zmanSel = Mux(near_4, zmanNear, zmanFar)
-  val incSel  = Mux(near_4, incNear, incFar)
-  val zeroSel = near_4 && sumNearZero_4
-  val exSub   = Mux(near_4, shiftSum.zext, exSubFar) // SInt
-  val zsgn0   = Mux(near_4, nearSign, xFarSign_4)
+  val zmanSel = Mux(nearAdd, zmanNear, zmanFar)
+  val incSel  = Mux(nearAdd, incNear, incFar)
+  val zeroSel = nearAdd && sumNearZeroAdd
+  val exSub   = Mux(nearAdd, shiftSum.zext, exSubFar) // SInt
+  val zsgn0   = Mux(nearAdd, nearSign, xFarSignAdd)
 
   //---------------------------- stage "norm" ----------------------------
-  private def cutNorm[T <: Data](x: T): T = ShiftRegister(x, stages.at("norm"))
+  private def cutNorm[T <: Data](x: T): T = {
+    ShiftRegister(x, stages.at("norm"))
+  }
 
-  val zmanSel_5    = cutNorm(zmanSel)
-  val incSel_5     = cutNorm(incSel)
-  val zeroSel_5    = cutNorm(zeroSel)
-  val exSub_5      = cutNorm(exSub)
-  val zsgn0_5      = cutNorm(zsgn0)
-  val zexNorm_5    = cutNorm(zexNorm_4)
-  val xsgn_5       = cutNorm(xsgn_4)
-  val ysgn_5       = cutNorm(ysgn_4)
-  val xyNaN_5      = cutNorm(xyNaN_4)
-  val xyInf_5      = cutNorm(xyInf_4)
-  val xyInfSgn_5   = cutNorm(xyInfSgn_4)
-  val xyBothZero_5 = cutNorm(xyBothZero_4)
+  val zmanSelNorm    = cutNorm(zmanSel)
+  val incSelNorm     = cutNorm(incSel)
+  val zeroSelNorm    = cutNorm(zeroSel)
+  val exSubNorm      = cutNorm(exSub)
+  val zsgn0Norm      = cutNorm(zsgn0)
+  val zexNormNorm    = cutNorm(zexNormAdd)
+  val xsgnNorm       = cutNorm(xsgnAdd)
+  val ysgnNorm       = cutNorm(ysgnAdd)
+  val xyNaNNorm      = cutNorm(xyNaNAdd)
+  val xyInfNorm      = cutNorm(xyInfAdd)
+  val xyInfSgnNorm   = cutNorm(xyInfSgnAdd)
+  val xyBothZeroNorm = cutNorm(xyBothZeroAdd)
 
   //----------------------------------------------------------------------
   // S6 : rounding increment and exponent adjustment
-  val zman0   = zmanSel_5 +& incSel_5
+  val zman0   = zmanSelNorm +& incSelNorm
 
   // Calculate zex Range
   val zexMax = zexBaseMax+2
   // In cases when zSpec.manW is smaller, it will increase 2 (result become 4)
   val zexMin = zexBaseMin - sumNearAbs.getWidth
   val zexW   = getWidthToRepresentNumbersAlwaysSigned( Seq(zexMin,  zexMax) )
-  val zex0   = zexNorm_5.pad(zexW) - exSub_5 + zman0(zSpec.manW).zext
+  val zex0   = zexNormNorm.pad(zexW) - exSubNorm + zman0(zSpec.manW).zext
   val zeroAfterAdd = if(zSpec.disableSubnormal){
-    (zex0 <= 0.S) || zeroSel_5 // if subnormal is disabled, include ex==0 as zero.
+    (zex0 <= 0.S) || zeroSelNorm // if subnormal is disabled, include ex==0 as zero.
   } else {
-    (zex0 <  0.S) || zeroSel_5
+    (zex0 <  0.S) || zeroSelNorm
   }
   val infAfterAdd = zex0 >= maskI(zSpec.exW).S
 
   dbgPrintf("zex0 = %d, zeroAfterAdd = %d\n", zex0, zeroAfterAdd)
 
   //--------------------------- stage "round" ----------------------------
-  private def cutRound[T <: Data](x: T): T = ShiftRegister(x, stages.at("round"))
+  private def cutRound[T <: Data](x: T): T = {
+    ShiftRegister(x, stages.at("round"))
+  }
 
-  val zmanBits_6     = cutRound(zman0(zSpec.manW-1, 0))
-  val zexBits_6      = cutRound(zex0(zSpec.exW-1, 0))
-  val zeroAfterAdd_6 = cutRound(zeroAfterAdd)
-  val infAfterAdd_6  = cutRound(infAfterAdd)
-  val zsgn0_6        = cutRound(zsgn0_5)
-  val xsgn_6         = cutRound(xsgn_5)
-  val ysgn_6         = cutRound(ysgn_5)
-  val xyNaN_6        = cutRound(xyNaN_5)
-  val xyInf_6        = cutRound(xyInf_5)
-  val xyInfSgn_6     = cutRound(xyInfSgn_5)
-  val xyBothZero_6   = cutRound(xyBothZero_5)
+  val zmanBitsRound     = cutRound(zman0(zSpec.manW-1, 0))
+  val zexBitsRound      = cutRound(zex0(zSpec.exW-1, 0))
+  val zeroAfterAddRound = cutRound(zeroAfterAdd)
+  val infAfterAddRound  = cutRound(infAfterAdd)
+  val zsgn0Round        = cutRound(zsgn0Norm)
+  val xsgnRound         = cutRound(xsgnNorm)
+  val ysgnRound         = cutRound(ysgnNorm)
+  val xyNaNRound        = cutRound(xyNaNNorm)
+  val xyInfRound        = cutRound(xyInfNorm)
+  val xyInfSgnRound     = cutRound(xyInfSgnNorm)
+  val xyBothZeroRound   = cutRound(xyBothZeroNorm)
 
   //----------------------------------------------------------------------
   // S7 : Final (special case muxes)
-  val infOrNaN = xyInf_6 || xyNaN_6 || infAfterAdd_6
-  val zero     = zeroAfterAdd_6||xyBothZero_6
+  val infOrNaN = xyInfRound || xyNaNRound || infAfterAddRound
+  val zero     = zeroAfterAddRound||xyBothZeroRound
 
   val zex = Mux (infOrNaN, maskU(zSpec.exW),
-    Mux (zero, 0.U(zSpec.exW.W), zexBits_6))
-  val zman = Mux(infOrNaN || zero, xyNaN_6 ## 0.U((zSpec.manW-1).W), zmanBits_6)
+    Mux (zero, 0.U(zSpec.exW.W), zexBitsRound))
+  val zman = Mux(infOrNaN || zero, Cat(xyNaNRound, 0.U((zSpec.manW-1).W)), zmanBitsRound)
   val zsgn = if(roundSpec == RoundSpec.truncate) {
-    Mux(xyNaN_6, 0.U(1.W), Mux(xyBothZero_6, xsgn_6 | ysgn_6, Mux(xyInf_6, xyInfSgn_6, zsgn0_6)))
+    Mux(xyNaNRound, 0.U(1.W), Mux(xyBothZeroRound, xsgnRound | ysgnRound, Mux(xyInfRound, xyInfSgnRound, zsgn0Round)))
   } else {
-    Mux(xyNaN_6, 0.U(1.W), Mux(xyBothZero_6, xsgn_6 & ysgn_6, Mux(xyInf_6, xyInfSgn_6, zsgn0_6)))
+    Mux(xyNaNRound, 0.U(1.W), Mux(xyBothZeroRound, xsgnRound & ysgnRound, Mux(xyInfRound, xyInfSgnRound, zsgn0Round)))
   }
   // currently it does not distinguish positive NaN and negative NaN
 
-  val z0 = zsgn ## zex ## zman
+  val z0 = Cat(zsgn, zex, zman)
 
   io.z   := ShiftRegister(z0, stages.at("out"))
   dbgPrintf("x=%x y=%x z=%x\n", io.x, io.y, io.z)
