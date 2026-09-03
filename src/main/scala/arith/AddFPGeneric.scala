@@ -471,7 +471,12 @@ class AddFPGeneric(
 
     if(enableDebug) {
       val shiftRef = PriorityEncoder(Reverse(sumNearAbsAdd))
-      assert(shiftRef === shiftSum)
+      // An exact cancellation leaves no leading one at all. PriorityEncoder
+      // then returns (width-1) on both sides, and the LZA vector is one bit
+      // wider than sumNearAbsAdd, so the two disagree by exactly one there.
+      // The shift amount is a don't care in that case: zeroSel forces the
+      // result to zero.
+      assert(sumNearAbsAdd === 0.U || shiftRef === shiftSum)
     }
 
     (shiftSum, sumNearNorm)

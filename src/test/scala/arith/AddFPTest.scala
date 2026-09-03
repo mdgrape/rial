@@ -197,11 +197,12 @@ class AddFPTest extends AnyFunSpec with ChiselSim with EmitVcd {
     }
     // The leading zero anticipator runs in parallel with the near path
     // subtraction, so it is cut at the same points.
-    // enableDebug is off here: the LZA carries an `assert(shiftRef === shiftSum)`
-    // that does not hold for all inputs, independently of the pipelining.
+    // enableDebug is on: the LZA assertion that compares the anticipated shift
+    // with the reference leading-zero count now excludes the exact
+    // cancellation case, where no leading one exists and the shift is unused.
     it(f"Add Float with parallel LZA and pipereg [${PipelineStageConfig.default(3).getString}]") {
       addTest( RealSpec.Float32Spec, RealSpec.Float32Spec, RealSpec.Float32Spec,
-        RoundSpec.roundToEven, n, PipelineStageConfig.default(3), true, false)
+        RoundSpec.roundToEven, n, PipelineStageConfig.default(3), true, true)
     }
   }
 }
