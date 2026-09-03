@@ -178,38 +178,16 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
       }
       return RealGeneric.zero(resSpec, resSgn)
     }
+    // x + 0 (or 0 + y) is the other operand converted into the output spec.
+    // The conversion must round the mantissa and check the output exponent
+    // range, otherwise a narrower output truncates the mantissa and wraps the
+    // exponent. Overflow gives Inf and underflow gives zero, both keeping the
+    // sign of the non-zero operand (IEEE 754 (2019) 6.3).
     if(this.isZero) {
-      // convert that.spec to resSpec
-      val resSgn = that.sgn
-      val resEx0 = that.ex - that.spec.exBias + resSpec.exBias
-      val (resMan, resExInc) = if(resSpec.manW >= that.spec.manW) {
-        (that.man << (resSpec.manW - that.spec.manW), 0)
-      } else {
-        val thatRounded = roundBySpec(roundSpec, that.spec.manW - resSpec.manW, that.man)
-        val moreThan2AfterRound = bit(resSpec.manW+1, thatRounded)
-        (slice(0, resSpec.manW, thatRounded), moreThan2AfterRound)
-      }
-      val resEx = resEx0 + resExInc
-      if(resEx >= maskI(resSpec.exW)) {
-        return RealGeneric.inf(resSpec, resSgn)
-      }
-      return new RealGeneric(resSpec, resSgn, resEx, resMan)
+      return that.convert(resSpec, roundSpec)
     }
     if(that.isZero) {
-      val resSgn = this.sgn
-      val resEx0 = this.ex - this.spec.exBias + resSpec.exBias
-      val (resMan, resExInc) = if(resSpec.manW >= this.spec.manW) {
-        (this.man << (resSpec.manW - this.spec.manW), 0)
-      } else {
-        val thisRounded = roundBySpec(roundSpec, this.spec.manW - resSpec.manW, this.man)
-        val moreThan2AfterRound = bit(resSpec.manW+1, thisRounded)
-        (slice(0, resSpec.manW, thisRounded), moreThan2AfterRound)
-      }
-      val resEx = resEx0 + resExInc
-      if(resEx >= maskI(resSpec.exW)) {
-        return RealGeneric.inf(resSpec, resSgn)
-      }
-      return new RealGeneric(resSpec, resSgn, resEx, resMan)
+      return this.convert(resSpec, roundSpec)
     }
 
     // Normal values
@@ -263,7 +241,9 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
     val resEx = exMax + leading1 - max(x.spec.manW, y.spec.manW) - diffEx + exInc + resSpec.exBias
 
     if (resEx <= 0) { // result is zero : currently subnormal not supported
-      zero(resSpec)
+      // IEEE 754 (2019) 6.3: an underflowed sum keeps the sign of the exact
+      // result. Only an exactly zero sum is +0 (handled by sumPos==0 above).
+      zero(resSpec, resSgn)
     } else if (resEx >= maskI(resSpec.exW)) { // result is inf
       inf(resSpec, resSgn)
     } else {
@@ -319,21 +299,27 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
     }
 
     if (this.isZero || y.isZero) {
-      if (z.isZero) {
-        if (roundSpec == RoundSpec.truncate) {
-          if (xySgn == 0 && z.sgn == 0) { // +0 + +0 = +0
-            zero(resSpec)
+      if (z.isZero) { // 0 + 0
+        val resSgn = if (roundSpec == RoundSpec.truncate) {
+          if (xySgn == 1 || z.sgn == 1) { // -0 unless both are +0
+            1
           } else {
-            new RealGeneric( resSpec, 1, 0, 0 ) // -0
+            0
           }
         } else {
-          if (xySgn == 1 && z.sgn == 1) {
-            return z      // -0 + -0 = -0
+          if (xySgn == 1 && z.sgn == 1) { // -0 + -0 = -0, otherwise +0
+            1
           } else {
-            zero(resSpec) // otherwise +0
+            0
           }
         }
-      } else return z // if z is not zero, then return z.
+        return zero(resSpec, resSgn)
+      } else {
+        // if z is not zero, the result is z converted into the output spec.
+        // The conversion rounds the mantissa and checks the output exponent
+        // range, so a narrower output does not truncate/wrap here.
+        return z.convert(resSpec, roundSpec)
+      }
     }
 
     val xyEx0       = (this.ex - this.spec.exBias) + (y.ex - y.spec.exBias)
@@ -439,8 +425,10 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
 //     println(s"roundExInc     = ${roundExInc}")
 //     println(s"resEx  = ${resEx}")
 
-    if (resEx <= 0) {
-      zero(resSpec) // subnormal not supported
+    if (resEx <= 0) { // result is zero : currently subnormal not supported
+      // IEEE 754 (2019) 6.3: an underflowed result keeps the sign of the exact
+      // result. Only an exactly zero result is +0 (sumPos==0 above).
+      zero(resSpec, resSgn)
     } else if (resEx >= maskI(resSpec.exW)) { // result is inf
       inf(resSpec, resSgn)
     } else {
@@ -533,8 +521,12 @@ class RealGeneric ( val spec : RealSpec, val value: SafeLong  ) {
 
     // +3 means +2+sticky
     val resEx = maxEx + (sumLeadingOne - (1+fracW+fracW+3)) + exInc + resSpec.exBias
-    if(resEx <= 0 || sumZero) {
+    if(sumZero) { // the exact result is zero
       zero(resSpec)
+    } else if(resEx <= 0) { // result is zero : currently subnormal not supported
+      // IEEE 754 (2019) 6.3: an underflowed result keeps the sign of the exact
+      // result.
+      zero(resSpec, resSgn)
     } else if(resEx >= maskI(resSpec.exW)) {
       inf(resSpec, resSgn)
     } else {
@@ -642,7 +634,9 @@ object RealGeneric {
       // keep sign of zero
       SafeLong(sgn&1L) << (spec.W-1)
     } else if (ex>=maskI(spec.exW)) {// Inf
-      ( maskI(spec.exW+(sgn&1)) << spec.manW )
+      // note: maskI is an Int, so the shift below has to be done in SafeLong,
+      // otherwise the sign bit of a negative Inf overflows an Int.
+      ( maskSL(spec.exW+(sgn&1)) << spec.manW )
     } else {
       (man & maskSL(spec.manW))+ ( SafeLong( ex + ((sgn&1)<<spec.exW) ) << spec.manW )
     }
