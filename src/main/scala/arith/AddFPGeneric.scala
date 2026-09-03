@@ -312,10 +312,15 @@ class AddFPGeneric(
   //     in this case, -1 < x+y < 1+1/2.
   //
   // Implementation without mantissa comparison - use XFar/YFar
+  // xFar carries a leading zero for the carry and yFar does not, so pad
+  // yFar first and take the same (2+maxManWxy)-bit window from both.
+  // getMSB does not pad: without the leading zero the y window is one
+  // bit too wide when zSpec.manW > maxManWxy, which misaligns y against
+  // x by a factor of two.
   val xNear = Cat(getMSB(2+maxManWxy, xFarSwap), 0.U(1.W))
-  val yNear = getMSB(2+maxManWxy, yFarSwap)
+  val yNear = getMSB(2+maxManWxy, Cat(0.U(1.W), yFarSwap))
 
-  val yNearShift = Mux( nearShiftSwap, Cat(0.U(2.W), yNear), Cat(0.U(1.W), yNear, 0.U(1.W)) )
+  val yNearShift = Mux( nearShiftSwap, Cat(0.U(1.W), yNear), Cat(yNear, 0.U(1.W)) )
 
   //--------------------------- stage "align" ----------------------------
   private def cutAlign[T <: Data](x: T): T = {
@@ -495,10 +500,12 @@ class AddFPGeneric(
   val zmanNear = Wire(UInt((zSpec.manW).W))
   val incNear  = Wire(Bool())
   if (zSpec.manW < maxManWxy) { // Output precision is lower
-    val roundNear   = getMSB1(zSpec.manW+1, sumNearNorm)
+    // sumNearNorm(maxManWxy, 1) is the mantissa; the kept part ends at bit
+    // maxManWxy-zSpec.manW+1 and the round bit is the one below it.
+    val lsbNear     = sumNearNorm(maxManWxy-zSpec.manW+1)
+    val roundNear   = sumNearNorm(maxManWxy-zSpec.manW)
     val stickeyNear = orRLSB(maxManWxy-zSpec.manW, sumNearNorm) // This is usually zero
-    incNear  := FloatChiselUtil.roundIncBySpec(roundSpec, getMSB1(zSpec.manW,sumNearNorm), roundNear,
-      stickeyNear)
+    incNear  := FloatChiselUtil.roundIncBySpec(roundSpec, lsbNear, roundNear, stickeyNear)
     zmanNear := sumNearNorm(maxManWxy, maxManWxy-zSpec.manW+1)
   } else if (zSpec.manW == maxManWxy) { // Output precision is the same as input
     incNear  := FloatChiselUtil.roundIncBySpec(roundSpec, sumNearNorm(1), sumNearNorm(0), false.B)

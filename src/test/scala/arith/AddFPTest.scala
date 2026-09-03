@@ -172,6 +172,22 @@ class AddFPTest extends AnyFunSpec with ChiselSim with EmitVcd {
     }
   }
 
+  // Output precision different from both inputs: wider (no rounding in the
+  // near path) and narrower (rounding of the near-path sum).
+  describe("Test x+y with a wider or narrower output") {
+    for ((xSpec, ySpec, zSpec, name) <- Seq(
+      (RealSpec.BFloat16Spec, RealSpec.BFloat16Spec, RealSpec.Float32Spec, "BFloat16+BFloat16=Float"),
+      (RealSpec.Float16Spec,  RealSpec.Float16Spec,  RealSpec.Float32Spec, "Half+Half=Float"),
+      (RealSpec.BFloat16Spec, RealSpec.Float16Spec,  RealSpec.Float32Spec, "BFloat16+Half=Float"),
+      (RealSpec.Float32Spec,  RealSpec.Float32Spec,  RealSpec.Float64Spec, "Float+Float=Double"),
+      (RealSpec.Float32Spec,  RealSpec.Float32Spec,  RealSpec.BFloat16Spec, "Float+Float=BFloat16"),
+      (RealSpec.Float64Spec,  RealSpec.Float64Spec,  RealSpec.Float32Spec, "Double+Double=Float"))) {
+      it(f"Add $name with pipereg 0") {
+        addTest( xSpec, ySpec, zSpec, RoundSpec.roundToEven, n, PipelineStageConfig.none)
+      }
+    }
+  }
+
   // Pipelined configurations. A representative subset only: one verilator
   // build per configuration, so this is deliberately not a sweep.
   //  - default(n) : the registers are placed by AddFPGeneric itself
@@ -202,6 +218,10 @@ class AddFPTest extends AnyFunSpec with ChiselSim with EmitVcd {
     // cancellation case, where no leading one exists and the shift is unused.
     it(f"Add Float with parallel LZA and pipereg [${PipelineStageConfig.default(3).getString}]") {
       addTest( RealSpec.Float32Spec, RealSpec.Float32Spec, RealSpec.Float32Spec,
+        RoundSpec.roundToEven, n, PipelineStageConfig.default(3), true, true)
+    }
+    it(f"Add BFloat16+BFloat16=Float with parallel LZA and pipereg [${PipelineStageConfig.default(3).getString}]") {
+      addTest( RealSpec.BFloat16Spec, RealSpec.BFloat16Spec, RealSpec.Float32Spec,
         RoundSpec.roundToEven, n, PipelineStageConfig.default(3), true, true)
     }
   }
