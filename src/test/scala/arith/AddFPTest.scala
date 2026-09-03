@@ -81,10 +81,12 @@ class AddFPTest extends AnyFunSpec with ChiselSim with EmitVcd {
   }
 
   def addTest(xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, roundSpec : RoundSpec,
-    n : Int, stage : PipelineStageConfig ) = {
-    simulate(new AddFPGeneric( xSpec, ySpec, zSpec, roundSpec, stage, true ) ) { c =>
+    n : Int, stage : PipelineStageConfig, useParallelLZA : Boolean = false,
+    enableDebug : Boolean = true ) = {
+    simulate(new AddFPGeneric( xSpec, ySpec, zSpec, roundSpec, stage, enableDebug,
+      useParallelLZA ) ) { c =>
       {
-        c.debugEnableIO.get.poke(false.B)
+        c.debugEnableIO.foreach(_.poke(false.B))
         var q  = new Queue[(BigInt,BigInt,BigInt)]
         val nstage = c.getStage
         for (gen <- List(
@@ -118,7 +120,7 @@ class AddFPTest extends AnyFunSpec with ChiselSim with EmitVcd {
                 c.io.x.poke(xid.U(xSpec.W.W))
                 c.io.y.poke(yid.U(ySpec.W.W))
                 for(i <- 1 to nstage) c.clock.step(1)
-                c.debugEnableIO.get.poke(false.B)
+                c.debugEnableIO.foreach(_.poke(false.B))
                 c.clock.step(1)
               }
 
@@ -167,6 +169,39 @@ class AddFPTest extends AnyFunSpec with ChiselSim with EmitVcd {
     it(f"Add Double+Float=Double with pipereg 0") {
       addTest( RealSpec.Float64Spec, RealSpec.Float32Spec, RealSpec.Float64Spec,
         RoundSpec.roundToEven, n, PipelineStageConfig.none)
+    }
+  }
+
+  // Pipelined configurations. A representative subset only: one verilator
+  // build per configuration, so this is deliberately not a sweep.
+  //  - default(n) : the registers are placed by AddFPGeneric itself
+  //  - specify    : one register at every declared point, which exercises
+  //                 every single pipeline register of the datapath
+  describe("Test x+y with pipeline registers") {
+    for (stage <- Seq(
+      PipelineStageConfig.default(1),
+      PipelineStageConfig.default(2),
+      PipelineStageConfig.default(3),
+      PipelineStageConfig.specify("unpack" -> 1, "swap" -> 1, "align" -> 1,
+                                  "add" -> 1, "norm" -> 1, "round" -> 1),
+      PipelineStageConfig.specify("in" -> 1, "swap" -> 1, "add" -> 1,
+                                  "norm" -> 1, "out" -> 1))) {
+      it(f"Add Float with pipereg [${stage.getString}]") {
+        addTest( RealSpec.Float32Spec, RealSpec.Float32Spec, RealSpec.Float32Spec,
+          RoundSpec.roundToEven, n, stage)
+      }
+    }
+    it(f"Add BFloat16 with pipereg [${PipelineStageConfig.default(3).getString}]") {
+      addTest( RealSpec.BFloat16Spec, RealSpec.BFloat16Spec, RealSpec.BFloat16Spec,
+        RoundSpec.roundToEven, n, PipelineStageConfig.default(3))
+    }
+    // The leading zero anticipator runs in parallel with the near path
+    // subtraction, so it is cut at the same points.
+    // enableDebug is off here: the LZA carries an `assert(shiftRef === shiftSum)`
+    // that does not hold for all inputs, independently of the pipelining.
+    it(f"Add Float with parallel LZA and pipereg [${PipelineStageConfig.default(3).getString}]") {
+      addTest( RealSpec.Float32Spec, RealSpec.Float32Spec, RealSpec.Float32Spec,
+        RoundSpec.roundToEven, n, PipelineStageConfig.default(3), true, false)
     }
   }
 }
