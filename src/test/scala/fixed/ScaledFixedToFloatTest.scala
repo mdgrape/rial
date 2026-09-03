@@ -62,7 +62,7 @@ class ScaledFixedToFloatTest extends AnyFunSpec with ChiselSim with EmitVcd {
 
             q += ((xi,yi,zi0))
             c.io.x.poke(xi.U(xSpec.W.W))
-            c.io.y.poke(yi.U(xSpec.W.W))
+            c.io.y.poke(yi.U(ySpec.W.W))
             val zi = c.io.z.peek().litValue.toBigInt
             c.clock.step(1)
             if (i > nstage) {
@@ -109,6 +109,28 @@ class ScaledFixedToFloatTest extends AnyFunSpec with ChiselSim with EmitVcd {
     it(f"Scale signed Q16 to comparable Float with pipereg 0") {
       convTest( new FixedSpec(32, 16, true, true), RealSpec.Float32Spec, RealSpec.Float32Spec,
         RoundSpec.roundToEven, n, PipelineStageConfig.none, pow(2.0, 32-16-1), pow(2.0, 7.0))
+    }
+  }
+
+  // Pipelined configurations. A representative subset only: one verilator
+  // build per configuration, so this is deliberately not a sweep.
+  //  - default(n) : the registers are placed by ScaledFixedToFloatGeneric itself
+  //  - specify    : one register at every declared point, which exercises
+  //                 every single pipeline register of the datapath
+  describe("Test fixed -> float with pipeline registers") {
+    for (stage <- Seq(
+      PipelineStageConfig.default(1),
+      PipelineStageConfig.default(2),
+      PipelineStageConfig.default(3),
+      PipelineStageConfig.specify("norm" -> 1, "mul" -> 1, "round" -> 1))) {
+      it(f"Scale signed Q24 by comparable Float with pipereg [${stage.getString}]") {
+        convTest( new FixedSpec(32, 24, true, true), RealSpec.Float32Spec, RealSpec.Float32Spec,
+          RoundSpec.roundToEven, n, stage, pow(2.0, 32-24-1), pow(2.0, 7.0))
+      }
+    }
+    it(f"Scale signed Q24 by comparable BFloat16 with pipereg [${PipelineStageConfig.default(3).getString}]") {
+      convTest( new FixedSpec(32, 24, true, true), RealSpec.BFloat16Spec, RealSpec.BFloat16Spec,
+        RoundSpec.roundToEven, n, PipelineStageConfig.default(3), pow(2.0, 32-24-1), pow(2.0, 7.0))
     }
   }
 }

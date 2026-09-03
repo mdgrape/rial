@@ -110,4 +110,26 @@ class FixedToFloatTest extends AnyFunSpec with ChiselSim with EmitVcd {
 
     }
   }
+
+  // Pipelined configurations. A representative subset only: one verilator
+  // build per configuration, so this is deliberately not a sweep.
+  //  - default(n) : the registers are placed by FixedToFloatGeneric itself
+  //  - specify    : one register at every declared point, which exercises
+  //                 every single pipeline register of the datapath
+  describe("Test fixed -> float with pipeline registers") {
+    for (stage <- Seq(
+      PipelineStageConfig.default(1),
+      PipelineStageConfig.default(2),
+      PipelineStageConfig.default(3),
+      PipelineStageConfig.specify("abs" -> 1, "norm" -> 1, "round" -> 1))) {
+      it(f"Converter signed Q24 to Float with pipereg [${stage.getString}]") {
+        convTest( new FixedSpec(32, 24, true, true), None, RealSpec.Float32Spec,
+          RoundSpec.roundToEven, n, stage, pow(2.0, 32-24-1))
+      }
+    }
+    it(f"Converter signed Q24 to BFloat16 with pipereg [${PipelineStageConfig.default(3).getString}]") {
+      convTest( new FixedSpec(32, 24, true, true), None, RealSpec.BFloat16Spec,
+        RoundSpec.roundToEven, n, PipelineStageConfig.default(3), pow(2.0, 32-24-1))
+    }
+  }
 }
