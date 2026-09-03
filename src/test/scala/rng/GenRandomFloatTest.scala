@@ -124,6 +124,12 @@ class Uniform12Test extends AnyFunSpec
   runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none)
   runtest(RealSpec.Float32Spec,  PipelineStageConfig.none)
   runtest(RealSpec.Float64Spec,  PipelineStageConfig.none)
+
+  // pipelined: GenRandomFloat12 declares no internal boundary, so the only
+  // named cuts are the module input and the module output
+  runtest(RealSpec.Float32Spec,  PipelineStageConfig.default(1))
+  runtest(RealSpec.Float32Spec,  PipelineStageConfig.default(2))
+  runtest(RealSpec.Float32Spec,  PipelineStageConfig.specify("in" -> 1, "out" -> 1))
 }
 
 
@@ -228,4 +234,10 @@ class Uniform01Test extends AnyFunSpec
   runtest(RealSpec.BFloat16Spec, PipelineStageConfig.none)
   runtest(RealSpec.Float32Spec,  PipelineStageConfig.none)
   runtest(RealSpec.Float64Spec,  PipelineStageConfig.none)
+
+  // pipelined: one cut chosen by the module, two cuts chosen by the module,
+  // and one register at every internal boundary
+  runtest(RealSpec.Float32Spec,  PipelineStageConfig.default(1))
+  runtest(RealSpec.Float32Spec,  PipelineStageConfig.default(2))
+  runtest(RealSpec.Float32Spec,  PipelineStageConfig.specify("clz" -> 1, "norm" -> 1))
 }

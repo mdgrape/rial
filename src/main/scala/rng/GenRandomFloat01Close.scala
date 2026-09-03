@@ -19,10 +19,35 @@ import rial.util._
  * }
  * }}}
  *
+ * The latency of this module can be configured via
+ * [[rial.util.PipelineStageConfig]]. The generator declares the boundaries of
+ * its datapath, so the registers can be placed inside it - either
+ * automatically or by name:
+ *
+ *  - `"in"`    the module input
+ *  - `"norm"`  after the exponent/mantissa priority encoders and the
+ *              subnormal alignment shift
+ *  - `"round"` after the Downey exponent correction carried by the extra
+ *              random bit
+ *  - `"out"`   the module output
+ *
+ * {{{
+ * // two registers, placed by the module
+ * new GenRandomFloat01Close(rndW, spec, 2)
+ * // hand-picked positions
+ * new GenRandomFloat01Close(rndW, spec,
+ *   PipelineStageConfig.specify("norm" -> 1, "round" -> 1))
+ * // everything at the output, as before
+ * new GenRandomFloat01Close(rndW, spec, PipelineStageConfig.atOut(2))
+ * }}}
+ *
  * @constructor    create a chisel Module.
  * @param rndW     input random number bit width.
  * @param spec     output floating-point spec.
  * @param stage    pipeline stages.
+ *
+ * @see [[rial.util.PipelineStageConfig]]
+ * @see [[rial.util.StagePoint]]
  */
 class GenRandomFloat01Close(
   rndW: Int, // random number width
@@ -47,7 +72,18 @@ class GenRandomFloat01Close(
   //         0000..1 -> zex = exBias-rndExW
   //         0000..0 -> zex = something like a subnormal number.
 
-  val nStage = stage.total
+  /** Boundaries of the datapath at which pipeline registers can be placed.
+   * The weights are rough, target-independent estimates of the delay of the
+   * logic that ends at each boundary. */
+  val stagePoints = GenRandomFloat01Close.stagePoints
+
+  val stages = stage.resolve(stagePoints)
+
+  def getParam = { (rndW, spec, stage) }
+
+  val nStage = stages.total
+
+  def getStage = nStage
 
   val exBias = spec.exBias
   val exW    = spec.exW
@@ -61,12 +97,20 @@ class GenRandomFloat01Close(
     val z   = Output(UInt(spec.W.W))
   })
 
-  val rndMantissa = io.rnd(manW-1, 0)
-  val rndDowney   = io.rnd(manW)
+  //----------------------------------------------------------------------
+  // S0 : input registers ("in")
+
+  val rndIn = ShiftRegister(io.rnd, stages.at("in"))
+
+  //----------------------------------------------------------------------
+  // S1 : split the random bits and normalise the mantissa
+
+  val rndMantissa = rndIn(manW-1, 0)
+  val rndDowney   = rndIn(manW)
   val rndExponent = if(rndExW <= exBias-1) {
-    io.rnd(rndW-1, manW+1)
+    rndIn(rndW-1, manW+1)
   } else {
-    io.rnd(spec.exBias-1 + manW+1 -1, manW+1)
+    rndIn(spec.exBias-1 + manW+1 -1, manW+1)
   }
   assert(rndExponent.getWidth <= exBias-1)
 
@@ -108,19 +152,56 @@ class GenRandomFloat01Close(
     zman := rndMantissa
   }
 
-  val exCorrection = Mux(zman === 0.U, rndDowney, 0.U(1.W))
-  val zexCorrected = zex + exCorrection
+  //--------------------------- stage "norm" -----------------------------
+  private def cutNorm[T <: Data](x: T): T = {
+    ShiftRegister(x, stages.at("norm"))
+  }
+
+  val zsgnNorm      = cutNorm(zsgn)
+  val zexNorm       = cutNorm(zex)
+  val zmanNorm      = cutNorm(zman)
+  val rndDowneyNorm = cutNorm(rndDowney)
+
+  //----------------------------------------------------------------------
+  // S2 : Downey's exponent correction
+
+  val exCorrection = Mux(zmanNorm === 0.U, rndDowneyNorm, 0.U(1.W))
+  val zexCorrected = zexNorm + exCorrection
 
   // if subnormal numbers are disabled, numbers in range [0, 2^-exMin) will be
   // rounded to zero, so distribution around zero is slightly skewed.
   val zmanCorrected = if(spec.disableSubnormal) {
-    Mux(zexCorrected === 0.U, 0.U, zman)
+    Mux(zexCorrected === 0.U, 0.U, zmanNorm)
   } else {
-    zman
+    zmanNorm
   }
 
-  val z = Cat(zsgn, zexCorrected, zmanCorrected)
+  //--------------------------- stage "round" ----------------------------
+  private def cutRound[T <: Data](x: T): T = {
+    ShiftRegister(x, stages.at("round"))
+  }
+
+  val zsgnRound          = cutRound(zsgnNorm)
+  val zexCorrectedRound  = cutRound(zexCorrected)
+  val zmanCorrectedRound = cutRound(zmanCorrected)
+
+  //----------------------------------------------------------------------
+  // S3 : assemble
+
+  val z = Cat(zsgnRound, zexCorrectedRound, zmanCorrectedRound)
   assert(z.getWidth == spec.W)
 
-  io.z := ShiftRegister(z, nStage)
+  //---------------------------- stage "out" -----------------------------
+  io.z := ShiftRegister(z, stages.at("out"))
+}
+
+/** Pipeline stage points of [[rial.rng.GenRandomFloat01Close]].
+ *
+ * @see [[rial.util.StagePoint]]
+ */
+object GenRandomFloat01Close {
+  /** Ordered boundaries of the datapath, with a rough, target-independent
+   *  estimate of the delay of the logic ending at each. */
+  val stagePoints: Seq[StagePoint] = Seq(
+    StagePoint("norm", 3), StagePoint("round", 1), StagePoint("out", 1))
 }

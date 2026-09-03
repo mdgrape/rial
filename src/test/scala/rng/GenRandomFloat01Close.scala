@@ -132,5 +132,12 @@ class Uniform01CloseTest extends AnyFunSpec
   runtest( 32, RealSpec.Float32Spec,  PipelineStageConfig.none)
   runtest( 64, RealSpec.Float32Spec,  PipelineStageConfig.none)
   runtest(128, RealSpec.Float32Spec,  PipelineStageConfig.none)
+
+  // pipelined: one cut chosen by the module, two cuts chosen by the module,
+  // and one register at every internal boundary
+  runtest( 64, RealSpec.Float32Spec,  PipelineStageConfig.default(1))
+  runtest( 64, RealSpec.Float32Spec,  PipelineStageConfig.default(2))
+  runtest( 64, RealSpec.Float32Spec,
+    PipelineStageConfig.specify("norm" -> 1, "round" -> 1))
 }
 
