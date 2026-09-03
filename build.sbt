@@ -30,6 +30,11 @@ lazy val rial = (project in file("."))
       "org.hipparchus" % "hipparchus-core"  % "4.0.3"
       ),
 
+    // Run test suites one at a time: verilator builds break intermittently
+    // ("attempted to destroy locked Thread Pool") when several simulations
+    // are built concurrently.
+    Test / parallelExecution := false,
+
     // Fat jar for the JNI binding (jni/, rialcpp): the C++ side loads a single
     // jar via -Djava.class.path, so all runtime deps must be bundled.
     assembly / assemblyJarName := "rial.jar",
