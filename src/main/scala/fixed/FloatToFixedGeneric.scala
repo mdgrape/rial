@@ -21,16 +21,16 @@ import rial.util.PipelineStageConfig._
  * {{{
  * class FloatToFixedGeneric(...) extends Module {
  *   val io = IO(new Bundle{
- *     val x = Input (UInt(xSpec.W.W))
- *     val y = Input (UInt(w.W)) // defined only if `yintW` is defined
- *     val z = Output(UInt(zSpec.W.W))
+ *     val in  = Flipped(Valid(new FloatToFixedGeneric.Input(xSpec, yintW)))
+ *     val out = Valid(UInt(zSpec.W.W))
  *   })
  *   //...
  * }
  * }}}
  *
- * First input is the input floating point number.
- * Second input (optional) is the current fraction width.
+ * First input, `in.bits.x`, is the input floating point number.
+ * Second input (optional), `in.bits.y`, is the current fraction width. It is
+ * defined only if `yintW` is defined.
  * If yintW is not given (be `None`), it uses zSpec.fracW that will be hard-coded.
  *
  * 0 means the fixed point value is an integer (w/o fractional part).
@@ -59,6 +59,15 @@ import rial.util.PipelineStageConfig._
  * new FloatToFixedGeneric(xSpec, None, zSpec, RoundSpec.roundToEven,
  *   PipelineStageConfig.atOut(3))
  * }}}
+ *
+ * The operands are taken on `in`, the result is given on `out`. The pipeline
+ * registers advance only while `in.valid` is high: a stage that carries
+ * nothing does not clock its registers, so the datapath holds its content
+ * while `in.valid` is low. The flag travels with the data, one chain per
+ * boundary, exactly as in [[rial.util.SharedPipe]]: `out.valid` is `in.valid`
+ * delayed by [[getStage]] cycles of `in.valid` being high. It does not change
+ * the latency of the module, and with `PipelineStageConfig.none` there is no
+ * register to enable, so `out` simply follows `in` combinationally.
  *
  * @param xSpec spec of the input floating point number.
  * @param yintW width of the second input, fracWidth value. If None, zSpec.fracW is used instead.
@@ -93,15 +102,16 @@ class FloatToFixedGeneric(
   def getStage = nStage
 
   val io = IO(new Bundle{
-    val x = Input (UInt(xSpec.W.W))
-    val y = yintW.map(w => Input(UInt(w.W)))
-    val z = Output(UInt(zSpec.W.W))
+    val in  = Flipped(Valid(new FloatToFixedGeneric.Input(xSpec, yintW)))
+    val out = Valid(UInt(zSpec.W.W))
   })
 
   //----------------------------------------------------------------------
   // S0 : input registers ("in")
-  val xIn = ShiftRegister(io.x, stages.at("in"))
-  val yIn = io.y.map(y => ShiftRegister(y, stages.at("in")))
+  private val cutIn = new SharedPipe("in", io.in.valid, stages.at("in"))
+
+  val xIn = cutIn(io.in.bits.x)
+  val yIn = io.in.bits.y.map(y => cutIn(y))
 
   //----------------------------------------------------------------------
   // S1 : decompose / classify
@@ -109,9 +119,7 @@ class FloatToFixedGeneric(
   val (xzero, xinf, xnan)   = FloatChiselUtil.checkValue(xSpec, xIn)
 
   //--------------------------- stage "unpack" ---------------------------
-  private def cutUnpack[T <: Data](x: T): T = {
-    ShiftRegister(x, stages.at("unpack"))
-  }
+  private val cutUnpack = new SharedPipe("unpack", cutIn.valid, stages.at("unpack"))
 
   val xmanW1Unpack = cutUnpack(xmanW1)
   val xexUnpack    = cutUnpack(xex)
@@ -138,9 +146,7 @@ class FloatToFixedGeneric(
   val zTmpShifted = zTmp >> zTmpShift
 
   //--------------------------- stage "align" ----------------------------
-  private def cutAlign[T <: Data](x: T): T = {
-    ShiftRegister(x, stages.at("align"))
-  }
+  private val cutAlign = new SharedPipe("align", cutUnpack.valid, stages.at("align"))
 
   val zTmpShiftedAlign = cutAlign(zTmpShifted)
   val xsgnAlign        = cutAlign(xsgnUnpack)
@@ -194,9 +200,7 @@ class FloatToFixedGeneric(
   val isZZeroAlign   = cutAlign(isZZero)
 
   //--------------------------- stage "round" ----------------------------
-  private def cutRound[T <: Data](x: T): T = {
-    ShiftRegister(x, stages.at("round"))
-  }
+  private val cutRound = new SharedPipe("round", cutAlign.valid, stages.at("round"))
 
   val zRound         = cutRound(z)
   val xnanRound      = cutRound(xnanAlign)
@@ -213,7 +217,11 @@ class FloatToFixedGeneric(
     isZZeroRound   -> 0.U(zSpec.W.W)
     ))
 
-  io.z := ShiftRegister(z0, stages.at("out"))
+  //---------------------------- stage "out" -----------------------------
+  private val cutOut = new SharedPipe("out", cutRound.valid, stages.at("out"))
+
+  io.out.bits  := cutOut(z0)
+  io.out.valid := cutOut.valid
 }
 
 /** Pipeline stage points of [[rial.fixed.FloatToFixedGeneric]].
@@ -221,6 +229,22 @@ class FloatToFixedGeneric(
  * @see [[rial.util.StagePoint]]
  */
 object FloatToFixedGeneric {
+
+  /** Input of [[rial.fixed.FloatToFixedGeneric]]: the floating point number
+   * and, optionally, the fraction width of the result.
+   *
+   * `y` is present only when `yW` is given, so the bundle has the field if and
+   * only if the module has the port, and the fraction width stays a compile
+   * time choice of the module.
+   *
+   * @param xSpec spec of the input floating point number
+   * @param yW    width of the fraction width input, if there is one
+   */
+  class Input(xSpec: RealSpec, yW: Option[Int]) extends Bundle {
+    val x = UInt(xSpec.W.W)
+    val y = yW.map(w => UInt(w.W))
+  }
+
   /** Ordered boundaries of the datapath, with a rough, target-independent
    *  estimate of the delay of the logic ending at each. */
   val stagePoints: Seq[StagePoint] = Seq(

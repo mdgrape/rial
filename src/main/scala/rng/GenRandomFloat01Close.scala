@@ -12,8 +12,8 @@ import rial.util._
  * {{{
  * class GenRandomFloat01Close(...) extends Module {
  *   val io = IO(new Bundle {
- *     val rnd = Input(UInt(rndW.W))
- *     val z   = Output(UInt(spec.W.W))
+ *     val rnd = Flipped(Valid(UInt(rndW.W)))
+ *     val z   = Valid(UInt(spec.W.W))
  *   })
  *   // ...
  * }
@@ -40,6 +40,15 @@ import rial.util._
  * // everything at the output, as before
  * new GenRandomFloat01Close(rndW, spec, PipelineStageConfig.atOut(2))
  * }}}
+ *
+ * The random bits are taken on `rnd`, the result is given on `z`. The pipeline
+ * registers advance only while `rnd.valid` is high: a stage that carries
+ * nothing does not clock its registers, so the datapath holds its content
+ * while `rnd.valid` is low. The flag travels with the data, one chain per
+ * boundary, exactly as in [[rial.util.SharedPipe]]: `z.valid` is `rnd.valid`
+ * delayed by [[getStage]] cycles of `rnd.valid` being high. It does not change
+ * the latency of the module, and with `PipelineStageConfig.none` there is no
+ * register to enable, so `z` simply follows `rnd` combinationally.
  *
  * @constructor    create a chisel Module.
  * @param rndW     input random number bit width.
@@ -93,14 +102,16 @@ class GenRandomFloat01Close(
   assert(rndW > manW + 1, f"GenRandomFloat01Close requires rndW (${rndW}) > manW+1 (${manW+1})")
 
   val io = IO(new Bundle {
-    val rnd = Input(UInt(rndW.W))
-    val z   = Output(UInt(spec.W.W))
+    val rnd = Flipped(Valid(UInt(rndW.W)))
+    val z   = Valid(UInt(spec.W.W))
   })
 
   //----------------------------------------------------------------------
   // S0 : input registers ("in")
 
-  val rndIn = ShiftRegister(io.rnd, stages.at("in"))
+  private val cutIn = new SharedPipe("in", io.rnd.valid, stages.at("in"))
+
+  val rndIn = cutIn(io.rnd.bits)
 
   //----------------------------------------------------------------------
   // S1 : split the random bits and normalise the mantissa
@@ -136,7 +147,8 @@ class GenRandomFloat01Close(
         val manPE      = PriorityEncoder(Reverse(rndMantissa))
         val manAligned = (rndMantissa << (manPE + 1.U))(manW, 0)
 
-        assert(manAligned(manW) === 1.U, "RNG: rndMantissa = %b, manPE = %d, aligned = %b", rndMantissa, manPE, manAligned)
+        assert(!cutIn.valid || manAligned(manW) === 1.U,
+          "RNG: rndMantissa = %b, manPE = %d, aligned = %b", rndMantissa, manPE, manAligned)
 
         zex  := Mux(manPE > baseEx, 0.U, baseEx - manPE)
         zman := manAligned(manW-1, 0)
@@ -153,9 +165,7 @@ class GenRandomFloat01Close(
   }
 
   //--------------------------- stage "norm" -----------------------------
-  private def cutNorm[T <: Data](x: T): T = {
-    ShiftRegister(x, stages.at("norm"))
-  }
+  private val cutNorm = new SharedPipe("norm", cutIn.valid, stages.at("norm"))
 
   val zsgnNorm      = cutNorm(zsgn)
   val zexNorm       = cutNorm(zex)
@@ -177,9 +187,7 @@ class GenRandomFloat01Close(
   }
 
   //--------------------------- stage "round" ----------------------------
-  private def cutRound[T <: Data](x: T): T = {
-    ShiftRegister(x, stages.at("round"))
-  }
+  private val cutRound = new SharedPipe("round", cutNorm.valid, stages.at("round"))
 
   val zsgnRound          = cutRound(zsgnNorm)
   val zexCorrectedRound  = cutRound(zexCorrected)
@@ -192,7 +200,10 @@ class GenRandomFloat01Close(
   assert(z.getWidth == spec.W)
 
   //---------------------------- stage "out" -----------------------------
-  io.z := ShiftRegister(z, stages.at("out"))
+  private val cutOut = new SharedPipe("out", cutRound.valid, stages.at("out"))
+
+  io.z.bits  := cutOut(z)
+  io.z.valid := cutOut.valid
 }
 
 /** Pipeline stage points of [[rial.rng.GenRandomFloat01Close]].

@@ -40,7 +40,8 @@ class Uniform01CloseTest extends AnyFunSpec
     rnd & mask
   }
 
-  private def runtest ( rndW: Int, spec: RealSpec, stage: PipelineStageConfig ) = {
+  private def runtest ( rndW: Int, spec: RealSpec, stage: PipelineStageConfig,
+    checkHold: Boolean = false ) = {
 
     val total = stage.total
     val pipeconfig = stage.getString
@@ -49,7 +50,14 @@ class Uniform01CloseTest extends AnyFunSpec
       simulate(new GenRandomFloat01Close(rndW, spec, stage)) { c =>
         {
           val nstage = stage.total
+          // clock edges since the start of the run: z.valid is rnd.valid
+          // delayed by nstage of them
+          var cycle = 0
           val zs = scala.collection.mutable.ArrayBuffer.empty[Double]
+
+          // the pipeline registers advance while rnd.valid is high; it stays
+          // high for the whole run but for the hold check at the end
+          c.io.rnd.valid.poke(true.B)
 
           val zmax   = 1.0
           val zmin   = 0.0
@@ -69,18 +77,26 @@ class Uniform01CloseTest extends AnyFunSpec
 
           // check if rnd==0 can be handled
           {
-            c.io.rnd.poke(0.U(rndW.W))
+            c.io.rnd.bits.poke(0.U(rndW.W))
             for(i <- 0 until nstage) {
+              assert(c.io.z.valid.peek().litToBoolean == (cycle >= nstage),
+                f"z.valid is ${c.io.z.valid.peek().litToBoolean}%b after $cycle%d " +
+                f"cycle(s) of a $nstage%d stage pipeline")
               c.clock.step(1)
+              cycle += 1
             }
-            c.io.z.expect(0.U)
+            c.io.z.bits.expect(0.U)
+            c.io.z.valid.expect(true.B)
           }
 
           // generate random numbers
           for(i <- 1 to n+nstage) {
 
-            c.io.rnd.poke(generateRandomUInt(rndW).U(rndW.W))
-            val zi = c.io.z.peek().litValue
+            c.io.rnd.bits.poke(generateRandomUInt(rndW).U(rndW.W))
+            val zi = c.io.z.bits.peek().litValue
+            assert(c.io.z.valid.peek().litToBoolean == (cycle >= nstage),
+              f"z.valid is ${c.io.z.valid.peek().litToBoolean}%b after $cycle%d " +
+              f"cycle(s) of a $nstage%d stage pipeline")
 
             if (i > nstage) {
               val zd = new RealGeneric(spec, zi)
@@ -96,6 +112,30 @@ class Uniform01CloseTest extends AnyFunSpec
               zs += zd.toDouble
             }
             c.clock.step(1)
+            cycle += 1
+          }
+
+          // With valid low the pipeline registers do not advance, so the
+          // output holds whatever the datapath carried, whatever the input does.
+          if (checkHold) {
+            assert(nstage > 0, "the hold check needs at least one pipeline register")
+            // fill every stage with the same input, so draining the pipeline
+            // does not move the output by itself
+            c.io.rnd.bits.poke(generateRandomUInt(rndW).U(rndW.W))
+            c.clock.step(nstage)
+            val zHold = c.io.z.bits.peek().litValue
+
+            c.io.rnd.valid.poke(false.B)
+            c.io.rnd.bits.poke(generateRandomUInt(rndW).U(rndW.W))
+            for(i <- 1 to nstage+2) {
+              c.clock.step(1)
+              assert(c.io.z.bits.peek().litValue == zHold,
+                f"z.bits moved while rnd.valid was low after $i%d cycle(s)")
+            }
+            // the low valid has travelled through the whole chain by now
+            assert(!c.io.z.valid.peek().litToBoolean,
+              "z.valid is still high after rnd.valid was low for the whole latency")
+            c.io.rnd.valid.poke(true.B)
           }
 
           // calculate chi^2
@@ -137,7 +177,8 @@ class Uniform01CloseTest extends AnyFunSpec
   // and one register at every internal boundary
   runtest( 64, RealSpec.Float32Spec,  PipelineStageConfig.default(1))
   runtest( 64, RealSpec.Float32Spec,  PipelineStageConfig.default(2))
+  // this configuration also carries the hold check of `valid`
   runtest( 64, RealSpec.Float32Spec,
-    PipelineStageConfig.specify("norm" -> 1, "round" -> 1))
+    PipelineStageConfig.specify("norm" -> 1, "round" -> 1), checkHold = true)
 }
 

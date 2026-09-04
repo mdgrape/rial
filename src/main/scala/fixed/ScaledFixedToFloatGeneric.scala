@@ -22,15 +22,15 @@ import rial.util.PipelineStageConfig._
  * {{{
  * class ScaledFixedToFloatGeneric(...) extends Module {
  *   val io = IO(new Bundle{
- *     val x = Input (UInt(xSpec.W.W))
- *     val y = Input (UInt(w.W)) // defined only if `yintW` is defined
- *     val z = Output(UInt(zSpec.W.W))
+ *     val in  = Flipped(Valid(new ScaledFixedToFloatGeneric.Input(xSpec, ySpec)))
+ *     val out = Valid(UInt(zSpec.W.W))
  *   })
  *   //...
  * }
  * }}}
  *
- * It takes a fixedpoint `x` and floating point `y` and returns a floating point `z = x * y`.
+ * It takes a fixedpoint `in.bits.x` and floating point `in.bits.y` and returns
+ * a floating point `out.bits = x * y`.
  *
  * The latency of this module can be configured via [[rial.util.PipelineStageConfig]].
  * The module declares the boundaries of its datapath, so the registers can be
@@ -54,6 +54,15 @@ import rial.util.PipelineStageConfig._
  * new ScaledFixedToFloatGeneric(xSpec, ySpec, zSpec, RoundSpec.roundToEven,
  *   PipelineStageConfig.atOut(3))
  * }}}
+ *
+ * The operands are taken on `in`, the result is given on `out`. The pipeline
+ * registers advance only while `in.valid` is high: a stage that carries
+ * nothing does not clock its registers, so the datapath holds its content
+ * while `in.valid` is low. The flag travels with the data, one chain per
+ * boundary, exactly as in [[rial.util.SharedPipe]]: `out.valid` is `in.valid`
+ * delayed by [[getStage]] cycles of `in.valid` being high. It does not change
+ * the latency of the module, and with `PipelineStageConfig.none` there is no
+ * register to enable, so `out` simply follows `in` combinationally.
  *
  * @param xSpec spec of the input fixed point number.
  * @param ySpec spec of the input floating point number.
@@ -88,15 +97,16 @@ class ScaledFixedToFloatGeneric(
   def getStage = nStage
 
   val io = IO(new Bundle{
-    val x = Input (UInt(xSpec.W.W))
-    val y = Input (UInt(ySpec.W.W))
-    val z = Output(UInt(zSpec.W.W))
+    val in  = Flipped(Valid(new ScaledFixedToFloatGeneric.Input(xSpec, ySpec)))
+    val out = Valid(UInt(zSpec.W.W))
   })
 
   //----------------------------------------------------------------------
   // S0 : input registers ("in")
-  val xIn = ShiftRegister(io.x, stages.at("in"))
-  val yIn = ShiftRegister(io.y, stages.at("in"))
+  private val cutIn = new SharedPipe("in", io.in.valid, stages.at("in"))
+
+  val xIn = cutIn(io.in.bits.x)
+  val yIn = cutIn(io.in.bits.y)
 
   //----------------------------------------------------------------------
   // S1 : decompose / classify the floating point operand and, in parallel,
@@ -120,9 +130,7 @@ class ScaledFixedToFloatGeneric(
   val xShifted = (xabs << xclz)(xSpec.W-1, 0)
 
   //---------------------------- stage "norm" ----------------------------
-  private def cutNorm[T <: Data](x: T): T = {
-    ShiftRegister(x, stages.at("norm"))
-  }
+  private val cutNorm = new SharedPipe("norm", cutIn.valid, stages.at("norm"))
 
   val xShiftedNorm = cutNorm(xShifted)
   val xclzNorm     = cutNorm(xclz)
@@ -143,9 +151,7 @@ class ScaledFixedToFloatGeneric(
   assert(prodWidth == prod.getWidth)
 
   //---------------------------- stage "mul" -----------------------------
-  private def cutMul[T <: Data](x: T): T = {
-    ShiftRegister(x, stages.at("mul"))
-  }
+  private val cutMul = new SharedPipe("mul", cutNorm.valid, stages.at("mul"))
 
   val prodMul  = cutMul(prod)
   val xclzMul  = cutMul(xclzNorm)
@@ -205,9 +211,7 @@ class ScaledFixedToFloatGeneric(
   val zzero = yzeroMul || xzeroMul || zEx0 <= 0.S
 
   //--------------------------- stage "round" ----------------------------
-  private def cutRound[T <: Data](x: T): T = {
-    ShiftRegister(x, stages.at("round"))
-  }
+  private val cutRound = new SharedPipe("round", cutMul.valid, stages.at("round"))
 
   val zManBitsRound = cutRound(manRounded(zSpec.manW-1, 0))
   val zExBitsRound  = cutRound(zEx0(zSpec.exW-1, 0))
@@ -236,7 +240,11 @@ class ScaledFixedToFloatGeneric(
   }
 //   printf("z0    = %b(w=%d)\n", z0 , z0.getWidth.U)
 
-  io.z := ShiftRegister(z0, stages.at("out"))
+  //---------------------------- stage "out" -----------------------------
+  private val cutOut = new SharedPipe("out", cutRound.valid, stages.at("out"))
+
+  io.out.bits  := cutOut(z0)
+  io.out.valid := cutOut.valid
 }
 
 /** Pipeline stage points of [[rial.fixed.ScaledFixedToFloatGeneric]].
@@ -244,6 +252,18 @@ class ScaledFixedToFloatGeneric(
  * @see [[rial.util.StagePoint]]
  */
 object ScaledFixedToFloatGeneric {
+
+  /** Input of [[rial.fixed.ScaledFixedToFloatGeneric]]: the fixed point number
+   * and the floating point scale.
+   *
+   * @param xSpec spec of the input fixed point number
+   * @param ySpec spec of the input floating point number
+   */
+  class Input(xSpec: FixedSpec, ySpec: RealSpec) extends Bundle {
+    val x = UInt(xSpec.W.W)
+    val y = UInt(ySpec.W.W)
+  }
+
   /** Ordered boundaries of the datapath, with a rough, target-independent
    *  estimate of the delay of the logic ending at each. */
   val stagePoints: Seq[StagePoint] = Seq(

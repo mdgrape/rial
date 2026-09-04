@@ -37,14 +37,21 @@ class ScaledFixedToFloatTest extends AnyFunSpec with ChiselSim with EmitVcd {
   }
 
   def convTest(xSpec : FixedSpec, ySpec : RealSpec, zSpec : RealSpec, roundSpec : RoundSpec,
-    n : Int, stage : PipelineStageConfig, xrange : Double, yrange : Double ) = {
+    n : Int, stage : PipelineStageConfig, xrange : Double, yrange : Double,
+    checkHold : Boolean = false ) = {
       simulate(new ScaledFixedToFloatGeneric( xSpec, ySpec, zSpec, roundSpec, stage )) { c =>
         {
+          // the pipeline registers advance while in.valid is high; it stays
+          // high for the whole run but for the hold check at the end
+          c.io.in.valid.poke(true.B)
           var q  = new Queue[(BigInt, BigInt, BigInt)]
           val delta  = pow(2.0, -xSpec.fracW)
           val nstage = c.getStage
           val gen_x = generateRealWithin(xrange,_,_)
           val gen_y = generateRealWithin(yrange,_,_)
+          // clock edges since the start of the run: out.valid is in.valid
+          // delayed by nstage of them
+          var cycle = 0
           // println(f"Test x within (-${xrange}, ${xrange})")
           for(i <- 1 to n+nstage) {
             val x0 = gen_x(zSpec, r).toDouble / delta
@@ -61,10 +68,14 @@ class ScaledFixedToFloatTest extends AnyFunSpec with ChiselSim with EmitVcd {
             // println(f"x = ${xi}(${x0 * delta}), y = ${y.toDouble}, z = ${z.toDouble}")
 
             q += ((xi,yi,zi0))
-            c.io.x.poke(xi.U(xSpec.W.W))
-            c.io.y.poke(yi.U(ySpec.W.W))
-            val zi = c.io.z.peek().litValue.toBigInt
+            c.io.in.bits.x.poke(xi.U(xSpec.W.W))
+            c.io.in.bits.y.poke(yi.U(ySpec.W.W))
+            val zi = c.io.out.bits.peek().litValue.toBigInt
+            assert(c.io.out.valid.peek().litToBoolean == (cycle >= nstage),
+              f"out.valid is ${c.io.out.valid.peek().litToBoolean}%b after $cycle%d " +
+              f"cycle(s) of a $nstage%d stage pipeline")
             c.clock.step(1)
+            cycle += 1
             if (i > nstage) {
               val (xid,yid,zid) = q.dequeue()
 
@@ -79,6 +90,39 @@ class ScaledFixedToFloatTest extends AnyFunSpec with ChiselSim with EmitVcd {
             }
           }
           q.clear()
+
+          // With valid low the pipeline registers do not advance, so the
+          // output holds whatever the datapath carried, whatever the inputs do.
+          if (checkHold) {
+            assert(nstage > 0, "the hold check needs at least one pipeline register")
+            def pokeXY() = {
+              val x0 = gen_x(zSpec, r).toDouble / delta
+              val xi = if(x0 >= 0) {
+                x0.toBigInt
+              } else {
+                (x0.toLong & maskL(xSpec.W)).toBigInt
+              }
+              c.io.in.bits.x.poke(xi.U(xSpec.W.W))
+              c.io.in.bits.y.poke(gen_y(ySpec, r).value.toBigInt.U(ySpec.W.W))
+            }
+            // fill every stage with the same input, so draining the pipeline
+            // does not move the output by itself
+            pokeXY()
+            c.clock.step(nstage)
+            val zHold = c.io.out.bits.peek().litValue
+
+            c.io.in.valid.poke(false.B)
+            pokeXY()
+            for(i <- 1 to nstage+2) {
+              c.clock.step(1)
+              assert(c.io.out.bits.peek().litValue == zHold,
+                f"out.bits moved while in.valid was low after $i%d cycle(s)")
+            }
+            // the low valid has travelled through the whole chain by now
+            assert(!c.io.out.valid.peek().litToBoolean,
+              "out.valid is still high after in.valid was low for the whole latency")
+            c.io.in.valid.poke(true.B)
+          }
         }
       }
   }
@@ -118,14 +162,17 @@ class ScaledFixedToFloatTest extends AnyFunSpec with ChiselSim with EmitVcd {
   //  - specify    : one register at every declared point, which exercises
   //                 every single pipeline register of the datapath
   describe("Test fixed -> float with pipeline registers") {
+    // the configuration that also carries the hold check of `valid`
+    val holdStage = PipelineStageConfig.specify("norm" -> 1, "mul" -> 1, "round" -> 1)
     for (stage <- Seq(
       PipelineStageConfig.default(1),
       PipelineStageConfig.default(2),
       PipelineStageConfig.default(3),
-      PipelineStageConfig.specify("norm" -> 1, "mul" -> 1, "round" -> 1))) {
+      holdStage)) {
       it(f"Scale signed Q24 by comparable Float with pipereg [${stage.getString}]") {
         convTest( new FixedSpec(32, 24, true, true), RealSpec.Float32Spec, RealSpec.Float32Spec,
-          RoundSpec.roundToEven, n, stage, pow(2.0, 32-24-1), pow(2.0, 7.0))
+          RoundSpec.roundToEven, n, stage, pow(2.0, 32-24-1), pow(2.0, 7.0),
+          checkHold = (stage == holdStage))
       }
     }
     it(f"Scale signed Q24 by comparable BFloat16 with pipereg [${PipelineStageConfig.default(3).getString}]") {
