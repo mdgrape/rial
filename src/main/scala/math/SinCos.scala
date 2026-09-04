@@ -30,6 +30,7 @@ import chisel3.util._
 
 import rial.table._
 import rial.arith.{RealSpec, FloatChiselUtil}
+import rial.util._
 import rial.util.RialChiselUtil._
 import rial.util.ScalaUtil._
 
@@ -92,7 +93,7 @@ class SinCosPreProcInfo(val spec: RealSpec) extends Bundle {
 class SinCosPreProcess(
   val spec:  RealSpec,
   val bitW:  PolynomialBitWidth,
-  val stage: Int,
+  val stage: PipelineStageConfig,
 ) extends Module {
 
   val exW    = spec.exW
@@ -103,6 +104,11 @@ class SinCosPreProcess(
   val dxW    = bitW.inBitW
   val order  = bitW.nOrder
 
+  /** Boundaries at which pipeline registers can be placed. */
+  val stagePoints = SinCosPreProcess.stagePoints
+
+  val stages = stage.resolve(stagePoints)
+
   val io = IO(new Bundle {
     val isSin = Input(Bool())
     val x     = Flipped(Valid(new DecomposedReal(spec)))
@@ -112,25 +118,49 @@ class SinCosPreProcess(
     val info  = Valid(new SinCosPreProcInfo(spec))
   })
 
-  val xsgn = io.x.bits.sgn
-  val xex  = io.x.bits.ex
-  val xman = io.x.bits.man
+  // --------------------------------------------------------------------------
+  // stage "in": both the argument and the product are needed
+
+  private val cutIn = new SharedPipe("in", io.x.valid && io.prod.valid,
+    stages.at("in"))
+
+  val isSinIn = cutIn(io.isSin)
+  val x       = cutIn(io.x.bits)
+  val prodIn  = cutIn(io.prod.bits)
+
+  val xsgn = x.sgn
+  val xex  = x.ex
+  val xman = x.man
+
+  val znanIn = xex.andR
 
   // --------------------------------------------------------------------------
   // x/π from the pre-mult output
 
   val oneOverPiW = SinCosPreMulArgs.lhsW(spec)
 
-  val xOverPiProd          = Mux(xex === 0.U, 0.U, io.prod.bits)
+  val xOverPiProd          = Mux(xex === 0.U, 0.U, prodIn)
   val xOverPiProdMoreThan2 = xOverPiProd((1 + manW) + oneOverPiW - 1)
-  val xOverPiEx            = xex -& 2.U + xOverPiProdMoreThan2
-  val xOverPiIsZero        = xOverPiEx(exW)
+  val xOverPiExComb        = xex -& 2.U + xOverPiProdMoreThan2
   // x.ex > xOverPiEx always (xOverPiProdMoreThan2 ≤ 1); overflow here just
   // means x/π is tiny, not infinite.
 
-  val xOverPi      = Mux(xOverPiProdMoreThan2, xOverPiProd,
-                                                Cat(xOverPiProd.tail(1), 0.U(1.W)))
+  val xOverPiComb  = Mux(xOverPiProdMoreThan2, xOverPiProd,
+                                               Cat(xOverPiProd.tail(1), 0.U(1.W)))
   val xOverPiFracW = (1 + manW) + oneOverPiW - 1
+
+  // --------------------------------------------------------------------------
+  // stage "norm": the normalized x/π
+
+  private val cutNorm = new SharedPipe("norm", cutIn.valid, stages.at("norm"))
+
+  val xOverPi   = cutNorm(xOverPiComb)
+  val xOverPiEx = cutNorm(xOverPiExComb)
+  val xsgnNorm  = cutNorm(xsgn)
+  val isSinNorm = cutNorm(isSinIn)
+  val znanNorm  = cutNorm(znanIn)
+
+  val xOverPiIsZero = xOverPiEx(exW)
   assert(xOverPi.getWidth == xOverPiFracW + 1)
 
   // --------------------------------------------------------------------------
@@ -159,10 +189,8 @@ class SinCosPreProcess(
 
   val xOverPiAligned2MSBs = xOverPiAligned.head(2)
 
-  val zsgn = Mux(io.isSin, xOverPiAligned2MSBs(1) ^ xsgn,
-                           xOverPiAligned2MSBs(1) ^ xOverPiAligned2MSBs(0))
-
-  val znan = xex.andR
+  val zsgnComb = Mux(isSinNorm, xOverPiAligned2MSBs(1) ^ xsgnNorm,
+                                xOverPiAligned2MSBs(1) ^ xOverPiAligned2MSBs(0))
 
   // --------------------------------------------------------------------------
   // fold sin/cos in [0, 2) into sin [0, 1/2)
@@ -179,16 +207,27 @@ class SinCosPreProcess(
 
   val ymanPos =  xOverPiAligned.tail(2)
   val ymanNeg = ~xOverPiAligned.tail(2)
-  val ymanAligned = Mux(xOverPiAligned2MSBs(0) ^ io.isSin, ymanPos, ymanNeg)
+  val ymanAligned = Mux(xOverPiAligned2MSBs(0) ^ isSinNorm, ymanPos, ymanNeg)
 
   // For 0 < x < π/2 we use x/π itself (un-aligned) to keep precision.
   val ymanAsIs = xOverPi(xOverPi.getWidth - 1, 2)
   val yexAsIs  = xOverPiEx
-  val nonAlign = !xOverPiExMoreThan1 && xOverPiAligned2MSBs === 0.U && io.isSin
+  val nonAlign = !xOverPiExMoreThan1 && xOverPiAligned2MSBs === 0.U && isSinNorm
 
   assert(ymanAsIs.getWidth == ymanPos.getWidth)
-  val yman0         = Mux(nonAlign, ymanAsIs, ymanAligned)
-  val yex0          = Mux(nonAlign, yexAsIs,  (exBias - 2).U(exW.W))
+  val yman0Comb = Mux(nonAlign, ymanAsIs, ymanAligned)
+  val yex0Comb  = Mux(nonAlign, yexAsIs,  (exBias - 2).U(exW.W))
+
+  // --------------------------------------------------------------------------
+  // stage "fold": the folded argument
+
+  private val cutFold = new SharedPipe("fold", cutNorm.valid, stages.at("fold"))
+
+  val yman0    = cutFold(yman0Comb)
+  val yex0     = cutFold(yex0Comb)
+  val zsgnFold = cutFold(zsgnComb)
+  val znanFold = cutFold(znanNorm)
+
   val ymanIsNonZero = yman0.orR
 
   // round/normalize yman0 to a manW-bit mantissa, like the old code.
@@ -204,10 +243,21 @@ class SinCosPreProcess(
 
   val ymanNonZero = yman0Rounded(manW - 1, 0)
   val yexNonZero  = yex0 - yman0Shift + yman0MoreThan2
-  val yex  = Mux(!ymanIsNonZero, 0.U, yexNonZero)
-  val yman = Mux(!ymanIsNonZero, 0.U, ymanNonZero)
+  val yexComb  = Mux(!ymanIsNonZero, 0.U, yexNonZero)
+  val ymanComb = Mux(!ymanIsNonZero, 0.U, ymanNonZero)
 
-  val zone = (yex === (exBias - 1).U) && yman === 0.U
+  val zoneComb = (yexComb === (exBias - 1).U) && ymanComb === 0.U
+
+  // --------------------------------------------------------------------------
+  // stage "round": the rounded argument
+
+  private val cutRound = new SharedPipe("round", cutFold.valid, stages.at("round"))
+
+  val yex       = cutRound(yexComb)
+  val yman      = cutRound(ymanComb)
+  val zone      = cutRound(zoneComb)
+  val zsgnRound = cutRound(zsgnFold)
+  val znanRound = cutRound(znanFold)
 
   // --------------------------------------------------------------------------
   // address / dx for the polynomial
@@ -216,24 +266,38 @@ class SinCosPreProcess(
   val adr      = yaligned(manW - 1, manW - adrW)
 
   // --------------------------------------------------------------------------
-  // outputs
+  // stage "out"
 
   val infoOut = Wire(new SinCosPreProcInfo(spec))
-  infoOut.znan := znan
+  infoOut.znan := znanRound
   infoOut.zone := zone
-  infoOut.zsgn := zsgn
+  infoOut.zsgn := zsgnRound
   infoOut.yex  := yex
   infoOut.yman := yman
 
-  // valid is the AND of x.valid and prod.valid (we need both)
-  val valid = io.x.valid && io.prod.valid
-
-  io.info := Pipe(valid, infoOut, stage)
-  io.adr  := Pipe(valid, adr,     stage)
+  io.info := Pipe(cutRound.valid, infoOut, stages.at("out"))
+  io.adr  := Pipe(cutRound.valid, adr,     stages.at("out"))
   if (order != 0) {
     val dx = Cat(~yaligned(manW - adrW - 1), yaligned(manW - adrW - 2, 0))
-    io.dx.get := Pipe(valid, dx, stage)
+    io.dx.get := Pipe(cutRound.valid, dx, stages.at("out"))
   }
+}
+
+/** Pipeline stage points of [[rial.math.SinCosPreProcess]]. */
+object SinCosPreProcess {
+
+  /** Boundaries at which pipeline registers can be placed.
+   *
+   *  - `"norm"`  the normalized x/π
+   *  - `"fold"`  the folded argument
+   *  - `"round"` the rounded argument
+   *  - `"out"`   the table address and the info
+   */
+  val stagePoints: Seq[StageElem] = Seq(
+    StagePoint("norm",  3.0),
+    StagePoint("fold",  4.0),
+    StagePoint("round", 4.0),
+    StagePoint("out",   2.0))
 }
 
 // -------------------------------------------------------------------------
@@ -278,12 +342,17 @@ class SinCosTableCoeff(
 class SinCosPostProcess(
   val spec:  RealSpec,
   val bitW:  PolynomialBitWidth,
-  val stage: Int,
+  val stage: PipelineStageConfig,
 ) extends Module {
 
   val exW    = spec.exW
   val manW   = spec.manW
   val exBias = spec.exBias
+
+  /** Boundaries at which pipeline registers can be placed. */
+  val stagePoints = SinCosPostProcess.stagePoints
+
+  val stages = stage.resolve(stagePoints)
 
   val io = IO(new Bundle {
     val pre   = Flipped(Valid(new SinCosPreProcInfo(spec)))
@@ -291,9 +360,13 @@ class SinCosPostProcess(
     val z     = Valid(UInt(spec.W.W))
   })
 
-  val info  = io.pre.bits
-  val zman0 = io.mul.bits.zman
-  val zex0  = info.yex + 1.U + io.mul.bits.exInc
+  private val cutIn = new SharedPipe("in", io.pre.valid && io.mul.valid,
+    stages.at("in"))
+
+  val info  = cutIn(io.pre.bits)
+  val mul   = cutIn(io.mul.bits)
+  val zman0 = mul.zman
+  val zex0  = info.yex + 1.U + mul.exInc
 
   val znan  = info.znan
   val zone  = info.zone
@@ -311,5 +384,15 @@ class SinCosPostProcess(
   val z = Cat(zsgn, zex, zman)
   assert(z.getWidth == spec.W)
 
-  io.z := Pipe(io.pre.valid && io.mul.valid, z, stage)
+  io.z := Pipe(cutIn.valid, z, stages.at("out"))
+}
+
+/** Pipeline stage points of [[rial.math.SinCosPostProcess]]. */
+object SinCosPostProcess {
+
+  /** Boundaries at which pipeline registers can be placed.
+   *
+   *  - `"out"` the assembled result
+   */
+  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 3.0))
 }

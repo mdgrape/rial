@@ -20,6 +20,7 @@ import chisel3.util._
 
 import rial.table._
 import rial.arith.RealSpec
+import rial.util._
 import rial.util.RialChiselUtil._
 import rial.util.ScalaUtil._
 
@@ -34,7 +35,7 @@ import rial.util.ScalaUtil._
 class LogPreProcess(
   val spec:  RealSpec,
   val bitW:  PolynomialBitWidth,
-  val stage: Int,
+  val stage: PipelineStageConfig,
 ) extends Module {
 
   val manW   = spec.manW
@@ -44,26 +45,45 @@ class LogPreProcess(
   val dxW    = bitW.inBitW
   val order  = bitW.nOrder
 
+  /** Boundaries at which pipeline registers can be placed. */
+  val stagePoints = LogPreProcess.stagePoints
+
+  val stages = stage.resolve(stagePoints)
+
   val io = IO(new Bundle {
     val x   = Flipped(Valid(new DecomposedReal(spec)))
     val adr = Valid(UInt((2 + adrW).W)) // 2 MSBs = path selector (exAddr)
     val dx  = if (order != 0) Some(Valid(UInt(dxW.W))) else None
   })
 
+  private val cutIn = new SharedPipe("in", io.x.valid, stages.at("in"))
+
+  val x = cutIn(io.x.bits)
+
   // exAddr = 0 : x < 0.5 or x >= 2        (normal/polynomial)
   // exAddr = 1 : 0.5 <= x < 1.0           (smallNeg)
   // exAddr = 2 : 1.0 <= x < 2.0           (smallPos)
-  val exAddr = Mux(io.x.bits.ex === exBias.U,       2.U(2.W),
-               Mux(io.x.bits.ex === (exBias - 1).U, 1.U(2.W),
-                                                    0.U(2.W)))
-  val subAdr = io.x.bits.man(manW - 1, dxW)
+  val exAddr = Mux(x.ex === exBias.U,       2.U(2.W),
+               Mux(x.ex === (exBias - 1).U, 1.U(2.W),
+                                            0.U(2.W)))
+  val subAdr = x.man(manW - 1, dxW)
   val adr    = Cat(exAddr, subAdr)
-  io.adr := Pipe(io.x.valid, adr, stage)
+  io.adr := Pipe(cutIn.valid, adr, stages.at("out"))
 
   if (order != 0) {
-    val dx = Cat(~io.x.bits.man(dxW - 1), io.x.bits.man(dxW - 2, 0))
-    io.dx.get := Pipe(io.x.valid, dx, stage)
+    val dx = Cat(~x.man(dxW - 1), x.man(dxW - 2, 0))
+    io.dx.get := Pipe(cutIn.valid, dx, stages.at("out"))
   }
+}
+
+/** Pipeline stage points of [[rial.math.LogPreProcess]]. */
+object LogPreProcess {
+
+  /** Boundaries at which pipeline registers can be placed.
+   *
+   *  - `"out"` the table address
+   */
+  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 4.0))
 }
 
 // -------------------------------------------------------------------------
@@ -138,21 +158,30 @@ class LogNonTableInfo(val spec: RealSpec) extends Bundle {
 class LogNonTable(
   val spec:  RealSpec,
   val bitW:  PolynomialBitWidth,
-  val stage: Int,
+  val stage: PipelineStageConfig,
 ) extends Module {
 
   val exW    = spec.exW
   val manW   = spec.manW
   val exBias = spec.exBias
 
+  /** Boundaries at which pipeline registers can be placed. */
+  val stagePoints = LogNonTable.stagePoints
+
+  val stages = stage.resolve(stagePoints)
+
   val io = IO(new Bundle {
     val x = Flipped(Valid(new DecomposedReal(spec)))
     val z = Valid(new LogNonTableInfo(spec))
   })
 
-  val xex  = io.x.bits.ex
-  val xman = io.x.bits.man
-  val xsgn = io.x.bits.sgn
+  private val cutIn = new SharedPipe("in", io.x.valid, stages.at("in"))
+
+  val x = cutIn(io.x.bits)
+
+  val xex  = x.ex
+  val xman = x.man
+  val xsgn = x.sgn
 
   val x0_5to1_0  = xex === (exBias - 1).U
   val x1_0to2_0  = xex === exBias.U
@@ -189,8 +218,8 @@ class LogNonTable(
   // ---- special values ----
   //   log(nan)  -> nan       log(inf)  -> inf
   //   log(0)    -> -inf      log(neg)  -> nan       log(1) -> 0
-  val znan  = io.x.bits.nan || xsgn === 1.U
-  val zinf  = io.x.bits.inf || io.x.bits.zero
+  val znan  = x.nan || xsgn === 1.U
+  val zinf  = x.inf || x.zero
   val zzero = !xman.orR && xex === exBias.U
   val zsgn  = xex < exBias.U
 
@@ -207,7 +236,17 @@ class LogNonTable(
   zout.zint       := zint
   zout.zintShift  := zintShift
 
-  io.z := Pipe(io.x.valid, zout, stage)
+  io.z := Pipe(cutIn.valid, zout, stages.at("out"))
+}
+
+/** Pipeline stage points of [[rial.math.LogNonTable]]. */
+object LogNonTable {
+
+  /** Boundaries at which pipeline registers can be placed.
+   *
+   *  - `"out"` the multiplier constant, the exponent and the special values
+   */
+  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 3.0))
 }
 
 // -------------------------------------------------------------------------
@@ -270,12 +309,17 @@ class LogPostMultArgs(
 class LogPostProcess(
   val spec:  RealSpec,
   val bitW:  PolynomialBitWidth,
-  val stage: Int,
+  val stage: PipelineStageConfig,
 ) extends Module {
 
   val exW    = spec.exW
   val manW   = spec.manW
   val exBias = spec.exBias
+
+  /** Boundaries at which pipeline registers can be placed. */
+  val stagePoints = LogPostProcess.stagePoints
+
+  val stages = stage.resolve(stagePoints)
 
   val io = IO(new Bundle {
     val info = Flipped(Valid(new LogNonTableInfo(spec)))
@@ -283,10 +327,14 @@ class LogPostProcess(
     val z    = Valid(UInt(spec.W.W))
   })
 
-  val info = io.info.bits
+  private val cutIn = new SharedPipe("in", io.info.valid && io.mul.valid,
+    stages.at("in"))
 
-  val zman0 = io.mul.bits.zman
-  val zex0  = info.zex0 +& io.mul.bits.exInc
+  val info = cutIn(io.info.bits)
+  val mul  = cutIn(io.mul.bits)
+
+  val zman0 = mul.zman
+  val zex0  = info.zex0 +& mul.exInc
 
   val znan  = info.znan
   val zinf  = info.zinf || zex0(exW) === 1.U // exponent overflowed
@@ -304,5 +352,15 @@ class LogPostProcess(
   val z = Cat(zsgnOut, zex, zman)
   assert(z.getWidth == spec.W)
 
-  io.z := Pipe(io.info.valid && io.mul.valid, z, stage)
+  io.z := Pipe(cutIn.valid, z, stages.at("out"))
+}
+
+/** Pipeline stage points of [[rial.math.LogPostProcess]]. */
+object LogPostProcess {
+
+  /** Boundaries at which pipeline registers can be placed.
+   *
+   *  - `"out"` the assembled result
+   */
+  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 3.0))
 }

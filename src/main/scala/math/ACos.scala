@@ -22,6 +22,7 @@ import chisel3.util._
 
 import rial.table._
 import rial.arith.{RealSpec, RealGeneric}
+import rial.util._
 import rial.util.RialChiselUtil._
 import rial.util.ScalaUtil._
 
@@ -50,7 +51,7 @@ class ACosFlags extends Bundle {
 class ACosPhase1PreProcess(
   val spec:  RealSpec,
   val bitW:  PolynomialBitWidth,
-  val stage: Int,
+  val stage: PipelineStageConfig,
 ) extends Module {
 
   val exW    = spec.exW
@@ -60,6 +61,11 @@ class ACosPhase1PreProcess(
   val adrW   = bitW.addrW
   val dxW    = bitW.inBitW
   val order  = bitW.nOrder
+
+  /** Boundaries at which pipeline registers can be placed. */
+  val stagePoints = ACosPhase1PreProcess.stagePoints
+
+  val stages = stage.resolve(stagePoints)
 
   val io = IO(new Bundle {
     val x   = Flipped(Valid(new DecomposedReal(spec)))
@@ -71,9 +77,13 @@ class ACosPhase1PreProcess(
     val flags   = Valid(new ACosFlags)
   })
 
-  val xsgn = io.x.bits.sgn
-  val xex  = io.x.bits.ex
-  val xman = io.x.bits.man
+  private val cutIn = new SharedPipe("in", io.x.valid, stages.at("in"))
+
+  val x = cutIn(io.x.bits)
+
+  val xsgn = x.sgn
+  val xex  = x.ex
+  val xman = x.man
 
   val xLargerThan1 = xex >= exBias.U
 
@@ -94,18 +104,18 @@ class ACosPhase1PreProcess(
   val xConvertedEx0     = exBias.U(exW.W) - xNormalizeShift + xRoundedMoreThan2
   val xConvertedMan0    = xRounded(manW - 1, 0)
 
-  val xSmallEnough = io.x.bits.zero || xConvertedEx0 === exBias.U // special: y ~ 1, i.e. x ~ 0
+  val xSmallEnough = x.zero || xConvertedEx0 === exBias.U // special: y ~ 1, i.e. x ~ 0
 
   val xConvertedEx  = Mux(xSmallEnough, exBias.U(exW.W), Mux(xLargerThan1, 0.U, xConvertedEx0))
   val xConvertedMan = Mux(xSmallEnough, 0.U(manW.W),     Mux(xLargerThan1, 0.U, xConvertedMan0))
 
   // ---- table address: same encoding as SqrtPreProcess.adr (ex(0) | top mantissa) ----
   val adr = Cat(xConvertedEx(0), xConvertedMan(manW - 1, dxW))
-  io.adr := Pipe(io.x.valid, adr, stage)
+  io.adr := Pipe(cutIn.valid, adr, stages.at("out"))
 
   if (order != 0) {
     val dx = Cat(~xConvertedMan(dxW - 1), xConvertedMan(dxW - 2, 0))
-    io.dx.get := Pipe(io.x.valid, dx, stage)
+    io.dx.get := Pipe(cutIn.valid, dx, stages.at("out"))
   }
 
   // ---- y = 1-|x| as a DecomposedReal ----
@@ -114,35 +124,50 @@ class ACosPhase1PreProcess(
   yBits.ex   := xConvertedEx
   yBits.man  := xConvertedMan
   yBits.zero := xLargerThan1
-  yBits.inf  := io.x.bits.inf
-  yBits.nan  := io.x.bits.nan
-  io.y := Pipe(io.x.valid, yBits, stage)
+  yBits.inf  := x.inf
+  yBits.nan  := x.nan
+  io.y := Pipe(cutIn.valid, yBits, stages.at("out"))
 
   // ---- special-value flags ----
-  val isSpecial = io.x.bits.inf || io.x.bits.nan || xSmallEnough || xLargerThan1
+  val isSpecial = x.inf || x.nan || xSmallEnough || xLargerThan1
   val flag = MuxCase(0.U(ACosSpecialValue.width.W), Seq(
-    (io.x.bits.inf || io.x.bits.nan) -> ACosSpecialValue.xNaNInf,
-     xSmallEnough                    -> ACosSpecialValue.xZero,
-    (xLargerThan1 && xsgn === 1.U)   -> ACosSpecialValue.xLargeNeg,
-    (xLargerThan1 && xsgn === 0.U)   -> ACosSpecialValue.xLargePos,
+    (x.inf || x.nan)               -> ACosSpecialValue.xNaNInf,
+     xSmallEnough                  -> ACosSpecialValue.xZero,
+    (xLargerThan1 && xsgn === 1.U) -> ACosSpecialValue.xLargeNeg,
+    (xLargerThan1 && xsgn === 0.U) -> ACosSpecialValue.xLargePos,
   ))
 
   val flagsBits = Wire(new ACosFlags)
   flagsBits.isSpecial := isSpecial
   flagsBits.xsgn      := xsgn
   flagsBits.flag      := flag
-  io.flags := Pipe(io.x.valid, flagsBits, stage)
+  io.flags := Pipe(cutIn.valid, flagsBits, stages.at("out"))
+}
+
+/** Pipeline stage points of [[rial.math.ACosPhase1PreProcess]]. */
+object ACosPhase1PreProcess {
+
+  /** Boundaries at which pipeline registers can be placed.
+   *
+   *  - `"out"` the table address, `1-|x|` and the flags
+   */
+  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 4.0))
 }
 
 class ACosPhase1PostProcess(
   val spec:  RealSpec,
   val bitW:  PolynomialBitWidth,
-  val stage: Int,
+  val stage: PipelineStageConfig,
 ) extends Module {
 
   val exW       = spec.exW
   val manW      = spec.manW
   val extraBits = bitW.outBitW - manW
+
+  /** Boundaries at which pipeline registers can be placed. */
+  val stagePoints = ACosPhase1PostProcess.stagePoints
+
+  val stages = stage.resolve(stagePoints)
 
   val io = IO(new Bundle {
     val in = Flipped(Valid(new Bundle {
@@ -153,9 +178,12 @@ class ACosPhase1PostProcess(
     val z = Valid(UInt(spec.W.W))
   })
 
-  val info  = io.in.bits.info
-  val zres  = io.in.bits.zres
-  val flags = io.in.bits.flags
+  private val cutIn = new SharedPipe("in", io.in.valid, stages.at("in"))
+
+  val in    = cutIn(io.in.bits)
+  val info  = in.info
+  val zres  = in.zres
+  val flags = in.flags
 
   // Normal sqrt result (mirrors SqrtPostProcess)
   val zexSqrt  = info.zex
@@ -182,7 +210,17 @@ class ACosPhase1PostProcess(
   val zex  = Mux(flags.isSpecial, zexSpecial,  zexSqrt)
   val zman = Mux(flags.isSpecial, zmanSpecial, zmanSqrt)
 
-  io.z := Pipe(io.in.valid, Cat(zsgn, zex, zman), stage)
+  io.z := Pipe(cutIn.valid, Cat(zsgn, zex, zman), stages.at("out"))
+}
+
+/** Pipeline stage points of [[rial.math.ACosPhase1PostProcess]]. */
+object ACosPhase1PostProcess {
+
+  /** Boundaries at which pipeline registers can be placed.
+   *
+   *  - `"out"` the assembled result
+   */
+  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 3.0))
 }
 
 // =========================================================================
@@ -192,7 +230,7 @@ class ACosPhase1PostProcess(
 class ACosPhase2PreProcess(
   val spec:  RealSpec,
   val bitW:  PolynomialBitWidth,
-  val stage: Int,
+  val stage: PipelineStageConfig,
 ) extends Module {
 
   val exW    = spec.exW
@@ -202,6 +240,11 @@ class ACosPhase2PreProcess(
   val adrW   = bitW.addrW
   val dxW    = bitW.inBitW
   val order  = bitW.nOrder
+
+  /** Boundaries at which pipeline registers can be placed. */
+  val stagePoints = ACosPhase2PreProcess.stagePoints
+
+  val stages = stage.resolve(stagePoints)
 
   val io = IO(new Bundle {
     val x     = Flipped(Valid(new DecomposedReal(spec)))
@@ -213,18 +256,22 @@ class ACosPhase2PreProcess(
     val xex    = Valid(UInt(exW.W))
   })
 
-  val xex  = io.x.bits.ex
-  val xman = io.x.bits.man
+  private val cutIn = new SharedPipe("in", io.x.valid, stages.at("in"))
+
+  val x = cutIn(io.x.bits)
+
+  val xex  = x.ex
+  val xman = x.man
 
   val xShift   = exBias.U - xex
   val xAligned = Cat(1.U(1.W), xman) >> xShift
 
   val adr = xAligned(manW - 1, dxW)
-  io.adr := Pipe(io.x.valid, adr, stage)
+  io.adr := Pipe(cutIn.valid, adr, stages.at("out"))
 
   if (order != 0) {
     val dx = Cat(~xAligned(dxW - 1), xAligned(dxW - 2, 0))
-    io.dx.get := Pipe(io.x.valid, dx, stage)
+    io.dx.get := Pipe(cutIn.valid, dx, stages.at("out"))
   }
 
   // Decode phase-1's NaN-boxed flags (carried in x's exponent / mantissa).
@@ -234,14 +281,24 @@ class ACosPhase2PreProcess(
   val xManMatches3 = (xman <= 3.U) && xman =/= 0.U
   val flags = Wire(new ACosFlags)
   flags.isSpecial := xex === Fill(exW, 1.U(1.W))
-  flags.xsgn      := io.x.bits.sgn
+  flags.xsgn      := x.sgn
   flags.flag      := Mux(xManMatches3, xman(ACosSpecialValue.width - 1, 0),
                                        ACosSpecialValue.xNaNInf)
-  io.flags := Pipe(io.x.valid, flags, stage)
+  io.flags := Pipe(cutIn.valid, flags, stages.at("out"))
 
   // pass-through for the post-mult
-  io.xManW1 := Pipe(io.x.valid, Cat(1.U(1.W), xman), stage)
-  io.xex    := Pipe(io.x.valid, xex,                  stage)
+  io.xManW1 := Pipe(cutIn.valid, Cat(1.U(1.W), xman), stages.at("out"))
+  io.xex    := Pipe(cutIn.valid, xex,                 stages.at("out"))
+}
+
+/** Pipeline stage points of [[rial.math.ACosPhase2PreProcess]]. */
+object ACosPhase2PreProcess {
+
+  /** Boundaries at which pipeline registers can be placed.
+   *
+   *  - `"out"` the table address and the flags
+   */
+  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 4.0))
 }
 
 class ACosPhase2TableCoeff(
@@ -265,7 +322,7 @@ class ACosPhase2TableCoeff(
 class ACosPhase2PostProcess(
   val spec:  RealSpec,
   val bitW:  PolynomialBitWidth,
-  val stage: Int,
+  val stage: PipelineStageConfig,
 ) extends Module {
 
   val exW    = spec.exW
@@ -275,6 +332,11 @@ class ACosPhase2PostProcess(
   val realPi     = new RealGeneric(spec, Pi)
   val realHalfPi = new RealGeneric(spec, Pi * 0.5)
 
+  /** Boundaries at which pipeline registers can be placed. */
+  val stagePoints = ACosPhase2PostProcess.stagePoints
+
+  val stages = stage.resolve(stagePoints)
+
   val io = IO(new Bundle {
     val flags = Flipped(Valid(new ACosFlags))
     val xex   = Flipped(Valid(UInt(exW.W))) // x.ex pipelined from phase-2 pre
@@ -282,8 +344,14 @@ class ACosPhase2PostProcess(
     val z     = Valid(UInt(spec.W.W))
   })
 
-  val zMan0 = io.mul.bits.zman
-  val zEx0  = io.xex.bits + io.mul.bits.exInc // mul lhs has ex==exBias unbiased=0; total = x.ex + exInc
+  private val cutIn = new SharedPipe("in",
+    io.flags.valid && io.mul.valid && io.xex.valid, stages.at("in"))
+
+  val mul   = cutIn(io.mul.bits)
+  val xexIn = cutIn(io.xex.bits)
+
+  val zMan0 = mul.zman
+  val zEx0  = xexIn + mul.exInc // mul lhs has ex==exBias unbiased=0; total = x.ex + exInc
 
   // ---- pi - z (for x < 0) ----
   val piW = 2 + manW + 2
@@ -298,7 +366,7 @@ class ACosPhase2PostProcess(
   val zNegMan0      = zNegRounded(manW - 1, 0)
 
   // ---- decode special values from flags ----
-  val flags = io.flags.bits
+  val flags = cutIn(io.flags.bits)
   val xNaNInf   = flags.isSpecial && flags.flag === ACosSpecialValue.xNaNInf
   val xZero     = flags.isSpecial && flags.flag === ACosSpecialValue.xZero
   val xLargePos = flags.isSpecial && flags.flag === ACosSpecialValue.xLargePos
@@ -317,7 +385,17 @@ class ACosPhase2PostProcess(
             Mux(flags.xsgn === 0.U, zEx0, zNegEx0)))))
 
   val z = Cat(0.U(1.W), zex, zman)
-  io.z := Pipe(io.flags.valid && io.mul.valid && io.xex.valid, z, stage)
+  io.z := Pipe(cutIn.valid, z, stages.at("out"))
+}
+
+/** Pipeline stage points of [[rial.math.ACosPhase2PostProcess]]. */
+object ACosPhase2PostProcess {
+
+  /** Boundaries at which pipeline registers can be placed.
+   *
+   *  - `"out"` the assembled result
+   */
+  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 3.0))
 }
 
 // Combinational helper: drives the PostProcMultiplier inputs (lhs = polynomial

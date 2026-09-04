@@ -23,6 +23,7 @@ import chisel3.util._
 
 import rial.table._
 import rial.arith.{RealSpec, RoundSpec, FloatChiselUtil}
+import rial.util._
 import rial.util.RialChiselUtil._
 import rial.util.ScalaUtil._
 
@@ -79,7 +80,7 @@ class ExpPreProcInfo(val spec: RealSpec, val padding: Int) extends Bundle {
 class ExpPreProcess(
   val spec:  RealSpec,
   val bitW:  PolynomialBitWidth,
-  val stage: Int,
+  val stage: PipelineStageConfig,
 ) extends Module {
 
   val exW    = spec.exW
@@ -101,6 +102,11 @@ class ExpPreProcess(
   val xValW       = xIntW + xFracW + 1
   val extraMan    = padding + xIntW
 
+  /** Boundaries at which pipeline registers can be placed. */
+  val stagePoints = ExpPreProcess.stagePoints
+
+  val stages = stage.resolve(stagePoints)
+
   val io = IO(new Bundle {
     val x    = Flipped(Valid(new DecomposedReal(spec)))
     val prod = Flipped(Valid(UInt(ExpPreMulArgs.prodW(spec).W)))
@@ -109,15 +115,21 @@ class ExpPreProcess(
     val info = Valid(new ExpPreProcInfo(spec, padding))
   })
 
-  val xsgn = io.x.bits.sgn
-  val xex0 = io.x.bits.ex
-  val xman = io.x.bits.man
+  // both the argument and the product are needed
+  private val cutIn = new SharedPipe("in", io.x.valid && io.prod.valid,
+    stages.at("in"))
+
+  val x = cutIn(io.x.bits)
+
+  val xsgn = x.sgn
+  val xex0 = x.ex
+  val xman = x.man
 
   // ------------------------------------------------------------------------
   // round the pre-product to (manW + extraMan) bits
 
   val log2eManW      = ExpPreMulArgs.lhsW(spec) - 1
-  val xprod          = io.prod.bits
+  val xprod          = cutIn(io.prod.bits)
   val xprodW         = ExpPreMulArgs.prodW(spec)
   val xprodMoreThan2 = xprod(xprodW - 1) === 1.U
 
@@ -141,7 +153,7 @@ class ExpPreProcess(
   val xman2 = xprodRounded(manW + extraMan - 1, 0)
   val xex   = xex0 + xprodMoreThan2AfterRounded + xprodMoreThan2
 
-  assert(!io.prod.valid || xprodMoreThan2AfterRounded +& xprodMoreThan2 =/= 2.U)
+  assert(!cutIn.valid || xprodMoreThan2AfterRounded +& xprodMoreThan2 =/= 2.U)
 
   val xexd = xprodMoreThan2AfterRounded + xprodMoreThan2
   val xVal = Cat(1.U(1.W), xman2)
@@ -176,13 +188,22 @@ class ExpPreProcess(
     infoOut.xfracLSBs.get := xfrac(padding - 1, 0)
   }
 
-  val valid = io.x.valid && io.prod.valid
-  io.info := Pipe(valid, infoOut, stage)
-  io.adr  := Pipe(valid, adr,     stage)
+  io.info := Pipe(cutIn.valid, infoOut, stages.at("out"))
+  io.adr  := Pipe(cutIn.valid, adr,     stages.at("out"))
   if (order != 0) {
     val dx = Cat(~xfrac(xFracW - 1 - adrW), xfrac(xFracW - 1 - adrW - 1, padding))
-    io.dx.get := Pipe(valid, dx, stage)
+    io.dx.get := Pipe(cutIn.valid, dx, stages.at("out"))
   }
+}
+
+/** Pipeline stage points of [[rial.math.ExpPreProcess]]. */
+object ExpPreProcess {
+
+  /** Boundaries at which pipeline registers can be placed.
+   *
+   *  - `"out"` the table address and the info
+   */
+  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 4.0))
 }
 
 // -------------------------------------------------------------------------
@@ -233,7 +254,7 @@ class ExpPostProcInfo(val spec: RealSpec, val padding: Int) extends Bundle {
 class ExpNonTable(
   val spec:  RealSpec,
   val bitW:  PolynomialBitWidth,
-  val stage: Int,
+  val stage: PipelineStageConfig,
 ) extends Module {
 
   val exW    = spec.exW
@@ -245,11 +266,22 @@ class ExpNonTable(
   val zCorrTmpW = scala.math.min(6, 1 + manW + padding)
   val coeffW    = scala.math.min(8, manW + 1)
 
+  /** Boundaries at which pipeline registers can be placed. */
+  val stagePoints = ExpNonTable.stagePoints
+
+  val stages = stage.resolve(stagePoints)
+
   val io = IO(new Bundle {
     val x    = Flipped(Valid(new DecomposedReal(spec)))
     val info = Flipped(Valid(new ExpPreProcInfo(spec, padding)))
     val z    = Valid(new ExpPostProcInfo(spec, padding))
   })
+
+  private val cutIn = new SharedPipe("in", io.x.valid && io.info.valid,
+    stages.at("in"))
+
+  val x    = cutIn(io.x.bits)
+  val info = cutIn(io.info.bits)
 
   // ------------------------------------------------------------------------
   // small inline multiplier for the correction coefficient ln(2) * xfracLSBs
@@ -258,7 +290,7 @@ class ExpNonTable(
 
   if (padding != 0) {
     val coefficient = (Real.log(Real.two))(coeffW).toBigInt.U(coeffW.W)
-    val xfracLSBs   = io.info.bits.xfracLSBs.get
+    val xfracLSBs   = info.xfracLSBs.get
     val zCorrCoef0  = coefficient * xfracLSBs
     val zCorrCoefW  = coeffW + padding
     val zCorrCoef   = zCorrCoef0(zCorrCoefW - 1, zCorrCoefW - zCorrTmpW)
@@ -276,19 +308,19 @@ class ExpNonTable(
   val xExOvfLimBiased = (xExOvfLimit + exBias).U(exW.W)
   val xExUdfLimBiased = (xExUdfLimit + exBias).U(exW.W)
 
-  val xint = io.info.bits.xint
-  val xexd = io.info.bits.xexd
+  val xint = info.xint
+  val xexd = info.xexd
 
   val zexPos = xint +& exBias.U(exW.W)
   val zexNeg = exBias.U(exW.W) -& xint
-  val zex0   = Mux(io.x.bits.sgn === 0.U, zexPos(exW - 1, 0), zexNeg(exW - 1, 0))
+  val zex0   = Mux(x.sgn === 0.U, zexPos(exW - 1, 0), zexNeg(exW - 1, 0))
 
-  val xex   = io.x.bits.ex + xexd
-  val znan  = io.x.bits.nan
-  val zinf  = (io.x.bits.sgn === 0.U) &&
-              ((xExOvfLimBiased <= xex) || (  spec.exMax.U  < xint) || io.x.bits.inf)
-  val zzero = (io.x.bits.sgn === 1.U) &&
-              ((xExUdfLimBiased <= xex) || ((-spec.exMin).U < xint) || io.x.bits.inf)
+  val xex   = x.ex + xexd
+  val znan  = x.nan
+  val zinf  = (x.sgn === 0.U) &&
+              ((xExOvfLimBiased <= xex) || (  spec.exMax.U  < xint) || x.inf)
+  val zzero = (x.sgn === 1.U) &&
+              ((xExUdfLimBiased <= xex) || ((-spec.exMin).U < xint) || x.inf)
 
   zout.zex         := Mux(znan || zinf, Fill(exW, 1.U(1.W)),
                       Mux(zzero,        0.U(exW.W),
@@ -298,7 +330,17 @@ class ExpNonTable(
   zout.zzero       := zzero
   zout.zIsNonTable := znan || zinf || zzero
 
-  io.z := Pipe(io.x.valid && io.info.valid, zout, stage)
+  io.z := Pipe(cutIn.valid, zout, stages.at("out"))
+}
+
+/** Pipeline stage points of [[rial.math.ExpNonTable]]. */
+object ExpNonTable {
+
+  /** Boundaries at which pipeline registers can be placed.
+   *
+   *  - `"out"` the exponent, the correction and the special values
+   */
+  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 3.0))
 }
 
 // -------------------------------------------------------------------------
@@ -313,7 +355,7 @@ class ExpNonTable(
 class ExpPostProcess(
   val spec:  RealSpec,
   val bitW:  PolynomialBitWidth,
-  val stage: Int,
+  val stage: PipelineStageConfig,
 ) extends Module {
 
   val exW       = spec.exW
@@ -323,6 +365,11 @@ class ExpPostProcess(
 
   val zCorrTmpW = scala.math.min(6, 1 + manW + padding)
 
+  /** Boundaries at which pipeline registers can be placed. */
+  val stagePoints = ExpPostProcess.stagePoints
+
+  val stages = stage.resolve(stagePoints)
+
   val io = IO(new Bundle {
     val in = Flipped(Valid(new Bundle {
       val info = new ExpPostProcInfo(spec, padding)
@@ -331,8 +378,11 @@ class ExpPostProcess(
     val z = Valid(UInt(spec.W.W))
   })
 
-  val info = io.in.bits.info
-  val zres = io.in.bits.zres
+  private val cutIn = new SharedPipe("in", io.in.valid, stages.at("in"))
+
+  val in   = cutIn(io.in.bits)
+  val info = in.info
+  val zres = in.zres
 
   val zman0 = if (extraBits > 0) (zres >> extraBits) +& zres(extraBits - 1) else zres
 
@@ -357,5 +407,15 @@ class ExpPostProcess(
   val z = Cat(0.U(1.W), zEx, zMan)
   assert(z.getWidth == spec.W)
 
-  io.z := Pipe(io.in.valid, z, stage)
+  io.z := Pipe(cutIn.valid, z, stages.at("out"))
+}
+
+/** Pipeline stage points of [[rial.math.ExpPostProcess]]. */
+object ExpPostProcess {
+
+  /** Boundaries at which pipeline registers can be placed.
+   *
+   *  - `"out"` the corrected and assembled result
+   */
+  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 3.0))
 }

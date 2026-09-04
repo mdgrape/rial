@@ -27,6 +27,7 @@ import chisel3.util._
 
 import rial.table._
 import rial.arith.{RealSpec, RealGeneric}
+import rial.util._
 import rial.util.RialChiselUtil._
 import rial.util.ScalaUtil._
 
@@ -78,7 +79,7 @@ class ATan2Phase1Info(val spec: RealSpec) extends Bundle {
 class ATan2Phase1PreProcess(
   val spec:  RealSpec,
   val bitW:  PolynomialBitWidth,
-  val stage: Int,
+  val stage: PipelineStageConfig,
 ) extends Module {
 
   // We pack status1 into ex(exW-1); the sign of NaN encodes ysgn.  This relies
@@ -100,6 +101,11 @@ class ATan2Phase1PreProcess(
   val dxW    = bitW.inBitW
   val order  = bitW.nOrder
 
+  /** Boundaries at which pipeline registers can be placed. */
+  val stagePoints = ATan2Phase1PreProcess.stagePoints
+
+  val stages = stage.resolve(stagePoints)
+
   val io = IO(new Bundle {
     val x = Flipped(Valid(new DecomposedReal(spec)))
     val y = Flipped(Valid(new DecomposedReal(spec)))
@@ -112,8 +118,12 @@ class ATan2Phase1PreProcess(
     val info  = Valid(new ATan2Phase1Info(spec))
   })
 
-  val x = io.x.bits
-  val y = io.y.bits
+  // both operands are needed
+  private val cutIn = new SharedPipe("in", io.x.valid && io.y.valid,
+    stages.at("in"))
+
+  val x = cutIn(io.x.bits)
+  val y = cutIn(io.y.bits)
 
   // ---- compare |x|, |y| (sign-free since both are non-negative bit-patterns
   // when interpreted as UInts assembled from ex ## man) ----
@@ -159,18 +169,18 @@ class ATan2Phase1PreProcess(
   ))
   flags.status := Cat(yIsLarger, x.sgn)
   flags.ysgn   := y.sgn
-  io.flags := Pipe(io.x.valid && io.y.valid, flags, stage)
+  io.flags := Pipe(cutIn.valid, flags, stages.at("out"))
 
   // ---- table address: ReciprocalPreProcess pattern (top adrW bits of max.man) ----
   val maxMan = Mux(yIsLarger, y.man, x.man)
   val minMan = Mux(yIsLarger, x.man, y.man)
 
   val adr = maxMan(manW - 1, dxW)
-  io.adr := Pipe(io.x.valid && io.y.valid, adr, stage)
+  io.adr := Pipe(cutIn.valid, adr, stages.at("out"))
 
   if (order != 0) {
     val dx = Cat(~maxMan(dxW - 1), maxMan(dxW - 2, 0))
-    io.dx.get := Pipe(io.x.valid && io.y.valid, dx, stage)
+    io.dx.get := Pipe(cutIn.valid, dx, stages.at("out"))
   }
 
   // ---- info bundle to post-process ----
@@ -179,7 +189,17 @@ class ATan2Phase1PreProcess(
   info.xySameMan := x.man === y.man
   info.maxXYMan0 := !maxMan.orR
   info.minMan    := minMan
-  io.info := Pipe(io.x.valid && io.y.valid, info, stage)
+  io.info := Pipe(cutIn.valid, info, stages.at("out"))
+}
+
+/** Pipeline stage points of [[rial.math.ATan2Phase1PreProcess]]. */
+object ATan2Phase1PreProcess {
+
+  /** Boundaries at which pipeline registers can be placed.
+   *
+   *  - `"out"` the table address, the info and the flags
+   */
+  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 4.0))
 }
 
 // Combinational driver of the post-process multiplier inputs.
@@ -220,12 +240,17 @@ class ATan2Phase1PostMultArgs(
 class ATan2Phase1PostProcess(
   val spec:  RealSpec,
   val bitW:  PolynomialBitWidth,
-  val stage: Int,
+  val stage: PipelineStageConfig,
 ) extends Module {
 
   val exW    = spec.exW
   val manW   = spec.manW
   val exBias = spec.exBias
+
+  /** Boundaries at which pipeline registers can be placed. */
+  val stagePoints = ATan2Phase1PostProcess.stagePoints
+
+  val stages = stage.resolve(stagePoints)
 
   val io = IO(new Bundle {
     val info  = Flipped(Valid(new ATan2Phase1Info(spec)))
@@ -234,14 +259,18 @@ class ATan2Phase1PostProcess(
     val z     = Valid(UInt(spec.W.W))
   })
 
-  val info  = io.info.bits
-  val flags = io.flags.bits
+  private val cutIn = new SharedPipe("in",
+    io.info.valid && io.flags.valid && io.mul.valid, stages.at("in"))
+
+  val info  = cutIn(io.info.bits)
+  val flags = cutIn(io.flags.bits)
+  val mul   = cutIn(io.mul.bits)
 
   // The multiplier handles the ratio's mantissa with full rounding.  When the
   // mul output's exInc is asserted the ratio >= 2, but our exponent bookkeeping
   // already accounts for that by adding 1 to zex.  For phase 1 ratios <= 1 so
   // exInc should rarely fire; we still propagate it.
-  val zManMul = io.mul.bits.zman
+  val zManMul = mul.zman
 
   // ---- assemble the normal-case ratio ----
   val zexNoStat = info.zex  // exW bits, but always has MSB = 0 (we asserted that exBias's MSB is 0)
@@ -263,7 +292,17 @@ class ATan2Phase1PostProcess(
   val zNormal  = Cat(zSgnEnc,     zExEnc,     zManEnc)
 
   val z = Mux(flags.isSpecial, zSpecial, zNormal)
-  io.z := Pipe(io.info.valid && io.flags.valid && io.mul.valid, z, stage)
+  io.z := Pipe(cutIn.valid, z, stages.at("out"))
+}
+
+/** Pipeline stage points of [[rial.math.ATan2Phase1PostProcess]]. */
+object ATan2Phase1PostProcess {
+
+  /** Boundaries at which pipeline registers can be placed.
+   *
+   *  - `"out"` the encoded ratio
+   */
+  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 3.0))
 }
 
 // =========================================================================
@@ -273,7 +312,7 @@ class ATan2Phase1PostProcess(
 class ATan2Phase2PreProcess(
   val spec:  RealSpec,
   val bitW:  PolynomialBitWidth,
-  val stage: Int,
+  val stage: PipelineStageConfig,
 ) extends Module {
 
   val exW    = spec.exW
@@ -283,6 +322,11 @@ class ATan2Phase2PreProcess(
   val adrW   = bitW.addrW
   val dxW    = bitW.inBitW
   val order  = bitW.nOrder
+
+  /** Boundaries at which pipeline registers can be placed. */
+  val stagePoints = ATan2Phase2PreProcess.stagePoints
+
+  val stages = stage.resolve(stagePoints)
 
   val io = IO(new Bundle {
     val x      = Flipped(Valid(new DecomposedReal(spec)))
@@ -295,7 +339,9 @@ class ATan2Phase2PreProcess(
     val isLinear = Valid(Bool())
   })
 
-  val x = io.x.bits
+  private val cutIn = new SharedPipe("in", io.x.valid, stages.at("in"))
+
+  val x = cutIn(io.x.bits)
 
   // ---- decode NaN-boxed flags from phase-1 output ----
   val isSpecial = x.ex === Fill(exW, 1.U(1.W))
@@ -307,7 +353,7 @@ class ATan2Phase2PreProcess(
   flags.ysgn      := x.sgn
   flags.status    := status
   flags.special   := x.man(ATan2SpecialValue.width - 1, 0)
-  io.flags := Pipe(io.x.valid, flags, stage)
+  io.flags := Pipe(cutIn.valid, flags, stages.at("out"))
 
   // ---- decode the ratio t (strip status1 from ex, status0 from man) ----
   // If isSpecial, force xex to 0 so subsequent shifts don't underflow.
@@ -328,24 +374,34 @@ class ATan2Phase2PreProcess(
   val xFixed = (xManW1 >> xShift)(manW, 0)
 
   val adr = xFixed(manW - 1, dxW)
-  io.adr := Pipe(io.x.valid, adr, stage)
+  io.adr := Pipe(cutIn.valid, adr, stages.at("out"))
 
   if (order != 0) {
     val dx = Cat(~xFixed(dxW - 1), xFixed(dxW - 2, 0))
-    io.dx.get := Pipe(io.x.valid, dx, stage)
+    io.dx.get := Pipe(cutIn.valid, dx, stages.at("out"))
   }
 
   // ---- linear-region detection: atan(t)/t ~ 1 when t is small enough ----
   val linearThreshold = (ATan2Phase2SimGeneric.calcLinearThreshold(manW) + exBias)
   val isLinear        = xexDecoded <= linearThreshold.U(exW.W)
-  io.isLinear := Pipe(io.x.valid, isLinear, stage)
+  io.isLinear := Pipe(cutIn.valid, isLinear, stages.at("out"))
 
   // ---- pipe x's mantissa-with-hidden-1 (used by post-mult) and decoded ex ----
   // post-mult rhs is (1+xman) where xman = x.man with status bit stripped (the
   // bottom bit cleared); we deliberately do NOT use the OR-with-1 form here.
   val postRhs = Cat(1.U(1.W), x.man(manW - 1, 1), 0.U(1.W))
-  io.xManW1 := Pipe(io.x.valid, postRhs,    stage)
-  io.xex    := Pipe(io.x.valid, xexDecoded, stage)
+  io.xManW1 := Pipe(cutIn.valid, postRhs,    stages.at("out"))
+  io.xex    := Pipe(cutIn.valid, xexDecoded, stages.at("out"))
+}
+
+/** Pipeline stage points of [[rial.math.ATan2Phase2PreProcess]]. */
+object ATan2Phase2PreProcess {
+
+  /** Boundaries at which pipeline registers can be placed.
+   *
+   *  - `"out"` the table address and the decoded ratio
+   */
+  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 4.0))
 }
 
 class ATan2Phase2TableCoeff(
@@ -405,12 +461,17 @@ class ATan2Phase2PostMultArgs(
 class ATan2Phase2PostProcess(
   val spec:  RealSpec,
   val bitW:  PolynomialBitWidth,
-  val stage: Int,
+  val stage: PipelineStageConfig,
 ) extends Module {
 
   val exW    = spec.exW
   val manW   = spec.manW
   val exBias = spec.exBias
+
+  /** Boundaries at which pipeline registers can be placed. */
+  val stagePoints = ATan2Phase2PostProcess.stagePoints
+
+  val stages = stage.resolve(stagePoints)
 
   val io = IO(new Bundle {
     val flags    = Flipped(Valid(new ATan2Flags))
@@ -420,11 +481,16 @@ class ATan2Phase2PostProcess(
     val z        = Valid(UInt(spec.W.W))
   })
 
-  val flags    = io.flags.bits
-  val xex      = io.xex.bits
-  val isLinear = io.isLinear.bits
-  val atanMan0 = io.mul.bits.zman
-  val atanInc  = io.mul.bits.exInc
+  private val cutIn = new SharedPipe("in",
+    io.flags.valid && io.xex.valid && io.isLinear.valid && io.mul.valid,
+    stages.at("in"))
+
+  val mul      = cutIn(io.mul.bits)
+  val flags    = cutIn(io.flags.bits)
+  val xex      = cutIn(io.xex.bits)
+  val isLinear = cutIn(io.isLinear.bits)
+  val atanMan0 = mul.zman
+  val atanInc  = mul.exInc
 
   // ---- atan(t) = (atan(t)/t) * t ----
   // SimGeneric: atanEx = xex + resEx + atanProdMoreThan2 + atanRoundMoreThan2
@@ -527,6 +593,15 @@ class ATan2Phase2PostProcess(
   val zMan = Mux(flags.isSpecial, zManSpecial, zManNormal)
 
   val z = Cat(zSgn, zEx, zMan)
-  io.z := Pipe(io.flags.valid && io.xex.valid && io.isLinear.valid && io.mul.valid,
-               z, stage)
+  io.z := Pipe(cutIn.valid, z, stages.at("out"))
+}
+
+/** Pipeline stage points of [[rial.math.ATan2Phase2PostProcess]]. */
+object ATan2Phase2PostProcess {
+
+  /** Boundaries at which pipeline registers can be placed.
+   *
+   *  - `"out"` the assembled result
+   */
+  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 3.0))
 }

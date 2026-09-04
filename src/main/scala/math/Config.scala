@@ -78,6 +78,35 @@ object FuncKind extends Enumeration {
     }
   }
 
+  /** Returns the name of `fn` in the pipeline stage points of
+   *  [[rial.math.MathFunctions]] (e.g. FuncKind.InvSqrt -> "invSqrt").
+   *
+   * The pre- and post-process of a function are one path of the parallels
+   * `"pre"` and `"post"`, named after the function: the boundaries of the
+   * pre-process of `fn` are `"pre.<pointName(fn)>.*"`. `Sin` and `Cos` share
+   * one pre-process and one post-process, so both give `"sinCos"`.
+   *
+   * @param fn An enumerator of the function.
+   */
+  def pointName(fn: FuncKind): String = {
+    fn match {
+      case Sqrt        => "sqrt"
+      case InvSqrt     => "invSqrt"
+      case Reciprocal  => "reciprocal"
+      case Sin         => "sinCos"
+      case Cos         => "sinCos"
+      case ACosPhase1  => "acosPhase1"
+      case ACosPhase2  => "acosPhase2"
+      case ATan2Phase1 => "atan2Phase1"
+      case ATan2Phase2 => "atan2Phase2"
+      case Exp         => "exp"
+      case Log         => "log"
+      case Sigmoid     => "sigmoid"
+      case SoftPlus    => "softPlus"
+      case ScaleMixtureGaussian => "scaleMixtureGaussian"
+    }
+  }
+
   /** (Internal use) Returns true if `fn` requires preprocess-multiplier.
    */
   def needPreMult(fn: FuncKind): Boolean = {

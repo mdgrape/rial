@@ -67,7 +67,7 @@ class SigmoidTest extends AnyFunSpec
     generator: (RealSpec, Random) => RealGeneric,
   ) = {
     val total      = stage.resolve(MathFunctions.stagePoints(cfg)).total
-    val pipeconfig = stage.getString
+    val pipeconfig = MathTestUtil.label(cfg, stage)
 
     val reference = SigmoidSimGeneric(cfg.coeffs(Sigmoid), _: RealGeneric)
 

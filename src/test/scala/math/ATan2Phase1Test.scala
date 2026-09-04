@@ -43,7 +43,7 @@ class ATan2Phase1Test extends AnyFunSpec
     reference: (RealGeneric, RealGeneric) => RealGeneric,
   ) = {
     val total      = stage.resolve(MathFunctions.stagePoints(cfg)).total
-    val pipeconfig = stage.getString
+    val pipeconfig = MathTestUtil.label(cfg, stage)
 
     it(f"atan2Phase1(y, x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr with ${cfg.getString}") {
       val n = getOption[Int]("n").getOrElse(1000)

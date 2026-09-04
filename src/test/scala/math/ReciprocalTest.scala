@@ -69,7 +69,7 @@ class ReciprocalTest extends AnyFunSpec
     reference: RealGeneric => RealGeneric
   ) = {
     val total      = stage.resolve(MathFunctions.stagePoints(cfg)).total
-    val pipeconfig = stage.getString
+    val pipeconfig = MathTestUtil.label(cfg, stage)
 
     it(f"reciprocal(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr with ${cfg.getString}") {
       val n = getOption[Int]("n").getOrElse(1000)

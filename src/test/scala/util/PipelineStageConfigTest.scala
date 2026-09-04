@@ -2,7 +2,8 @@ package rial.tests
 
 import org.scalatest.funspec.AnyFunSpec
 
-import rial.util.{PipelineStageConfig, PipelineStages, StageElem, StageGroup, StagePoint}
+import rial.math.{MathFuncConfig, MathFunctions}
+import rial.util.{PipelineStageConfig, PipelineStages, StageElem, StageGroup, StageParallel, StagePoint}
 
 /** Pure-Scala unit tests of the pipeline stage placement.
  *
@@ -613,6 +614,234 @@ class PipelineStageConfigTest extends AnyFunSpec {
         assert(segs.max == bestMax, s"trial $trial: $segs vs $bestMax")
         assert(segs.map(x => x * x).sum == bestSq, s"trial $trial: $segs")
         assert(got == bestSel, s"trial $trial: $got != $bestSel")
+      }
+    }
+  }
+
+  // ==========================================================================
+  // parallel paths
+  // ==========================================================================
+
+  /** The boundary list of a short alternative path. */
+  val fast: Seq[StageElem] = Seq(StagePoint("a", 3), StagePoint("out", 3))
+
+  /** The boundary list of a long alternative path. */
+  val slow: Seq[StageElem] = Seq(
+    StagePoint("p", 4), StagePoint("q", 4), StagePoint("out", 2))
+
+  /** A module whose datapath splits into those two paths. */
+  val split: Seq[StageElem] = Seq(
+    StagePoint("head", 2),
+    StageParallel("mid", Seq(StageGroup("slow", slow), StageGroup("fast", fast))),
+    StagePoint("out", 1))
+
+  /** The names [[split]] declares, in datapath order. */
+  val splitNames: Seq[String] = Seq(
+    "in", "head", "mid.in", "mid.slow.in", "mid.slow.p", "mid.slow.q",
+    "mid.slow.out", "mid.fast.in", "mid.fast.a", "mid.fast.out", "out")
+
+  /** counts of the points that carry a register, in declared order */
+  def splitCuts(s: PipelineStages): Seq[(String, Int)] = {
+    splitNames.map(n => n -> s.at(n)).filter(_._2 > 0)
+  }
+
+  describe("PipelineStageConfig.resolve: parallel paths") {
+
+    it("declares every point of every path") {
+      val s = PipelineStageConfig.none.resolve(split)
+      assert(namesOf(s) == splitNames)
+      assert(s.total == 0)
+      assert(s.latency("mid") == 0)
+    }
+
+    it("places the automatic registers on the longest path") {
+      val s = PipelineStageConfig.default(1).resolve(split)
+      // head 2 | mid.slow.p 4 | 4+2+1 : the best single cut of the long path
+      assert(s.at("mid.slow.p") == 1)
+      assert(s.latency("mid.slow") == 1)
+    }
+
+    it("pads the short path to the latency of the long one") {
+      val s = PipelineStageConfig.default(1).resolve(split)
+      assert(s.latency("mid.fast") == 1)
+      assert(s.latency("mid") == 1)
+      assert(s.total == 1)
+      // the short path is balanced on its own points
+      assert(s.at("mid.fast.a") == 1)
+    }
+
+    it("keeps every path at the same latency for every n") {
+      for (n <- 0 to 10) {
+        val s = PipelineStageConfig.default(n).resolve(split)
+        assert(s.total == n, s"total mismatch for n=$n")
+        assert(s.latency("mid.slow") == s.latency("mid.fast"),
+          s"paths differ for n=$n: ${s.getString}")
+        assert(s.latency("mid") == s.latency("mid.slow"))
+      }
+    }
+
+    it("never cuts the short path in the placement of the parent") {
+      // 'mid.fast.a' is not on the chain the placement sees, so an explicit
+      // register there does not move the automatic one
+      val a = PipelineStageConfig.default(1).resolve(split)
+      val b = PipelineStageConfig(Map("mid.fast.a" -> 1), auto = 1).resolve(split)
+      assert(a.at("mid.slow.p") == b.at("mid.slow.p"))
+      assert(b.latency("mid") == 1)
+      assert(b.total == 1)
+    }
+
+    it("raises the latency when a short path is cut explicitly") {
+      val s = PipelineStageConfig.specify("mid.fast.a" -> 2).resolve(split)
+      assert(s.latency("mid") == 2)
+      assert(s.latency("mid.slow") == 2)
+      assert(s.at("mid.slow.p") == 1)
+      assert(s.at("mid.slow.q") == 1)
+      assert(s.total == 2)
+    }
+
+    it("reads the name of a parallel as the out of every path") {
+      val s = PipelineStageConfig.specify("mid" -> 2).resolve(split)
+      assert(s.at("mid.slow.out") == 2)
+      assert(s.at("mid.fast.out") == 2)
+      assert(s.latency("mid") == 2)
+      assert(s.total == 2)
+      assert(splitCuts(s) == Seq("mid.slow.out" -> 2, "mid.fast.out" -> 2))
+    }
+
+    it("reads the in of a parallel as the in of every path") {
+      val s = PipelineStageConfig.specify("mid.in" -> 1).resolve(split)
+      assert(s.at("mid.slow.in") == 1)
+      assert(s.at("mid.fast.in") == 1)
+      assert(s.at("mid.in") == 0)
+      assert(s.latency("mid") == 1)
+      assert(s.total == 1)
+    }
+
+    it("gives latency for a point, a path and a parallel") {
+      val s = PipelineStageConfig.default(3).resolve(split)
+      assert(s.latency("head") == s.at("head"))
+      assert(s.latency("mid.slow") ==
+        Seq("mid.slow.in", "mid.slow.p", "mid.slow.q", "mid.slow.out")
+          .map(s.at).sum)
+      assert(s.latency("mid") == s.latency("mid.slow"))
+      assert(s.total == s.at("in") + s.at("head") + s.latency("mid") + s.at("out"))
+    }
+
+    it("hands one path down to its submodule") {
+      for (n <- 0 to 6) {
+        val s = PipelineStageConfig.default(n).resolve(split)
+        val c = s.sub("mid.fast")
+        assert(c.auto == 0)
+        val inner = c.resolve(fast)
+        assert(inner.at("in")  == s.at("mid.fast.in"))
+        assert(inner.at("a")   == s.at("mid.fast.a"))
+        assert(inner.at("out") == s.at("mid.fast.out"))
+        assert(inner.total == s.latency("mid"))
+      }
+    }
+
+    it("prints every path") {
+      val s = PipelineStageConfig.specify("mid" -> 1).resolve(split)
+      assert(s.getString == "in:0 head:0 mid.in:0 mid.slow.in:0 mid.slow.p:0 " +
+        "mid.slow.q:0 mid.slow.out:1 mid.fast.in:0 mid.fast.a:0 " +
+        "mid.fast.out:1 out:0")
+    }
+
+    it("rejects the name of a parallel where a single point is expected") {
+      val s = PipelineStageConfig.default(2).resolve(split)
+      val e = intercept[IllegalArgumentException] {
+        s.at("mid")
+      }
+      assert(e.getMessage.contains("latency"))
+      val f = intercept[IllegalArgumentException] {
+        s.sub("mid")
+      }
+      assert(f.getMessage.contains("mid.<path>"))
+    }
+
+    it("rejects an unknown name in latency") {
+      val s = PipelineStageConfig.default(2).resolve(split)
+      intercept[IllegalArgumentException] {
+        s.latency("nope")
+      }
+    }
+
+    it("rejects a malformed parallel") {
+      intercept[IllegalArgumentException] { // no path
+        PipelineStageConfig.none.resolve(
+          Seq(StageParallel("p", Seq.empty), StagePoint("out", 1)))
+      }
+      intercept[IllegalArgumentException] { // duplicated path name
+        PipelineStageConfig.none.resolve(Seq(
+          StageParallel("p", Seq(StageGroup("a", fast), StageGroup("a", fast))),
+          StagePoint("out", 1)))
+      }
+      intercept[IllegalArgumentException] { // a path named 'out'
+        PipelineStageConfig.none.resolve(Seq(
+          StageParallel("p", Seq(StageGroup("out", fast))), StagePoint("out", 1)))
+      }
+      intercept[IllegalArgumentException] { // a path that does not end with 'out'
+        PipelineStageConfig.none.resolve(Seq(
+          StageParallel("p", Seq(StageGroup("a", Seq(StagePoint("x", 1))))),
+          StagePoint("out", 1)))
+      }
+      intercept[IllegalArgumentException] { // nested parallels
+        val inner = StageParallel("q", Seq(StageGroup("a", fast)))
+        PipelineStageConfig.none.resolve(Seq(
+          StageParallel("p", Seq(StageGroup("a", Seq(inner, StagePoint("out", 1))))),
+          StagePoint("out", 1)))
+      }
+    }
+  }
+
+  // ==========================================================================
+  // the parallels of the math datapath
+  // ==========================================================================
+
+  describe("MathFunctions.stagePoints: one path per function") {
+
+    val cfg    = MathFuncConfig.standardFP32
+    val points = MathFunctions.stagePoints(cfg)
+
+    /** latency of every path of the parallel `name`. */
+    def pathLatencies(s: PipelineStages, name: String,
+      paths: Seq[StageGroup]): Seq[(String, Int)] = {
+      paths.map(c => c.name -> s.latency(name + "." + c.name))
+    }
+
+    it("resolves for every n with every path at the same latency") {
+      for (n <- 1 to 12) {
+        val s = PipelineStageConfig.default(n).resolve(points)
+        assert(s.total == n, s"total mismatch for n=$n: ${s.getString}")
+
+        val pre = pathLatencies(s, "pre", MathFunctions.prePaths(cfg))
+        assert(pre.map(_._2).distinct.length == 1,
+          s"pre paths differ for n=$n: $pre")
+        assert(s.latency("pre") == pre.head._2)
+
+        val post = pathLatencies(s, "post", MathFunctions.postPaths(cfg))
+        assert(post.map(_._2).distinct.length == 1,
+          s"post paths differ for n=$n: $post")
+        assert(s.latency("post") == post.head._2)
+      }
+    }
+
+    it("hands each path down to its submodule") {
+      val s = PipelineStageConfig.default(8).resolve(points)
+      val sinCos = s.sub("pre.sinCos").resolve(rial.math.SinCosPreProcess.stagePoints)
+      assert(sinCos.total == s.latency("pre"))
+      assert(sinCos.at("out") == s.at("pre.sinCos.out"))
+      val sqrt = s.sub("post.sqrt").resolve(rial.math.SqrtPostProcess.stagePoints)
+      assert(sqrt.total == s.latency("post"))
+    }
+
+    it("adds a register to every path when the parallel is named") {
+      val s = PipelineStageConfig.specify("pre" -> 1, "post" -> 1).resolve(points)
+      assert(s.latency("pre") == 1)
+      assert(s.latency("post") == 1)
+      assert(s.total == 2)
+      for (c <- MathFunctions.prePaths(cfg)) {
+        assert(s.at("pre." + c.name + ".out") == 1)
       }
     }
   }

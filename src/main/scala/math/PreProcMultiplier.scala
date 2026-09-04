@@ -16,14 +16,24 @@ import chisel3.util._
 
 import rial.arith.RealSpec
 import rial.math.FuncKind._
+import rial.util._
 
 private[rial] class PreProcMultiplier(
   val lhsW:  Int,
   val manW:  Int,
-  val stage: Int,
+  val stage: PipelineStageConfig,
 ) extends Module {
 
   val outW = lhsW + (1 + manW)
+
+  /** Boundaries at which pipeline registers can be placed. */
+  val stagePoints = PreProcMultiplier.stagePoints
+
+  val stages = stage.resolve(stagePoints)
+
+  val nStage = stages.total
+
+  def getStage = nStage
 
   val io = IO(new Bundle {
     val in = Flipped(Valid(new Bundle {
@@ -33,12 +43,38 @@ private[rial] class PreProcMultiplier(
     val out = Valid(UInt(outW.W))
   })
 
+  // --------------------------- stage "in" ---------------------------
+  private val cutIn = new SharedPipe("in", io.in.valid, stages.at("in"))
+
+  val lhsIn = cutIn(io.in.bits.lhs)
+  val rhsIn = cutIn(io.in.bits.rhs)
+
   // upstream zeroes the operands when the multiplier isn't selected
-  val prod = io.in.bits.lhs * io.in.bits.rhs
-  io.out := Pipe(io.in.valid, prod, stage)
+  val prodComb = lhsIn * rhsIn
+
+  // -------------------------- stage "prod" --------------------------
+  private val cutProd = new SharedPipe("prod", cutIn.valid, stages.at("prod"))
+
+  val prod = cutProd(prodComb)
+
+  // --------------------------- stage "out" --------------------------
+  io.out := Pipe(cutProd.valid, prod, stages.at("out"))
 }
 
 object PreProcMultiplier {
+
+  /** Boundaries at which pipeline registers can be placed; see
+   *  [[rial.math.PreProcMultiplier]].
+   *
+   *  - `"prod"` the partial products
+   *  - `"out"`  the summed product
+   *
+   * A wide product is several multiplier blocks whose outputs are summed, so
+   * the two boundaries let the sum have a pipeline stage of its own.
+   */
+  val stagePoints: Seq[StageElem] = Seq(
+    StagePoint("prod", 3.0),
+    StagePoint("out",  1.0))
 
   /** True iff any configured function requires the pre-process multiplier. */
   def isNeeded(funcs: Seq[FuncKind]): Boolean = {

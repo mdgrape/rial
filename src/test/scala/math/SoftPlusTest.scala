@@ -63,7 +63,7 @@ class SoftPlusTest extends AnyFunSpec
     generator: (RealSpec, Random) => RealGeneric,
   ) = {
     val total      = stage.resolve(MathFunctions.stagePoints(cfg)).total
-    val pipeconfig = stage.getString
+    val pipeconfig = MathTestUtil.label(cfg, stage)
 
     // Reference: assemble the (pos, neg) coefficients from the merged-bitW
     // configuration's coeffs(SoftPlus), then run SoftPlusSimGeneric.

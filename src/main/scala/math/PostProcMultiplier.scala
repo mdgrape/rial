@@ -88,6 +88,9 @@ object PostProcMultiplier {
 
   /** Boundaries at which pipeline registers can be placed; see
    *  [[rial.math.PostProcMultiplier]].
+   *
+   *  - `"prod"` the product
+   *  - `"out"`  the rounded mantissa
    */
   val stagePoints: Seq[StageElem] = Seq(
     StagePoint("prod", 2.0),

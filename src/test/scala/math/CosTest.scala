@@ -66,7 +66,7 @@ class CosTest extends AnyFunSpec
     reference: RealGeneric => RealGeneric,
   ) = {
     val total      = stage.resolve(MathFunctions.stagePoints(cfg)).total
-    val pipeconfig = stage.getString
+    val pipeconfig = MathTestUtil.label(cfg, stage)
 
     it(f"cos(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr with ${cfg.getString}") {
       val n = getOption[Int]("n").getOrElse(1000)
@@ -140,6 +140,14 @@ class CosTest extends AnyFunSpec
     "Test Within (-128, 128)", generateRealWithin(128.0, _, _), cosRefFP32)
   runtest(RealSpec.Float32Spec, fp32Config, MathTestUtil.allPoints(fp32Config),
     "Test special values", generateSpecialValues(_, _), cosRefFP32)
+
+  // one register inside the sin/cos argument reduction, one at every path of
+  // the result assembly
+  val sinCosPipeStage =
+    PipelineStageConfig.specify("pre.sinCos.fold" -> 1, "post" -> 1)
+
+  runtest(RealSpec.Float32Spec, fp32Config, sinCosPipeStage,
+    "Test Within (-2pi, 2pi)", generateRealWithin(4 * Pi, _, _), cosRefFP32)
 
   // --------------------------------------------------------------------------
   // BFloat16

@@ -21,6 +21,7 @@ import chisel3.util._
 
 import rial.table._
 import rial.arith.RealSpec
+import rial.util._
 import rial.util.RialChiselUtil._
 import rial.util.ScalaUtil._
 
@@ -44,7 +45,7 @@ class SoftPlusPostProcInfo(val spec: RealSpec) extends Bundle {
 class SoftPlusPreProcess(
   val spec:  RealSpec,
   val bitW:  PolynomialBitWidth,
-  val stage: Int,
+  val stage: PipelineStageConfig,
 ) extends Module {
 
   val exW    = spec.exW
@@ -56,6 +57,11 @@ class SoftPlusPreProcess(
   val dxW    = bitW.inBitW
   val order  = bitW.nOrder
 
+  /** Boundaries at which pipeline registers can be placed. */
+  val stagePoints = SoftPlusPreProcess.stagePoints
+
+  val stages = stage.resolve(stagePoints)
+
   val io = IO(new Bundle {
     val x    = Flipped(Valid(new DecomposedReal(spec)))
     // 1-bit pos/neg selector (= xsgn) prepended to the natural addrW bits
@@ -64,36 +70,50 @@ class SoftPlusPreProcess(
     val info = Valid(new SoftPlusPostProcInfo(spec))
   })
 
+  private val cutIn = new SharedPipe("in", io.x.valid, stages.at("in"))
+
+  val x = cutIn(io.x.bits)
+
   val rangeMaxLog2 = SoftPlusTable.rangeMaxLog2(fracW)
   val rangeMaxEx   = exBias + rangeMaxLog2 - 1
 
-  val xExLargeEnough = rangeMaxEx.U(exW.W) < io.x.bits.ex
-  val xinf  = io.x.bits.inf && !io.x.bits.nan
-  val znan  = io.x.bits.nan
-  val zinf  = xinf && (io.x.bits.sgn === 0.U)
-  val zzero = (xinf || xExLargeEnough) && (io.x.bits.sgn === 1.U)
-  val xlarge = xExLargeEnough && (io.x.bits.sgn === 0.U) && !xinf && !znan
+  val xExLargeEnough = rangeMaxEx.U(exW.W) < x.ex
+  val xinf  = x.inf && !x.nan
+  val znan  = x.nan
+  val zinf  = xinf && (x.sgn === 0.U)
+  val zzero = (xinf || xExLargeEnough) && (x.sgn === 1.U)
+  val xlarge = xExLargeEnough && (x.sgn === 0.U) && !xinf && !znan
 
-  val xScaleShift = (rangeMaxEx + 1).U(exW.W) - io.x.bits.ex
-  val xScaled     = Cat(1.U(1.W), io.x.bits.man) >> xScaleShift
+  val xScaleShift = (rangeMaxEx + 1).U(exW.W) - x.ex
+  val xScaled     = Cat(1.U(1.W), x.man) >> xScaleShift
 
   // pos/neg selector goes in the MSB of the adr; TableCoeff uses it to mux.
-  val adr = Cat(io.x.bits.sgn, xScaled(manW - 1, dxW))
-  io.adr := Pipe(io.x.valid, adr, stage)
+  val adr = Cat(x.sgn, xScaled(manW - 1, dxW))
+  io.adr := Pipe(cutIn.valid, adr, stages.at("out"))
 
   if (order != 0) {
     val dx = Cat(~xScaled(dxW - 1), xScaled(dxW - 2, 0))
-    io.dx.get := Pipe(io.x.valid, dx, stage)
+    io.dx.get := Pipe(cutIn.valid, dx, stages.at("out"))
   }
 
   val info = Wire(new SoftPlusPostProcInfo(spec))
-  info.xsgn   := io.x.bits.sgn
+  info.xsgn   := x.sgn
   info.znan   := znan
   info.zinf   := zinf
   info.zzero  := zzero
   info.xlarge := xlarge
-  info.xVal   := Cat(io.x.bits.sgn, io.x.bits.ex, io.x.bits.man)
-  io.info := Pipe(io.x.valid, info, stage)
+  info.xVal   := Cat(x.sgn, x.ex, x.man)
+  io.info := Pipe(cutIn.valid, info, stages.at("out"))
+}
+
+/** Pipeline stage points of [[rial.math.SoftPlusPreProcess]]. */
+object SoftPlusPreProcess {
+
+  /** Boundaries at which pipeline registers can be placed.
+   *
+   *  - `"out"` the table address and the info
+   */
+  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 4.0))
 }
 
 // -------------------------------------------------------------------------
@@ -137,7 +157,7 @@ class SoftPlusTableCoeff(
 class SoftPlusPostProcess(
   val spec:  RealSpec,
   val bitW:  PolynomialBitWidth,
-  val stage: Int,
+  val stage: PipelineStageConfig,
 ) extends Module {
 
   val exW    = spec.exW
@@ -150,6 +170,11 @@ class SoftPlusPostProcess(
 
   val rangeMaxLog2 = SoftPlusTable.rangeMaxLog2(fracW)
 
+  /** Boundaries at which pipeline registers can be placed. */
+  val stagePoints = SoftPlusPostProcess.stagePoints
+
+  val stages = stage.resolve(stagePoints)
+
   val io = IO(new Bundle {
     val in = Flipped(Valid(new Bundle {
       val info = new SoftPlusPostProcInfo(spec)
@@ -158,8 +183,11 @@ class SoftPlusPostProcess(
     val z = Valid(UInt(spec.W.W))
   })
 
-  val info = io.in.bits.info
-  val zres = io.in.bits.zres
+  private val cutIn = new SharedPipe("in", io.in.valid, stages.at("in"))
+
+  val in   = cutIn(io.in.bits)
+  val info = in.info
+  val zres = in.zres
 
   // ---- normalize: leftshift until top bit reaches position calcW ----
   // zShift = (calcW + 1) - binaryWidth(zres)
@@ -194,5 +222,15 @@ class SoftPlusPostProcess(
           Mux(info.xlarge,            zPassthrough,
                                       Cat(zsgn, zex, zman))))
 
-  io.z := Pipe(io.in.valid, z, stage)
+  io.z := Pipe(cutIn.valid, z, stages.at("out"))
+}
+
+/** Pipeline stage points of [[rial.math.SoftPlusPostProcess]]. */
+object SoftPlusPostProcess {
+
+  /** Boundaries at which pipeline registers can be placed.
+   *
+   *  - `"out"` the normalized and assembled result
+   */
+  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 3.0))
 }

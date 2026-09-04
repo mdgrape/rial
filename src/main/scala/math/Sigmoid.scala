@@ -19,6 +19,7 @@ import chisel3.util._
 
 import rial.table._
 import rial.arith.RealSpec
+import rial.util._
 import rial.util.RialChiselUtil._
 import rial.util.ScalaUtil._
 
@@ -41,7 +42,7 @@ class SigmoidPostProcInfo(val spec: RealSpec) extends Bundle {
 class SigmoidPreProcess(
   val spec:  RealSpec,
   val bitW:  PolynomialBitWidth,
-  val stage: Int,
+  val stage: PipelineStageConfig,
 ) extends Module {
 
   val exW    = spec.exW
@@ -53,6 +54,11 @@ class SigmoidPreProcess(
   val dxW    = bitW.inBitW
   val order  = bitW.nOrder
 
+  /** Boundaries at which pipeline registers can be placed. */
+  val stagePoints = SigmoidPreProcess.stagePoints
+
+  val stages = stage.resolve(stagePoints)
+
   val io = IO(new Bundle {
     val x    = Flipped(Valid(new DecomposedReal(spec)))
     val adr  = Valid(UInt(adrW.W))
@@ -60,34 +66,48 @@ class SigmoidPreProcess(
     val info = Valid(new SigmoidPostProcInfo(spec))
   })
 
+  private val cutIn = new SharedPipe("in", io.x.valid, stages.at("in"))
+
+  val x = cutIn(io.x.bits)
+
   // rangeMaxLog2 must match SigmoidSimGeneric -- both derive it from fracW.
   val rangeMaxLog2 = SigmoidTable.rangeMaxLog2(fracW)
   val rangeMaxEx   = exBias + rangeMaxLog2 - 1
 
-  val xExLargeEnough = rangeMaxEx.U(exW.W) < io.x.bits.ex
+  val xExLargeEnough = rangeMaxEx.U(exW.W) < x.ex
 
-  val znan  =  io.x.bits.nan
-  val zone  = (io.x.bits.sgn === 0.U) && xExLargeEnough && !znan
-  val zzero = (io.x.bits.sgn === 1.U) && xExLargeEnough && !znan
+  val znan  =  x.nan
+  val zone  = (x.sgn === 0.U) && xExLargeEnough && !znan
+  val zzero = (x.sgn === 1.U) && xExLargeEnough && !znan
 
-  val xScaleShift = (rangeMaxEx + 1).U(exW.W) - io.x.bits.ex
-  val xScaled     = Cat(1.U(1.W), io.x.bits.man) >> xScaleShift
+  val xScaleShift = (rangeMaxEx + 1).U(exW.W) - x.ex
+  val xScaled     = Cat(1.U(1.W), x.man) >> xScaleShift
 
   val adr = xScaled(manW - 1, dxW)
-  io.adr := Pipe(io.x.valid, adr, stage)
+  io.adr := Pipe(cutIn.valid, adr, stages.at("out"))
 
   if (order != 0) {
     val dx = Cat(~xScaled(dxW - 1), xScaled(dxW - 2, 0))
-    io.dx.get := Pipe(io.x.valid, dx, stage)
+    io.dx.get := Pipe(cutIn.valid, dx, stages.at("out"))
   }
 
   val info = Wire(new SigmoidPostProcInfo(spec))
-  info.xsgn  := io.x.bits.sgn
+  info.xsgn  := x.sgn
   info.xzero := xScaled === 0.U || xScaled === 1.U
   info.znan  := znan
   info.zone  := zone
   info.zzero := zzero
-  io.info := Pipe(io.x.valid, info, stage)
+  io.info := Pipe(cutIn.valid, info, stages.at("out"))
+}
+
+/** Pipeline stage points of [[rial.math.SigmoidPreProcess]]. */
+object SigmoidPreProcess {
+
+  /** Boundaries at which pipeline registers can be placed.
+   *
+   *  - `"out"` the table address and the info
+   */
+  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 4.0))
 }
 
 // -------------------------------------------------------------------------
@@ -119,7 +139,7 @@ class SigmoidTableCoeff(
 class SigmoidPostProcess(
   val spec:  RealSpec,
   val bitW:  PolynomialBitWidth,
-  val stage: Int,
+  val stage: PipelineStageConfig,
 ) extends Module {
 
   val exW    = spec.exW
@@ -130,6 +150,11 @@ class SigmoidPostProcess(
   val calcW     = fracW
   val extraBits = fracW - manW
 
+  /** Boundaries at which pipeline registers can be placed. */
+  val stagePoints = SigmoidPostProcess.stagePoints
+
+  val stages = stage.resolve(stagePoints)
+
   val io = IO(new Bundle {
     val in = Flipped(Valid(new Bundle {
       val info = new SigmoidPostProcInfo(spec)
@@ -138,8 +163,11 @@ class SigmoidPostProcess(
     val z = Valid(UInt(spec.W.W))
   })
 
-  val info = io.in.bits.info
-  val zres = io.in.bits.zres
+  private val cutIn = new SharedPipe("in", io.in.valid, stages.at("in"))
+
+  val in   = cutIn(io.in.bits)
+  val info = in.info
+  val zres = in.zres
 
   // ---- fold:  zPos = (1 << (calcW+1)) - zres   for x >= 0
   //             zNeg =                      zres   for x <  0
@@ -170,5 +198,15 @@ class SigmoidPostProcess(
           Mux(xzero, Cat(zsgn, (exBias - 1).U(exW.W), 0.U(manW.W)),
                      Cat(zsgn, zex, zman)))))
 
-  io.z := Pipe(io.in.valid, z, stage)
+  io.z := Pipe(cutIn.valid, z, stages.at("out"))
+}
+
+/** Pipeline stage points of [[rial.math.SigmoidPostProcess]]. */
+object SigmoidPostProcess {
+
+  /** Boundaries at which pipeline registers can be placed.
+   *
+   *  - `"out"` the folded and assembled result
+   */
+  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 3.0))
 }
