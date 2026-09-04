@@ -36,11 +36,9 @@ import rial.util.PipelineStageConfig._
  * (names for `PipelineStageConfig.specify`):
  *
  *  - `"in"`    the module input
- *  - `"norm"`  after the absolute value, the leading zero count and the
- *              normalisation shift, and after the decompose / classify of the
- *              floating point operand that runs in parallel with them
+ *  - `"norm"`  after the normalisation
  *  - `"mul"`   after the mantissa product
- *  - `"round"` after the rounding increment and the exponent sum
+ *  - `"round"` after the rounding
  *  - `"out"`   the module output
  *
  * [[getStage]] gives the resulting latency, and `out.valid` is `in.valid`

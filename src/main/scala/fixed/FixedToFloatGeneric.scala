@@ -42,9 +42,9 @@ import rial.util.PipelineStageConfig._
  * (names for `PipelineStageConfig.specify`):
  *
  *  - `"in"`    the module input
- *  - `"abs"`   after the sign extraction and the absolute value
- *  - `"norm"`  after the leading zero count and the normalisation shift
- *  - `"round"` after the rounding increment
+ *  - `"abs"`   after the absolute value
+ *  - `"norm"`  after the normalisation
+ *  - `"round"` after the rounding
  *  - `"out"`   the module output
  *
  * [[getStage]] gives the resulting latency, and `out.valid` is `in.valid`

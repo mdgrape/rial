@@ -25,11 +25,10 @@ import rial.util.PipelineStageConfig._
  * (names for `PipelineStageConfig.specify`):
  *
  *  - `"in"`     the module input
- *  - `"unpack"` after decompose / classify
+ *  - `"unpack"` after the operand unpacking
  *  - `"mul"`    after the mantissa product
- *  - `"norm"`   after the normalisation shift and the round / sticky selection,
- *               and after the exponent sum that runs in parallel with them
- *  - `"round"`  after the rounding increment and the exponent adjustment
+ *  - `"norm"`   after the normalisation
+ *  - `"round"`  after the rounding
  *  - `"out"`    the module output
  *
  * [[getStage]] gives the resulting latency, and `out.valid` is `in.valid`

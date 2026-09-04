@@ -42,10 +42,9 @@ import rial.util.PipelineStageConfig._
  * (names for `PipelineStageConfig.specify`):
  *
  *  - `"in"`     the module input
- *  - `"unpack"` after decompose / classify
+ *  - `"unpack"` after the operand unpacking
  *  - `"align"`  after the alignment shift
- *  - `"round"`  after the rounding increment and the negation, and after the
- *               exponent range check that runs in parallel with them
+ *  - `"round"`  after the rounding
  *  - `"out"`    the module output
  *
  * [[getStage]] gives the resulting latency, and `out.valid` is `in.valid`

@@ -23,10 +23,8 @@ import rial.util._
  * (names for `PipelineStageConfig.specify`):
  *
  *  - `"in"`    the module input
- *  - `"norm"`  after the exponent/mantissa priority encoders and the
- *              subnormal alignment shift
- *  - `"round"` after the Downey exponent correction carried by the extra
- *              random bit
+ *  - `"norm"`  after the normalisation
+ *  - `"round"` after the Downey correction
  *  - `"out"`   the module output
  *
  * [[getStage]] gives the resulting latency, and `z.valid` is `rnd.valid`

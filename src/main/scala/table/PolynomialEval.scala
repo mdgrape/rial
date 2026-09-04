@@ -16,14 +16,10 @@ import chisel3.util._
  * Pipeline registers can be enabled at the following points of the datapath
  * (names for `PipelineStageConfig.specify`):
  *
- *  - `"in"`, `"out"`: the module input and output. The clamping of the result
- *    belongs to the logic just before `"out"`;
- *  - `"prod1"`, `"step1"` ... `"prodN"`, `"stepN"` (`N` = `bitW.nOrder`): two
- *    boundaries per multiply-add of Horner's scheme, in evaluation order.
- *    `"prodK"` is directly at the output of the multiplier, before the
- *    alignment shift and the addition of the coefficient; `"stepK"` is at the
- *    end of the multiply-add. A polynomial of order zero is a plain table
- *    lookup and has neither.
+ *  - `"in"`    the module input
+ *  - `"prodK"` after the k-th product
+ *  - `"stepK"` after the k-th multiply-add, `K` = 1 ... `bitW.nOrder`
+ *  - `"out"`   the module output
  *
  * [[getStage]] gives the resulting latency, and `io.out.valid` is
  * `io.in.valid` delayed by that many cycles.

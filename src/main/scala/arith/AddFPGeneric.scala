@@ -27,15 +27,12 @@ import rial.util.DebugControl
  * (names for `PipelineStageConfig.specify`):
  *
  *  - `"in"`     the module input
- *  - `"unpack"` after decompose / classify / exponent difference / near-far
- *               decision / mantissa padding
- *  - `"swap"`   after the operand swap muxes
- *  - `"align"`  after the far-path alignment shift and sticky, and the
- *               near-path pre-shift
- *  - `"add"`    after the far-path significand add and the near-path subtract
- *  - `"norm"`   after the leading-zero count and normalisation shift, the
- *               mantissa / round selection and the far-near merge
- *  - `"round"`  after the rounding increment and the exponent adjustment
+ *  - `"unpack"` after the operand unpacking
+ *  - `"swap"`   after the operand swap
+ *  - `"align"`  after the alignment shift
+ *  - `"add"`    after the significand add
+ *  - `"norm"`   after the normalisation
+ *  - `"round"`  after the rounding
  *  - `"out"`    the module output
  *
  * [[getStage]] gives the resulting latency, and `out.valid` is `in.valid`

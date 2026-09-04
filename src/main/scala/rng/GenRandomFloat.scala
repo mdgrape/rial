@@ -16,9 +16,9 @@ import rial.util._
  * It sets random bits into the mantissa part.
  *
  * Pipeline registers can be enabled at the module boundaries `"in"` and
- * `"out"` only (names for `PipelineStageConfig.specify`); the
- * datapath has no internal boundary. [[getStage]] gives the resulting latency,
- * and `z.valid` is `rnd.valid` delayed by that many cycles.
+ * `"out"` only (names for `PipelineStageConfig.specify`). [[getStage]] gives
+ * the resulting latency, and `z.valid` is `rnd.valid` delayed by that many
+ * cycles.
  *
  * {{{
  * // two registers, placed by the module
@@ -102,8 +102,8 @@ object GenRandomFloat12 {
  * (names for `PipelineStageConfig.specify`):
  *
  *  - `"in"`   the module input
- *  - `"clz"`  after the leading zero count of the random bits
- *  - `"norm"` after the normalisation shift that aligns the mantissa
+ *  - `"clz"`  after the leading zero count
+ *  - `"norm"` after the normalisation
  *  - `"out"`  the module output
  *
  * [[getStage]] gives the resulting latency, and `z.valid` is `rnd.valid`
