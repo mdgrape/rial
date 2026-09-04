@@ -185,7 +185,7 @@ class GenRandomGaussian(
   // ---------------------------------------------------------------
   // S0 : input registers ("in")
 
-  private val cutIn = new PipeCut("in", io.rnd.valid, stages.at("in"))
+  private val cutIn = new SharedPipe("in", io.rnd.valid, stages.at("in"))
 
   val rndIn   = cutIn(io.rnd.bits)
   val validIn = cutIn.valid
@@ -267,7 +267,7 @@ class GenRandomGaussian(
   }
 
   // --------------------------- stage "table" ---------------------------
-  private val cutTable = new PipeCut("table", validIn, stages.at("table"))
+  private val cutTable = new SharedPipe("table", validIn, stages.at("table"))
 
   val coefTable  = cutTable(coef)
   val sdxTable   = sdx.map(x => cutTable(x))
@@ -296,7 +296,7 @@ class GenRandomGaussian(
   // same number of cycles, so they stay aligned with polynomial.io.out
   val nPoly = stages.sub("poly").total
 
-  private val cutPoly = new PipeCut("poly", validTable, nPoly)
+  private val cutPoly = new SharedPipe("poly", validTable, nPoly)
 
   val postPage = cutPoly(pageTable)
   val postAddr = cutPoly(addrTable)
@@ -322,7 +322,7 @@ class GenRandomGaussian(
   val mulManW1 = Cat(1.U(1.W), mulMan)
 
   // --------------------------- stage "scale" ---------------------------
-  private val cutScale = new PipeCut("scale", polynomial.io.out.valid, stages.at("scale"))
+  private val cutScale = new SharedPipe("scale", polynomial.io.out.valid, stages.at("scale"))
 
   val yManW1Scale   = cutScale(yManW1)
   val mulExScale    = cutScale(mulEx)
@@ -337,7 +337,7 @@ class GenRandomGaussian(
   val prod  = yManW1Scale * mulManW1Scale
 
   // ---------------------------- stage "mul" ----------------------------
-  private val cutMul = new PipeCut("mul", validScale, stages.at("mul"))
+  private val cutMul = new SharedPipe("mul", validScale, stages.at("mul"))
 
   val prodMul  = cutMul(prod)
   val mulExMul = cutMul(mulExScale)

@@ -68,7 +68,7 @@ class GenRandomFloat12(
   //----------------------------------------------------------------------
   // S0 : input registers ("in")
 
-  private val cutIn = new PipeCut("in", io.rnd.valid, stages.at("in"))
+  private val cutIn = new SharedPipe("in", io.rnd.valid, stages.at("in"))
 
   val rndIn   = cutIn(io.rnd.bits)
   val validIn = cutIn.valid
@@ -165,7 +165,7 @@ class GenRandomFloat01(
   //----------------------------------------------------------------------
   // S0 : input registers ("in")
 
-  private val cutIn = new PipeCut("in", io.rnd.valid, stages.at("in"))
+  private val cutIn = new SharedPipe("in", io.rnd.valid, stages.at("in"))
 
   val rndIn   = cutIn(io.rnd.bits)
   val validIn = cutIn.valid
@@ -177,7 +177,7 @@ class GenRandomFloat01(
   val rndZero    = rndIn === 0.U
 
   //---------------------------- stage "clz" -----------------------------
-  private val cutClz = new PipeCut("clz", validIn, stages.at("clz"))
+  private val cutClz = new SharedPipe("clz", validIn, stages.at("clz"))
 
   val rndClz        = cutClz(rndIn)
   val zerosAtMSBClz = cutClz(zerosAtMSB)
@@ -193,7 +193,7 @@ class GenRandomFloat01(
   assert(!validClz || manW1(manW) === 1.U)
 
   //---------------------------- stage "norm" ----------------------------
-  private val cutNorm = new PipeCut("norm", validClz, stages.at("norm"))
+  private val cutNorm = new SharedPipe("norm", validClz, stages.at("norm"))
 
   val manW1Norm      = cutNorm(manW1)
   val zerosAtMSBNorm = cutNorm(zerosAtMSBClz)

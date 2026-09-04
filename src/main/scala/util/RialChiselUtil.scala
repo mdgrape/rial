@@ -15,7 +15,7 @@ import ScalaUtil._
  * named after the signals:
  *
  * {{{
- * private val cutClz = new PipeCut("clz", validIn, stages.at("clz"))
+ * private val cutClz = new SharedPipe("clz", validIn, stages.at("clz"))
  *
  * val rndClz   = cutClz(rnd)       // enabled by the valid of its own stage
  * val validClz = cutClz.valid
@@ -28,7 +28,7 @@ import ScalaUtil._
  *
  * @see [[rial.util.PipelineStageConfig]]
  */
-class PipeCut(name: String, v: Bool, n: Int) {
+class SharedPipe(name: String, v: Bool, n: Int) {
 
   /** the valid entering each stage of the cut, then the one leaving it. */
   private val valids = Seq.iterate(v, n+1)(prev => RegNext(prev, false.B))

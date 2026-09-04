@@ -88,7 +88,7 @@ class PolynomialEval(
 
   val nIn = stages.at("in")
 
-  private val cutIn = new PipeCut("in", io.in.valid, nIn)
+  private val cutIn = new SharedPipe("in", io.in.valid, nIn)
 
   val validIn  = cutIn.valid
   val coeffsIn = cutIn(io.in.bits.coeffs)
@@ -142,7 +142,7 @@ class PolynomialEval(
 
       // the raw product, right at the output of the multiplier, so that the
       // register can be absorbed into the DSP block
-      val cutProd   = new PipeCut(s"prod${idx}", validCur, stages.at(s"prod${idx}"))
+      val cutProd   = new SharedPipe(s"prod${idx}", validCur, stages.at(s"prod${idx}"))
       val prodProd  = cutProd(prod)
       val xProd     = cutProd(xCur)
       val coefProd  = cutProd(coefCur)
@@ -154,7 +154,7 @@ class PolynomialEval(
       assert(!validProd || (k == 0).B || accVec(k) === sumFull, "PolynomialEval: horner "+
         f"intermediate (k=${k}) overflowed calcBits=${bitW.calcBits(k)}")
 
-      val cutStep = new PipeCut(s"step${idx}", validProd, stages.at(s"step${idx}"))
+      val cutStep = new SharedPipe(s"step${idx}", validProd, stages.at(s"step${idx}"))
       accCur   = cutStep(accVec(k))
       xCur     = cutStep(xProd)
       coefCur  = cutStep(coefProd)
