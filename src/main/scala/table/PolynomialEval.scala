@@ -13,35 +13,36 @@ import chisel3.util._
  * zero, the position `x` inside it are given on `io.in`; the result is
  * `io.out`, an unsigned value in `[0.0, 1.0)` scaled by `1 << bitW.outBitW`.
  *
- * The pipeline registers are placed by [[rial.util.PipelineStageConfig]]. The
- * declared boundaries, in datapath order, are
+ * Pipeline registers can be enabled at the following points of the datapath
+ * (names for `PipelineStageConfig.specify`):
  *
+ *  - `"in"`, `"out"`: the module input and output. The clamping of the result
+ *    belongs to the logic just before `"out"`;
  *  - `"prod1"`, `"step1"` ... `"prodN"`, `"stepN"` (`N` = `bitW.nOrder`): two
- *    boundaries per multiply-add of Horner's scheme. `"prodK"` is directly at
- *    the output of the multiplier, before the alignment shift and the addition
- *    of the coefficient, so that its register can be absorbed as the `P`
- *    register of a DSP block; `"stepK"` is at the end of the multiply-add. The
- *    accumulator - the raw product at `"prodK"` - `x`, the coefficients still
- *    to be used and the `valid` flag cross these boundaries;
- *  - `"out"`: the module output. The clamping of the result belongs to the
- *    logic just before it.
+ *    boundaries per multiply-add of Horner's scheme, in evaluation order.
+ *    `"prodK"` is directly at the output of the multiplier, before the
+ *    alignment shift and the addition of the coefficient; `"stepK"` is at the
+ *    end of the multiply-add. A polynomial of order zero is a plain table
+ *    lookup and has neither.
  *
- * A polynomial of order zero is a plain table lookup and declares `"out"`
- * only. `"in"` is implicit, as always.
+ * [[getStage]] gives the resulting latency, and `io.out.valid` is
+ * `io.in.valid` delayed by that many cycles.
  *
  * {{{
- * // let the module place two registers
+ * // two registers, placed by the module
  * new PolynomialEval(bitW, PipelineStageConfig.default(2))
  * // one register at the multiplier of the first multiply-add, one after it
  * new PolynomialEval(bitW, PipelineStageConfig.specify("prod1" -> 1, "step1" -> 1))
- * // all the registers at the output, which is what a plain Int means
+ * // two registers at the module output, which is what a plain Int means
  * new PolynomialEval(bitW, 2)
+ * // combinational
+ * new PolynomialEval(bitW, PipelineStageConfig.none)
  * }}}
  *
  * @constructor create a chisel Module PolynomialEval
  * @param bitW           widths of the input, the coefficients and the
  *                       intermediate results
- * @param stage          pipeline configuration of this module
+ * @param stage          pipeline registers of this module
  * @param clampNegToZero clamp a negative result to zero instead of letting it
  *                       wrap around
  *
@@ -54,19 +55,19 @@ class PolynomialEval(
   clampNegToZero: Boolean = false,
 ) extends Module {
 
-  /** `n` registers at the output, as a plain `Int` has always meant here. */
+  /** `n` registers at the module output. */
   def this(bitW: PolynomialBitWidth, stage: Int, clampNegToZero: Boolean) = {
     this(bitW, PipelineStageConfig.atOut(stage), clampNegToZero)
   }
 
-  /** `n` registers at the output, as a plain `Int` has always meant here. */
+  /** `n` registers at the module output. */
   def this(bitW: PolynomialBitWidth, stage: Int) = {
     this(bitW, PipelineStageConfig.atOut(stage), false)
   }
 
   val order = bitW.nOrder
 
-  /** Boundaries of the datapath at which pipeline registers can be placed. */
+  /** Boundaries at which pipeline registers can be placed; see the class doc. */
   val stagePoints = PolynomialEval.stagePoints(order)
 
   val stages = stage.resolve(stagePoints)
@@ -180,16 +181,8 @@ class PolynomialEval(
 
 object PolynomialEval {
 
-  /** Boundaries of the datapath of a polynomial of order `nOrder`.
-   *
-   * Two boundaries per multiply-add of Horner's scheme, named `"prod1"`,
-   * `"step1"` to `"prodN"`, `"stepN"` in evaluation order, then the module
-   * output. `"prodK"` is at the output of the multiplier and `"stepK"` at the
-   * end of the multiply-add, i.e. after the alignment shift and the addition
-   * of the coefficient. A polynomial of order zero is a plain table lookup and
-   * has neither. The weights are rough, target-independent estimates of the
-   * delay of the logic that ends at each boundary: the multiplier against the
-   * shift and add that follow it, and against the final clamp and select.
+  /** Boundaries at which pipeline registers can be placed for a polynomial of
+   * order `nOrder`; see [[rial.table.PolynomialEval]].
    */
   def stagePoints(nOrder: Int): Seq[StagePoint] = {
     (1 to nOrder).flatMap(k => {

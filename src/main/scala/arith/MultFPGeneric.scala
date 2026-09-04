@@ -21,9 +21,8 @@ import rial.util.PipelineStageConfig._
  *
  * All the input/output floating-point spec are configurable through [[rial.arith.RealSpec]].
  *
- * The latency of this module can be configured via [[rial.util.PipelineStageConfig]].
- * The multiplier declares the boundaries of its datapath, so the registers can
- * be placed inside it - either automatically or by name:
+ * Pipeline registers can be enabled at the following points of the datapath
+ * (names for `PipelineStageConfig.specify`):
  *
  *  - `"in"`     the module input
  *  - `"unpack"` after decompose / classify
@@ -33,25 +32,20 @@ import rial.util.PipelineStageConfig._
  *  - `"round"`  after the rounding increment and the exponent adjustment
  *  - `"out"`    the module output
  *
+ * [[getStage]] gives the resulting latency, and `out.valid` is `in.valid`
+ * delayed by that many cycles.
+ *
  * {{{
  * // three registers, placed by the module
  * new MultFPGeneric(spec, spec, spec, RoundSpec.roundToEven, 3)
  * // hand-picked positions
  * new MultFPGeneric(spec, spec, spec, RoundSpec.roundToEven,
  *   PipelineStageConfig.specify("mul" -> 1, "norm" -> 1, "round" -> 1))
- * // everything at the output, as before
+ * // all the registers at the module output
  * new MultFPGeneric(spec, spec, spec, RoundSpec.roundToEven, PipelineStageConfig.atOut(3))
+ * // combinational
+ * new MultFPGeneric(spec, spec, spec, RoundSpec.roundToEven, PipelineStageConfig.none)
  * }}}
- *
- * The two factors are taken on `in`, the product is given on `out`. The
- * pipeline registers advance only while `in.valid` is high: a stage that
- * carries nothing does not clock its registers, so the datapath holds its
- * content while `in.valid` is low. The flag travels with the data, one chain
- * per boundary, exactly as in [[rial.util.SharedPipe]]: `out.valid` is
- * `in.valid` delayed by [[getStage]] cycles of `in.valid` being high. It does
- * not change the latency of the module, and with `PipelineStageConfig.none`
- * there is no register to enable, so `out` simply follows `in`
- * combinationally.
  *
  * {{{
  * class MultFPGeneric(...) extends Module {
@@ -68,7 +62,7 @@ import rial.util.PipelineStageConfig._
  * @param ySpec          floating point spec of the right hand side input
  * @param zSpec          floating point spec of the output
  * @param roundSpec      rounding algorithm
- * @param stage          number of pipeline stages in this module.
+ * @param stage          pipeline registers of this module.
  *
  * For parameters, see also:
  * @see [[rial.arith.RealSpec]]
@@ -83,9 +77,7 @@ class MultFPGeneric(
   stage : PipelineStageConfig
 ) extends Module {
 
-  /** Boundaries of the datapath at which pipeline registers can be placed.
-   * The weights are rough, target-independent estimates of the delay of the
-   * logic that ends at each boundary. */
+  /** Boundaries at which pipeline registers can be placed; see the class doc. */
   val stagePoints = MultFPGeneric.stagePoints
 
   val stages = stage.resolve(stagePoints)
@@ -266,7 +258,7 @@ class MultFPGeneric(
   //printf("x=%x y=%x z=%x\n", io.in.bits.x, io.in.bits.y, io.out.bits)
 }
 
-/** Pipeline stage points of [[rial.arith.MultFPGeneric]].
+/** Input bundle and pipeline stage points of [[rial.arith.MultFPGeneric]].
  *
  * @see [[rial.util.StagePoint]]
  */
@@ -282,8 +274,8 @@ object MultFPGeneric {
     val y = UInt(ySpec.W.W)
   }
 
-  /** Ordered boundaries of the multiplier datapath, with a rough,
-   *  target-independent estimate of the delay of the logic ending at each. */
+  /** Boundaries at which pipeline registers can be placed; see
+   *  [[rial.arith.MultFPGeneric]]. */
   val stagePoints: Seq[StagePoint] = Seq(
     StagePoint("unpack", 2), StagePoint("mul",   4), StagePoint("norm", 2),
     StagePoint("round",  3), StagePoint("out",   1))

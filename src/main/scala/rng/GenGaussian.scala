@@ -112,19 +112,16 @@ private[rial] class ProbitTable(
  * whose polynomial is evaluated by [[rial.table.PolynomialEval]] and scaled by
  * the value of the probit at the shallow end of the interval.
  *
- * The latency of this module can be configured via
- * [[rial.util.PipelineStageConfig]]. The generator declares the boundaries of
- * its datapath, so the registers can be placed inside it - either
- * automatically or by name:
+ * Pipeline registers can be enabled at the following points of the datapath
+ * (names for `PipelineStageConfig.specify`):
  *
  *  - `"in"`     the module input
  *  - `"table"`  after the interval decode, the coefficient table read and the
  *               position `dx` inside the interval, i.e. everything that feeds
  *               the polynomial
- *  - `"poly.*"` the boundaries of [[rial.table.PolynomialEval]], which
- *               evaluates the polynomial of the interval: `"poly.prod1"`,
- *               `"poly.step1"` ... `"poly.prodN"`, `"poly.stepN"` and
- *               `"poly.out"`; the group name `"poly"` stands for `"poly.out"`
+ *  - `"poly.*"` the boundaries of the [[rial.table.PolynomialEval]] submodule
+ *               that evaluates the polynomial of the interval, see its doc for
+ *               the names; the group name `"poly"` stands for `"poly.out"`
  *  - `"scale"`  after the scale table read and the exponent / mantissa select,
  *               i.e. everything that feeds the mantissa product besides the
  *               polynomial
@@ -132,9 +129,8 @@ private[rial] class ProbitTable(
  *  - `"out"`    the module output; the normalisation of the product and the
  *               assembly of the result belong to the logic just before it
  *
- * The signals that bypass the polynomial - the page, the table address and the
- * exponent and the mantissa of the uniform value - are delayed by the latency
- * of the `"poly"` group, so that they stay aligned with its result.
+ * [[getStage]] gives the resulting latency, and `z.valid` is `rnd.valid`
+ * delayed by that many cycles.
  *
  * {{{
  * // four registers, placed by the module
@@ -150,7 +146,7 @@ private[rial] class ProbitTable(
  * @param rndW         input random number bit width.
  * @param spec         output floating-point spec.
  * @param nOrder       order of the polynomial of an interval.
- * @param stage        pipeline configuration of this module.
+ * @param stage        pipeline registers of this module.
  * @param lumpOctaves  deepest tail octaves merged into one interval.
  *
  * @see [[rial.util.PipelineStageConfig]]
@@ -164,9 +160,7 @@ class GenRandomGaussian(
   lumpOctaves: Int = 2, // deepest tail octaves merged into one interval
 ) extends Module {
 
-  /** Boundaries of the datapath at which pipeline registers can be placed.
-   * The weights are rough, target-independent estimates of the delay of the
-   * logic that ends at each boundary. */
+  /** Boundaries at which pipeline registers can be placed; see the class doc. */
   val stagePoints = GenRandomGaussian.stagePoints(nOrder)
 
   val stages = stage.resolve(stagePoints)
@@ -371,11 +365,9 @@ class GenRandomGaussian(
  */
 object GenRandomGaussian {
 
-  /** Ordered boundaries of the datapath, with a rough, target-independent
-   * estimate of the delay of the logic ending at each. The polynomial of the
-   * interval is a submodule, so its own boundaries appear as the group
-   * `"poly"`, i.e. as `"poly.prod1"`, `"poly.step1"` ... `"poly.prodN"`,
-   * `"poly.stepN"` and `"poly.out"`.
+  /** Boundaries at which pipeline registers can be placed; see
+   * [[rial.rng.GenRandomGaussian]]. The boundaries of the polynomial
+   * submodule appear as the group `"poly"`.
    *
    * @param nOrder order of the polynomial of an interval.
    */

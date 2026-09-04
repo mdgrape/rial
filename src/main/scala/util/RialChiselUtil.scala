@@ -4,10 +4,10 @@ import chisel3._
 import chisel3.util._
 import ScalaUtil._
 
-/** One cut of a pipelined datapath, with the semantics of
- * [[chisel3.util.Pipe]]: one valid flag per cut, reset to false, travels with
- * the data and enables the data registers of its own stage, so a stage that
- * carries nothing does not clock its registers.
+/** One cut of a pipelined datapath, with the semantics of `chisel3.util.Pipe`:
+ * one valid flag per cut, reset to false, travels with the data and enables
+ * the data registers of its own stage, so a stage that carries nothing does
+ * not clock its registers.
  *
  * A module declares its boundaries with [[rial.util.StagePoint]], places one
  * cut per boundary and pipes every signal that crosses the boundary through

@@ -24,13 +24,10 @@ sealed trait StageElem {
  *  inserted.
  *
  * `weight` is the relative delay of the logic between the previous point (or
- * the module input, for the first point) and this point. Weights are rough,
- * target-independent estimates; they are used only by the default (automatic)
- * placement in [[rial.util.PipelineStageConfig.resolve]] and never leave the
- * elaboration-time Scala code.
+ * the module input, for the first point) and this point. It is used only by
+ * the automatic placement in [[rial.util.PipelineStageConfig.resolve]].
  *
- * @param name   name of the boundary, as used by
- *               [[rial.util.PipelineStageConfig.specify]]
+ * @param name   name of the boundary, as used by `PipelineStageConfig.specify`
  * @param weight relative delay of the logic ending at this boundary
  */
 case class StagePoint(name: String, weight: Double) extends StageElem
@@ -45,12 +42,9 @@ case class StagePoint(name: String, weight: Double) extends StageElem
  * contributes, in this order, the points `"poly.in"`, `"poly.step1"` and
  * `"poly.out"`.
  *
- * `"poly.in"` has weight zero and is never chosen by the automatic placement:
- * it sits at the group's input, where the parent's preceding boundary already
- * is, so cutting there would duplicate that boundary. `"poly.out"` carries the
- * weight of the child's `"out"` point and is an ordinary internal boundary of
- * the parent, because it separates the child's last logic from the parent's
- * next logic.
+ * `"poly.out"` is an ordinary internal boundary of the parent. `"poly.in"`
+ * sits at the group's input, where the parent's preceding boundary already is;
+ * it can be named explicitly but is never chosen by the automatic placement.
  *
  * The child list follows the same rule as a module's own list: its last
  * element must be a [[rial.util.StagePoint]] named `"out"`, and its `"in"` is
@@ -192,12 +186,11 @@ case class PipelineStages(counts: Map[String, Int], points: Seq[StageElem]) {
  * PipelineStageConfig.specify("poly" -> 2)
  * }}}
  *
- * A module that does not declare any boundary simply uses [[total]] and puts
- * all the registers as a single `ShiftRegister` at its output, leaving the
- * placement to register balancing / retiming; such a module therefore treats
- * any configuration as "[[total]] registers at the output". Only [[explicit]]
- * names that a module actually declares are accepted by [[resolve]]; consult
- * the module's scaladoc for its list of points.
+ * A module that does not declare any boundary puts all the registers at its
+ * output, i.e. it treats any configuration as "[[total]] registers at the
+ * output". Only [[explicit]] names that a module actually declares are
+ * accepted by [[resolve]]; consult the module's scaladoc for its list of
+ * points.
  *
  * @param explicit number of registers at explicitly named points; the name
  *                 `"in"` (module input) is always accepted, the other names
@@ -221,14 +214,11 @@ case class PipelineStageConfig(explicit: Map[String, Int] = Map.empty, auto: Int
    * hierarchy as one flat datapath.
    *
    * The [[explicit]] counts are taken as they are; the [[auto]] registers are
-   * then distributed over the internal points (everything but `"in"`, `"out"`
-   * and the `"in"` pseudo-point of a group, and excluding the points already
-   * cut explicitly) so that the longest resulting segment of combinational
-   * logic - the sum of the [[rial.util.StagePoint.weight]]s between two
-   * consecutive cuts - is minimal. Among the placements that achieve that
-   * minimum, the one with the smallest sum of squared segment lengths is
-   * taken, which spreads the cuts evenly; remaining ties are broken in favour
-   * of the earlier points, so the result is deterministic. Registers at
+   * then placed at the internal points (everything but `"in"`, `"out"` and the
+   * `"in"` pseudo-point of a group, and excluding the points already cut
+   * explicitly) so that the longest stretch of logic between two registers is
+   * as short as possible, and as evenly spread as possible among the
+   * placements that achieve it. The result is deterministic. Registers at
    * `"in"` and `"out"` do not split any logic.
    *
    * If [[auto]] exceeds the number of still uncut internal points, every

@@ -19,10 +19,8 @@ import rial.util._
  * }
  * }}}
  *
- * The latency of this module can be configured via
- * [[rial.util.PipelineStageConfig]]. The generator declares the boundaries of
- * its datapath, so the registers can be placed inside it - either
- * automatically or by name:
+ * Pipeline registers can be enabled at the following points of the datapath
+ * (names for `PipelineStageConfig.specify`):
  *
  *  - `"in"`    the module input
  *  - `"norm"`  after the exponent/mantissa priority encoders and the
@@ -31,29 +29,25 @@ import rial.util._
  *              random bit
  *  - `"out"`   the module output
  *
+ * [[getStage]] gives the resulting latency, and `z.valid` is `rnd.valid`
+ * delayed by that many cycles.
+ *
  * {{{
  * // two registers, placed by the module
  * new GenRandomFloat01Close(rndW, spec, 2)
  * // hand-picked positions
  * new GenRandomFloat01Close(rndW, spec,
  *   PipelineStageConfig.specify("norm" -> 1, "round" -> 1))
- * // everything at the output, as before
+ * // all the registers at the module output
  * new GenRandomFloat01Close(rndW, spec, PipelineStageConfig.atOut(2))
+ * // combinational
+ * new GenRandomFloat01Close(rndW, spec, PipelineStageConfig.none)
  * }}}
- *
- * The random bits are taken on `rnd`, the result is given on `z`. The pipeline
- * registers advance only while `rnd.valid` is high: a stage that carries
- * nothing does not clock its registers, so the datapath holds its content
- * while `rnd.valid` is low. The flag travels with the data, one chain per
- * boundary, exactly as in [[rial.util.SharedPipe]]: `z.valid` is `rnd.valid`
- * delayed by [[getStage]] cycles of `rnd.valid` being high. It does not change
- * the latency of the module, and with `PipelineStageConfig.none` there is no
- * register to enable, so `z` simply follows `rnd` combinationally.
  *
  * @constructor    create a chisel Module.
  * @param rndW     input random number bit width.
  * @param spec     output floating-point spec.
- * @param stage    pipeline stages.
+ * @param stage    pipeline registers of this module.
  *
  * @see [[rial.util.PipelineStageConfig]]
  * @see [[rial.util.StagePoint]]
@@ -81,9 +75,7 @@ class GenRandomFloat01Close(
   //         0000..1 -> zex = exBias-rndExW
   //         0000..0 -> zex = something like a subnormal number.
 
-  /** Boundaries of the datapath at which pipeline registers can be placed.
-   * The weights are rough, target-independent estimates of the delay of the
-   * logic that ends at each boundary. */
+  /** Boundaries at which pipeline registers can be placed; see the class doc. */
   val stagePoints = GenRandomFloat01Close.stagePoints
 
   val stages = stage.resolve(stagePoints)
@@ -211,8 +203,8 @@ class GenRandomFloat01Close(
  * @see [[rial.util.StagePoint]]
  */
 object GenRandomFloat01Close {
-  /** Ordered boundaries of the datapath, with a rough, target-independent
-   *  estimate of the delay of the logic ending at each. */
+  /** Boundaries at which pipeline registers can be placed; see
+   *  [[rial.rng.GenRandomFloat01Close]]. */
   val stagePoints: Seq[StagePoint] = Seq(
     StagePoint("norm", 3), StagePoint("round", 1), StagePoint("out", 1))
 }

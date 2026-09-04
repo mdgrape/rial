@@ -38,9 +38,8 @@ import rial.util.PipelineStageConfig._
  * fracW > totalW in a fixed point value.
  * Take care of the width of the second input, y.
  *
- * The latency of this module can be configured via [[rial.util.PipelineStageConfig]].
- * The converter declares the boundaries of its datapath, so the registers can
- * be placed inside it - either automatically or by name:
+ * Pipeline registers can be enabled at the following points of the datapath
+ * (names for `PipelineStageConfig.specify`):
  *
  *  - `"in"`    the module input
  *  - `"abs"`   after the sign extraction and the absolute value
@@ -48,31 +47,28 @@ import rial.util.PipelineStageConfig._
  *  - `"round"` after the rounding increment
  *  - `"out"`   the module output
  *
+ * [[getStage]] gives the resulting latency, and `out.valid` is `in.valid`
+ * delayed by that many cycles.
+ *
  * {{{
  * // three registers, placed by the module
  * new FixedToFloatGeneric(xSpec, None, zSpec, RoundSpec.roundToEven, 3)
  * // hand-picked positions
  * new FixedToFloatGeneric(xSpec, None, zSpec, RoundSpec.roundToEven,
  *   PipelineStageConfig.specify("abs" -> 1, "norm" -> 1, "round" -> 1))
- * // everything at the output, as before
+ * // all the registers at the module output
  * new FixedToFloatGeneric(xSpec, None, zSpec, RoundSpec.roundToEven,
  *   PipelineStageConfig.atOut(3))
+ * // combinational
+ * new FixedToFloatGeneric(xSpec, None, zSpec, RoundSpec.roundToEven,
+ *   PipelineStageConfig.none)
  * }}}
- *
- * The operands are taken on `in`, the result is given on `out`. The pipeline
- * registers advance only while `in.valid` is high: a stage that carries
- * nothing does not clock its registers, so the datapath holds its content
- * while `in.valid` is low. The flag travels with the data, one chain per
- * boundary, exactly as in [[rial.util.SharedPipe]]: `out.valid` is `in.valid`
- * delayed by [[getStage]] cycles of `in.valid` being high. It does not change
- * the latency of the module, and with `PipelineStageConfig.none` there is no
- * register to enable, so `out` simply follows `in` combinationally.
  *
  * @param xSpec spec of the input fixed point number.
  * @param yintW width of the second input, fracWidth value. If None, xSpec.fracW is used instead.
  * @param zSpec spec of the output floating point number.
  * @param roundSpec spec of the rounding
- * @param stage Determines how many registers needed.
+ * @param stage pipeline registers of this module.
  *
  * For parameters, see also:
  * @see [[rial.fixed.FixedSpec]]
@@ -87,9 +83,7 @@ class FixedToFloatGeneric(
   stage : PipelineStageConfig
 ) extends Module {
 
-  /** Boundaries of the datapath at which pipeline registers can be placed.
-   * The weights are rough, target-independent estimates of the delay of the
-   * logic that ends at each boundary. */
+  /** Boundaries at which pipeline registers can be placed; see the class doc. */
   val stagePoints = FixedToFloatGeneric.stagePoints
 
   val stages = stage.resolve(stagePoints)
@@ -241,18 +235,14 @@ class FixedToFloatGeneric(
   io.out.valid := cutOut.valid
 }
 
-/** Pipeline stage points of [[rial.fixed.FixedToFloatGeneric]].
+/** Input bundle and pipeline stage points of [[rial.fixed.FixedToFloatGeneric]].
  *
  * @see [[rial.util.StagePoint]]
  */
 object FixedToFloatGeneric {
 
   /** Input of [[rial.fixed.FixedToFloatGeneric]]: the fixed point number and,
-   * optionally, its fraction width.
-   *
-   * `y` is present only when `yW` is given, so the bundle has the field if and
-   * only if the module has the port, and the fraction width stays a compile
-   * time choice of the module.
+   * only when `yW` is given, its fraction width.
    *
    * @param xSpec spec of the input fixed point number
    * @param yW    width of the fraction width input, if there is one
@@ -262,8 +252,8 @@ object FixedToFloatGeneric {
     val y = yW.map(w => UInt(w.W))
   }
 
-  /** Ordered boundaries of the datapath, with a rough, target-independent
-   *  estimate of the delay of the logic ending at each. */
+  /** Boundaries at which pipeline registers can be placed; see
+   *  [[rial.fixed.FixedToFloatGeneric]]. */
   val stagePoints: Seq[StagePoint] = Seq(
     StagePoint("abs",   2), StagePoint("norm", 3),
     StagePoint("round", 2), StagePoint("out",  2))
