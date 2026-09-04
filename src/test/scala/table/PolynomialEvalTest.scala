@@ -7,7 +7,7 @@ import chisel3.simulator.scalatest.ChiselSim
 import circt.stage.ChiselStage
 
 import rial.math.MathFuncConfig
-import rial.table.{PolynomialBitWidth, PolynomialEval}
+import rial.table.{PolynomialBitWidth, PolynomialCoefficients, PolynomialEval}
 import rial.util.{PipelineStageConfig, PipelineStages}
 
 import scala.collection.mutable.ArrayBuffer
@@ -102,6 +102,46 @@ class PolynomialEvalTest extends AnyFunSpec with ChiselSim {
     }
   }
 
+  /** `v` reinterpreted as the `w` bit two's complement pattern the hardware
+   * keeps, as an unsigned bit pattern.
+   */
+  def wrapU(v: BigInt, w: Int): BigInt = {
+    val m = BigInt(1) << w
+    ((v % m) + m) % m
+  }
+
+  /** The result the module must produce, from the software model of the
+   * polynomial in [[PolynomialEval.eval]].
+   *
+   * `eval` keeps the Horner accumulator exact; the module keeps it in
+   * `calcBits(k)` bits.  The vectors are drawn so that no intermediate
+   * overflows (the module asserts it), so only the last accumulator has to be
+   * wrapped here, followed by the clamp of the output stage.
+   */
+  def swEval(bitW: PolynomialBitWidth, clamp: Boolean,
+    cs: Seq[BigInt], x: BigInt): BigInt = {
+
+    val xu = if (bitW.nOrder == 0) {
+      BigInt(0)
+    } else {
+      x + (BigInt(1) << bitW.inPrec)
+    }
+    val coeffs = PolynomialCoefficients(bitW, Seq(cs.map(_.toLong)))
+    val sum    = PolynomialEval.eval(0, xu, coeffs)
+    val resU   = wrapU(sum, bitW.calcBits(0))
+    val resMax = (BigInt(1) << bitW.outBitW) - 1
+    if (clamp) {
+      val resS = if (resU >= (BigInt(1) << (bitW.calcBits(0) - 1))) {
+        resU - (BigInt(1) << bitW.calcBits(0))
+      } else {
+        resU
+      }
+      if (resS < 0) { BigInt(0) } else if (resS > resMax) { resMax } else { resS }
+    } else {
+      if (resU > resMax) { resMax } else { resU }
+    }
+  }
+
   describe("PolynomialEval.stagePoints") {
 
     it("declares the multiplier and the end of every multiply-add, then the output") {
@@ -150,6 +190,25 @@ class PolynomialEvalTest extends AnyFunSpec with ChiselSim {
       }
       assert(seen.at("out") == 3)
       assert(seen.total == 3)
+    }
+  }
+
+  describe("PolynomialEval: the module matches the software model") {
+
+    for ((nm, bw, cl) <- Seq(("order2", bitW2, false), ("order3", bitW3, true))) {
+      it(f"$nm reproduces PolynomialEval.eval bit for bit") {
+        val r = new Random(19660809)
+        val vectors = randVectors(bw, nVec, r)
+        val got = run(bw, PipelineStageConfig.none, cl, vectors)
+        assert(got.length == nVec)
+        for (i <- 0 until nVec) {
+          val (cs, x) = vectors(i)
+          val want = swEval(bw, cl, cs, x)
+          assert(got(i) == want,
+            f"$nm vector $i: ${got(i)} != $want " +
+            f"(coeffs ${cs.mkString(",")}, x $x)")
+        }
+      }
     }
   }
 
