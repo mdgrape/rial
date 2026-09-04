@@ -128,35 +128,47 @@ class ExpPreProcess(
   // ------------------------------------------------------------------------
   // round the pre-product to (manW + extraMan) bits
 
-  val log2eManW      = ExpPreMulArgs.lhsW(spec) - 1
-  val xprod          = cutIn(io.prod.bits)
-  val xprodW         = ExpPreMulArgs.prodW(spec)
-  val xprodMoreThan2 = xprod(xprodW - 1) === 1.U
+  val log2eManW          = ExpPreMulArgs.lhsW(spec) - 1
+  val xprod              = cutIn(io.prod.bits)
+  val xprodW             = ExpPreMulArgs.prodW(spec)
+  val xprodMoreThan2Comb = xprod(xprodW - 1) === 1.U
 
   assert(log2eManW - extraMan > 0)
 
   val xprodbp        = manW + log2eManW
   val xprodRoundBits = xprodbp - (manW + extraMan)
 
-  val xprodSticky  = (xprodMoreThan2 & xprod(xprodRoundBits - 1)) |
+  val xprodSticky  = (xprodMoreThan2Comb & xprod(xprodRoundBits - 1)) |
                      xprod(xprodRoundBits - 2, 0).orR
-  val xprodRound   = Mux(xprodMoreThan2, xprod(xprodRoundBits), xprod(xprodRoundBits - 1))
-  val xprodShifted = Mux(xprodMoreThan2, xprod(xprodbp,     xprodRoundBits + 1),
-                                         xprod(xprodbp - 1, xprodRoundBits))
+  val xprodRound   = Mux(xprodMoreThan2Comb, xprod(xprodRoundBits),
+                                             xprod(xprodRoundBits - 1))
+  val xprodShifted = Mux(xprodMoreThan2Comb, xprod(xprodbp,     xprodRoundBits + 1),
+                                             xprod(xprodbp - 1, xprodRoundBits))
   val xprodLSB     = xprodShifted(0)
   val xprodInc     = FloatChiselUtil.roundIncBySpec(RoundSpec.roundToEven,
                                                     xprodLSB, xprodRound, xprodSticky)
-  val xprodRounded = xprodShifted +& xprodInc
+  val xprodRoundedComb = xprodShifted +& xprodInc
+
+  // ------------------------------------------------------------------------
+  // stage "round": the rounded product x * log2(e)
+
+  private val cutRound = new SharedPipe("round", cutIn.valid, stages.at("round"))
+
+  val xprodRounded   = cutRound(xprodRoundedComb)
+  val xprodMoreThan2 = cutRound(xprodMoreThan2Comb)
+  val xexRound       = cutRound(xex0)
+  val xsgnRound      = cutRound(xsgn)
+
   assert(xprodRounded.getWidth == manW + 1 + extraMan)
   val xprodMoreThan2AfterRounded = xprodRounded(manW + extraMan)
 
   val xman2 = xprodRounded(manW + extraMan - 1, 0)
-  val xex   = xex0 + xprodMoreThan2AfterRounded + xprodMoreThan2
+  val xex   = xexRound + xprodMoreThan2AfterRounded + xprodMoreThan2
 
-  assert(!cutIn.valid || xprodMoreThan2AfterRounded +& xprodMoreThan2 =/= 2.U)
+  assert(!cutRound.valid || xprodMoreThan2AfterRounded +& xprodMoreThan2 =/= 2.U)
 
-  val xexd = xprodMoreThan2AfterRounded + xprodMoreThan2
-  val xVal = Cat(1.U(1.W), xman2)
+  val xexdComb = xprodMoreThan2AfterRounded + xprodMoreThan2
+  val xVal     = Cat(1.U(1.W), xman2)
   assert(xVal.getWidth == xValW)
 
   // ------------------------------------------------------------------------
@@ -165,16 +177,34 @@ class ExpPreProcess(
   val xshift0     = (xIntW + exBias).U(exW.W) - xex
   val xshift      = xshift0(xIntW - 1, 0)
   val xValShifted = Mux(xshift0 >= (xValW + 1).U, 0.U, xVal >> (xshift - 1.U(1.W)))
-  val xValRounded = (xValShifted >> 1) + xValShifted(0)
+  val xValRoundedComb = (xValShifted >> 1) + xValShifted(0)
+
+  // ------------------------------------------------------------------------
+  // stage "shift": the argument aligned at the binary point
+
+  private val cutShift = new SharedPipe("shift", cutRound.valid, stages.at("shift"))
+
+  val xValRounded = cutShift(xValRoundedComb)
+  val xexdShift   = cutShift(xexdComb)
+  val xsgnShift   = cutShift(xsgnRound)
 
   val xint0  = xValRounded(xIntW + xFracW - 1, xFracW)
   val xfrac0 = xValRounded(xFracW - 1, 0)
 
   // (sign handling: ExpNonTable converts xint to a biased exponent.)
-  val xint = xint0 +& (xsgn.asBool && (xfrac0 =/= 0.U)).asUInt
+  val xintComb = xint0 +& (xsgnShift.asBool && (xfrac0 =/= 0.U)).asUInt
 
-  val xfracNeg = (BigInt(1) << xFracW).U((xFracW + 1).W) - xfrac0
-  val xfrac    = Mux(xsgn === 0.U, xfrac0, xfracNeg(xFracW - 1, 0))
+  val xfracNeg  = (BigInt(1) << xFracW).U((xFracW + 1).W) - xfrac0
+  val xfracComb = Mux(xsgnShift === 0.U, xfrac0, xfracNeg(xFracW - 1, 0))
+
+  // ------------------------------------------------------------------------
+  // stage "neg": the fraction, negated for a negative argument
+
+  private val cutNeg = new SharedPipe("neg", cutShift.valid, stages.at("neg"))
+
+  val xint  = cutNeg(xintComb)
+  val xfrac = cutNeg(xfracComb)
+  val xexd  = cutNeg(xexdShift)
 
   // ------------------------------------------------------------------------
   // outputs
@@ -188,11 +218,11 @@ class ExpPreProcess(
     infoOut.xfracLSBs.get := xfrac(padding - 1, 0)
   }
 
-  io.info := Pipe(cutIn.valid, infoOut, stages.at("out"))
-  io.adr  := Pipe(cutIn.valid, adr,     stages.at("out"))
+  io.info := Pipe(cutNeg.valid, infoOut, stages.at("out"))
+  io.adr  := Pipe(cutNeg.valid, adr,     stages.at("out"))
   if (order != 0) {
     val dx = Cat(~xfrac(xFracW - 1 - adrW), xfrac(xFracW - 1 - adrW - 1, padding))
-    io.dx.get := Pipe(cutIn.valid, dx, stages.at("out"))
+    io.dx.get := Pipe(cutNeg.valid, dx, stages.at("out"))
   }
 }
 
@@ -201,9 +231,16 @@ object ExpPreProcess {
 
   /** Boundaries at which pipeline registers can be placed.
    *
-   *  - `"out"` the table address and the info
+   *  - `"round"` the rounded product x * log2(e)
+   *  - `"shift"` the argument aligned at the binary point
+   *  - `"neg"`   the fraction, negated for a negative argument
+   *  - `"out"`   the table address and the info
    */
-  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 4.0))
+  val stagePoints: Seq[StageElem] = Seq(
+    StagePoint("round", 3.0),
+    StagePoint("shift", 3.0),
+    StagePoint("neg",   2.0),
+    StagePoint("out",   1.0))
 }
 
 // -------------------------------------------------------------------------
@@ -280,23 +317,36 @@ class ExpNonTable(
   private val cutIn = new SharedPipe("in", io.x.valid && io.info.valid,
     stages.at("in"))
 
-  val x    = cutIn(io.x.bits)
-  val info = cutIn(io.info.bits)
+  val xIn    = cutIn(io.x.bits)
+  val infoIn = cutIn(io.info.bits)
 
   // ------------------------------------------------------------------------
   // small inline multiplier for the correction coefficient ln(2) * xfracLSBs
 
-  val zout = Wire(new ExpPostProcInfo(spec, padding))
-
-  if (padding != 0) {
+  val zCorrCoefComb: Option[UInt] = if (padding != 0) {
     val coefficient = (Real.log(Real.two))(coeffW).toBigInt.U(coeffW.W)
-    val xfracLSBs   = info.xfracLSBs.get
+    val xfracLSBs   = infoIn.xfracLSBs.get
     val zCorrCoef0  = coefficient * xfracLSBs
     val zCorrCoefW  = coeffW + padding
     val zCorrCoef   = zCorrCoef0(zCorrCoefW - 1, zCorrCoefW - zCorrTmpW)
     assert(zCorrCoef.getWidth == zCorrTmpW)
-    zout.zCorrCoef.get := zCorrCoef
+    Some(zCorrCoef)
+  } else {
+    None
   }
+
+  // ------------------------------------------------------------------------
+  // stage "mul": the correction coefficient
+
+  private val cutMul = new SharedPipe("mul", cutIn.valid, stages.at("mul"))
+
+  val zout = Wire(new ExpPostProcInfo(spec, padding))
+  if (padding != 0) {
+    zout.zCorrCoef.get := cutMul(zCorrCoefComb.get)
+  }
+
+  val x    = cutMul(xIn)
+  val info = cutMul(infoIn)
 
   // ------------------------------------------------------------------------
   // exponent + special-flag computation
@@ -330,7 +380,7 @@ class ExpNonTable(
   zout.zzero       := zzero
   zout.zIsNonTable := znan || zinf || zzero
 
-  io.z := Pipe(cutIn.valid, zout, stages.at("out"))
+  io.z := Pipe(cutMul.valid, zout, stages.at("out"))
 }
 
 /** Pipeline stage points of [[rial.math.ExpNonTable]]. */
@@ -338,9 +388,12 @@ object ExpNonTable {
 
   /** Boundaries at which pipeline registers can be placed.
    *
-   *  - `"out"` the exponent, the correction and the special values
+   *  - `"mul"` the correction coefficient
+   *  - `"out"` the exponent and the special values
    */
-  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 3.0))
+  val stagePoints: Seq[StageElem] = Seq(
+    StagePoint("mul", 3.0),
+    StagePoint("out", 3.0))
 }
 
 // -------------------------------------------------------------------------
@@ -380,34 +433,67 @@ class ExpPostProcess(
 
   private val cutIn = new SharedPipe("in", io.in.valid, stages.at("in"))
 
-  val in   = cutIn(io.in.bits)
-  val info = in.info
-  val zres = in.zres
+  val in     = cutIn(io.in.bits)
+  val infoIn = in.info
+  val zres   = in.zres
 
-  val zman0 = if (extraBits > 0) (zres >> extraBits) +& zres(extraBits - 1) else zres
+  val zman0Comb = if (extraBits > 0) {
+    (zres >> extraBits) +& zres(extraBits - 1)
+  } else {
+    zres
+  }
 
-  val zCorrection = Wire(UInt(1.W))
+  // ------------------------------------------------------------------------
+  // stage "round": the rounded polynomial result
+
+  private val cutRound = new SharedPipe("round", cutIn.valid, stages.at("round"))
+
+  val zman0     = cutRound(zman0Comb)
+  val infoRound = cutRound(infoIn)
+
+  val zCorrectionComb = Wire(UInt(1.W))
   if (padding != 0) {
-    val zCorrTerm0 = Cat(1.U(1.W), zman0(manW - 1, 0)) * info.zCorrCoef.get
+    val zCorrTerm0 = Cat(1.U(1.W), zman0(manW - 1, 0)) * infoRound.zCorrCoef.get
     val zCorrTermW = 1 + manW + zCorrTmpW
     val zCorrTerm  = zCorrTerm0(zCorrTermW - 1, zCorrTermW - zCorrTmpW)
     assert(zCorrTerm.getWidth == zCorrTmpW)
-    zCorrection := (zCorrTerm(zCorrTmpW - 1).asBool ||
-                    zCorrTerm(zCorrTmpW - 2).asBool).asUInt
+    zCorrectionComb := (zCorrTerm(zCorrTmpW - 1).asBool ||
+                        zCorrTerm(zCorrTmpW - 2).asBool).asUInt
   } else {
-    zCorrection := 0.U(1.W)
+    zCorrectionComb := 0.U(1.W)
   }
 
-  val zmanCorrected  = zman0 +& zCorrection
-  val zexCorrection  = zmanCorrected(manW) & !info.zIsNonTable
+  // ------------------------------------------------------------------------
+  // stage "corr": the correction term
 
-  val zEx = info.zex + zexCorrection
+  private val cutCorr = new SharedPipe("corr", cutRound.valid, stages.at("corr"))
+
+  val zCorrection = cutCorr(zCorrectionComb)
+  val zman0Corr   = cutCorr(zman0)
+  val infoCorr    = cutCorr(infoRound)
+
+  val zmanCorrectedComb = zman0Corr +& zCorrection
+  val zexCorrection     = zmanCorrectedComb(manW) & !infoCorr.zIsNonTable
+  val zExComb           = infoCorr.zex + zexCorrection
+
+  // ------------------------------------------------------------------------
+  // stage "add": the corrected mantissa and exponent
+
+  private val cutAdd = new SharedPipe("add", cutCorr.valid, stages.at("add"))
+
+  val zmanCorrected = cutAdd(zmanCorrectedComb)
+  val zEx           = cutAdd(zExComb)
+  val info          = cutAdd(infoCorr)
+
+  // ------------------------------------------------------------------------
+  // stage "out"
+
   val zMan = Mux(info.zIsNonTable, Cat(info.znan, 0.U((manW - 1).W)),
                  zmanCorrected(manW - 1, 0))
   val z = Cat(0.U(1.W), zEx, zMan)
   assert(z.getWidth == spec.W)
 
-  io.z := Pipe(cutIn.valid, z, stages.at("out"))
+  io.z := Pipe(cutAdd.valid, z, stages.at("out"))
 }
 
 /** Pipeline stage points of [[rial.math.ExpPostProcess]]. */
@@ -415,7 +501,14 @@ object ExpPostProcess {
 
   /** Boundaries at which pipeline registers can be placed.
    *
-   *  - `"out"` the corrected and assembled result
+   *  - `"round"` the rounded polynomial result
+   *  - `"corr"`  the correction term
+   *  - `"add"`   the corrected mantissa and exponent
+   *  - `"out"`   the assembled result
    */
-  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 3.0))
+  val stagePoints: Seq[StageElem] = Seq(
+    StagePoint("round", 2.0),
+    StagePoint("corr",  2.0),
+    StagePoint("add",   1.0),
+    StagePoint("out",   1.0))
 }

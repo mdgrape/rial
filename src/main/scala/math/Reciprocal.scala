@@ -70,7 +70,7 @@ object ReciprocalPreProcess {
    *
    *  - `"out"` the table address
    */
-  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 4.0))
+  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 1.0))
 }
 
 // -------------------------------------------------------------------------
@@ -136,44 +136,59 @@ class ReciprocalNonTable(
 
   private val cutIn = new SharedPipe("in", io.x.valid, stages.at("in"))
 
-  val out = WireDefault(0.U.asTypeOf(new ReciprocalPostProcInfo(spec)))
-  io.z := Pipe(cutIn.valid, out, stages.at("out"))
-
   val x = cutIn(io.x.bits)
 
-  val znan  = x.nan
-  val zinf  = x.zero
-  val zzero = x.inf
+  val znanComb  = x.nan
+  val zinfComb  = x.zero
+  val zzeroComb = x.inf
 
   val xmanNonZero = x.man.orR
-  val zex0        = (exBias<<1).U((exW+1).W) - x.ex - xmanNonZero.asUInt
-  val zexMSB      = zex0(exW)
+  val zex0Comb    = (exBias<<1).U((exW+1).W) - x.ex - xmanNonZero.asUInt
+  val zexMSBComb  = zex0Comb(exW)
 
   // Check overflow/underflow
   // 1/x = 2^(-e-1) * 2/1.m
   val invExMax = -spec.exMin - 1
   val invExMin = -spec.exMax - 1
-  val (zinfOvf, zzeroUnf) = if(spec.exMax < invExMax) { // check overflow
-    (zexMSB, zex0 === 0.U)
+  val (zinfOvfComb, zzeroUnfComb) = if (spec.exMax < invExMax) { // check overflow
+    (zexMSBComb, zex0Comb === 0.U)
   } else if (invExMin < spec.exMin) { // check underflow
-    (false.B, zexMSB || zex0 === 0.U)
+    (false.B, zexMSBComb || zex0Comb === 0.U)
   } else { // nothing happens.
-    (false.B, zex0 === 0.U)
+    (false.B, zex0Comb === 0.U)
   }
 
-  val zman0 = (x.man === 0.U) && (!x.zero)
+  val zman0Comb = (x.man === 0.U) && (!x.zero)
   // if x.man == 0, that means x = 2^N. then z = 2^-N, so zman = 0.
 
-  val zIsNonTable = znan || zinf || zzero || zinfOvf || zzeroUnf || zman0
+  // --------------------------------------------------------------------------
+  // stage "ex": the negated exponent and the over/underflow flags
 
-  out.zsgn := Mux(znan || zzero || zinf || zinfOvf || zzeroUnf, 0.U, x.sgn)
-  out.zex  := Mux(znan || zinf || zinfOvf, Fill(exW, 1.U(1.W)),
-              Mux(zzero || zzeroUnf,        0.U(exW.W),
+  private val cutEx = new SharedPipe("ex", cutIn.valid, stages.at("ex"))
+
+  val zex0     = cutEx(zex0Comb)
+  val znan     = cutEx(znanComb)
+  val zinf     = cutEx(zinfComb)
+  val zzero    = cutEx(zzeroComb)
+  val zinfOvf  = cutEx(zinfOvfComb)
+  val zzeroUnf = cutEx(zzeroUnfComb)
+  val zman0    = cutEx(zman0Comb)
+  val xsgn     = cutEx(x.sgn)
+
+  // --------------------------------------------------------------------------
+  // stage "out"
+
+  val out = WireDefault(0.U.asTypeOf(new ReciprocalPostProcInfo(spec)))
+  out.zsgn  := Mux(znan || zzero || zinf || zinfOvf || zzeroUnf, 0.U, xsgn)
+  out.zex   := Mux(znan || zinf || zinfOvf, Fill(exW, 1.U(1.W)),
+               Mux(zzero || zzeroUnf,       0.U(exW.W),
                                             zex0(exW-1,0)))
   out.znan  := znan
   out.zinf  := zinf  || zinfOvf
   out.zzero := zzero || zzeroUnf
   out.zman0 := zman0
+
+  io.z := Pipe(cutEx.valid, out, stages.at("out"))
 }
 
 /** Pipeline stage points of [[rial.math.ReciprocalNonTable]]. */
@@ -181,9 +196,12 @@ object ReciprocalNonTable {
 
   /** Boundaries at which pipeline registers can be placed.
    *
+   *  - `"ex"`  the negated exponent and the over/underflow flags
    *  - `"out"` the exponent, the sign and the special values
    */
-  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 3.0))
+  val stagePoints: Seq[StageElem] = Seq(
+    StagePoint("ex",  3.0),
+    StagePoint("out", 2.0))
 }
 
 // -------------------------------------------------------------------------
@@ -242,29 +260,40 @@ class ReciprocalPostProcess(
 
   val in = cutIn(io.in.bits)
 
-  val zsgn  = in.info.zsgn
-  val zex   = in.info.zex
-  val znan  = in.info.znan
-  val zinf  = in.info.zinf
-  val zzero = in.info.zzero
-  val zman0 = in.info.zman0
+  val zmanRoundedComb = WireDefault(0.U(manW.W))
+  if (extraBits == 0) {
+    zmanRoundedComb := in.zres
+  } else {
+    val zres0 = (in.zres >> extraBits) +& in.zres(extraBits-1)
+    val polynomialOvf = zres0(manW)
+    zmanRoundedComb := Mux(polynomialOvf, Fill(manW, 1.U(1.W)), zres0(manW-1,0))
+  }
+
+  // --------------------------------------------------------------------------
+  // stage "round": the rounded polynomial result
+
+  private val cutRound = new SharedPipe("round", cutIn.valid, stages.at("round"))
+
+  val zmanRounded = cutRound(zmanRoundedComb)
+  val info        = cutRound(in.info)
+
+  // --------------------------------------------------------------------------
+  // stage "out"
+
+  val zsgn  = info.zsgn
+  val zex   = info.zex
+  val znan  = info.znan
+  val zinf  = info.zinf
+  val zzero = info.zzero
+  val zman0 = info.zman0
 
   val zIsNonTable  = zinf || znan || zzero || zman0
   val zmanNonTable = Cat(znan, 0.U((manW-1).W))
 
-  val zmanRounded = WireDefault(0.U(manW.W))
-  if(extraBits == 0) {
-    zmanRounded := in.zres
-  } else {
-    val zman0 = (in.zres >> extraBits) +& in.zres(extraBits-1)
-    val polynomialOvf = zman0(manW)
-    zmanRounded := Mux(polynomialOvf, Fill(manW, 1.U(1.W)), zman0(manW-1,0))
-  }
-
   val zman = Mux(zIsNonTable, zmanNonTable, zmanRounded)
   val z = Cat(zsgn, zex, zman)
 
-  io.z := Pipe(cutIn.valid, z, stages.at("out"))
+  io.z := Pipe(cutRound.valid, z, stages.at("out"))
 }
 
 /** Pipeline stage points of [[rial.math.ReciprocalPostProcess]]. */
@@ -272,8 +301,11 @@ object ReciprocalPostProcess {
 
   /** Boundaries at which pipeline registers can be placed.
    *
-   *  - `"out"` the assembled result
+   *  - `"round"` the rounded polynomial result
+   *  - `"out"`   the assembled result
    */
-  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 3.0))
+  val stagePoints: Seq[StageElem] = Seq(
+    StagePoint("round", 2.0),
+    StagePoint("out",   1.0))
 }
 

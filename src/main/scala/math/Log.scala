@@ -83,7 +83,7 @@ object LogPreProcess {
    *
    *  - `"out"` the table address
    */
-  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 4.0))
+  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 1.0))
 }
 
 // -------------------------------------------------------------------------
@@ -146,13 +146,25 @@ class LogNonTableInfo(val spec: RealSpec) extends Bundle {
   val znan       = Bool()
   val zinf       = Bool()
   val zzero      = Bool()
-  val x0_5to1_0  = Bool()  // path 1
-  val x1_0to2_0  = Bool()  // path 2
+  val xHalfToOne  = Bool()  // path 1
+  val xOneToTwo  = Bool()  // path 2
   val xOtherwise = Bool()  // path 0
   val constant   = UInt((spec.manW + 1).W) // 1.constant in (1-x)/(x-1)/ln2 form
   val zex0       = UInt(spec.exW.W)        // result exponent before mul correction
   val zint       = UInt(spec.exW.W)        // |xexNobias|; used for path 0
   val zintShift  = UInt(log2Up(spec.exW).W) // leading-zero count of zint
+}
+
+/** The path selectors and special-value flags [[LogNonTable]] carries across
+ *  its own pipeline boundaries. */
+class LogNonTableFlags extends Bundle {
+  val zsgn       = UInt(1.W)
+  val znan       = Bool()
+  val zinf       = Bool()
+  val zzero      = Bool()
+  val xHalfToOne  = Bool()
+  val xOneToTwo  = Bool()
+  val xOtherwise = Bool()
 }
 
 class LogNonTable(
@@ -183,20 +195,68 @@ class LogNonTable(
   val xman = x.man
   val xsgn = x.sgn
 
-  val x0_5to1_0  = xex === (exBias - 1).U
-  val x1_0to2_0  = xex === exBias.U
-  val xOtherwise = !x0_5to1_0 && !x1_0to2_0
+  val xHalfToOneComb  = xex === (exBias - 1).U
+  val xOneToTwoComb  = xex === exBias.U
+  val xOtherwiseComb = !xHalfToOneComb && !xOneToTwoComb
 
-  // ---- constant ----
+  // ---- the difference the constant is built from ----
   //  path 1 (0.5 <= x < 1.0):  c = 1 - x  = (2^manW - xman) / 2^(manW+1)
   val c0_5to1_0 = ~xman +& 1.U                  // width manW+1
   //  path 2 (1.0 <= x < 2.0):  c = x - 1  = xman / 2^manW
   val c1_0to2_0 = Cat(0.U(1.W), xman)           // width manW+1
 
-  val c0        = Mux(x0_5to1_0, c0_5to1_0, c1_0to2_0)
-  val c0Shift   = PriorityEncoder(Reverse(c0))
+  val c0Comb = Mux(xHalfToOneComb, c0_5to1_0, c1_0to2_0)
+
+  // ---- integer part of z (for path 0) ----
+  val xexPos   = xex - exBias.U
+  val xexNeg   = (exBias - 1).U - xex
+  val zintComb = Mux(xex >= exBias.U, xexPos, xexNeg)
+
+  // ---- special values ----
+  //   log(nan)  -> nan       log(inf)  -> inf
+  //   log(0)    -> -inf      log(neg)  -> nan       log(1) -> 0
+  val znanComb  = x.nan || xsgn === 1.U
+  val zinfComb  = x.inf || x.zero
+  val zzeroComb = !xman.orR && xex === exBias.U
+  val zsgnComb  = xex < exBias.U
+
+  val flagsComb = Wire(new LogNonTableFlags)
+  flagsComb.zsgn       := zsgnComb
+  flagsComb.znan       := znanComb
+  flagsComb.zinf       := zinfComb
+  flagsComb.zzero      := zzeroComb
+  flagsComb.xHalfToOne  := xHalfToOneComb
+  flagsComb.xOneToTwo  := xOneToTwoComb
+  flagsComb.xOtherwise := xOtherwiseComb
+
+  // --------------------------------------------------------------------------
+  // stage "diff": the difference 1-x / x-1 and the integer part of the result
+
+  private val cutDiff = new SharedPipe("diff", cutIn.valid, stages.at("diff"))
+
+  val c0Diff    = cutDiff(c0Comb)
+  val zintDiff  = cutDiff(zintComb)
+  val flagsDiff = cutDiff(flagsComb)
+
+  val c0ShiftComb   = PriorityEncoder(Reverse(c0Diff))
+  val zintShiftComb = PriorityEncoder(Reverse(zintDiff))
+
+  // --------------------------------------------------------------------------
+  // stage "clz": the leading-zero counts of both
+
+  private val cutClz = new SharedPipe("clz", cutDiff.valid, stages.at("clz"))
+
+  val c0Shift   = cutClz(c0ShiftComb)
+  val zintShift = cutClz(zintShiftComb)
+  val c0        = cutClz(c0Diff)
+  val zint      = cutClz(zintDiff)
+  val flags     = cutClz(flagsDiff)
+
+  // --------------------------------------------------------------------------
+  // stage "out"
+
   val c0Shifted = (c0 << c0Shift)(manW, 0)
-  assert((BigInt(1) << manW).U <= c0Shifted || c0 === 0.U)
+  assert(!cutClz.valid || (BigInt(1) << manW).U <= c0Shifted || c0 === 0.U)
 
   val zex0closeto1 = (exBias - 1).U(exW.W) - c0Shift
 
@@ -204,39 +264,25 @@ class LogNonTable(
   val ln2 = Real.log(Real.two)(manW + 1).toBigInt.U((manW + 1).W)
   assert((BigInt(1) << manW).U < ln2 && ln2 < (BigInt(1) << (manW + 1)).U)
 
-  val constant = Mux(xOtherwise, ln2, c0Shifted)
+  val constant = Mux(flags.xOtherwise, ln2, c0Shifted)
 
-  // ---- integer part of z (for path 0) ----
-  val xexPos       = xex - exBias.U
-  val xexNeg       = (exBias - 1).U - xex
-  val zint         = Mux(xex >= exBias.U, xexPos, xexNeg)
-  val zintShift    = PriorityEncoder(Reverse(zint))
   val zex0farfrom1 = (exBias + exW - 2).U - zintShift
-
-  val zex0 = Mux(xOtherwise, zex0farfrom1, zex0closeto1)
-
-  // ---- special values ----
-  //   log(nan)  -> nan       log(inf)  -> inf
-  //   log(0)    -> -inf      log(neg)  -> nan       log(1) -> 0
-  val znan  = x.nan || xsgn === 1.U
-  val zinf  = x.inf || x.zero
-  val zzero = !xman.orR && xex === exBias.U
-  val zsgn  = xex < exBias.U
+  val zex0 = Mux(flags.xOtherwise, zex0farfrom1, zex0closeto1)
 
   val zout = Wire(new LogNonTableInfo(spec))
-  zout.zsgn       := zsgn
-  zout.znan       := znan
-  zout.zinf       := zinf
-  zout.zzero      := zzero
-  zout.x0_5to1_0  := x0_5to1_0
-  zout.x1_0to2_0  := x1_0to2_0
-  zout.xOtherwise := xOtherwise
+  zout.zsgn       := flags.zsgn
+  zout.znan       := flags.znan
+  zout.zinf       := flags.zinf
+  zout.zzero      := flags.zzero
+  zout.xHalfToOne  := flags.xHalfToOne
+  zout.xOneToTwo  := flags.xOneToTwo
+  zout.xOtherwise := flags.xOtherwise
   zout.constant   := constant
   zout.zex0       := zex0
   zout.zint       := zint
   zout.zintShift  := zintShift
 
-  io.z := Pipe(cutIn.valid, zout, stages.at("out"))
+  io.z := Pipe(cutClz.valid, zout, stages.at("out"))
 }
 
 /** Pipeline stage points of [[rial.math.LogNonTable]]. */
@@ -244,9 +290,14 @@ object LogNonTable {
 
   /** Boundaries at which pipeline registers can be placed.
    *
-   *  - `"out"` the multiplier constant, the exponent and the special values
+   *  - `"diff"` the difference 1-x / x-1 and the integer part of the result
+   *  - `"clz"`  the leading-zero counts of both
+   *  - `"out"`  the multiplier constant, the exponent and the special values
    */
-  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 3.0))
+  val stagePoints: Seq[StageElem] = Seq(
+    StagePoint("diff", 3.0),
+    StagePoint("clz",  4.0),
+    StagePoint("out",  4.0))
 }
 
 // -------------------------------------------------------------------------
@@ -285,8 +336,8 @@ class LogPostMultArgs(
   val zfullShifted = (zfull0 << info.zintShift)(exW + fracW - 1, 0)
   assert(!io.info.valid || zfullShifted(exW + fracW - 1) === 1.U || !info.xOtherwise)
 
-  val ymanW1 = Mux(info.x0_5to1_0, Cat(1.U(1.W), zres),                     // path 1
-               Mux(info.x1_0to2_0, Cat(zres, 0.U(1.W)),                     // path 2
+  val ymanW1 = Mux(info.xHalfToOne, Cat(1.U(1.W), zres),                     // path 1
+               Mux(info.xOneToTwo, Cat(zres, 0.U(1.W)),                     // path 2
                                    zfullShifted(exW + fracW - 1, exW - 1))) // path 0
 
   val out = Wire(new LogPostMultArgsOutput(spec, fracW))
@@ -330,11 +381,23 @@ class LogPostProcess(
   private val cutIn = new SharedPipe("in", io.info.valid && io.mul.valid,
     stages.at("in"))
 
-  val info = cutIn(io.info.bits)
-  val mul  = cutIn(io.mul.bits)
+  val infoIn = cutIn(io.info.bits)
+  val mul    = cutIn(io.mul.bits)
 
-  val zman0 = mul.zman
-  val zex0  = info.zex0 +& mul.exInc
+  val zman0Comb = mul.zman
+  val zex0Comb  = infoIn.zex0 +& mul.exInc
+
+  // --------------------------------------------------------------------------
+  // stage "ex": the result exponent
+
+  private val cutEx = new SharedPipe("ex", cutIn.valid, stages.at("ex"))
+
+  val zman0 = cutEx(zman0Comb)
+  val zex0  = cutEx(zex0Comb)
+  val info  = cutEx(infoIn)
+
+  // --------------------------------------------------------------------------
+  // stage "out"
 
   val znan  = info.znan
   val zinf  = info.zinf || zex0(exW) === 1.U // exponent overflowed
@@ -352,7 +415,7 @@ class LogPostProcess(
   val z = Cat(zsgnOut, zex, zman)
   assert(z.getWidth == spec.W)
 
-  io.z := Pipe(cutIn.valid, z, stages.at("out"))
+  io.z := Pipe(cutEx.valid, z, stages.at("out"))
 }
 
 /** Pipeline stage points of [[rial.math.LogPostProcess]]. */
@@ -360,7 +423,10 @@ object LogPostProcess {
 
   /** Boundaries at which pipeline registers can be placed.
    *
+   *  - `"ex"`  the result exponent
    *  - `"out"` the assembled result
    */
-  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 3.0))
+  val stagePoints: Seq[StageElem] = Seq(
+    StagePoint("ex",  1.0),
+    StagePoint("out", 1.0))
 }

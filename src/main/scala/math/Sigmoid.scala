@@ -81,23 +81,35 @@ class SigmoidPreProcess(
   val zzero = (x.sgn === 1.U) && xExLargeEnough && !znan
 
   val xScaleShift = (rangeMaxEx + 1).U(exW.W) - x.ex
-  val xScaled     = Cat(1.U(1.W), x.man) >> xScaleShift
+  val xScaledComb = Cat(1.U(1.W), x.man) >> xScaleShift
+
+  val infoComb = Wire(new SigmoidPostProcInfo(spec))
+  infoComb.xsgn  := x.sgn
+  infoComb.xzero := xScaledComb === 0.U || xScaledComb === 1.U
+  infoComb.znan  := znan
+  infoComb.zone  := zone
+  infoComb.zzero := zzero
+
+  // --------------------------------------------------------------------------
+  // stage "scale": the argument scaled into the table domain
+
+  private val cutScale = new SharedPipe("scale", cutIn.valid, stages.at("scale"))
+
+  val xScaled = cutScale(xScaledComb)
+  val info    = cutScale(infoComb)
+
+  // --------------------------------------------------------------------------
+  // stage "out"
 
   val adr = xScaled(manW - 1, dxW)
-  io.adr := Pipe(cutIn.valid, adr, stages.at("out"))
+  io.adr := Pipe(cutScale.valid, adr, stages.at("out"))
 
   if (order != 0) {
     val dx = Cat(~xScaled(dxW - 1), xScaled(dxW - 2, 0))
-    io.dx.get := Pipe(cutIn.valid, dx, stages.at("out"))
+    io.dx.get := Pipe(cutScale.valid, dx, stages.at("out"))
   }
 
-  val info = Wire(new SigmoidPostProcInfo(spec))
-  info.xsgn  := x.sgn
-  info.xzero := xScaled === 0.U || xScaled === 1.U
-  info.znan  := znan
-  info.zone  := zone
-  info.zzero := zzero
-  io.info := Pipe(cutIn.valid, info, stages.at("out"))
+  io.info := Pipe(cutScale.valid, info, stages.at("out"))
 }
 
 /** Pipeline stage points of [[rial.math.SigmoidPreProcess]]. */
@@ -105,9 +117,12 @@ object SigmoidPreProcess {
 
   /** Boundaries at which pipeline registers can be placed.
    *
-   *  - `"out"` the table address and the info
+   *  - `"scale"` the argument scaled into the table domain
+   *  - `"out"`   the table address and the info
    */
-  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 4.0))
+  val stagePoints: Seq[StageElem] = Seq(
+    StagePoint("scale", 3.0),
+    StagePoint("out",   1.0))
 }
 
 // -------------------------------------------------------------------------
@@ -165,25 +180,56 @@ class SigmoidPostProcess(
 
   private val cutIn = new SharedPipe("in", io.in.valid, stages.at("in"))
 
-  val in   = cutIn(io.in.bits)
-  val info = in.info
-  val zres = in.zres
+  val in     = cutIn(io.in.bits)
+  val infoIn = in.info
+  val zres   = in.zres
 
   // ---- fold:  zPos = (1 << (calcW+1)) - zres   for x >= 0
   //             zNeg =                      zres   for x <  0
   val zPos = (BigInt(1) << (calcW + 1)).U((calcW + 2).W) - zres
   val zNeg = zres
-  val zRes = Mux(info.xsgn === 0.U, zPos, zNeg)
+  val zResComb = Mux(infoIn.xsgn === 0.U, zPos, zNeg)
+
+  // --------------------------------------------------------------------------
+  // stage "fold": the polynomial result folded onto the sign of the argument
+
+  private val cutFold = new SharedPipe("fold", cutIn.valid, stages.at("fold"))
+
+  val zRes     = cutFold(zResComb)
+  val infoFold = cutFold(infoIn)
 
   // ---- normalize: leftshift until top bit is at position (calcW + 1) ----
-  val zShift = Mux(zRes === 0.U, zRes.getWidth.U, PriorityEncoder(Reverse(zRes)))
-  val zmanW1 = zRes << zShift
+  val zShiftComb = Mux(zRes === 0.U, zRes.getWidth.U, PriorityEncoder(Reverse(zRes)))
+  val zmanW1Comb = zRes << zShiftComb
+
+  // --------------------------------------------------------------------------
+  // stage "norm": the normalized mantissa
+
+  private val cutNorm = new SharedPipe("norm", cutFold.valid, stages.at("norm"))
+
+  val zmanW1   = cutNorm(zmanW1Comb)
+  val zShift   = cutNorm(zShiftComb)
+  val infoNorm = cutNorm(infoFold)
+
   val zmanW1Rounded = (zmanW1 >> (extraBits + 1)) + zmanW1(extraBits)
 
   val zmanRoundedMoreThan1 = zmanW1Rounded >= (BigInt(1) << (manW + 1)).U
-  val zman = Mux(zmanRoundedMoreThan1, Fill(manW, 1.U(1.W)), zmanW1Rounded(manW - 1, 0))
+  val zmanComb = Mux(zmanRoundedMoreThan1, Fill(manW, 1.U(1.W)),
+                     zmanW1Rounded(manW - 1, 0))
 
-  val zex = exBias.U(exW.W) - zShift
+  val zexComb = exBias.U(exW.W) - zShift
+
+  // --------------------------------------------------------------------------
+  // stage "round": the rounded mantissa and the exponent
+
+  private val cutRound = new SharedPipe("round", cutNorm.valid, stages.at("round"))
+
+  val zman = cutRound(zmanComb)
+  val zex  = cutRound(zexComb)
+  val info = cutRound(infoNorm)
+
+  // --------------------------------------------------------------------------
+  // stage "out"
 
   // ---- special-value overrides ----
   val znan  = info.znan
@@ -198,7 +244,7 @@ class SigmoidPostProcess(
           Mux(xzero, Cat(zsgn, (exBias - 1).U(exW.W), 0.U(manW.W)),
                      Cat(zsgn, zex, zman)))))
 
-  io.z := Pipe(cutIn.valid, z, stages.at("out"))
+  io.z := Pipe(cutRound.valid, z, stages.at("out"))
 }
 
 /** Pipeline stage points of [[rial.math.SigmoidPostProcess]]. */
@@ -206,7 +252,14 @@ object SigmoidPostProcess {
 
   /** Boundaries at which pipeline registers can be placed.
    *
-   *  - `"out"` the folded and assembled result
+   *  - `"fold"`  the polynomial result folded onto the sign of the argument
+   *  - `"norm"`  the normalized mantissa
+   *  - `"round"` the rounded mantissa and the exponent
+   *  - `"out"`   the assembled result
    */
-  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 3.0))
+  val stagePoints: Seq[StageElem] = Seq(
+    StagePoint("fold",  2.0),
+    StagePoint("norm",  2.0),
+    StagePoint("round", 2.0),
+    StagePoint("out",   1.0))
 }

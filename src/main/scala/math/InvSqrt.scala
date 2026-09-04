@@ -78,7 +78,7 @@ object InvSqrtPreProcess {
    *
    *  - `"out"` the table address
    */
-  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 4.0))
+  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 1.0))
 }
 
 // -------------------------------------------------------------------------
@@ -144,29 +144,43 @@ class InvSqrtNonTable(
 
   private val cutIn = new SharedPipe("in", io.x.valid, stages.at("in"))
 
-  val out = WireDefault(0.U.asTypeOf(new InvSqrtPostProcInfo(spec)))
-  io.z := Pipe(cutIn.valid, out, stages.at("out"))
-
   val x = cutIn(io.x.bits)
 
-  val xneg  = if(spec.disableSign) {false.B} else {x.sgn.asBool}
-  val znan  = x.nan
-  val zinf  = x.zero || xneg
-  val zzero = x.inf
+  val xneg      = if (spec.disableSign) { false.B } else { x.sgn.asBool }
+  val znanComb  = x.nan
+  val zinfComb  = x.zero || xneg
+  val zzeroComb = x.inf
 
-  val zman0 = (x.man === 0.U) && (!x.zero) && (x.ex(0) === (exBias % 2).U(1.W))
+  val zman0Comb = (x.man === 0.U) && (!x.zero) && (x.ex(0) === (exBias % 2).U(1.W))
   // if x.man == 0 && x.ex == 2N, that means x = 2^2N. then z = 2^-N, so zman = 0.
 
   val xExNobias  = x.ex - exBias.U
   val xExHalf    = Cat(xExNobias(exW-1), xExNobias(exW-1, 1)) // arith right shift
-  val zEx0       = ~xExHalf // -(xex>>1)-1 = ~(xex>>1)+1-1 = ~(xex>>1)
+  val zEx0Comb   = ~xExHalf // -(xex>>1)-1 = ~(xex>>1)+1-1 = ~(xex>>1)
 
-  out.zex  := Mux(zinf || znan, Fill(exW, 1.U(1.W)),
-              Mux(zzero,        0.U(exW.W),
-                                zEx0 + zman0.asUInt + exBias.U))
+  // --------------------------------------------------------------------------
+  // stage "ex": the negated, halved exponent
+
+  private val cutEx = new SharedPipe("ex", cutIn.valid, stages.at("ex"))
+
+  val zEx0  = cutEx(zEx0Comb)
+  val zman0 = cutEx(zman0Comb)
+  val znan  = cutEx(znanComb)
+  val zinf  = cutEx(zinfComb)
+  val zzero = cutEx(zzeroComb)
+
+  // --------------------------------------------------------------------------
+  // stage "out"
+
+  val out = WireDefault(0.U.asTypeOf(new InvSqrtPostProcInfo(spec)))
+  out.zex   := Mux(zinf || znan, Fill(exW, 1.U(1.W)),
+               Mux(zzero,        0.U(exW.W),
+                                 zEx0 + zman0.asUInt + exBias.U))
   out.znan  := znan
   out.zinf  := zinf
   out.zman0 := zzero || zman0
+
+  io.z := Pipe(cutEx.valid, out, stages.at("out"))
 }
 
 /** Pipeline stage points of [[rial.math.InvSqrtNonTable]]. */
@@ -174,9 +188,12 @@ object InvSqrtNonTable {
 
   /** Boundaries at which pipeline registers can be placed.
    *
+   *  - `"ex"`  the negated, halved exponent
    *  - `"out"` the exponent and the special values
    */
-  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 3.0))
+  val stagePoints: Seq[StageElem] = Seq(
+    StagePoint("ex",  2.0),
+    StagePoint("out", 2.0))
 }
 
 // -------------------------------------------------------------------------
@@ -230,28 +247,39 @@ class InvSqrtPostProcess(
 
   val in = cutIn(io.in.bits)
 
+  val zmanRoundedComb = WireDefault(0.U(manW.W))
+  if (extraBits == 0) {
+    zmanRoundedComb := in.zres
+  } else {
+    val zres0 = (in.zres >> extraBits) +& in.zres(extraBits-1)
+    val polynomialOvf = zres0(manW) === 1.U
+    zmanRoundedComb := Mux(polynomialOvf, Fill(manW, 1.U(1.W)), zres0(manW-1,0))
+  }
+
+  // --------------------------------------------------------------------------
+  // stage "round": the rounded polynomial result
+
+  private val cutRound = new SharedPipe("round", cutIn.valid, stages.at("round"))
+
+  val zmanRounded = cutRound(zmanRoundedComb)
+  val info        = cutRound(in.info)
+
+  // --------------------------------------------------------------------------
+  // stage "out"
+
   val zsgn  = 0.U
-  val zex   = in.info.zex
-  val znan  = in.info.znan
-  val zinf  = in.info.zinf
-  val zman0 = in.info.zman0
+  val zex   = info.zex
+  val znan  = info.znan
+  val zinf  = info.zinf
+  val zman0 = info.zman0
 
   val zIsNonTable  = znan || zinf || zman0
   val zmanNonTable = Cat(znan, 0.U((manW-1).W))
 
-  val zmanRounded = WireDefault(0.U(manW.W))
-  if(extraBits == 0) {
-    zmanRounded := in.zres
-  } else {
-    val zman0 = (in.zres >> extraBits) +& in.zres(extraBits-1)
-    val polynomialOvf = zman0(manW) === 1.U
-    zmanRounded := Mux(polynomialOvf, Fill(manW, 1.U(1.W)), zman0(manW-1,0))
-  }
-
   val zman = Mux(zIsNonTable, zmanNonTable, zmanRounded)
   val z = Cat(zsgn, zex, zman)
 
-  io.z := Pipe(cutIn.valid, z, stages.at("out"))
+  io.z := Pipe(cutRound.valid, z, stages.at("out"))
 }
 
 /** Pipeline stage points of [[rial.math.InvSqrtPostProcess]]. */
@@ -259,7 +287,10 @@ object InvSqrtPostProcess {
 
   /** Boundaries at which pipeline registers can be placed.
    *
-   *  - `"out"` the assembled result
+   *  - `"round"` the rounded polynomial result
+   *  - `"out"`   the assembled result
    */
-  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 3.0))
+  val stagePoints: Seq[StageElem] = Seq(
+    StagePoint("round", 2.0),
+    StagePoint("out",   1.0))
 }

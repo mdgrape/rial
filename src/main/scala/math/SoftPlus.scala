@@ -85,25 +85,37 @@ class SoftPlusPreProcess(
   val xlarge = xExLargeEnough && (x.sgn === 0.U) && !xinf && !znan
 
   val xScaleShift = (rangeMaxEx + 1).U(exW.W) - x.ex
-  val xScaled     = Cat(1.U(1.W), x.man) >> xScaleShift
+  val xScaledComb = Cat(1.U(1.W), x.man) >> xScaleShift
+
+  val infoComb = Wire(new SoftPlusPostProcInfo(spec))
+  infoComb.xsgn   := x.sgn
+  infoComb.znan   := znan
+  infoComb.zinf   := zinf
+  infoComb.zzero  := zzero
+  infoComb.xlarge := xlarge
+  infoComb.xVal   := Cat(x.sgn, x.ex, x.man)
+
+  // --------------------------------------------------------------------------
+  // stage "scale": the argument scaled into the table domain
+
+  private val cutScale = new SharedPipe("scale", cutIn.valid, stages.at("scale"))
+
+  val xScaled = cutScale(xScaledComb)
+  val info    = cutScale(infoComb)
+
+  // --------------------------------------------------------------------------
+  // stage "out"
 
   // pos/neg selector goes in the MSB of the adr; TableCoeff uses it to mux.
-  val adr = Cat(x.sgn, xScaled(manW - 1, dxW))
-  io.adr := Pipe(cutIn.valid, adr, stages.at("out"))
+  val adr = Cat(info.xsgn, xScaled(manW - 1, dxW))
+  io.adr := Pipe(cutScale.valid, adr, stages.at("out"))
 
   if (order != 0) {
     val dx = Cat(~xScaled(dxW - 1), xScaled(dxW - 2, 0))
-    io.dx.get := Pipe(cutIn.valid, dx, stages.at("out"))
+    io.dx.get := Pipe(cutScale.valid, dx, stages.at("out"))
   }
 
-  val info = Wire(new SoftPlusPostProcInfo(spec))
-  info.xsgn   := x.sgn
-  info.znan   := znan
-  info.zinf   := zinf
-  info.zzero  := zzero
-  info.xlarge := xlarge
-  info.xVal   := Cat(x.sgn, x.ex, x.man)
-  io.info := Pipe(cutIn.valid, info, stages.at("out"))
+  io.info := Pipe(cutScale.valid, info, stages.at("out"))
 }
 
 /** Pipeline stage points of [[rial.math.SoftPlusPreProcess]]. */
@@ -111,9 +123,12 @@ object SoftPlusPreProcess {
 
   /** Boundaries at which pipeline registers can be placed.
    *
-   *  - `"out"` the table address and the info
+   *  - `"scale"` the argument scaled into the table domain
+   *  - `"out"`   the table address and the info
    */
-  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 4.0))
+  val stagePoints: Seq[StageElem] = Seq(
+    StagePoint("scale", 3.0),
+    StagePoint("out",   1.0))
 }
 
 // -------------------------------------------------------------------------
@@ -185,9 +200,9 @@ class SoftPlusPostProcess(
 
   private val cutIn = new SharedPipe("in", io.in.valid, stages.at("in"))
 
-  val in   = cutIn(io.in.bits)
-  val info = in.info
-  val zres = in.zres
+  val in     = cutIn(io.in.bits)
+  val infoIn = in.info
+  val zres   = in.zres
 
   // ---- normalize: leftshift until top bit reaches position calcW ----
   // zShift = (calcW + 1) - binaryWidth(zres)
@@ -196,8 +211,18 @@ class SoftPlusPostProcess(
   // returns `zres.getWidth.U` whose width is log2Up(fracW+1); for fracW that
   // is a power of two + 1, that width is just log2Up(fracW), and a plain
   // `+ 1.U` would wrap to 0).
-  val zShift = Mux(zres === 0.U, zres.getWidth.U, PriorityEncoder(Reverse(zres))) +& 1.U
-  val zmanW1 = zres << zShift
+  val zShiftComb = Mux(zres === 0.U, zres.getWidth.U,
+                       PriorityEncoder(Reverse(zres))) +& 1.U
+  val zmanW1Comb = zres << zShiftComb
+
+  // --------------------------------------------------------------------------
+  // stage "norm": the normalized mantissa
+
+  private val cutNorm = new SharedPipe("norm", cutIn.valid, stages.at("norm"))
+
+  val zmanW1   = cutNorm(zmanW1Comb)
+  val zShift   = cutNorm(zShiftComb)
+  val infoNorm = cutNorm(infoIn)
 
   val zmanW1Rounded = if (extraBits > 0) {
     (zmanW1 >> extraBits) + zmanW1(extraBits - 1)
@@ -206,11 +231,24 @@ class SoftPlusPostProcess(
   }
 
   val zmanRoundedMoreThan1 = zmanW1Rounded >= (BigInt(1) << (manW + 1)).U
-  val zman = Mux(zmanRoundedMoreThan1, Fill(manW, 1.U(1.W)), zmanW1Rounded(manW - 1, 0))
+  val zmanComb = Mux(zmanRoundedMoreThan1, Fill(manW, 1.U(1.W)),
+                     zmanW1Rounded(manW - 1, 0))
 
   // ---- zEx: shifted bias, plus the pos branch's hidden (rangeMaxLog2+1) factor ----
-  val zex = (exBias.U(exW.W) - zShift) +
-            Mux(info.xsgn === 0.U, (rangeMaxLog2 + 1).U(exW.W), 0.U(exW.W))
+  val zexComb = (exBias.U(exW.W) - zShift) +
+                Mux(infoNorm.xsgn === 0.U, (rangeMaxLog2 + 1).U(exW.W), 0.U(exW.W))
+
+  // --------------------------------------------------------------------------
+  // stage "round": the rounded mantissa and the exponent
+
+  private val cutRound = new SharedPipe("round", cutNorm.valid, stages.at("round"))
+
+  val zman = cutRound(zmanComb)
+  val zex  = cutRound(zexComb)
+  val info = cutRound(infoNorm)
+
+  // --------------------------------------------------------------------------
+  // stage "out"
 
   // ---- special-value overrides ----
   val zsgn = 0.U(1.W)
@@ -222,7 +260,7 @@ class SoftPlusPostProcess(
           Mux(info.xlarge,            zPassthrough,
                                       Cat(zsgn, zex, zman))))
 
-  io.z := Pipe(cutIn.valid, z, stages.at("out"))
+  io.z := Pipe(cutRound.valid, z, stages.at("out"))
 }
 
 /** Pipeline stage points of [[rial.math.SoftPlusPostProcess]]. */
@@ -230,7 +268,12 @@ object SoftPlusPostProcess {
 
   /** Boundaries at which pipeline registers can be placed.
    *
-   *  - `"out"` the normalized and assembled result
+   *  - `"norm"`  the normalized mantissa
+   *  - `"round"` the rounded mantissa and the exponent
+   *  - `"out"`   the assembled result
    */
-  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 3.0))
+  val stagePoints: Seq[StageElem] = Seq(
+    StagePoint("norm",  2.0),
+    StagePoint("round", 2.0),
+    StagePoint("out",   1.0))
 }

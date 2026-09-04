@@ -122,14 +122,23 @@ class ATan2Phase1PreProcess(
   private val cutIn = new SharedPipe("in", io.x.valid && io.y.valid,
     stages.at("in"))
 
-  val x = cutIn(io.x.bits)
-  val y = cutIn(io.y.bits)
+  val xIn = cutIn(io.x.bits)
+  val yIn = cutIn(io.y.bits)
 
   // ---- compare |x|, |y| (sign-free since both are non-negative bit-patterns
   // when interpreted as UInts assembled from ex ## man) ----
-  val xExMan = Cat(x.ex, x.man)
-  val yExMan = Cat(y.ex, y.man)
-  val yIsLarger = xExMan < yExMan
+  val xExMan = Cat(xIn.ex, xIn.man)
+  val yExMan = Cat(yIn.ex, yIn.man)
+  val yIsLargerComb = xExMan < yExMan
+
+  // --------------------------------------------------------------------------
+  // stage "cmp": which of |x| and |y| is the larger
+
+  private val cutCmp = new SharedPipe("cmp", cutIn.valid, stages.at("cmp"))
+
+  val yIsLarger = cutCmp(yIsLargerComb)
+  val x         = cutCmp(xIn)
+  val y         = cutCmp(yIn)
 
   // ---- exponent of min/max ratio ----
   val minex     = Mux(yIsLarger, x.ex, y.ex)
@@ -140,7 +149,7 @@ class ATan2Phase1PreProcess(
   val zex0 = Mux(x.inf && y.inf, exBias.U(exW.W),
              Mux((x.inf && !y.inf) || (!x.inf && y.inf) || (x.zero) || (y.zero), 0.U(exW.W),
                  ((minex +& exBias.U) - maxex) - diffexDec.asUInt))
-  val zex  = Mux(zeroed, 0.U(exW.W), zex0(exW - 1, 0))
+  val zexComb = Mux(zeroed, 0.U(exW.W), zex0(exW - 1, 0))
 
   // ---- specials (NaN-boxed) ----
   val xpos      = x.sgn === 0.U
@@ -157,9 +166,9 @@ class ATan2Phase1PreProcess(
   val z1piover4 =  samexy && xpos
   val z3piover4 =  samexy && xneg
 
-  val flags = WireDefault(0.U.asTypeOf(new ATan2Flags))
-  flags.isSpecial := znan || zzero || zpi || zhalfpi || z1piover4 || z3piover4
-  flags.special   := MuxCase(ATan2SpecialValue.zNormal, Seq(
+  val flagsComb = WireDefault(0.U.asTypeOf(new ATan2Flags))
+  flagsComb.isSpecial := znan || zzero || zpi || zhalfpi || z1piover4 || z3piover4
+  flagsComb.special   := MuxCase(ATan2SpecialValue.zNormal, Seq(
     znan      -> ATan2SpecialValue.zNaN,
     zzero     -> ATan2SpecialValue.zZero,
     zpi       -> ATan2SpecialValue.zPi,
@@ -167,29 +176,46 @@ class ATan2Phase1PreProcess(
     z1piover4 -> ATan2SpecialValue.zQuarterPi,
     z3piover4 -> ATan2SpecialValue.z3QuarterPi,
   ))
-  flags.status := Cat(yIsLarger, x.sgn)
-  flags.ysgn   := y.sgn
-  io.flags := Pipe(cutIn.valid, flags, stages.at("out"))
+  flagsComb.status := Cat(yIsLarger, x.sgn)
+  flagsComb.ysgn   := y.sgn
 
   // ---- table address: ReciprocalPreProcess pattern (top adrW bits of max.man) ----
-  val maxMan = Mux(yIsLarger, y.man, x.man)
-  val minMan = Mux(yIsLarger, x.man, y.man)
+  val maxManComb = Mux(yIsLarger, y.man, x.man)
+  val minManComb = Mux(yIsLarger, x.man, y.man)
+
+  val xySameManComb = x.man === y.man
+
+  // --------------------------------------------------------------------------
+  // stage "ex": the ratio exponent and the flags
+
+  private val cutEx = new SharedPipe("ex", cutCmp.valid, stages.at("ex"))
+
+  val zex       = cutEx(zexComb)
+  val flags     = cutEx(flagsComb)
+  val maxMan    = cutEx(maxManComb)
+  val minMan    = cutEx(minManComb)
+  val xySameMan = cutEx(xySameManComb)
+
+  // --------------------------------------------------------------------------
+  // stage "out"
+
+  io.flags := Pipe(cutEx.valid, flags, stages.at("out"))
 
   val adr = maxMan(manW - 1, dxW)
-  io.adr := Pipe(cutIn.valid, adr, stages.at("out"))
+  io.adr := Pipe(cutEx.valid, adr, stages.at("out"))
 
   if (order != 0) {
     val dx = Cat(~maxMan(dxW - 1), maxMan(dxW - 2, 0))
-    io.dx.get := Pipe(cutIn.valid, dx, stages.at("out"))
+    io.dx.get := Pipe(cutEx.valid, dx, stages.at("out"))
   }
 
   // ---- info bundle to post-process ----
   val info = Wire(new ATan2Phase1Info(spec))
   info.zex       := zex
-  info.xySameMan := x.man === y.man
+  info.xySameMan := xySameMan
   info.maxXYMan0 := !maxMan.orR
   info.minMan    := minMan
-  io.info := Pipe(cutIn.valid, info, stages.at("out"))
+  io.info := Pipe(cutEx.valid, info, stages.at("out"))
 }
 
 /** Pipeline stage points of [[rial.math.ATan2Phase1PreProcess]]. */
@@ -197,9 +223,14 @@ object ATan2Phase1PreProcess {
 
   /** Boundaries at which pipeline registers can be placed.
    *
+   *  - `"cmp"` which of `|x|` and `|y|` is the larger
+   *  - `"ex"`  the ratio exponent and the flags
    *  - `"out"` the table address, the info and the flags
    */
-  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 4.0))
+  val stagePoints: Seq[StageElem] = Seq(
+    StagePoint("cmp", 2.0),
+    StagePoint("ex",  2.0),
+    StagePoint("out", 1.0))
 }
 
 // Combinational driver of the post-process multiplier inputs.
@@ -262,9 +293,9 @@ class ATan2Phase1PostProcess(
   private val cutIn = new SharedPipe("in",
     io.info.valid && io.flags.valid && io.mul.valid, stages.at("in"))
 
-  val info  = cutIn(io.info.bits)
-  val flags = cutIn(io.flags.bits)
-  val mul   = cutIn(io.mul.bits)
+  val infoIn  = cutIn(io.info.bits)
+  val flagsIn = cutIn(io.flags.bits)
+  val mul     = cutIn(io.mul.bits)
 
   // The multiplier handles the ratio's mantissa with full rounding.  When the
   // mul output's exInc is asserted the ratio >= 2, but our exponent bookkeeping
@@ -273,12 +304,25 @@ class ATan2Phase1PostProcess(
   val zManMul = mul.zman
 
   // ---- assemble the normal-case ratio ----
+  val zManNormalComb = Mux(!infoIn.zex.orR || infoIn.xySameMan, 0.U(manW.W),
+                       Mux(infoIn.maxXYMan0,                    infoIn.minMan,
+                                                                zManMul))
+
+  // --------------------------------------------------------------------------
+  // stage "man": the ratio mantissa
+
+  private val cutMan = new SharedPipe("man", cutIn.valid, stages.at("man"))
+
+  val zManNormal = cutMan(zManNormalComb)
+  val info       = cutMan(infoIn)
+  val flags      = cutMan(flagsIn)
+
+  // --------------------------------------------------------------------------
+  // stage "out"
+
   val zexNoStat = info.zex  // exW bits, but always has MSB = 0 (we asserted that exBias's MSB is 0)
   val zSgnEnc = flags.ysgn
   val zExEnc  = Cat(flags.status(1), zexNoStat(exW - 2, 0))
-  val zManNormal = Mux(!info.zex.orR || info.xySameMan, 0.U(manW.W),
-                   Mux(info.maxXYMan0,                  info.minMan,
-                                                        zManMul))
   val zManEnc = Cat(zManNormal(manW - 1, 1), flags.status(0))
 
   // ---- special-value encoding ----
@@ -292,7 +336,7 @@ class ATan2Phase1PostProcess(
   val zNormal  = Cat(zSgnEnc,     zExEnc,     zManEnc)
 
   val z = Mux(flags.isSpecial, zSpecial, zNormal)
-  io.z := Pipe(cutIn.valid, z, stages.at("out"))
+  io.z := Pipe(cutMan.valid, z, stages.at("out"))
 }
 
 /** Pipeline stage points of [[rial.math.ATan2Phase1PostProcess]]. */
@@ -300,9 +344,12 @@ object ATan2Phase1PostProcess {
 
   /** Boundaries at which pipeline registers can be placed.
    *
+   *  - `"man"` the ratio mantissa
    *  - `"out"` the encoded ratio
    */
-  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 3.0))
+  val stagePoints: Seq[StageElem] = Seq(
+    StagePoint("man", 1.0),
+    StagePoint("out", 1.0))
 }
 
 // =========================================================================
@@ -348,50 +395,67 @@ class ATan2Phase2PreProcess(
   // status0 is the LSB of x.man; status1 is the MSB of x.ex.
   val status = Cat(x.ex(exW - 1), x.man(0))
 
-  val flags = Wire(new ATan2Flags)
-  flags.isSpecial := isSpecial
-  flags.ysgn      := x.sgn
-  flags.status    := status
-  flags.special   := x.man(ATan2SpecialValue.width - 1, 0)
-  io.flags := Pipe(cutIn.valid, flags, stages.at("out"))
+  val flagsComb = Wire(new ATan2Flags)
+  flagsComb.isSpecial := isSpecial
+  flagsComb.ysgn      := x.sgn
+  flagsComb.status    := status
+  flagsComb.special   := x.man(ATan2SpecialValue.width - 1, 0)
 
   // ---- decode the ratio t (strip status1 from ex, status0 from man) ----
   // If isSpecial, force xex to 0 so subsequent shifts don't underflow.
-  val xexDecoded = Mux(isSpecial, 0.U(exW.W), Cat(0.U(1.W), x.ex(exW - 2, 0)))
+  val xexDecodedComb = Mux(isSpecial, 0.U(exW.W), Cat(0.U(1.W), x.ex(exW - 2, 0)))
   // xmanW1 := (1 + decoded_man) | 1  -- the OR-with-1 matches SimGeneric's
   // `(xmanW1 | SafeLong(1))` (avoids hitting an exact-zero address corner case).
   val xManW1 = Cat(1.U(1.W), x.man(manW - 1, 1), 1.U(1.W))
 
   // ---- shift x.manW1 into a fixed-point address ----
   val shiftW    = log2Up(2 + manW)
-  val xShift0   = exBias.U(exW.W) - xexDecoded
+  val xShift0   = exBias.U(exW.W) - xexDecodedComb
   val xShiftOut = xShift0(exW - 1, shiftW).orR
   val xShift    = Mux(xShiftOut, (manW + 1).U(shiftW.W),
                       Mux(xShift0(shiftW - 1, 0) > (manW + 1).U(shiftW.W),
                           (manW + 1).U(shiftW.W),
                           xShift0(shiftW - 1, 0)))
 
-  val xFixed = (xManW1 >> xShift)(manW, 0)
-
-  val adr = xFixed(manW - 1, dxW)
-  io.adr := Pipe(cutIn.valid, adr, stages.at("out"))
-
-  if (order != 0) {
-    val dx = Cat(~xFixed(dxW - 1), xFixed(dxW - 2, 0))
-    io.dx.get := Pipe(cutIn.valid, dx, stages.at("out"))
-  }
+  val xFixedComb = (xManW1 >> xShift)(manW, 0)
 
   // ---- linear-region detection: atan(t)/t ~ 1 when t is small enough ----
   val linearThreshold = (ATan2Phase2SimGeneric.calcLinearThreshold(manW) + exBias)
-  val isLinear        = xexDecoded <= linearThreshold.U(exW.W)
-  io.isLinear := Pipe(cutIn.valid, isLinear, stages.at("out"))
+  val isLinearComb    = xexDecodedComb <= linearThreshold.U(exW.W)
 
   // ---- pipe x's mantissa-with-hidden-1 (used by post-mult) and decoded ex ----
   // post-mult rhs is (1+xman) where xman = x.man with status bit stripped (the
   // bottom bit cleared); we deliberately do NOT use the OR-with-1 form here.
-  val postRhs = Cat(1.U(1.W), x.man(manW - 1, 1), 0.U(1.W))
-  io.xManW1 := Pipe(cutIn.valid, postRhs,    stages.at("out"))
-  io.xex    := Pipe(cutIn.valid, xexDecoded, stages.at("out"))
+  val postRhsComb = Cat(1.U(1.W), x.man(manW - 1, 1), 0.U(1.W))
+
+  // --------------------------------------------------------------------------
+  // stage "shift": the ratio aligned at the binary point
+
+  private val cutShift = new SharedPipe("shift", cutIn.valid, stages.at("shift"))
+
+  val xFixed     = cutShift(xFixedComb)
+  val xexDecoded = cutShift(xexDecodedComb)
+  val isLinear   = cutShift(isLinearComb)
+  val postRhs    = cutShift(postRhsComb)
+  val flags      = cutShift(flagsComb)
+
+  // --------------------------------------------------------------------------
+  // stage "out"
+
+  io.flags := Pipe(cutShift.valid, flags, stages.at("out"))
+
+  val adr = xFixed(manW - 1, dxW)
+  io.adr := Pipe(cutShift.valid, adr, stages.at("out"))
+
+  if (order != 0) {
+    val dx = Cat(~xFixed(dxW - 1), xFixed(dxW - 2, 0))
+    io.dx.get := Pipe(cutShift.valid, dx, stages.at("out"))
+  }
+
+  io.isLinear := Pipe(cutShift.valid, isLinear, stages.at("out"))
+
+  io.xManW1 := Pipe(cutShift.valid, postRhs,    stages.at("out"))
+  io.xex    := Pipe(cutShift.valid, xexDecoded, stages.at("out"))
 }
 
 /** Pipeline stage points of [[rial.math.ATan2Phase2PreProcess]]. */
@@ -399,9 +463,12 @@ object ATan2Phase2PreProcess {
 
   /** Boundaries at which pipeline registers can be placed.
    *
-   *  - `"out"` the table address and the decoded ratio
+   *  - `"shift"` the ratio aligned at the binary point
+   *  - `"out"`   the table address and the decoded ratio
    */
-  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 4.0))
+  val stagePoints: Seq[StageElem] = Seq(
+    StagePoint("shift", 3.0),
+    StagePoint("out",   1.0))
 }
 
 class ATan2Phase2TableCoeff(
@@ -485,19 +552,28 @@ class ATan2Phase2PostProcess(
     io.flags.valid && io.xex.valid && io.isLinear.valid && io.mul.valid,
     stages.at("in"))
 
-  val mul      = cutIn(io.mul.bits)
-  val flags    = cutIn(io.flags.bits)
-  val xex      = cutIn(io.xex.bits)
-  val isLinear = cutIn(io.isLinear.bits)
-  val atanMan0 = mul.zman
-  val atanInc  = mul.exInc
+  val mul        = cutIn(io.mul.bits)
+  val flagsIn    = cutIn(io.flags.bits)
+  val xex        = cutIn(io.xex.bits)
+  val isLinearIn = cutIn(io.isLinear.bits)
+  val atanMan0   = mul.zman
+  val atanInc    = mul.exInc
 
   // ---- atan(t) = (atan(t)/t) * t ----
   // SimGeneric: atanEx = xex + resEx + atanProdMoreThan2 + atanRoundMoreThan2
   //             where resEx = 0 (linear) or -1 (table)
-  val atanEx0 = (xex +& atanInc) - Mux(isLinear, 0.U(1.W), 1.U(1.W))
-  val atanEx  = atanEx0(exW - 1, 0)
-  val atanMan = atanMan0
+  val atanEx0 = (xex +& atanInc) - Mux(isLinearIn, 0.U(1.W), 1.U(1.W))
+  val atanExComb  = atanEx0(exW - 1, 0)
+  val atanManComb = atanMan0
+
+  // --------------------------------------------------------------------------
+  // stage "ex": the exponent and mantissa of atan(t)
+
+  private val cutEx = new SharedPipe("ex", cutIn.valid, stages.at("ex"))
+
+  val atanEx   = cutEx(atanExComb)
+  val atanMan  = cutEx(atanManComb)
+  val flagsEx  = cutEx(flagsIn)
 
   // ---- align atan to the pi / pi-2 layout (manW + 4 bits: "1m.mmm...m mm") ----
   // pi   = 1x.xxxx....x000   (ex 1)
@@ -516,31 +592,56 @@ class ATan2Phase2PostProcess(
   val atanShift   = Mux(atanShift0(exW - 1, shiftW).orR,
                         (manW + 1 + 3).U(shiftW.W),
                         atanShift0(shiftW - 1, 0))
-  val atanAligned = Mux(atanShift > (manW + 1 + 3).U(shiftW.W), 0.U((manW + 4).W),
-                        atanManW1 >> atanShift)
+  val atanAlignedComb = Mux(atanShift > (manW + 1 + 3).U(shiftW.W), 0.U((manW + 4).W),
+                            atanManW1 >> atanShift)
 
-  // ---- status 0: ysgn * atan(|y|/|x|)         (x>0, |x|>|y|) ----
-  val zExPL  = atanEx
-  val zManPL = atanMan(manW - 1, 0)
+  // --------------------------------------------------------------------------
+  // stage "align": atan(t) aligned with pi
+
+  private val cutAlign = new SharedPipe("align", cutEx.valid, stages.at("align"))
+
+  val atanAligned  = cutAlign(atanAlignedComb)
+  val atanExAlign  = cutAlign(atanEx)
+  val atanManAlign = cutAlign(atanMan)
+  val flagsAlign   = cutAlign(flagsEx)
 
   // ---- status 1: ysgn * (pi - atan(|y|/|x|))  (x<0, |x|>|y|) ----
   // pi - atan in (3pi/4, pi] ~ (2.35, 3.14], so the result has ex = 1.
-  val piMinusATan = piManW1 - atanAligned
-  val zExNL  = (exBias + 1).U(exW.W)
-  val zManNL = piMinusATan((manW + 4) - 2, 3) + piMinusATan(2)
+  val piMinusATanComb = piManW1 - atanAligned
 
   // ---- status 2: ysgn * (pi/2 - atan(|x|/|y|)) (x>0, |x|<|y|) ----
   // pi/2 - atan in (pi/4, pi/2] ~ (0.78, 1.57], so ex is exBias-1 or exBias.
-  val halfPiMinusATan          = halfPiManW1 - atanAligned
+  val halfPiMinusATanComb = halfPiManW1 - atanAligned
+
+  // ---- status 3: ysgn * (pi/2 + atan(|x|/|y|)) (x<0, |x|<|y|) ----
+  // pi/2 + atan in (pi/2, 3pi/4] ~ (1.57, 2.35], so ex is exBias or exBias+1.
+  val halfPiPlusATanComb = halfPiManW1 + atanAligned
+
+  // --------------------------------------------------------------------------
+  // stage "diff": pi - atan, pi/2 - atan and pi/2 + atan
+
+  private val cutDiff = new SharedPipe("diff", cutAlign.valid, stages.at("diff"))
+
+  val piMinusATan     = cutDiff(piMinusATanComb)
+  val halfPiMinusATan = cutDiff(halfPiMinusATanComb)
+  val halfPiPlusATan  = cutDiff(halfPiPlusATanComb)
+  val atanExDiff      = cutDiff(atanExAlign)
+  val atanManDiff     = cutDiff(atanManAlign)
+  val flagsDiff       = cutDiff(flagsAlign)
+
+  // ---- status 0: ysgn * atan(|y|/|x|)         (x>0, |x|>|y|) ----
+  val zExPL  = atanExDiff
+  val zManPL = atanManDiff(manW - 1, 0)
+
+  val zExNL  = (exBias + 1).U(exW.W)
+  val zManNL = piMinusATan((manW + 4) - 2, 3) + piMinusATan(2)
+
   val halfPiMinusATanMoreThan1 = halfPiMinusATan((manW + 4) - 2)
   val zExPS  = (exBias - 1).U(exW.W) + halfPiMinusATanMoreThan1
   val zManPS = Mux(halfPiMinusATanMoreThan1,
                    halfPiMinusATan((manW + 4) - 3, 2) + halfPiMinusATan(1),
                    halfPiMinusATan((manW + 4) - 4, 1) + halfPiMinusATan(0))
 
-  // ---- status 3: ysgn * (pi/2 + atan(|x|/|y|)) (x<0, |x|<|y|) ----
-  // pi/2 + atan in (pi/2, 3pi/4] ~ (1.57, 2.35], so ex is exBias or exBias+1.
-  val halfPiPlusATan         = halfPiManW1 + atanAligned
   val halfPiPlusATanRounded  = dropLSB(2, halfPiPlusATan) + halfPiPlusATan(1)
   val halfPiPlusATanMoreThan2 = halfPiPlusATanRounded(manW + 1)
   val zExNS  = exBias.U(exW.W) + halfPiPlusATanMoreThan2
@@ -548,18 +649,30 @@ class ATan2Phase2PostProcess(
                    halfPiPlusATanRounded(manW,     1),
                    halfPiPlusATanRounded(manW - 1, 0))
 
-  val zExNormal = MuxCase(0.U(exW.W), Seq(
-    (flags.status === ATan2Status.xIsPosIsLarger ) -> zExPL,
-    (flags.status === ATan2Status.xIsNegIsLarger ) -> zExNL,
-    (flags.status === ATan2Status.xIsPosIsSmaller) -> zExPS,
-    (flags.status === ATan2Status.xIsNegIsSmaller) -> zExNS,
+  val zExNormalComb = MuxCase(0.U(exW.W), Seq(
+    (flagsDiff.status === ATan2Status.xIsPosIsLarger ) -> zExPL,
+    (flagsDiff.status === ATan2Status.xIsNegIsLarger ) -> zExNL,
+    (flagsDiff.status === ATan2Status.xIsPosIsSmaller) -> zExPS,
+    (flagsDiff.status === ATan2Status.xIsNegIsSmaller) -> zExNS,
   ))
-  val zManNormal = MuxCase(0.U(manW.W), Seq(
-    (flags.status === ATan2Status.xIsPosIsLarger ) -> zManPL(manW - 1, 0),
-    (flags.status === ATan2Status.xIsNegIsLarger ) -> zManNL(manW - 1, 0),
-    (flags.status === ATan2Status.xIsPosIsSmaller) -> zManPS(manW - 1, 0),
-    (flags.status === ATan2Status.xIsNegIsSmaller) -> zManNS(manW - 1, 0),
+  val zManNormalComb = MuxCase(0.U(manW.W), Seq(
+    (flagsDiff.status === ATan2Status.xIsPosIsLarger ) -> zManPL(manW - 1, 0),
+    (flagsDiff.status === ATan2Status.xIsNegIsLarger ) -> zManNL(manW - 1, 0),
+    (flagsDiff.status === ATan2Status.xIsPosIsSmaller) -> zManPS(manW - 1, 0),
+    (flagsDiff.status === ATan2Status.xIsNegIsSmaller) -> zManNS(manW - 1, 0),
   ))
+
+  // --------------------------------------------------------------------------
+  // stage "sel": the selected normal-case exponent and mantissa
+
+  private val cutSel = new SharedPipe("sel", cutDiff.valid, stages.at("sel"))
+
+  val zExNormal  = cutSel(zExNormalComb)
+  val zManNormal = cutSel(zManNormalComb)
+  val flagsSel   = cutSel(flagsDiff)
+
+  // --------------------------------------------------------------------------
+  // stage "out"
 
   // ---- special values ----
   val realPi         = new RealGeneric(spec, Pi)
@@ -568,32 +681,33 @@ class ATan2Phase2PostProcess(
   val realQuarter3Pi = new RealGeneric(spec, Pi * 0.75)
 
   val zExSpecial = MuxCase(0.U(exW.W), Seq(
-    (flags.special === ATan2SpecialValue.zNaN       ) -> Fill(exW, 1.U(1.W)),
-    (flags.special === ATan2SpecialValue.zZero      ) -> 0.U(exW.W),
-    (flags.special === ATan2SpecialValue.zPi        ) -> realPi        .ex.U(exW.W),
-    (flags.special === ATan2SpecialValue.zHalfPi    ) -> realHalfPi    .ex.U(exW.W),
-    (flags.special === ATan2SpecialValue.zQuarterPi ) -> realQuarterPi .ex.U(exW.W),
-    (flags.special === ATan2SpecialValue.z3QuarterPi) -> realQuarter3Pi.ex.U(exW.W),
+    (flagsSel.special === ATan2SpecialValue.zNaN       ) -> Fill(exW, 1.U(1.W)),
+    (flagsSel.special === ATan2SpecialValue.zZero      ) -> 0.U(exW.W),
+    (flagsSel.special === ATan2SpecialValue.zPi        ) -> realPi        .ex.U(exW.W),
+    (flagsSel.special === ATan2SpecialValue.zHalfPi    ) -> realHalfPi    .ex.U(exW.W),
+    (flagsSel.special === ATan2SpecialValue.zQuarterPi ) -> realQuarterPi .ex.U(exW.W),
+    (flagsSel.special === ATan2SpecialValue.z3QuarterPi) -> realQuarter3Pi.ex.U(exW.W),
   ))
   val zManSpecial = MuxCase(0.U(manW.W), Seq(
-    (flags.special === ATan2SpecialValue.zNaN       ) -> Cat(1.U(1.W), 0.U((manW - 1).W)),
-    (flags.special === ATan2SpecialValue.zZero      ) -> 0.U(manW.W),
-    (flags.special === ATan2SpecialValue.zPi        ) -> realPi        .man.toBigInt.U(manW.W),
-    (flags.special === ATan2SpecialValue.zHalfPi    ) -> realHalfPi    .man.toBigInt.U(manW.W),
-    (flags.special === ATan2SpecialValue.zQuarterPi ) -> realQuarterPi .man.toBigInt.U(manW.W),
-    (flags.special === ATan2SpecialValue.z3QuarterPi) -> realQuarter3Pi.man.toBigInt.U(manW.W),
+    (flagsSel.special === ATan2SpecialValue.zNaN       ) -> Cat(1.U(1.W), 0.U((manW - 1).W)),
+    (flagsSel.special === ATan2SpecialValue.zZero      ) -> 0.U(manW.W),
+    (flagsSel.special === ATan2SpecialValue.zPi        ) -> realPi        .man.toBigInt.U(manW.W),
+    (flagsSel.special === ATan2SpecialValue.zHalfPi    ) -> realHalfPi    .man.toBigInt.U(manW.W),
+    (flagsSel.special === ATan2SpecialValue.zQuarterPi ) -> realQuarterPi .man.toBigInt.U(manW.W),
+    (flagsSel.special === ATan2SpecialValue.z3QuarterPi) -> realQuarter3Pi.man.toBigInt.U(manW.W),
   ))
 
   // ---- assemble ----
   // NaN's sign is 0 (per RealGeneric.nan); all other paths carry ysgn.
-  val zSgnSpecial = Mux(flags.special === ATan2SpecialValue.zNaN, 0.U(1.W), flags.ysgn)
+  val zSgnSpecial = Mux(flagsSel.special === ATan2SpecialValue.zNaN, 0.U(1.W),
+                        flagsSel.ysgn)
 
-  val zSgn = Mux(flags.isSpecial, zSgnSpecial, flags.ysgn)
-  val zEx  = Mux(flags.isSpecial, zExSpecial,  zExNormal)
-  val zMan = Mux(flags.isSpecial, zManSpecial, zManNormal)
+  val zSgn = Mux(flagsSel.isSpecial, zSgnSpecial, flagsSel.ysgn)
+  val zEx  = Mux(flagsSel.isSpecial, zExSpecial,  zExNormal)
+  val zMan = Mux(flagsSel.isSpecial, zManSpecial, zManNormal)
 
   val z = Cat(zSgn, zEx, zMan)
-  io.z := Pipe(cutIn.valid, z, stages.at("out"))
+  io.z := Pipe(cutSel.valid, z, stages.at("out"))
 }
 
 /** Pipeline stage points of [[rial.math.ATan2Phase2PostProcess]]. */
@@ -601,7 +715,16 @@ object ATan2Phase2PostProcess {
 
   /** Boundaries at which pipeline registers can be placed.
    *
-   *  - `"out"` the assembled result
+   *  - `"ex"`    the exponent and mantissa of atan(t)
+   *  - `"align"` atan(t) aligned with pi
+   *  - `"diff"`  pi - atan, pi/2 - atan and pi/2 + atan
+   *  - `"sel"`   the selected normal-case exponent and mantissa
+   *  - `"out"`   the assembled result
    */
-  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 3.0))
+  val stagePoints: Seq[StageElem] = Seq(
+    StagePoint("ex",    2.0),
+    StagePoint("align", 2.0),
+    StagePoint("diff",  2.0),
+    StagePoint("sel",   2.0),
+    StagePoint("out",   1.0))
 }

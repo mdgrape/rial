@@ -121,12 +121,11 @@ class ScaleMixtureGaussianPreProcess(
   val useTable    = (xTableMaxDigit + exBias).U(exW.W) > x.ex
 
   val xTableMan = Cat(1.U(1.W), x.man) >> xTableShift
-  val adr       = xTableMan(manW - 1, dxW)
-  io.adr := Pipe(cutIn.valid, adr, stages.at("out"))
-
-  if (order != 0) {
-    val dx = Cat(~xTableMan(manW - adrW - 1), xTableMan(manW - adrW - 2, 0))
-    io.dx.get := Pipe(cutIn.valid, dx, stages.at("out"))
+  val adrComb   = xTableMan(manW - 1, dxW)
+  val dxComb: Option[UInt] = if (order != 0) {
+    Some(Cat(~xTableMan(manW - adrW - 1), xTableMan(manW - adrW - 2, 0)))
+  } else {
+    None
   }
 
   // ---- xsgmA2 = x / sgmA^2 from preMul product ----------------------------
@@ -143,28 +142,57 @@ class ScaleMixtureGaussianPreProcess(
                                  prod(prodW - 3, manW))
   val lsb       = shifted(0)
   val roundInc  = FloatChiselUtil.roundIncBySpec(RoundSpec.roundToEven, lsb, round, sticky)
-  val rounded   = shifted +& roundInc
-  val moreThan2AfterRound = rounded(manW)
-  val exInc     = moreThan2 | moreThan2AfterRound
+  val roundedComb = shifted +& roundInc
 
-  val xsgmA2Man = rounded(manW - 1, 0)
+  // --------------------------------------------------------------------------
+  // stage "round": the rounded product x / sgmA^2
+
+  private val cutRound = new SharedPipe("round", cutIn.valid, stages.at("round"))
+
+  val rounded      = cutRound(roundedComb)
+  val moreThan2Rnd = cutRound(moreThan2)
+  val adrRound     = cutRound(adrComb)
+  val dxRound      = dxComb.map(d => cutRound(d))
+  val useTableRnd  = cutRound(useTable)
+  val xRound       = cutRound(x)
+
+  val moreThan2AfterRound = rounded(manW)
+  val exInc     = moreThan2Rnd | moreThan2AfterRound
+
+  val xsgmA2ManComb = rounded(manW - 1, 0)
 
   assert(rsgmA2.toDouble > 1.0, "sgmA < 1.0, so 1 / sgmA^2 > 1.0")
 
-  val xex0 = x.ex +& (rsgmA2.ex - spec.exBias).U +& exInc
-  val xsgmA2Ex = Mux(xex0 > (spec.exMax + exBias).U,
+  val xex0 = xRound.ex +& (rsgmA2.ex - spec.exBias).U +& exInc
+  val xsgmA2ExComb = Mux(xex0 > (spec.exMax + exBias).U,
     (spec.exMax + exBias + 1).U, xex0)
 
-  // ---- info -- pipeline x.ex by preMulStage to align with the prod input -
-  val info = Wire(new ScaleMixtureGaussianInfo(spec))
-  info.xsgn      := x.sgn
-  info.xnan      := x.nan
-  info.xinf      := x.inf
-  info.xzero     := x.zero
-  info.useTable  := useTable
-  info.xsgmA2Ex  := xsgmA2Ex
-  info.xsgmA2Man := xsgmA2Man
-  io.info := Pipe(cutIn.valid, info, stages.at("out"))
+  val infoComb = Wire(new ScaleMixtureGaussianInfo(spec))
+  infoComb.xsgn      := xRound.sgn
+  infoComb.xnan      := xRound.nan
+  infoComb.xinf      := xRound.inf
+  infoComb.xzero     := xRound.zero
+  infoComb.useTable  := useTableRnd
+  infoComb.xsgmA2Ex  := xsgmA2ExComb
+  infoComb.xsgmA2Man := xsgmA2ManComb
+
+  // --------------------------------------------------------------------------
+  // stage "ex": the exponent of x / sgmA^2
+
+  private val cutEx = new SharedPipe("ex", cutRound.valid, stages.at("ex"))
+
+  val info  = cutEx(infoComb)
+  val adr   = cutEx(adrRound)
+  val dxOut = dxRound.map(d => cutEx(d))
+
+  // --------------------------------------------------------------------------
+  // stage "out"
+
+  io.adr := Pipe(cutEx.valid, adr, stages.at("out"))
+  if (order != 0) {
+    io.dx.get := Pipe(cutEx.valid, dxOut.get, stages.at("out"))
+  }
+  io.info := Pipe(cutEx.valid, info, stages.at("out"))
 }
 
 /** Pipeline stage points of [[rial.math.ScaleMixtureGaussianPreProcess]]. */
@@ -172,9 +200,14 @@ object ScaleMixtureGaussianPreProcess {
 
   /** Boundaries at which pipeline registers can be placed.
    *
-   *  - `"out"` the table address and the info
+   *  - `"round"` the rounded product x / sgmA^2
+   *  - `"ex"`    the exponent of x / sgmA^2
+   *  - `"out"`   the table address and the info
    */
-  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 4.0))
+  val stagePoints: Seq[StageElem] = Seq(
+    StagePoint("round", 3.0),
+    StagePoint("ex",    2.0),
+    StagePoint("out",   1.0))
 }
 
 // -------------------------------------------------------------------------
@@ -295,22 +328,34 @@ class ScaleMixtureGaussianPostProcess(
   private val cutIn = new SharedPipe("in",
     io.info.valid && io.z0ex.valid && io.mul.valid, stages.at("in"))
 
-  val info = cutIn(io.info.bits)
-  val z0ex = cutIn(io.z0ex.bits)
-  val mul  = cutIn(io.mul.bits)
-
-  val zsgn = ~info.xsgn
+  val infoIn = cutIn(io.info.bits)
+  val z0ex   = cutIn(io.z0ex.bits)
+  val mul    = cutIn(io.mul.bits)
 
   // zExNoBias = xsgmA2.ex + z0Ex + exInc - exBias (the xsgmA2 ex and z0 ex are
   // both biased, and we want a single bias in the result).
-  val zex00 = info.xsgmA2Ex +& z0ex +& mul.exInc
+  val zex00 = infoIn.xsgmA2Ex +& z0ex +& mul.exInc
   val zex0  = Mux(zex00 < exBias.U, 0.U, zex00 - exBias.U)
-  val zex   = Mux(zex0 > (spec.exMax + exBias).U,
-                  (spec.exMax + 1 + exBias).U(exW.W),
-                  zex0(exW - 1, 0))
+  val zexComb = Mux(zex0 > (spec.exMax + exBias).U,
+                    (spec.exMax + 1 + exBias).U(exW.W),
+                    zex0(exW - 1, 0))
+
+  // --------------------------------------------------------------------------
+  // stage "ex": the result exponent
+
+  private val cutEx = new SharedPipe("ex", cutIn.valid, stages.at("ex"))
+
+  val zex     = cutEx(zexComb)
+  val zManMul = cutEx(mul.zman)
+  val info    = cutEx(infoIn)
+
+  // --------------------------------------------------------------------------
+  // stage "out"
+
+  val zsgn = ~info.xsgn
 
   // mantissa: zero out the mantissa for under/overflow.
-  val zman = Mux(zex === 0.U || zex === (spec.exMax + 1 + exBias).U, 0.U(manW.W), mul.zman)
+  val zman = Mux(zex === 0.U || zex === (spec.exMax + 1 + exBias).U, 0.U(manW.W), zManMul)
 
   val zNormal = Cat(zsgn, zex, zman)
 
@@ -327,7 +372,7 @@ class ScaleMixtureGaussianPostProcess(
           Mux(info.xzero, zZero,
                           zNormal)))
 
-  io.z := Pipe(cutIn.valid, z, stages.at("out"))
+  io.z := Pipe(cutEx.valid, z, stages.at("out"))
 }
 
 /** Pipeline stage points of [[rial.math.ScaleMixtureGaussianPostProcess]]. */
@@ -335,7 +380,10 @@ object ScaleMixtureGaussianPostProcess {
 
   /** Boundaries at which pipeline registers can be placed.
    *
+   *  - `"ex"`  the result exponent
    *  - `"out"` the assembled result
    */
-  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 3.0))
+  val stagePoints: Seq[StageElem] = Seq(
+    StagePoint("ex",  2.0),
+    StagePoint("out", 1.0))
 }

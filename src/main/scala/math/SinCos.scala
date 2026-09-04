@@ -365,13 +365,29 @@ class SinCosPostProcess(
 
   val info  = cutIn(io.pre.bits)
   val mul   = cutIn(io.mul.bits)
-  val zman0 = mul.zman
-  val zex0  = info.yex + 1.U + mul.exInc
 
-  val znan  = info.znan
-  val zone  = info.zone
-  val zzero = info.yex === 0.U
-  val zsgn  = info.zsgn
+  val zman0Comb = mul.zman
+  val zex0Comb  = info.yex + 1.U + mul.exInc
+
+  val znanComb  = info.znan
+  val zoneComb  = info.zone
+  val zzeroComb = info.yex === 0.U
+  val zsgnComb  = info.zsgn
+
+  // --------------------------------------------------------------------------
+  // stage "ex": the result exponent
+
+  private val cutEx = new SharedPipe("ex", cutIn.valid, stages.at("ex"))
+
+  val zex0  = cutEx(zex0Comb)
+  val zman0 = cutEx(zman0Comb)
+  val znan  = cutEx(znanComb)
+  val zone  = cutEx(zoneComb)
+  val zzero = cutEx(zzeroComb)
+  val zsgn  = cutEx(zsgnComb)
+
+  // --------------------------------------------------------------------------
+  // stage "out"
 
   val zex = Mux(zzero, 0.U,
             Mux(znan,  Fill(exW, 1.U(1.W)),
@@ -384,7 +400,7 @@ class SinCosPostProcess(
   val z = Cat(zsgn, zex, zman)
   assert(z.getWidth == spec.W)
 
-  io.z := Pipe(cutIn.valid, z, stages.at("out"))
+  io.z := Pipe(cutEx.valid, z, stages.at("out"))
 }
 
 /** Pipeline stage points of [[rial.math.SinCosPostProcess]]. */
@@ -392,7 +408,10 @@ object SinCosPostProcess {
 
   /** Boundaries at which pipeline registers can be placed.
    *
+   *  - `"ex"`  the result exponent
    *  - `"out"` the assembled result
    */
-  val stagePoints: Seq[StageElem] = Seq(StagePoint("out", 3.0))
+  val stagePoints: Seq[StageElem] = Seq(
+    StagePoint("ex",  1.0),
+    StagePoint("out", 1.0))
 }
