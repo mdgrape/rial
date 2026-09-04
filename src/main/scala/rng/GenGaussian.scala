@@ -107,27 +107,20 @@ private[rial] class ProbitTable(
 // recommended rndW = 2*manW (64 for FP32)
 /** Generates a gaussian random number out of `rndW` uniform random bits.
  *
- * The uniform input is split into a sign, a page bit and a uniform value `x`;
- * the octave of `x` selects an interval of the probit (inverse gaussian CDF),
- * whose polynomial is evaluated by [[rial.table.PolynomialEval]] and scaled by
- * the value of the probit at the shallow end of the interval.
+ * The generator is based on a piecewise polynomial approximation of the
+ * inverse CDF of the gaussian, evaluated by [[rial.table.PolynomialEval]].
  *
  * Pipeline registers can be enabled at the following points of the datapath
  * (names for `PipelineStageConfig.specify`):
  *
  *  - `"in"`     the module input
- *  - `"table"`  after the interval decode, the coefficient table read and the
- *               position `dx` inside the interval, i.e. everything that feeds
- *               the polynomial
+ *  - `"table"`  after the coefficient table lookup
  *  - `"poly.*"` the boundaries of the [[rial.table.PolynomialEval]] submodule
  *               that evaluates the polynomial of the interval, see its doc for
  *               the names; the group name `"poly"` stands for `"poly.out"`
- *  - `"scale"`  after the scale table read and the exponent / mantissa select,
- *               i.e. everything that feeds the mantissa product besides the
- *               polynomial
+ *  - `"scale"`  after the scale lookup
  *  - `"mul"`    after the mantissa product
- *  - `"out"`    the module output; the normalisation of the product and the
- *               assembly of the result belong to the logic just before it
+ *  - `"out"`    the module output
  *
  * [[getStage]] gives the resulting latency, and `z.valid` is `rnd.valid`
  * delayed by that many cycles.
