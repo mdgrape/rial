@@ -4,7 +4,6 @@ import chisel3._
 import chisel3.util._
 
 import rial.arith.RealSpec
-import rial.util.PipelineStageConfig
 
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.math.exp
@@ -170,12 +169,12 @@ class MathFuncConfig(
   /** The width of UInt to represent function select signal.
    *
    *  signal contains: `None ++ [funcs..] ++ Invalid`.
-   *  `io.sel` of each functions corresponds to non-zero index in `funcs`.
+   *  `io.in.bits.sel` of each functions corresponds to non-zero index in `funcs`.
    *  If `None` is given, it calculates nothing.
    *  If `Invalid` is given, it calculates something invalid.
    *
    *  `Invalid` is introduced to make implementation easy. There is no sense in
-   *  sending `Invalid` as `io.sel` signal.
+   *  sending `Invalid` as `sel` signal.
    */
   val signalW = log2Ceil(2 + funcs.length)
 
@@ -185,9 +184,9 @@ class MathFuncConfig(
    * val mathfunc = Module(new MathFunction(...))
    *
    * when(doSqrt) {
-   *   mathfunc.io.sel := MathFuncConfig.signal(FuncKind.Sqrt)
+   *   mathfunc.io.in.bits.sel := MathFuncConfig.signal(FuncKind.Sqrt)
    * }.otherwise {
-   *   mathfunc.io.sel := MathFuncConfig.signalNone
+   *   mathfunc.io.in.bits.sel := MathFuncConfig.signalNone
    * }
    * }}}
    *
@@ -382,58 +381,3 @@ object MathFuncConfig {
     scaleMixtureGaussianSigma = Some(defaultSMGSigma),
   )
 }
-
-/** Config class to set pipeline stages in a [[rial.math.MathFunctions]] module.
- *
- * @constructor create a new MathFuncConfig.
- * @param preStage     pipeline stages of preprocess.
- * @param calcStage    pipeline stages of table/polynomial and non-table path.
- * @param postStage    pipeline stages of postprocess.
- *
- */
-class MathFuncPipelineConfig(
-  val preStage:     Int,
-  val tableStage:   Int,
-  val calcStage:    Int,
-  val postStage:    Int,
-  val preMulStage:  Int = 0,
-  val postMulStage: Int = 0,
-) {
-
-  assert(preMulStage <= preStage,
-    "preStage includes preMulStage, so should be larger than preMulStage.")
-  assert(postMulStage <= postStage,
-    "postStage includes postMulStage, so should be larger than postMulStage.")
-
-  /** Calculates the total latency in clock cycles.
-   */
-  def total = {
-             1 +
-    preStage   +
-    tableStage +
-    calcStage  +
-    postStage
-  }
-
-  val nonTableStage = tableStage + calcStage
-
-  /** Generates a string that represents the current config.
-   */
-  def getString = {
-    f"pre:${preStage}(mul=${preMulStage}), " +
-    f"table:${tableStage}, " +
-    f"calc:${calcStage}, " +
-    f"post:${postStage}(mul=${postMulStage})"
-  }
-}
-
-/** Factory for [[rial.math.MathFuncPipelineConfig]].
- */
-object MathFuncPipelineConfig {
-  /** constructs a config corresponding to the single cycle mathfunc.
-   */
-  def none = {
-    new MathFuncPipelineConfig(0,0,0,0,0,0)
-  }
-}
-

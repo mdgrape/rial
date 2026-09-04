@@ -15,6 +15,7 @@ import spire.implicits._
 import rial.math._
 import rial.math.FuncKind._
 import rial.arith._
+import rial.util.PipelineStageConfig
 import rial.util.ScalaUtil._
 
 import scala.util.Random
@@ -35,13 +36,13 @@ class ATan2Phase1Test extends AnyFunSpec
   private def runtest(
     spec:  RealSpec,
     cfg:   MathFuncConfig,
-    stage: MathFuncPipelineConfig,
+    stage: PipelineStageConfig,
     generatorStr: String,
     generatorX:      (RealSpec, Random) => RealGeneric,
     generatorYoverX: (RealSpec, Random) => RealGeneric,
     reference: (RealGeneric, RealGeneric) => RealGeneric,
   ) = {
-    val total      = stage.total
+    val total      = stage.resolve(MathFunctions.stagePoints(cfg)).total
     val pipeconfig = stage.getString
 
     it(f"atan2Phase1(y, x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr with ${cfg.getString}") {
@@ -57,12 +58,15 @@ class ATan2Phase1Test extends AnyFunSpec
           val z0r = reference(y, x)
           q += ((x.value.toBigInt, y.value.toBigInt, z0r.value.toBigInt))
 
-          c.io.sel.poke(cfg.signal(ATan2Phase1))
-          c.io.x.poke(x.value.toBigInt.U(spec.W.W))
-          c.io.y.get.poke(y.value.toBigInt.U(spec.W.W))
+          c.io.in.valid.poke(true.B)
+          c.io.in.bits.sel.poke(cfg.signal(ATan2Phase1))
+          c.io.in.bits.x.poke(x.value.toBigInt.U(spec.W.W))
+          c.io.in.bits.y.get.poke(y.value.toBigInt.U(spec.W.W))
 
-          val zi = c.io.z.peek().litValue.toBigInt
+          val zi = c.io.out.bits.peek().litValue.toBigInt
           if (i > total) {
+            assert(c.io.out.valid.peek().litToBoolean,
+              f"io.out.valid is not set at cycle $i%d (latency $total%d)")
             val (xid, yid, z0d) = q.dequeue()
 
             val zisgn = bit(spec.W - 1, zi).toInt
@@ -89,9 +93,8 @@ class ATan2Phase1Test extends AnyFunSpec
   val phase1RefFP32 = (y: RealGeneric, x: RealGeneric) =>
     ATan2Phase1SimGeneric(fp32Config.coeffs(Reciprocal), y, x)
 
-  val noPipeStage     = new MathFuncPipelineConfig(0, 0, 0, 0, 0, 0)
-  val simplePipeStage = new MathFuncPipelineConfig(1, 1, 1, 1, 0, 0)
-  val mulPipeStage    = new MathFuncPipelineConfig(2, 1, 1, 2, 0, 1)
+  val noPipeStage     = PipelineStageConfig.none
+  val simplePipeStage = PipelineStageConfig.default(4)
 
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
     "Test y/x >  2^24",         generateRealWithin(-1.0, 1.0, _, _),         generateRealWithin( pow(2.0,  24),  pow(2.0, 128), _, _), phase1RefFP32)
@@ -109,9 +112,9 @@ class ATan2Phase1Test extends AnyFunSpec
   runtest(RealSpec.Float32Spec, fp32Config, simplePipeStage,
     "Test y/x ~ 1",             generateRealWithin(-1.0, 1.0, _, _),         generateRealWithin( 0.999998,        1.000002,      _, _), phase1RefFP32)
 
-  runtest(RealSpec.Float32Spec, fp32Config, mulPipeStage,
+  runtest(RealSpec.Float32Spec, fp32Config, MathTestUtil.allPoints(fp32Config),
     "Test 2^-12 < y/x < 1",     generateRealWithin(-1.0, 1.0, _, _),         generateRealWithin( pow(2.0, -12),  1.0,           _, _), phase1RefFP32)
-  runtest(RealSpec.Float32Spec, fp32Config, mulPipeStage,
+  runtest(RealSpec.Float32Spec, fp32Config, MathTestUtil.allPoints(fp32Config),
     "Test y/x ~ 1",             generateRealWithin(-1.0, 1.0, _, _),         generateRealWithin( 0.999998,        1.000002,      _, _), phase1RefFP32)
 
   // --------------------------------------------------------------------------

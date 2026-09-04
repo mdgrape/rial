@@ -19,6 +19,7 @@ import chisel3.util._
 import rial.arith.RoundSpec
 import rial.arith.FloatChiselUtil
 import rial.math.FuncKind._
+import rial.util._
 
 private[rial] class PostProcMultiplierOutput(val manW: Int) extends Bundle {
   val zman  = UInt(manW.W)
@@ -29,8 +30,17 @@ private[rial] class PostProcMultiplier(
   val fracW:     Int,
   val manW:      Int,
   val roundSpec: RoundSpec,
-  val stage:     Int,
+  val stage:     PipelineStageConfig,
 ) extends Module {
+
+  /** Boundaries at which pipeline registers can be placed. */
+  val stagePoints = PostProcMultiplier.stagePoints
+
+  val stages = stage.resolve(stagePoints)
+
+  val nStage = stages.total
+
+  def getStage = nStage
 
   val io = IO(new Bundle {
     val in = Flipped(Valid(new Bundle {
@@ -40,7 +50,20 @@ private[rial] class PostProcMultiplier(
     val out = Valid(new PostProcMultiplierOutput(manW))
   })
 
-  val prod      = io.in.bits.lhs * io.in.bits.rhs
+  // --------------------------- stage "in" ---------------------------
+  private val cutIn = new SharedPipe("in", io.in.valid, stages.at("in"))
+
+  val lhsIn = cutIn(io.in.bits.lhs)
+  val rhsIn = cutIn(io.in.bits.rhs)
+
+  val prodComb = lhsIn * rhsIn
+
+  // -------------------------- stage "prod" --------------------------
+  // right at the output of the multiplier, so that the register can be
+  // absorbed into the DSP block
+  private val cutProd = new SharedPipe("prod", cutIn.valid, stages.at("prod"))
+
+  val prod      = cutProd(prodComb)
   val moreThan2 = prod((manW + 1) + (fracW + 1) - 1)
 
   val roundBits = fracW
@@ -57,10 +80,18 @@ private[rial] class PostProcMultiplier(
   outBits.zman  := rounded(manW - 1, 0)
   outBits.exInc := moreThan2 | moreThan2AfterRound
 
-  io.out := Pipe(io.in.valid, outBits, stage)
+  // --------------------------- stage "out" ---------------------------
+  io.out := Pipe(cutProd.valid, outBits, stages.at("out"))
 }
 
 object PostProcMultiplier {
+
+  /** Boundaries at which pipeline registers can be placed; see
+   *  [[rial.math.PostProcMultiplier]].
+   */
+  val stagePoints: Seq[StageElem] = Seq(
+    StagePoint("prod", 2.0),
+    StagePoint("out",  2.0))
 
   /** True iff any configured function requires the post-process multiplier. */
   def isNeeded(funcs: Seq[FuncKind]): Boolean = {

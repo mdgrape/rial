@@ -15,6 +15,7 @@ import spire.implicits._
 import rial.math._
 import rial.math.FuncKind._
 import rial.arith._
+import rial.util.PipelineStageConfig
 import rial.util.ScalaUtil._
 
 import scala.util.Random
@@ -47,11 +48,11 @@ class ExpTest extends AnyFunSpec
   private def runtest(
     spec:  RealSpec,
     cfg:   MathFuncConfig,
-    stage: MathFuncPipelineConfig,
+    stage: PipelineStageConfig,
     generatorStr: String, generator: (RealSpec, Random) => RealGeneric,
     reference: RealGeneric => RealGeneric,
   ) = {
-    val total      = stage.total
+    val total      = stage.resolve(MathFunctions.stagePoints(cfg)).total
     val pipeconfig = stage.getString
 
     it(f"exp(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr with ${cfg.getString}") {
@@ -64,11 +65,14 @@ class ExpTest extends AnyFunSpec
           val z0r = reference(xi)
           q += ((xi.value.toBigInt, z0r.value.toBigInt))
 
-          c.io.sel.poke(cfg.signal(Exp))
-          c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
+          c.io.in.valid.poke(true.B)
+          c.io.in.bits.sel.poke(cfg.signal(Exp))
+          c.io.in.bits.x.poke(xi.value.toBigInt.U(spec.W.W))
 
-          val zi = c.io.z.peek().litValue.toBigInt
+          val zi = c.io.out.bits.peek().litValue.toBigInt
           if (i > total) {
+            assert(c.io.out.valid.peek().litToBoolean,
+              f"io.out.valid is not set at cycle $i%d (latency $total%d)")
             val (xid, z0d) = q.dequeue()
 
             val xidsgn = bit(spec.W - 1, xid).toInt
@@ -99,9 +103,8 @@ class ExpTest extends AnyFunSpec
   val fp32Config = MathFuncConfig.standardFP32
   val expRefFP32 = ExpSimGeneric(fp32Config.coeffs(Exp), _: RealGeneric)
 
-  val noPipeStage     = new MathFuncPipelineConfig(0, 0, 0, 0, 0, 0)
-  val simplePipeStage = new MathFuncPipelineConfig(1, 1, 1, 1, 0, 0)
-  val mulPipeStage    = new MathFuncPipelineConfig(2, 1, 1, 2, 1, 1)
+  val noPipeStage     = PipelineStageConfig.none
+  val simplePipeStage = PipelineStageConfig.default(4)
 
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
     "Test Safe (-1, 1)", generateRealWithin(-1.0, 1.0, _, _), expRefFP32)
@@ -125,13 +128,13 @@ class ExpTest extends AnyFunSpec
   runtest(RealSpec.Float32Spec, fp32Config, simplePipeStage,
     "Test Special Values", generateSpecialValues(_, _), expRefFP32)
 
-  runtest(RealSpec.Float32Spec, fp32Config, mulPipeStage,
+  runtest(RealSpec.Float32Spec, fp32Config, MathTestUtil.allPoints(fp32Config),
     "Test Safe (-1, 1)", generateRealWithin(-1.0, 1.0, _, _), expRefFP32)
-  runtest(RealSpec.Float32Spec, fp32Config, mulPipeStage,
+  runtest(RealSpec.Float32Spec, fp32Config, MathTestUtil.allPoints(fp32Config),
     "Test Safe Positive [1, 88]", generateRealWithin(1.0, 88.0, _, _), expRefFP32)
-  runtest(RealSpec.Float32Spec, fp32Config, mulPipeStage,
+  runtest(RealSpec.Float32Spec, fp32Config, MathTestUtil.allPoints(fp32Config),
     "Test Safe Negative [-87, -1]", generateRealWithin(-87.0, -1.0, _, _), expRefFP32)
-  runtest(RealSpec.Float32Spec, fp32Config, mulPipeStage,
+  runtest(RealSpec.Float32Spec, fp32Config, MathTestUtil.allPoints(fp32Config),
     "Test Special Values", generateSpecialValues(_, _), expRefFP32)
 
   // --------------------------------------------------------------------------

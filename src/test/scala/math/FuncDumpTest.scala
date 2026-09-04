@@ -11,6 +11,7 @@ import org.scalatest.funspec.AnyFunSpec
 import rial.math._
 import rial.math.FuncKind._
 import rial.arith._
+import rial.util.PipelineStageConfig
 
 import java.io.PrintWriter
 import scala.collection.mutable.ArrayBuffer
@@ -34,7 +35,7 @@ class FuncDumpTest extends AnyFunSpec
     with ChiselSim with EmitVcd {
 
   val spec   = RealSpec.Float32Spec
-  val stage  = MathFuncPipelineConfig.none
+  val stage  = PipelineStageConfig.none
   val total  = stage.total
   val outDir = sys.props.getOrElse("user.dir", ".")
 
@@ -54,15 +55,17 @@ class FuncDumpTest extends AnyFunSpec
     for (i <- 1 to n + total) {
       val idx = i - 1
       if (idx < n) {
-        c.io.sel.poke(cfg.signal(fn))
-        c.io.x.poke(inputs(idx).U(spec.W.W))
-        if (c.io.y.isDefined) c.io.y.get.poke(ys(idx).U(spec.W.W))
+        c.io.in.valid.poke(true.B)
+        c.io.in.bits.sel.poke(cfg.signal(fn))
+        c.io.in.bits.x.poke(inputs(idx).U(spec.W.W))
+        if (c.io.in.bits.y.isDefined) c.io.in.bits.y.get.poke(ys(idx).U(spec.W.W))
       } else {
-        c.io.sel.poke(cfg.signalNone())
-        c.io.x.poke(0.U(spec.W.W))
-        if (c.io.y.isDefined) c.io.y.get.poke(0.U(spec.W.W))
+        c.io.in.valid.poke(false.B)
+        c.io.in.bits.sel.poke(cfg.signalNone())
+        c.io.in.bits.x.poke(0.U(spec.W.W))
+        if (c.io.in.bits.y.isDefined) c.io.in.bits.y.get.poke(0.U(spec.W.W))
       }
-      val zi = c.io.z.peek().litValue
+      val zi = c.io.out.bits.peek().litValue
       if (i > total) out += zi
       c.clock.step(1)
     }

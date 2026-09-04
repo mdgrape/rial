@@ -15,6 +15,7 @@ import spire.implicits._
 import rial.math._
 import rial.math.FuncKind._
 import rial.arith._
+import rial.util.PipelineStageConfig
 import rial.util.ScalaUtil._
 
 import scala.util.Random
@@ -61,11 +62,11 @@ class SigmoidTest extends AnyFunSpec
   private def runtest(
     spec:  RealSpec,
     cfg:   MathFuncConfig,
-    stage: MathFuncPipelineConfig,
+    stage: PipelineStageConfig,
     generatorStr: String,
     generator: (RealSpec, Random) => RealGeneric,
   ) = {
-    val total      = stage.total
+    val total      = stage.resolve(MathFunctions.stagePoints(cfg)).total
     val pipeconfig = stage.getString
 
     val reference = SigmoidSimGeneric(cfg.coeffs(Sigmoid), _: RealGeneric)
@@ -80,12 +81,15 @@ class SigmoidTest extends AnyFunSpec
           val z0r = reference(xi)
           q += ((xi.value.toBigInt, z0r.value.toBigInt))
 
-          c.io.sel.poke(cfg.signal(Sigmoid))
-          c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
-          if (c.io.y.isDefined) c.io.y.get.poke(0.U(spec.W.W))
+          c.io.in.valid.poke(true.B)
+          c.io.in.bits.sel.poke(cfg.signal(Sigmoid))
+          c.io.in.bits.x.poke(xi.value.toBigInt.U(spec.W.W))
+          if (c.io.in.bits.y.isDefined) c.io.in.bits.y.get.poke(0.U(spec.W.W))
 
-          val zi = c.io.z.peek().litValue.toBigInt
+          val zi = c.io.out.bits.peek().litValue.toBigInt
           if (i > total) {
+            assert(c.io.out.valid.peek().litToBoolean,
+              f"io.out.valid is not set at cycle $i%d (latency $total%d)")
             val (xid, z0d) = q.dequeue()
 
             val xidsgn = bit(spec.W - 1, xid).toInt
@@ -116,9 +120,8 @@ class SigmoidTest extends AnyFunSpec
 
   val fp32Config = MathFuncConfig.allFP32
 
-  val noPipeStage     = new MathFuncPipelineConfig(0, 0, 0, 0, 0, 0)
-  val simplePipeStage = new MathFuncPipelineConfig(1, 1, 1, 1, 0, 0)
-  val complexPipeline = new MathFuncPipelineConfig(2, 1, 1, 2, 1, 1)
+  val noPipeStage     = PipelineStageConfig.none
+  val simplePipeStage = PipelineStageConfig.default(4)
 
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
     "Test Within (-128,128)", generateRealWithin(128.0, _, _))
@@ -134,9 +137,9 @@ class SigmoidTest extends AnyFunSpec
   runtest(RealSpec.Float32Spec, fp32Config, simplePipeStage,
     "Test special values",    generateSpecialValues(_, _))
 
-  runtest(RealSpec.Float32Spec, fp32Config, complexPipeline,
+  runtest(RealSpec.Float32Spec, fp32Config, MathTestUtil.allPoints(fp32Config),
     "Test Within (-128,128)", generateRealWithin(128.0, _, _))
-  runtest(RealSpec.Float32Spec, fp32Config, complexPipeline,
+  runtest(RealSpec.Float32Spec, fp32Config, MathTestUtil.allPoints(fp32Config),
     "Test special values",    generateSpecialValues(_, _))
 
   // --------------------------------------------------------------------------

@@ -15,6 +15,7 @@ import spire.implicits._
 import rial.math._
 import rial.math.FuncKind._
 import rial.arith._
+import rial.util.PipelineStageConfig
 import rial.util.ScalaUtil._
 
 import scala.util.Random
@@ -60,11 +61,11 @@ class ACosPhase2Test extends AnyFunSpec
   private def runtest(
     spec:  RealSpec,
     cfg:   MathFuncConfig,
-    stage: MathFuncPipelineConfig,
+    stage: PipelineStageConfig,
     generatorStr: String, generator: (RealSpec, Random) => RealGeneric,
     ref: RealGeneric => (RealGeneric, RealGeneric),
   ) = {
-    val total      = stage.total
+    val total      = stage.resolve(MathFunctions.stagePoints(cfg)).total
     val pipeconfig = stage.getString
 
     it(f"acosPhase2(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr with ${cfg.getString}") {
@@ -78,11 +79,14 @@ class ACosPhase2Test extends AnyFunSpec
           val (p1, p2) = ref(x)
           q += ((p1.value.toBigInt, p2.value.toBigInt))
 
-          c.io.sel.poke(cfg.signal(ACosPhase2))
-          c.io.x.poke(p1.value.toBigInt.U(spec.W.W))
+          c.io.in.valid.poke(true.B)
+          c.io.in.bits.sel.poke(cfg.signal(ACosPhase2))
+          c.io.in.bits.x.poke(p1.value.toBigInt.U(spec.W.W))
 
-          val zi = c.io.z.peek().litValue.toBigInt
+          val zi = c.io.out.bits.peek().litValue.toBigInt
           if (i > total) {
+            assert(c.io.out.valid.peek().litToBoolean,
+              f"io.out.valid is not set at cycle $i%d (latency $total%d)")
             val (xid, z0d) = q.dequeue()
 
             val xidsgn = bit(spec.W - 1, xid).toInt
@@ -113,9 +117,8 @@ class ACosPhase2Test extends AnyFunSpec
   val fp32Config = MathFuncConfig.standardFP32
   val refFP32 = fullRef(fp32Config)
 
-  val noPipeStage     = new MathFuncPipelineConfig(0, 0, 0, 0, 0, 0)
-  val simplePipeStage = new MathFuncPipelineConfig(1, 1, 1, 1, 0, 0)
-  val mulPipeStage    = new MathFuncPipelineConfig(1, 1, 1, 2, 0, 1)
+  val noPipeStage     = PipelineStageConfig.none
+  val simplePipeStage = PipelineStageConfig.default(4)
 
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
     "Test 0 < x <= 2^-4",   generateRealWithin(0.0, pow(2.0, -4), _, _), refFP32)
@@ -135,11 +138,11 @@ class ACosPhase2Test extends AnyFunSpec
   runtest(RealSpec.Float32Spec, fp32Config, simplePipeStage,
     "Test special values",  generateSpecialValues(_, _), refFP32)
 
-  runtest(RealSpec.Float32Spec, fp32Config, mulPipeStage,
+  runtest(RealSpec.Float32Spec, fp32Config, MathTestUtil.allPoints(fp32Config),
     "Test 2^-4 < x < 1-2^-4", generateRealWithin(pow(2.0, -4), 1.0 - pow(2.0, -4), _, _), refFP32)
-  runtest(RealSpec.Float32Spec, fp32Config, mulPipeStage,
+  runtest(RealSpec.Float32Spec, fp32Config, MathTestUtil.allPoints(fp32Config),
     "Test -1 <= x < 0",     generateRealWithin(-1.0, 0.0, _, _), refFP32)
-  runtest(RealSpec.Float32Spec, fp32Config, mulPipeStage,
+  runtest(RealSpec.Float32Spec, fp32Config, MathTestUtil.allPoints(fp32Config),
     "Test special values",  generateSpecialValues(_, _), refFP32)
 
   // --------------------------------------------------------------------------

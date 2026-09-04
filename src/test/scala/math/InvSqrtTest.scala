@@ -17,6 +17,7 @@ import spire.implicits._
 import rial.math._
 import rial.math.FuncKind._
 import rial.arith._
+import rial.util.PipelineStageConfig
 import rial.util.ScalaUtil._
 
 import scala.util.Random
@@ -63,11 +64,11 @@ class InvSqrtTest extends AnyFunSpec
   private def runtest (
     spec:  RealSpec,
     cfg:   MathFuncConfig,
-    stage: MathFuncPipelineConfig,
+    stage: PipelineStageConfig,
     generatorStr: String, generator: (RealSpec, Random) => RealGeneric,
     reference: RealGeneric => RealGeneric
   ) = {
-    val total      = stage.total
+    val total      = stage.resolve(MathFunctions.stagePoints(cfg)).total
     val pipeconfig = stage.getString
 
     it(f"invsqrt(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr with ${cfg.getString}") {
@@ -82,11 +83,14 @@ class InvSqrtTest extends AnyFunSpec
             val z0r = reference(xi)
             q += ((xi.value.toBigInt,z0r.value.toBigInt))
 
-            c.io.sel.poke(cfg.signal(InvSqrt))
-            c.io.x.poke(xi.value.toBigInt.U(spec.W.W))
+            c.io.in.valid.poke(true.B)
+            c.io.in.bits.sel.poke(cfg.signal(InvSqrt))
+            c.io.in.bits.x.poke(xi.value.toBigInt.U(spec.W.W))
 
-            val zi = c.io.z.peek().litValue.toBigInt
+            val zi = c.io.out.bits.peek().litValue.toBigInt
             if (i > total) {
+              assert(c.io.out.valid.peek().litToBoolean,
+                f"io.out.valid is not set at cycle $i%d (latency $total%d)")
               val (xid,z0d) = q.dequeue()
 
               val xidsgn = bit(spec.W-1, xid).toInt
@@ -119,9 +123,8 @@ class InvSqrtTest extends AnyFunSpec
   val fp32Config = MathFuncConfig.standardFP32
   val invsqrtRefFP32 = InvSqrtSimGeneric(fp32Config.coeffs(InvSqrt), _)
 
-  val noPipeStage = new MathFuncPipelineConfig(0,0,0,0)
-  val simplePipeStage = new MathFuncPipelineConfig(1,1,1,1)
-  val complexPipeStage = new MathFuncPipelineConfig(1,1,3,1)
+  val noPipeStage     = PipelineStageConfig.none
+  val simplePipeStage = PipelineStageConfig.default(4)
 
   runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
     "Test Within (-128,128)", generateRealWithin(128.0,_,_), invsqrtRefFP32)
@@ -137,11 +140,11 @@ class InvSqrtTest extends AnyFunSpec
   runtest(RealSpec.Float32Spec, fp32Config, simplePipeStage,
     "Test Special Values", generateSpecialValues(_,_), invsqrtRefFP32)
 
-  runtest(RealSpec.Float32Spec, fp32Config, complexPipeStage,
+  runtest(RealSpec.Float32Spec, fp32Config, MathTestUtil.allPoints(fp32Config),
     "Test Within (-128,128)", generateRealWithin(128.0,_,_), invsqrtRefFP32)
-  runtest(RealSpec.Float32Spec, fp32Config, complexPipeStage,
+  runtest(RealSpec.Float32Spec, fp32Config, MathTestUtil.allPoints(fp32Config),
     "Test All range", generateRealFull(_,_), invsqrtRefFP32)
-  runtest(RealSpec.Float32Spec, fp32Config, complexPipeStage,
+  runtest(RealSpec.Float32Spec, fp32Config, MathTestUtil.allPoints(fp32Config),
     "Test Special Values", generateSpecialValues(_,_), invsqrtRefFP32)
 
   // --------------------------------------------------------------------------
@@ -179,11 +182,11 @@ class InvSqrtTest extends AnyFunSpec
   runtest(RealSpec.Float32Spec, fp32ConfigSimple, noPipeStage,
     "Test Special Values", generateSpecialValues(_,_), invsqrtRefFP32Simple)
 
-  runtest(RealSpec.Float32Spec, fp32ConfigSimple, complexPipeStage,
+  runtest(RealSpec.Float32Spec, fp32ConfigSimple, MathTestUtil.allPoints(fp32ConfigSimple),
     "Test Within (-128,128)", generateRealWithin(128.0,_,_), invsqrtRefFP32Simple)
-  runtest(RealSpec.Float32Spec, fp32ConfigSimple, complexPipeStage,
+  runtest(RealSpec.Float32Spec, fp32ConfigSimple, MathTestUtil.allPoints(fp32ConfigSimple),
     "Test All range", generateRealFull(_,_), invsqrtRefFP32Simple)
-  runtest(RealSpec.Float32Spec, fp32ConfigSimple, complexPipeStage,
+  runtest(RealSpec.Float32Spec, fp32ConfigSimple, MathTestUtil.allPoints(fp32ConfigSimple),
     "Test Special Values", generateSpecialValues(_,_), invsqrtRefFP32Simple)
 
   val bf16ConfigSimple     = MathFuncConfig.simpleBF16
