@@ -228,21 +228,36 @@ class SinCosPreProcess(
   val zsgnFold = cutFold(zsgnComb)
   val znanFold = cutFold(znanNorm)
 
-  val ymanIsNonZero = yman0.orR
+  val ymanIsNonZeroComb = yman0.orR
 
-  // round/normalize yman0 to a manW-bit mantissa, like the old code.
-  val yman0W        = yman0.getWidth
-  val yman0Shift0   = PriorityEncoder(Reverse(yman0))
-  val yman0ShiftW   = log2Up(yman0W)
-  val yman0Shift    = yman0Shift0(yman0ShiftW - 1, 0)
-  val yman0Shifted  = (yman0 << yman0Shift)(yman0W - 1, 0)
+  // normalize yman0: shift its leading one up, and take the shift out of the
+  // exponent.
+  val yman0W           = yman0.getWidth
+  val yman0Shift0      = PriorityEncoder(Reverse(yman0))
+  val yman0ShiftW      = log2Up(yman0W)
+  val yman0Shift       = yman0Shift0(yman0ShiftW - 1, 0)
+  val yman0ShiftedComb = (yman0 << yman0Shift)(yman0W - 1, 0)
+  val yexShiftedComb   = yex0 - yman0Shift
+
+  // --------------------------------------------------------------------------
+  // stage "shift": the normalized argument
+
+  private val cutShift = new SharedPipe("shift", cutFold.valid, stages.at("shift"))
+
+  val yman0Shifted  = cutShift(yman0ShiftedComb)
+  val yexShifted    = cutShift(yexShiftedComb)
+  val ymanIsNonZero = cutShift(ymanIsNonZeroComb)
+  val zsgnShift     = cutShift(zsgnFold)
+  val znanShift     = cutShift(znanFold)
+
+  // round it to a manW-bit mantissa, like the old code.
   val yman0RoundBit = yman0W - manW - 1
   val yman0Rounded  = yman0Shifted(yman0W - 2, yman0RoundBit) +&
                       yman0Shifted(yman0RoundBit - 1)
   val yman0MoreThan2 = yman0Rounded(manW)
 
   val ymanNonZero = yman0Rounded(manW - 1, 0)
-  val yexNonZero  = yex0 - yman0Shift + yman0MoreThan2
+  val yexNonZero  = yexShifted + yman0MoreThan2
   val yexComb  = Mux(!ymanIsNonZero, 0.U, yexNonZero)
   val ymanComb = Mux(!ymanIsNonZero, 0.U, ymanNonZero)
 
@@ -251,13 +266,13 @@ class SinCosPreProcess(
   // --------------------------------------------------------------------------
   // stage "round": the rounded argument
 
-  private val cutRound = new SharedPipe("round", cutFold.valid, stages.at("round"))
+  private val cutRound = new SharedPipe("round", cutShift.valid, stages.at("round"))
 
   val yex       = cutRound(yexComb)
   val yman      = cutRound(ymanComb)
   val zone      = cutRound(zoneComb)
-  val zsgnRound = cutRound(zsgnFold)
-  val znanRound = cutRound(znanFold)
+  val zsgnRound = cutRound(zsgnShift)
+  val znanRound = cutRound(znanShift)
 
   // --------------------------------------------------------------------------
   // address / dx for the polynomial
@@ -290,13 +305,15 @@ object SinCosPreProcess {
    *
    *  - `"norm"`  the normalized x/π
    *  - `"fold"`  the folded argument
+   *  - `"shift"` the normalized argument
    *  - `"round"` the rounded argument
    *  - `"out"`   the table address and the info
    */
   val stagePoints: Seq[StageElem] = Seq(
     StagePoint("norm",  3.0),
     StagePoint("fold",  4.0),
-    StagePoint("round", 4.0),
+    StagePoint("shift", 2.0),
+    StagePoint("round", 2.0),
     StagePoint("out",   2.0))
 }
 
