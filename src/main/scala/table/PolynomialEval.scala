@@ -79,14 +79,34 @@ class PolynomialEval(
     val out = Valid(UInt(bitW.outBitW.W)) // [0.0, 1.0)
   })
 
+  /** One cut of the datapath, with the semantics of [[chisel3.util.Pipe]]: one
+   * valid flag per cut, reset to false, travels with the data and enables the
+   * data registers of its own stage. */
+  private class PipeCut(v: Bool, n: Int) {
+
+    /** the valid entering each stage of the cut, then the one leaving it. */
+    private val valids = Seq.iterate(v, n+1)(prev => RegNext(prev, false.B))
+
+    /** the valid flag leaving the cut. */
+    val valid: Bool = valids.last
+
+    /** pipe `x` through the cut, enabled by the valid entering each stage. */
+    def apply[T <: Data](x: T): T = {
+      valids.init.foldLeft(x)((d, en) => RegEnable(d, en))
+    }
+  }
+
   // ----------------------------------------------------------------------
   // input registers ("in")
 
-  val nIn      = stages.at("in")
-  val validIn  = ShiftRegister(io.in.valid, nIn, false.B, true.B)
-  val coeffsIn = ShiftRegister(io.in.bits.coeffs, nIn)
+  val nIn = stages.at("in")
+
+  private val cutIn = new PipeCut(io.in.valid, nIn)
+
+  val validIn  = cutIn.valid
+  val coeffsIn = cutIn(io.in.bits.coeffs)
   val xInOpt   = if (order != 0) {
-    Some(ShiftRegister(io.in.bits.x.get, nIn))
+    Some(cutIn(io.in.bits.x.get))
   } else {
     None
   }
@@ -137,11 +157,12 @@ class PolynomialEval(
       assert(!validCur || (k == 0).B || accVec(k) === sumFull, "PolynomialEval: horner "+
         f"intermediate (k=${k}) overflowed calcBits=${bitW.calcBits(k)}")
 
-      val nStep = stages.at(s"step${order - k}")
-      accCur   = ShiftRegister(accVec(k), nStep)
-      xCur     = ShiftRegister(xCur,      nStep)
-      coefCur  = ShiftRegister(coefCur,   nStep)
-      validCur = ShiftRegister(validCur,  nStep, false.B, true.B)
+      val nStep   = stages.at(s"step${order - k}")
+      val cutStep = new PipeCut(validCur, nStep)
+      accCur   = cutStep(accVec(k))
+      xCur     = cutStep(xCur)
+      coefCur  = cutStep(coefCur)
+      validCur = cutStep.valid
     }
 
     val resMax = Fill(bitW.outBitW, 1.U(1.W))

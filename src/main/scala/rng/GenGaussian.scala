@@ -180,16 +180,30 @@ class GenRandomGaussian(
     val z   = Valid(UInt(spec.W.W))
   })
 
-  /** The valid flag follows the data through the same cuts. */
-  private def cutValid(v: Bool, n: Int): Bool = {
-    ShiftRegister(v, n, false.B, true.B)
+  /** One cut of the datapath, with the semantics of [[chisel3.util.Pipe]]: one
+   * valid flag per cut, reset to false, travels with the data and enables the
+   * data registers of its own stage. */
+  private class PipeCut(v: Bool, n: Int) {
+
+    /** the valid entering each stage of the cut, then the one leaving it. */
+    private val valids = Seq.iterate(v, n+1)(prev => RegNext(prev, false.B))
+
+    /** the valid flag leaving the cut. */
+    val valid: Bool = valids.last
+
+    /** pipe `x` through the cut, enabled by the valid entering each stage. */
+    def apply[T <: Data](x: T): T = {
+      valids.init.foldLeft(x)((d, en) => RegEnable(d, en))
+    }
   }
 
   // ---------------------------------------------------------------
   // S0 : input registers ("in")
 
-  val rndIn   = ShiftRegister(io.rnd.bits, stages.at("in"))
-  val validIn = cutValid(io.rnd.valid, stages.at("in"))
+  private val cutIn = new PipeCut(io.rnd.valid, stages.at("in"))
+
+  val rndIn   = cutIn(io.rnd.bits)
+  val validIn = cutIn.valid
 
   // ---------------------------------------------------------------
   // S1 : interval decode, coefficient table and position in the interval
@@ -268,9 +282,7 @@ class GenRandomGaussian(
   }
 
   // --------------------------- stage "table" ---------------------------
-  private def cutTable[T <: Data](x: T): T = {
-    ShiftRegister(x, stages.at("table"))
-  }
+  private val cutTable = new PipeCut(validIn, stages.at("table"))
 
   val coefTable  = cutTable(coef)
   val sdxTable   = sdx.map(x => cutTable(x))
@@ -279,7 +291,7 @@ class GenRandomGaussian(
   val xexTable   = cutTable(xex)
   val xmanTable  = cutTable(xman)
   val sgnTable   = cutTable(sgn)
-  val validTable = cutValid(validIn, stages.at("table"))
+  val validTable = cutTable.valid
 
   // ---------------------------------------------------------------
   // S2 : polynomial of the interval ("poly.*")
@@ -299,11 +311,13 @@ class GenRandomGaussian(
   // same number of cycles, so they stay aligned with polynomial.io.out
   val nPoly = stages.sub("poly").total
 
-  val postPage = ShiftRegister(pageTable, nPoly)
-  val postAddr = ShiftRegister(addrTable, nPoly)
-  val postEx   = ShiftRegister(xexTable,  nPoly)
-  val postMan  = ShiftRegister(xmanTable, nPoly)
-  val postSgn  = ShiftRegister(sgnTable,  nPoly)
+  private val cutPoly = new PipeCut(validTable, nPoly)
+
+  val postPage = cutPoly(pageTable)
+  val postAddr = cutPoly(addrTable)
+  val postEx   = cutPoly(xexTable)
+  val postMan  = cutPoly(xmanTable)
+  val postSgn  = cutPoly(sgnTable)
 
   // -----------------------------------------------------------------
   // S3 : postproc (mul)
@@ -326,14 +340,12 @@ class GenRandomGaussian(
   val prod  = yManW1 * mulManW1
 
   // ---------------------------- stage "mul" ----------------------------
-  private def cutMul[T <: Data](x: T): T = {
-    ShiftRegister(x, stages.at("mul"))
-  }
+  private val cutMul = new PipeCut(polynomial.io.out.valid, stages.at("mul"))
 
   val prodMul  = cutMul(prod)
   val mulExMul = cutMul(mulEx)
   val sgnMul   = cutMul(postSgn)
-  val validMul = cutValid(polynomial.io.out.valid, stages.at("mul"))
+  val validMul = cutMul.valid
 
   // -----------------------------------------------------------------
   // S4 : normalise the product and assemble the result
@@ -352,8 +364,7 @@ class GenRandomGaussian(
   require(z.getWidth == spec.W)
 
   // ---------------------------- stage "out" ----------------------------
-  io.z.bits  := ShiftRegister(z, stages.at("out"))
-  io.z.valid := cutValid(validMul, stages.at("out"))
+  io.z := Pipe(validMul, z, stages.at("out"))
 }
 
 /** Pipeline stage points of [[rial.rng.GenRandomGaussian]].

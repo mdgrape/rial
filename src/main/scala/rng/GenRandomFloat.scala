@@ -65,16 +65,30 @@ class GenRandomFloat12(
     val z   = Valid(UInt(spec.W.W))
   })
 
-  /** The valid flag follows the data through the same cuts. */
-  private def cutValid(v: Bool, n: Int): Bool = {
-    ShiftRegister(v, n, false.B, true.B)
+  /** One cut of the datapath, with the semantics of [[chisel3.util.Pipe]]: one
+   * valid flag per cut, reset to false, travels with the data and enables the
+   * data registers of its own stage. */
+  private class PipeCut(v: Bool, n: Int) {
+
+    /** the valid entering each stage of the cut, then the one leaving it. */
+    private val valids = Seq.iterate(v, n+1)(prev => RegNext(prev, false.B))
+
+    /** the valid flag leaving the cut. */
+    val valid: Bool = valids.last
+
+    /** pipe `x` through the cut, enabled by the valid entering each stage. */
+    def apply[T <: Data](x: T): T = {
+      valids.init.foldLeft(x)((d, en) => RegEnable(d, en))
+    }
   }
 
   //----------------------------------------------------------------------
   // S0 : input registers ("in")
 
-  val rndIn   = ShiftRegister(io.rnd.bits, stages.at("in"))
-  val validIn = cutValid(io.rnd.valid, stages.at("in"))
+  private val cutIn = new PipeCut(io.rnd.valid, stages.at("in"))
+
+  val rndIn   = cutIn(io.rnd.bits)
+  val validIn = cutIn.valid
 
   //----------------------------------------------------------------------
   // S1 : assemble the result
@@ -87,8 +101,7 @@ class GenRandomFloat12(
   assert(z.getWidth == spec.W)
 
   //---------------------------- stage "out" -----------------------------
-  io.z.bits  := ShiftRegister(z, stages.at("out"))
-  io.z.valid := cutValid(validIn, stages.at("out"))
+  io.z := Pipe(validIn, z, stages.at("out"))
 }
 
 /** Pipeline stage points of [[rial.rng.GenRandomFloat12]].
@@ -166,16 +179,30 @@ class GenRandomFloat01(
     val z   = Valid(UInt(spec.W.W))
   })
 
-  /** The valid flag follows the data through the same cuts. */
-  private def cutValid(v: Bool, n: Int): Bool = {
-    ShiftRegister(v, n, false.B, true.B)
+  /** One cut of the datapath, with the semantics of [[chisel3.util.Pipe]]: one
+   * valid flag per cut, reset to false, travels with the data and enables the
+   * data registers of its own stage. */
+  private class PipeCut(v: Bool, n: Int) {
+
+    /** the valid entering each stage of the cut, then the one leaving it. */
+    private val valids = Seq.iterate(v, n+1)(prev => RegNext(prev, false.B))
+
+    /** the valid flag leaving the cut. */
+    val valid: Bool = valids.last
+
+    /** pipe `x` through the cut, enabled by the valid entering each stage. */
+    def apply[T <: Data](x: T): T = {
+      valids.init.foldLeft(x)((d, en) => RegEnable(d, en))
+    }
   }
 
   //----------------------------------------------------------------------
   // S0 : input registers ("in")
 
-  val rndIn   = ShiftRegister(io.rnd.bits, stages.at("in"))
-  val validIn = cutValid(io.rnd.valid, stages.at("in"))
+  private val cutIn = new PipeCut(io.rnd.valid, stages.at("in"))
+
+  val rndIn   = cutIn(io.rnd.bits)
+  val validIn = cutIn.valid
 
   //----------------------------------------------------------------------
   // S1 : leading zero count
@@ -184,14 +211,12 @@ class GenRandomFloat01(
   val rndZero    = rndIn === 0.U
 
   //---------------------------- stage "clz" -----------------------------
-  private def cutClz[T <: Data](x: T): T = {
-    ShiftRegister(x, stages.at("clz"))
-  }
+  private val cutClz = new PipeCut(validIn, stages.at("clz"))
 
   val rndClz        = cutClz(rndIn)
   val zerosAtMSBClz = cutClz(zerosAtMSB)
   val rndZeroClz    = cutClz(rndZero)
-  val validClz      = cutValid(validIn, stages.at("clz"))
+  val validClz      = cutClz.valid
 
   //----------------------------------------------------------------------
   // S2 : normalisation shift
@@ -202,14 +227,12 @@ class GenRandomFloat01(
   assert(!validClz || manW1(manW) === 1.U)
 
   //---------------------------- stage "norm" ----------------------------
-  private def cutNorm[T <: Data](x: T): T = {
-    ShiftRegister(x, stages.at("norm"))
-  }
+  private val cutNorm = new PipeCut(validClz, stages.at("norm"))
 
   val manW1Norm      = cutNorm(manW1)
   val zerosAtMSBNorm = cutNorm(zerosAtMSBClz)
   val rndZeroNorm    = cutNorm(rndZeroClz)
-  val validNorm      = cutValid(validClz, stages.at("norm"))
+  val validNorm      = cutNorm.valid
 
   //----------------------------------------------------------------------
   // S3 : exponent and assemble
@@ -222,8 +245,7 @@ class GenRandomFloat01(
   require(z.getWidth == spec.W)
 
   //---------------------------- stage "out" -----------------------------
-  io.z.bits  := ShiftRegister(z, stages.at("out"))
-  io.z.valid := cutValid(validNorm, stages.at("out"))
+  io.z := Pipe(validNorm, z, stages.at("out"))
 }
 
 /** Pipeline stage points of [[rial.rng.GenRandomFloat01]].
