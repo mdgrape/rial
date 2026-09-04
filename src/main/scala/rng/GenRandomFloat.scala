@@ -65,27 +65,10 @@ class GenRandomFloat12(
     val z   = Valid(UInt(spec.W.W))
   })
 
-  /** One cut of the datapath, with the semantics of [[chisel3.util.Pipe]]: one
-   * valid flag per cut, reset to false, travels with the data and enables the
-   * data registers of its own stage. */
-  private class PipeCut(v: Bool, n: Int) {
-
-    /** the valid entering each stage of the cut, then the one leaving it. */
-    private val valids = Seq.iterate(v, n+1)(prev => RegNext(prev, false.B))
-
-    /** the valid flag leaving the cut. */
-    val valid: Bool = valids.last
-
-    /** pipe `x` through the cut, enabled by the valid entering each stage. */
-    def apply[T <: Data](x: T): T = {
-      valids.init.foldLeft(x)((d, en) => RegEnable(d, en))
-    }
-  }
-
   //----------------------------------------------------------------------
   // S0 : input registers ("in")
 
-  private val cutIn = new PipeCut(io.rnd.valid, stages.at("in"))
+  private val cutIn = new PipeCut("in", io.rnd.valid, stages.at("in"))
 
   val rndIn   = cutIn(io.rnd.bits)
   val validIn = cutIn.valid
@@ -179,27 +162,10 @@ class GenRandomFloat01(
     val z   = Valid(UInt(spec.W.W))
   })
 
-  /** One cut of the datapath, with the semantics of [[chisel3.util.Pipe]]: one
-   * valid flag per cut, reset to false, travels with the data and enables the
-   * data registers of its own stage. */
-  private class PipeCut(v: Bool, n: Int) {
-
-    /** the valid entering each stage of the cut, then the one leaving it. */
-    private val valids = Seq.iterate(v, n+1)(prev => RegNext(prev, false.B))
-
-    /** the valid flag leaving the cut. */
-    val valid: Bool = valids.last
-
-    /** pipe `x` through the cut, enabled by the valid entering each stage. */
-    def apply[T <: Data](x: T): T = {
-      valids.init.foldLeft(x)((d, en) => RegEnable(d, en))
-    }
-  }
-
   //----------------------------------------------------------------------
   // S0 : input registers ("in")
 
-  private val cutIn = new PipeCut(io.rnd.valid, stages.at("in"))
+  private val cutIn = new PipeCut("in", io.rnd.valid, stages.at("in"))
 
   val rndIn   = cutIn(io.rnd.bits)
   val validIn = cutIn.valid
@@ -211,7 +177,7 @@ class GenRandomFloat01(
   val rndZero    = rndIn === 0.U
 
   //---------------------------- stage "clz" -----------------------------
-  private val cutClz = new PipeCut(validIn, stages.at("clz"))
+  private val cutClz = new PipeCut("clz", validIn, stages.at("clz"))
 
   val rndClz        = cutClz(rndIn)
   val zerosAtMSBClz = cutClz(zerosAtMSB)
@@ -227,7 +193,7 @@ class GenRandomFloat01(
   assert(!validClz || manW1(manW) === 1.U)
 
   //---------------------------- stage "norm" ----------------------------
-  private val cutNorm = new PipeCut(validClz, stages.at("norm"))
+  private val cutNorm = new PipeCut("norm", validClz, stages.at("norm"))
 
   val manW1Norm      = cutNorm(manW1)
   val zerosAtMSBNorm = cutNorm(zerosAtMSBClz)

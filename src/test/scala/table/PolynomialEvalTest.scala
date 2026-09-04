@@ -104,17 +104,20 @@ class PolynomialEvalTest extends AnyFunSpec with ChiselSim {
 
   describe("PolynomialEval.stagePoints") {
 
-    it("declares one boundary per multiply-add, then the output") {
+    it("declares the multiplier and the end of every multiply-add, then the output") {
       assert(PolynomialEval.stagePoints(0).map(_.name) == Seq("out"))
-      assert(PolynomialEval.stagePoints(1).map(_.name) == Seq("step1", "out"))
+      assert(PolynomialEval.stagePoints(1).map(_.name) ==
+        Seq("prod1", "step1", "out"))
       assert(PolynomialEval.stagePoints(3).map(_.name) ==
-        Seq("step1", "step2", "step3", "out"))
+        Seq("prod1", "step1", "prod2", "step2", "prod3", "step3", "out"))
     }
 
-    it("balances the multiply-adds when the module places the registers") {
+    it("cuts the multipliers first when the module places the registers") {
       val s = PipelineStageConfig.default(2).resolve(PolynomialEval.stagePoints(2))
-      assert(s.at("step1") == 1)
-      assert(s.at("step2") == 1)
+      assert(s.at("prod1") == 1)
+      assert(s.at("prod2") == 1)
+      assert(s.at("step1") == 0)
+      assert(s.at("step2") == 0)
       assert(s.at("out") == 0)
       assert(s.total == 2)
     }
@@ -131,7 +134,9 @@ class PolynomialEvalTest extends AnyFunSpec with ChiselSim {
       }
       assert(seen.at("out") == 2)
       assert(seen.at("in") == 0)
+      assert(seen.at("prod1") == 0)
       assert(seen.at("step1") == 0)
+      assert(seen.at("prod2") == 0)
       assert(seen.at("step2") == 0)
       assert(seen.total == 2)
     }
@@ -153,7 +158,8 @@ class PolynomialEvalTest extends AnyFunSpec with ChiselSim {
     it(f"order ${bitW2.nOrder} matches the combinational module") {
       compare("order2", bitW2, false, Seq(
         PipelineStageConfig.default(2),
-        PipelineStageConfig.specify("step1" -> 1, "step2" -> 1, "out" -> 1),
+        PipelineStageConfig.specify(
+          "prod1" -> 1, "step1" -> 1, "prod2" -> 1, "step2" -> 1, "out" -> 1),
         PipelineStageConfig.atOut(2)))
     }
 
@@ -161,7 +167,8 @@ class PolynomialEvalTest extends AnyFunSpec with ChiselSim {
       compare("order3", bitW3, true, Seq(
         PipelineStageConfig.default(2),
         PipelineStageConfig.specify(
-          "step1" -> 1, "step2" -> 1, "step3" -> 1, "out" -> 1)))
+          "prod1" -> 1, "step1" -> 1, "prod2" -> 1, "step2" -> 1,
+          "prod3" -> 1, "step3" -> 1, "out" -> 1)))
     }
   }
 }

@@ -161,7 +161,9 @@ class GenGaussianTest extends AnyFunSpec
     spec   = RealSpec.Float32Spec,
     nOrder = 3,
     stage  = PipelineStageConfig.specify(
-      "in" -> 1, "table" -> 1, "poly.step1" -> 1, "poly.step2" -> 1,
-      "poly.step3" -> 1, "poly.out" -> 1, "mul" -> 1, "out" -> 1),
+      "in" -> 1, "table" -> 1, "poly.prod1" -> 1, "poly.step1" -> 1,
+      "poly.prod2" -> 1, "poly.step2" -> 1, "poly.prod3" -> 1,
+      "poly.step3" -> 1, "poly.out" -> 1, "scale" -> 1, "mul" -> 1,
+      "out" -> 1),
   )
 }

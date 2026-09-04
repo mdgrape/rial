@@ -16,9 +16,13 @@ import chisel3.util._
  * The pipeline registers are placed by [[rial.util.PipelineStageConfig]]. The
  * declared boundaries, in datapath order, are
  *
- *  - `"step1"` ... `"stepN"` (`N` = `bitW.nOrder`): one boundary after each
- *    multiply-add of Horner's scheme. The accumulator, `x`, the coefficients
- *    still to be used and the `valid` flag cross these boundaries;
+ *  - `"prod1"`, `"step1"` ... `"prodN"`, `"stepN"` (`N` = `bitW.nOrder`): two
+ *    boundaries per multiply-add of Horner's scheme. `"prodK"` is directly at
+ *    the output of the multiplier, before the alignment shift and the addition
+ *    of the coefficient, so that its register can be absorbed as the `P`
+ *    register of a DSP block; `"stepK"` is at the end of the multiply-add. The
+ *    accumulator - the raw product at `"prodK"` - `x`, the coefficients still
+ *    to be used and the `valid` flag cross these boundaries;
  *  - `"out"`: the module output. The clamping of the result belongs to the
  *    logic just before it.
  *
@@ -28,8 +32,8 @@ import chisel3.util._
  * {{{
  * // let the module place two registers
  * new PolynomialEval(bitW, PipelineStageConfig.default(2))
- * // one register after the first multiply-add
- * new PolynomialEval(bitW, PipelineStageConfig.specify("step1" -> 1))
+ * // one register at the multiplier of the first multiply-add, one after it
+ * new PolynomialEval(bitW, PipelineStageConfig.specify("prod1" -> 1, "step1" -> 1))
  * // all the registers at the output, which is what a plain Int means
  * new PolynomialEval(bitW, 2)
  * }}}
@@ -79,29 +83,12 @@ class PolynomialEval(
     val out = Valid(UInt(bitW.outBitW.W)) // [0.0, 1.0)
   })
 
-  /** One cut of the datapath, with the semantics of [[chisel3.util.Pipe]]: one
-   * valid flag per cut, reset to false, travels with the data and enables the
-   * data registers of its own stage. */
-  private class PipeCut(v: Bool, n: Int) {
-
-    /** the valid entering each stage of the cut, then the one leaving it. */
-    private val valids = Seq.iterate(v, n+1)(prev => RegNext(prev, false.B))
-
-    /** the valid flag leaving the cut. */
-    val valid: Bool = valids.last
-
-    /** pipe `x` through the cut, enabled by the valid entering each stage. */
-    def apply[T <: Data](x: T): T = {
-      valids.init.foldLeft(x)((d, en) => RegEnable(d, en))
-    }
-  }
-
   // ----------------------------------------------------------------------
   // input registers ("in")
 
   val nIn = stages.at("in")
 
-  private val cutIn = new PipeCut(io.in.valid, nIn)
+  private val cutIn = new PipeCut("in", io.in.valid, nIn)
 
   val validIn  = cutIn.valid
   val coeffsIn = cutIn(io.in.bits.coeffs)
@@ -149,19 +136,28 @@ class PolynomialEval(
     var validCur = validIn
 
     for(k <- (order-1) to 0 by -1) {
+      val idx     = order - k // position of the multiply-add in evaluation order
       val xminW   = min(accCur.getWidth, xPrec) // min(calcBits, xPrec)
       val prod    = xCur(xPrec, xPrec - xminW).asSInt * accCur
-      val sumFull = (prod >> xminW).asSInt +& coefCur(k)
+
+      // the raw product, right at the output of the multiplier, so that the
+      // register can be absorbed into the DSP block
+      val cutProd   = new PipeCut(s"prod${idx}", validCur, stages.at(s"prod${idx}"))
+      val prodProd  = cutProd(prod)
+      val xProd     = cutProd(xCur)
+      val coefProd  = cutProd(coefCur)
+      val validProd = cutProd.valid
+
+      val sumFull = (prodProd >> xminW).asSInt +& coefProd(k)
       accVec(k) := sumFull // drop the MSB (carry)
 
-      assert(!validCur || (k == 0).B || accVec(k) === sumFull, "PolynomialEval: horner "+
+      assert(!validProd || (k == 0).B || accVec(k) === sumFull, "PolynomialEval: horner "+
         f"intermediate (k=${k}) overflowed calcBits=${bitW.calcBits(k)}")
 
-      val nStep   = stages.at(s"step${order - k}")
-      val cutStep = new PipeCut(validCur, nStep)
+      val cutStep = new PipeCut(s"step${idx}", validProd, stages.at(s"step${idx}"))
       accCur   = cutStep(accVec(k))
-      xCur     = cutStep(xCur)
-      coefCur  = cutStep(coefCur)
+      xCur     = cutStep(xProd)
+      coefCur  = cutStep(coefProd)
       validCur = cutStep.valid
     }
 
@@ -186,15 +182,19 @@ object PolynomialEval {
 
   /** Boundaries of the datapath of a polynomial of order `nOrder`.
    *
-   * One boundary after each multiply-add of Horner's scheme, named `"step1"`
-   * to `"stepN"` in evaluation order, then the module output. A polynomial of
-   * order zero is a plain table lookup and has no `"step"` boundary. The
-   * weights are rough, target-independent estimates of the delay of the logic
-   * that ends at each boundary: a multiply-add against the final clamp and
-   * select.
+   * Two boundaries per multiply-add of Horner's scheme, named `"prod1"`,
+   * `"step1"` to `"prodN"`, `"stepN"` in evaluation order, then the module
+   * output. `"prodK"` is at the output of the multiplier and `"stepK"` at the
+   * end of the multiply-add, i.e. after the alignment shift and the addition
+   * of the coefficient. A polynomial of order zero is a plain table lookup and
+   * has neither. The weights are rough, target-independent estimates of the
+   * delay of the logic that ends at each boundary: the multiplier against the
+   * shift and add that follow it, and against the final clamp and select.
    */
   def stagePoints(nOrder: Int): Seq[StagePoint] = {
-    (1 to nOrder).map(k => StagePoint(s"step$k", 3.0)) :+ StagePoint("out", 1.0)
+    (1 to nOrder).flatMap(k => {
+      Seq(StagePoint(s"prod$k", 2.0), StagePoint(s"step$k", 1.0))
+    }) :+ StagePoint("out", 1.0)
   }
 
   private def evalInterval(

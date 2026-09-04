@@ -122,11 +122,13 @@ private[rial] class ProbitTable(
  *               position `dx` inside the interval, i.e. everything that feeds
  *               the polynomial
  *  - `"poly.*"` the boundaries of [[rial.table.PolynomialEval]], which
- *               evaluates the polynomial of the interval: `"poly.step1"` ...
- *               `"poly.stepN"` and `"poly.out"`; the group name `"poly"`
- *               stands for `"poly.out"`
- *  - `"mul"`    after the scale table read, the exponent / mantissa select and
- *               the mantissa product
+ *               evaluates the polynomial of the interval: `"poly.prod1"`,
+ *               `"poly.step1"` ... `"poly.prodN"`, `"poly.stepN"` and
+ *               `"poly.out"`; the group name `"poly"` stands for `"poly.out"`
+ *  - `"scale"`  after the scale table read and the exponent / mantissa select,
+ *               i.e. everything that feeds the mantissa product besides the
+ *               polynomial
+ *  - `"mul"`    after the mantissa product
  *  - `"out"`    the module output; the normalisation of the product and the
  *               assembly of the result belong to the logic just before it
  *
@@ -139,7 +141,7 @@ private[rial] class ProbitTable(
  * new GenRandomGaussian(rndW, spec, nOrder, 4)
  * // hand-picked positions, one of them inside the polynomial
  * new GenRandomGaussian(rndW, spec, nOrder,
- *   PipelineStageConfig.specify("in" -> 1, "poly.step1" -> 1, "mul" -> 1))
+ *   PipelineStageConfig.specify("in" -> 1, "poly.prod1" -> 1, "mul" -> 1))
  * // combinational
  * new GenRandomGaussian(rndW, spec, nOrder, PipelineStageConfig.none)
  * }}}
@@ -180,27 +182,10 @@ class GenRandomGaussian(
     val z   = Valid(UInt(spec.W.W))
   })
 
-  /** One cut of the datapath, with the semantics of [[chisel3.util.Pipe]]: one
-   * valid flag per cut, reset to false, travels with the data and enables the
-   * data registers of its own stage. */
-  private class PipeCut(v: Bool, n: Int) {
-
-    /** the valid entering each stage of the cut, then the one leaving it. */
-    private val valids = Seq.iterate(v, n+1)(prev => RegNext(prev, false.B))
-
-    /** the valid flag leaving the cut. */
-    val valid: Bool = valids.last
-
-    /** pipe `x` through the cut, enabled by the valid entering each stage. */
-    def apply[T <: Data](x: T): T = {
-      valids.init.foldLeft(x)((d, en) => RegEnable(d, en))
-    }
-  }
-
   // ---------------------------------------------------------------
   // S0 : input registers ("in")
 
-  private val cutIn = new PipeCut(io.rnd.valid, stages.at("in"))
+  private val cutIn = new PipeCut("in", io.rnd.valid, stages.at("in"))
 
   val rndIn   = cutIn(io.rnd.bits)
   val validIn = cutIn.valid
@@ -282,7 +267,7 @@ class GenRandomGaussian(
   }
 
   // --------------------------- stage "table" ---------------------------
-  private val cutTable = new PipeCut(validIn, stages.at("table"))
+  private val cutTable = new PipeCut("table", validIn, stages.at("table"))
 
   val coefTable  = cutTable(coef)
   val sdxTable   = sdx.map(x => cutTable(x))
@@ -311,7 +296,7 @@ class GenRandomGaussian(
   // same number of cycles, so they stay aligned with polynomial.io.out
   val nPoly = stages.sub("poly").total
 
-  private val cutPoly = new PipeCut(validTable, nPoly)
+  private val cutPoly = new PipeCut("poly", validTable, nPoly)
 
   val postPage = cutPoly(pageTable)
   val postAddr = cutPoly(addrTable)
@@ -320,7 +305,7 @@ class GenRandomGaussian(
   val postSgn  = cutPoly(sgnTable)
 
   // -----------------------------------------------------------------
-  // S3 : postproc (mul)
+  // S3 : scale table and the operands of the mantissa product
 
   // 1.0~2.0
   val yManW1 = Cat(1.U(1.W), polynomial.io.out.bits)
@@ -336,19 +321,31 @@ class GenRandomGaussian(
   val mulMan   = Mux(postPage === 0.U, postMan, scaleMan)
   val mulManW1 = Cat(1.U(1.W), mulMan)
 
+  // --------------------------- stage "scale" ---------------------------
+  private val cutScale = new PipeCut("scale", polynomial.io.out.valid, stages.at("scale"))
+
+  val yManW1Scale   = cutScale(yManW1)
+  val mulExScale    = cutScale(mulEx)
+  val mulManW1Scale = cutScale(mulManW1)
+  val sgnScale      = cutScale(postSgn)
+  val validScale    = cutScale.valid
+
+  // -----------------------------------------------------------------
+  // S4 : mantissa product
+
   val prodW = (1+spec.manW)*2
-  val prod  = yManW1 * mulManW1
+  val prod  = yManW1Scale * mulManW1Scale
 
   // ---------------------------- stage "mul" ----------------------------
-  private val cutMul = new PipeCut(polynomial.io.out.valid, stages.at("mul"))
+  private val cutMul = new PipeCut("mul", validScale, stages.at("mul"))
 
   val prodMul  = cutMul(prod)
-  val mulExMul = cutMul(mulEx)
-  val sgnMul   = cutMul(postSgn)
+  val mulExMul = cutMul(mulExScale)
+  val sgnMul   = cutMul(sgnScale)
   val validMul = cutMul.valid
 
   // -----------------------------------------------------------------
-  // S4 : normalise the product and assemble the result
+  // S5 : normalise the product and assemble the result
 
   val prodMoreThan2 = prodMul.head(1) === 1.U
   val prodManW1     = Mux(prodMoreThan2,
@@ -377,13 +374,15 @@ object GenRandomGaussian {
   /** Ordered boundaries of the datapath, with a rough, target-independent
    * estimate of the delay of the logic ending at each. The polynomial of the
    * interval is a submodule, so its own boundaries appear as the group
-   * `"poly"`, i.e. as `"poly.step1"` ... `"poly.stepN"` and `"poly.out"`.
+   * `"poly"`, i.e. as `"poly.prod1"`, `"poly.step1"` ... `"poly.prodN"`,
+   * `"poly.stepN"` and `"poly.out"`.
    *
    * @param nOrder order of the polynomial of an interval.
    */
   def stagePoints(nOrder: Int): Seq[StageElem] = Seq(
     StagePoint("table", 3),
     StageGroup("poly", PolynomialEval.stagePoints(nOrder)),
-    StagePoint("mul", 4),
+    StagePoint("scale", 2),
+    StagePoint("mul", 3),
     StagePoint("out", 1))
 }

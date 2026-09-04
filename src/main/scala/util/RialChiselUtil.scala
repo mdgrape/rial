@@ -4,6 +4,54 @@ import chisel3._
 import chisel3.util._
 import ScalaUtil._
 
+/** One cut of a pipelined datapath, with the semantics of
+ * [[chisel3.util.Pipe]]: one valid flag per cut, reset to false, travels with
+ * the data and enables the data registers of its own stage, so a stage that
+ * carries nothing does not clock its registers.
+ *
+ * A module declares its boundaries with [[rial.util.StagePoint]], places one
+ * cut per boundary and pipes every signal that crosses the boundary through
+ * it. The valid registers are named after the boundary, as the data ones are
+ * named after the signals:
+ *
+ * {{{
+ * private val cutClz = new PipeCut("clz", validIn, stages.at("clz"))
+ *
+ * val rndClz   = cutClz(rnd)       // enabled by the valid of its own stage
+ * val validClz = cutClz.valid
+ * }}}
+ *
+ * @constructor create the valid registers of one cut.
+ * @param name name of the boundary the cut sits at
+ * @param v    the valid flag entering the cut
+ * @param n    number of pipeline registers of the cut
+ *
+ * @see [[rial.util.PipelineStageConfig]]
+ */
+class PipeCut(name: String, v: Bool, n: Int) {
+
+  /** the valid entering each stage of the cut, then the one leaving it. */
+  private val valids = Seq.iterate(v, n+1)(prev => RegNext(prev, false.B))
+
+  // name the registers after the boundary, as the data ones are
+  valids.tail.zipWithIndex.foreach { case (b, i) =>
+    val suffix = if (n == 1) {
+      ""
+    } else {
+      i.toString
+    }
+    b.suggestName(s"valid${name.capitalize}${suffix}")
+  }
+
+  /** the valid flag leaving the cut. */
+  val valid: Bool = valids.last
+
+  /** pipe `x` through the cut, enabled by the valid entering each stage. */
+  def apply[T <: Data](x: T): T = {
+    valids.init.foldLeft(x)((d, en) => RegEnable(d, en))
+  }
+}
+
 object RialChiselUtil {
 
   // OBSOLETE-
