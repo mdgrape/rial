@@ -45,12 +45,21 @@ import rial.util.PipelineStageConfig._
  *   PipelineStageConfig.atOut(3))
  * }}}
  *
+ * The two factors are taken on `in`, the product is given on `out`. The
+ * pipeline registers advance only while `in.valid` is high: a stage that
+ * carries nothing does not clock its registers, so the datapath holds its
+ * content while `in.valid` is low. The flag travels with the data, one chain
+ * per boundary, exactly as in [[rial.util.SharedPipe]]: `out.valid` is
+ * `in.valid` delayed by [[getStage]] cycles of `in.valid` being high. It does
+ * not change the latency of the module, and with `PipelineStageConfig.none`
+ * there is no register to enable, so `out` simply follows `in`
+ * combinationally.
+ *
  * {{{
  * class MultFPIntGeneric(...) extends Module {
  *   val io = IO(new Bundle{
- *     val x = Input (UInt(xSpec.W.W))
- *     val y = Input (UInt(yWidth.W))
- *     val z = Output(UInt(zSpec.W.W))
+ *     val in  = Flipped(Valid(new MultFPIntGeneric.Input(xSpec, yWidth)))
+ *     val out = Valid(UInt(zSpec.W.W))
  *   })
  *   //...
  * }
@@ -91,15 +100,16 @@ class MultFPIntGeneric(
   def getStage = nStage
 
   val io = IO(new Bundle {
-    val x   = Input (UInt(xSpec.W.W))
-    val y   = Input (UInt(yWidth.W))
-    val z   = Output(UInt(zSpec.W.W))
+    val in  = Flipped(Valid(new MultFPIntGeneric.Input(xSpec, yWidth)))
+    val out = Valid(UInt(zSpec.W.W))
   })
 
   //----------------------------------------------------------------------
   // S0 : input registers ("in")
-  val xIn = ShiftRegister(io.x, stages.at("in"))
-  val yIn = ShiftRegister(io.y, stages.at("in"))
+  private val cutIn = new SharedPipe("in", io.in.valid, stages.at("in"))
+
+  val xIn = cutIn(io.in.bits.x)
+  val yIn = cutIn(io.in.bits.y)
 
   //----------------------------------------------------------------------
   // S1 : decompose / classify and normalisation of the integer operand
@@ -122,7 +132,7 @@ class MultFPIntGeneric(
   val yLength = (yWidth-1).U - PriorityEncoder(Reverse(yval))
   val yman    = (yval << ((yWidth-1).U - yLength))(yWidth, 0)
   val yex     = yLength
-//   printf("y = %b(%d)\n", io.y, io.y)
+//   printf("y = %b(%d)\n", io.in.bits.y, io.in.bits.y)
 //   printf("yWidth  = %d\n", yWidth.U)
 //   printf("yLength = %d\n", yLength)
 //   printf("y = %b|%b|%b\n", ysgn, yex, yman)
@@ -135,9 +145,7 @@ class MultFPIntGeneric(
 //   printf("zzero, zinf, znan, zsgn0 = %b,%b,%b,%b\n",zzero, zinf, znan, zsgn0)
 
   //--------------------------- stage "unpack" ---------------------------
-  private def cutUnpack[T <: Data](x: T): T = {
-    ShiftRegister(x, stages.at("unpack"))
-  }
+  private val cutUnpack = new SharedPipe("unpack", cutIn.valid, stages.at("unpack"))
 
   val xmanUnpack  = cutUnpack(xman)
   val ymanUnpack  = cutUnpack(yman)
@@ -156,9 +164,7 @@ class MultFPIntGeneric(
 //   printf("xman * yman = %b\n", prod)
 
   //---------------------------- stage "mul" -----------------------------
-  private def cutMul[T <: Data](x: T): T = {
-    ShiftRegister(x, stages.at("mul"))
-  }
+  private val cutMul = new SharedPipe("mul", cutUnpack.valid, stages.at("mul"))
 
   val prodMul  = cutMul(prod)
   val xexMul   = cutMul(xexUnpack)
@@ -183,9 +189,7 @@ class MultFPIntGeneric(
   val inc = FloatChiselUtil.roundIncBySpec(roundSpec, lsb, round, sticky)
 
   //---------------------------- stage "norm" ----------------------------
-  private def cutNorm[T <: Data](x: T): T = {
-    ShiftRegister(x, stages.at("norm"))
-  }
+  private val cutNorm = new SharedPipe("norm", cutMul.valid, stages.at("norm"))
 
   val prodShiftNorm = cutNorm(prodShift)
   val incNorm       = cutNorm(inc)
@@ -223,9 +227,7 @@ class MultFPIntGeneric(
   val exInf  = zinfNorm || exInc(zSpec.exW-1,0).andR | exInc(exW-1, zSpec.exW).orR
 
   //--------------------------- stage "round" ----------------------------
-  private def cutRound[T <: Data](x: T): T = {
-    ShiftRegister(x, stages.at("round"))
-  }
+  private val cutRound = new SharedPipe("round", cutNorm.valid, stages.at("round"))
 
   val resManRound  = cutRound(resMan)
   val zexBitsRound = cutRound(exInc(zSpec.exW-1,0))
@@ -248,8 +250,12 @@ class MultFPIntGeneric(
 
 //   printf("z = %b|%b(%d)|%b\n", zsgn, zex, zex-zSpec.exBias.U, zman)
 
-  io.z   := ShiftRegister(z0, stages.at("out"))
-  //printf("x=%x y=%x z=%x\n", io.x, io.y, io.z)
+  //---------------------------- stage "out" -----------------------------
+  private val cutOut = new SharedPipe("out", cutRound.valid, stages.at("out"))
+
+  io.out.bits  := cutOut(z0)
+  io.out.valid := cutOut.valid
+  //printf("x=%x y=%x z=%x\n", io.in.bits.x, io.in.bits.y, io.out.bits)
 }
 
 /** Pipeline stage points of [[rial.arith.MultFPIntGeneric]].
@@ -257,6 +263,21 @@ class MultFPIntGeneric(
  * @see [[rial.util.StagePoint]]
  */
 object MultFPIntGeneric {
+
+  /** Input of [[rial.arith.MultFPIntGeneric]]: the floating point factor `x`
+   *  and the integer factor `y`.
+   *
+   * `y` carries the raw bits of the integer; whether they are read as a
+   * signed or an unsigned value is the module's `ySigned` parameter.
+   *
+   * @param xSpec  floating point spec of the input
+   * @param yWidth width of the integer input
+   */
+  class Input(xSpec: RealSpec, yWidth: Int) extends Bundle {
+    val x = UInt(xSpec.W.W)
+    val y = UInt(yWidth.W)
+  }
+
   /** Ordered boundaries of the datapath, with a rough, target-independent
    *  estimate of the delay of the logic ending at each. */
   val stagePoints: Seq[StagePoint] = Seq(

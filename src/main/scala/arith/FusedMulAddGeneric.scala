@@ -50,13 +50,21 @@ import rial.util.DebugControl
  *   PipelineStageConfig.atOut(3))
  * }}}
  *
+ * The three operands are taken on `in`, the result is given on `out`. The
+ * pipeline registers advance only while `in.valid` is high: a stage that
+ * carries nothing does not clock its registers, so the datapath holds its
+ * content while `in.valid` is low. The flag travels with the data, one chain
+ * per boundary, exactly as in [[rial.util.SharedPipe]]: `out.valid` is
+ * `in.valid` delayed by [[getStage]] cycles of `in.valid` being high. It does
+ * not change the latency of the module, and with `PipelineStageConfig.none`
+ * there is no register to enable, so `out` simply follows `in`
+ * combinationally.
+ *
  * {{{
  * class FusedMulAddFPGeneric(...) extends Module {
  *   val io = IO(new Bundle{
- *     val x = Input (UInt(xSpec.W.W))
- *     val y = Input (UInt(ySpec.W.W))
- *     val z = Input (UInt(zSpec.W.W))
- *     val w = Output(UInt(wSpec.W.W))
+ *     val in  = Flipped(Valid(new FusedMulAddFPGeneric.Input(xSpec, ySpec, zSpec)))
+ *     val out = Valid(UInt(wSpec.W.W))
  *   })
  *   //...
  * }
@@ -100,10 +108,8 @@ class FusedMulAddFPGeneric(
   def getStage = nStage
 
   val io = IO(new Bundle {
-    val x   = Input(UInt(xSpec.W.W))
-    val y   = Input(UInt(ySpec.W.W))
-    val z   = Input(UInt(zSpec.W.W))
-    val w   = Output(UInt(wSpec.W.W))
+    val in  = Flipped(Valid(new FusedMulAddFPGeneric.Input(xSpec, ySpec, zSpec)))
+    val out = Valid(UInt(wSpec.W.W))
   })
 
   // The far-product / far-addend / near paths run in parallel, so every
@@ -116,9 +122,11 @@ class FusedMulAddFPGeneric(
 
   //----------------------------------------------------------------------
   // S0 : input registers ("in")
-  val xIn = ShiftRegister(io.x, stages.at("in"))
-  val yIn = ShiftRegister(io.y, stages.at("in"))
-  val zIn = ShiftRegister(io.z, stages.at("in"))
+  private val cutIn = new SharedPipe("in", io.in.valid, stages.at("in"))
+
+  val xIn = cutIn(io.in.bits.x)
+  val yIn = cutIn(io.in.bits.y)
+  val zIn = cutIn(io.in.bits.z)
 
   //----------------------------------------------------------------------
   // S1 : decompose / classify / exponent comparison / path decision
@@ -202,9 +210,8 @@ class FusedMulAddFPGeneric(
   val isFarAddend = (!isNear) && (!isFarProd)    // zEx - xyEx >= 1
 
   //--------------------------- stage "unpack" ---------------------------
-  private def cutUnpack[T <: Data](x: T): T = {
-    ShiftRegister(x, stages.at("unpack"))
-  }
+  private val cutUnpack = new SharedPipe("unpack", cutIn.valid, stages.at("unpack"))
+
   private def cutUnpackDbg[T <: Data](x: T): T = {
     if (enableDebug) {
       cutUnpack(x)
@@ -238,9 +245,8 @@ class FusedMulAddFPGeneric(
   val xyprod = xmanUnpack * ymanUnpack;
 
   //---------------------------- stage "mul" -----------------------------
-  private def cutMul[T <: Data](x: T): T = {
-    ShiftRegister(x, stages.at("mul"))
-  }
+  private val cutMul = new SharedPipe("mul", cutUnpack.valid, stages.at("mul"))
+
   private def cutMulDbg[T <: Data](x: T): T = {
     if (enableDebug) {
       cutMul(x)
@@ -320,9 +326,8 @@ class FusedMulAddFPGeneric(
   val prodPad       = Cat(0.U(2.W), xyprodMul, 0.U((farProdWidth - 2 - xyprodMul.getWidth).W)) // XXX FIXME
 
   //---------------- stage "align" (far product path + shared) --------------
-  private def cutAlign[T <: Data](x: T): T = {
-    ShiftRegister(x, stages.at("align"))
-  }
+  private val cutAlign = new SharedPipe("align", cutMul.valid, stages.at("align"))
+
   private def cutAlignDbg[T <: Data](x: T): T = {
     if (enableDebug) {
       cutAlign(x)
@@ -381,9 +386,8 @@ class FusedMulAddFPGeneric(
   val farProdAbs    = Mux(sumFarProd(sumFarProd.getWidth-1), -sumFarProd, sumFarProd)
 
   //----------------- stage "add" (far product path + shared) ---------------
-  private def cutAdd[T <: Data](x: T): T = {
-    ShiftRegister(x, stages.at("add"))
-  }
+  private val cutAdd = new SharedPipe("add", cutAlign.valid, stages.at("add"))
+
   private def cutAddDbg[T <: Data](x: T): T = {
     if (enableDebug) {
       cutAdd(x)
@@ -431,9 +435,8 @@ class FusedMulAddFPGeneric(
   }
 
   //---------------- stage "norm" (far product path + shared) ---------------
-  private def cutNorm[T <: Data](x: T): T = {
-    ShiftRegister(x, stages.at("norm"))
-  }
+  private val cutNorm = new SharedPipe("norm", cutAdd.valid, stages.at("norm"))
+
   private def cutNormDbg[T <: Data](x: T): T = {
     if (enableDebug) {
       cutNorm(x)
@@ -765,9 +768,7 @@ class FusedMulAddFPGeneric(
   val nearExactZero = isNearNorm && nearZeroNorm
 
   //--------------------------- stage "round" ----------------------------
-  private def cutRound[T <: Data](x: T): T = {
-    ShiftRegister(x, stages.at("round"))
-  }
+  private val cutRound = new SharedPipe("round", cutNorm.valid, stages.at("round"))
 
   val wman0Round         = cutRound(wman0)
   val wexBitsRound       = cutRound(wex0(wSpec.exW-1,0))
@@ -814,8 +815,13 @@ class FusedMulAddFPGeneric(
 
   val w0 = Cat(wsgn, wex, wman)
 
-  io.w   := ShiftRegister(w0, stages.at("out"))
-  dbgPrintf("x=%x y=%x z=%x, w=%x\n", io.x, io.y, io.z, io.w)
+  //---------------------------- stage "out" -----------------------------
+  private val cutOut = new SharedPipe("out", cutRound.valid, stages.at("out"))
+
+  io.out.bits  := cutOut(w0)
+  io.out.valid := cutOut.valid
+  dbgPrintf("x=%x y=%x z=%x, w=%x\n",
+    io.in.bits.x, io.in.bits.y, io.in.bits.z, io.out.bits)
 }
 
 /** Pipeline stage points of [[rial.arith.FusedMulAddFPGeneric]].
@@ -823,6 +829,20 @@ class FusedMulAddFPGeneric(
  * @see [[rial.util.StagePoint]]
  */
 object FusedMulAddFPGeneric {
+
+  /** Input of [[rial.arith.FusedMulAddFPGeneric]]: the two factors `x`, `y`
+   *  and the addend `z`.
+   *
+   * @param xSpec floating point spec of the first input
+   * @param ySpec floating point spec of the second input
+   * @param zSpec floating point spec of the third input
+   */
+  class Input(xSpec: RealSpec, ySpec: RealSpec, zSpec: RealSpec) extends Bundle {
+    val x = UInt(xSpec.W.W)
+    val y = UInt(ySpec.W.W)
+    val z = UInt(zSpec.W.W)
+  }
+
   /** Ordered boundaries of the FMA datapath, with a rough, target-independent
    *  estimate of the delay of the logic ending at each. */
   val stagePoints: Seq[StagePoint] = Seq(

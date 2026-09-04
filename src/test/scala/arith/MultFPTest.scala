@@ -43,8 +43,13 @@ class MultFPTest extends AnyFunSpec with ChiselSim with EmitVcd {
     n : Int, stage : PipelineStageConfig ) = {
       simulate(new MultFPGeneric( xSpec, ySpec, zSpec, roundSpec, stage )) { c =>
         {
+          // the pipeline registers advance while in.valid is high; it stays high
+          c.io.in.valid.poke(true.B)
           var q  = new Queue[(BigInt,BigInt,BigInt)]
           val nstage = c.getStage
+          // clock edges since the start of the run: out.valid is in.valid
+          // delayed by nstage of them
+          var cycle = 0
           for (gen <- List( ("Test Within (-128,128)",generateRealWithin(128.0,_,_)),
                             ("Test All range",generateRealFull(_,_)) ) ) {
             println(gen._1)
@@ -56,10 +61,14 @@ class MultFPTest extends AnyFunSpec with ChiselSim with EmitVcd {
               val zr = xr.multiply(zSpec, roundSpec, yr)
               val z0i= zr.value.toBigInt
               q += ((xi,yi,z0i))
-              c.io.x.poke(xi.U(xSpec.W.W))
-              c.io.y.poke(yi.U(ySpec.W.W))
-              val zi = c.io.z.peek().litValue.toBigInt
+              c.io.in.bits.x.poke(xi.U(xSpec.W.W))
+              c.io.in.bits.y.poke(yi.U(ySpec.W.W))
+              val zi = c.io.out.bits.peek().litValue.toBigInt
+              assert(c.io.out.valid.peek().litToBoolean == (cycle >= nstage),
+                f"out.valid is ${c.io.out.valid.peek().litToBoolean}%b after $cycle%d " +
+                f"cycle(s) of a $nstage%d stage pipeline")
               c.clock.step(1)
+              cycle += 1
               if (i > nstage) {
                 val (xid,yid,z0d) = q.dequeue()
 

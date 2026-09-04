@@ -137,9 +137,14 @@ class FMAFPTest extends AnyFunSpec with ChiselSim with EmitVcd {
     simulate(new FusedMulAddFPGeneric( xSpec, ySpec, zSpec, wSpec, roundSpec, stage, true )) { c =>
       {
         c.debugEnableIO.get.poke(false.B)
+        // the pipeline registers advance while in.valid is high; it stays high
+        c.io.in.valid.poke(true.B)
 
         var q  = new Queue[(BigInt,BigInt,BigInt,BigInt)]
         val nstage = c.getStage
+        // clock edges since the start of the run: out.valid is in.valid
+        // delayed by nstage of them
+        var cycle = 0
         for (gen <- List(
           ("Test close path", generateClosePathTriple(_,_,_,_)),
           ("Test close add path", generateCloseAddPathTriple(_,_,_,_)),
@@ -164,19 +169,23 @@ class FMAFPTest extends AnyFunSpec with ChiselSim with EmitVcd {
 
             q += ((xi,yi,zi,wi))
 
-            c.io.x.poke(xi.U(xSpec.W.W))
-            c.io.y.poke(yi.U(ySpec.W.W))
-            c.io.z.poke(zi.U(zSpec.W.W))
+            c.io.in.bits.x.poke(xi.U(xSpec.W.W))
+            c.io.in.bits.y.poke(yi.U(ySpec.W.W))
+            c.io.in.bits.z.poke(zi.U(zSpec.W.W))
 
-            val wi0 = c.io.w.peek().litValue.toBigInt
+            val wi0 = c.io.out.bits.peek().litValue.toBigInt
+            assert(c.io.out.valid.peek().litToBoolean == (cycle >= nstage),
+              f"out.valid is ${c.io.out.valid.peek().litToBoolean}%b after $cycle%d " +
+              f"cycle(s) of a $nstage%d stage pipeline")
 
             c.clock.step(1)
+            cycle += 1
             if (i > nstage) {
               val (xid,yid,zid,wid) = q.dequeue()
               if (wi0 != wid) {
-                c.io.x.poke(xid.U(xSpec.W.W))
-                c.io.y.poke(yid.U(ySpec.W.W))
-                c.io.z.poke(zid.U(zSpec.W.W))
+                c.io.in.bits.x.poke(xid.U(xSpec.W.W))
+                c.io.in.bits.y.poke(yid.U(ySpec.W.W))
+                c.io.in.bits.z.poke(zid.U(zSpec.W.W))
                 for(i <- 1 to nstage) c.clock.step(1)
                 c.debugEnableIO.get.poke(true.B)
                 c.clock.step(1)
@@ -267,6 +276,8 @@ class FMAFPTest extends AnyFunSpec with ChiselSim with EmitVcd {
       PipelineStageConfig.none, true )) { c =>
       {
         c.debugEnableIO.get.poke(false.B)
+        // the pipeline registers advance while in.valid is high; it stays high
+        c.io.in.valid.poke(true.B)
 
         for((xr, yr, zr) <- zeroSignTriples(spec)) {
           val xi = xr.value.toBigInt
@@ -275,11 +286,13 @@ class FMAFPTest extends AnyFunSpec with ChiselSim with EmitVcd {
 
           val wid = xr.fmadd(spec, roundSpec, yr, zr).value.toBigInt
 
-          c.io.x.poke(xi.U(spec.W.W))
-          c.io.y.poke(yi.U(spec.W.W))
-          c.io.z.poke(zi.U(spec.W.W))
+          c.io.in.bits.x.poke(xi.U(spec.W.W))
+          c.io.in.bits.y.poke(yi.U(spec.W.W))
+          c.io.in.bits.z.poke(zi.U(spec.W.W))
 
-          val wi0 = c.io.w.peek().litValue.toBigInt
+          val wi0 = c.io.out.bits.peek().litValue.toBigInt
+          // combinational (PipelineStageConfig.none): out.valid is in.valid
+          assert(c.io.out.valid.peek().litToBoolean, "out.valid is low")
 
           assert(wi0 == wid, s"x=${xi.toString(16)} y=${yi.toString(16)} " +
             s"z=${zi.toString(16)} : test(${wi0.toString(16)}) != ref(${wid.toString(16)})")

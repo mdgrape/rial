@@ -82,13 +82,19 @@ class AddFPTest extends AnyFunSpec with ChiselSim with EmitVcd {
 
   def addTest(xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, roundSpec : RoundSpec,
     n : Int, stage : PipelineStageConfig, useParallelLZA : Boolean = false,
-    enableDebug : Boolean = true ) = {
+    enableDebug : Boolean = true, checkHold : Boolean = false ) = {
     simulate(new AddFPGeneric( xSpec, ySpec, zSpec, roundSpec, stage, enableDebug,
       useParallelLZA ) ) { c =>
       {
         c.debugEnableIO.foreach(_.poke(false.B))
+        // the pipeline registers advance while in.valid is high; it stays
+        // high for the whole run but for the hold check at the end
+        c.io.in.valid.poke(true.B)
         var q  = new Queue[(BigInt,BigInt,BigInt)]
         val nstage = c.getStage
+        // clock edges since the start of the run: out.valid is in.valid
+        // delayed by nstage of them
+        var cycle = 0
         for (gen <- List(
           ("Test Within (-128,128)",generateRealWithinPair(128.0,_,_,_)),
           ("Test All range",generateRealFullPair(_,_,_)),
@@ -109,16 +115,20 @@ class AddFPTest extends AnyFunSpec with ChiselSim with EmitVcd {
             q += ((xi,yi,z0i))
             assert(xi < (BigInt(1) << xSpec.W))
             assert(yi < (BigInt(1) << ySpec.W))
-            c.io.x.poke(xi.U(xSpec.W.W))
-            c.io.y.poke(yi.U(ySpec.W.W))
-            val zi = c.io.z.peek().litValue.toBigInt
+            c.io.in.bits.x.poke(xi.U(xSpec.W.W))
+            c.io.in.bits.y.poke(yi.U(ySpec.W.W))
+            val zi = c.io.out.bits.peek().litValue.toBigInt
+            assert(c.io.out.valid.peek().litToBoolean == (cycle >= nstage),
+              f"out.valid is ${c.io.out.valid.peek().litToBoolean}%b after $cycle%d " +
+              f"cycle(s) of a $nstage%d stage pipeline")
             //if (zi != z0d) c.debugControlIO.poke(true.B)
             c.clock.step(1)
+            cycle += 1
             if (i > nstage) {
               val (xid,yid,z0d) = q.dequeue()
               if (zi != z0d) {
-                c.io.x.poke(xid.U(xSpec.W.W))
-                c.io.y.poke(yid.U(ySpec.W.W))
+                c.io.in.bits.x.poke(xid.U(xSpec.W.W))
+                c.io.in.bits.y.poke(yid.U(ySpec.W.W))
                 for(i <- 1 to nstage) c.clock.step(1)
                 c.debugEnableIO.foreach(_.poke(false.B))
                 c.clock.step(1)
@@ -148,6 +158,31 @@ class AddFPTest extends AnyFunSpec with ChiselSim with EmitVcd {
             }
           }
           q.clear()
+        }
+
+        // With valid low the pipeline registers do not advance, so the output
+        // holds whatever the datapath carried, whatever the inputs do.
+        if (checkHold) {
+          assert(nstage > 0, "the hold check needs at least one pipeline register")
+          val (xr, yr) = generateRealWithinPair(128.0, xSpec, ySpec, r)
+          c.io.in.bits.x.poke(xr.value.toBigInt.U(xSpec.W.W))
+          c.io.in.bits.y.poke(yr.value.toBigInt.U(ySpec.W.W))
+          c.clock.step(nstage)
+          val zHold = c.io.out.bits.peek().litValue
+
+          c.io.in.valid.poke(false.B)
+          val (xr2, yr2) = generateRealWithinPair(128.0, xSpec, ySpec, r)
+          c.io.in.bits.x.poke(xr2.value.toBigInt.U(xSpec.W.W))
+          c.io.in.bits.y.poke(yr2.value.toBigInt.U(ySpec.W.W))
+          for(i <- 1 to nstage+2) {
+            c.clock.step(1)
+            assert(c.io.out.bits.peek().litValue == zHold,
+              f"out.bits moved while in.valid was low after $i%d cycle(s)")
+          }
+          // the low valid has travelled through the whole chain by now
+          assert(!c.io.out.valid.peek().litToBoolean,
+            "out.valid is still high after in.valid was low for the whole latency")
+          c.io.in.valid.poke(true.B)
         }
       }
     }
@@ -194,17 +229,20 @@ class AddFPTest extends AnyFunSpec with ChiselSim with EmitVcd {
   //  - specify    : one register at every declared point, which exercises
   //                 every single pipeline register of the datapath
   describe("Test x+y with pipeline registers") {
+    // the configuration that also carries the hold check of `valid`; it has a
+    // register at both module boundaries, so the whole chain is exercised
+    val holdStage = PipelineStageConfig.specify("in" -> 1, "swap" -> 1, "add" -> 1,
+                                                "norm" -> 1, "out" -> 1)
     for (stage <- Seq(
       PipelineStageConfig.default(1),
       PipelineStageConfig.default(2),
       PipelineStageConfig.default(3),
       PipelineStageConfig.specify("unpack" -> 1, "swap" -> 1, "align" -> 1,
                                   "add" -> 1, "norm" -> 1, "round" -> 1),
-      PipelineStageConfig.specify("in" -> 1, "swap" -> 1, "add" -> 1,
-                                  "norm" -> 1, "out" -> 1))) {
+      holdStage)) {
       it(f"Add Float with pipereg [${stage.getString}]") {
         addTest( RealSpec.Float32Spec, RealSpec.Float32Spec, RealSpec.Float32Spec,
-          RoundSpec.roundToEven, n, stage)
+          RoundSpec.roundToEven, n, stage, checkHold = (stage == holdStage))
       }
     }
     it(f"Add BFloat16 with pipereg [${PipelineStageConfig.default(3).getString}]") {

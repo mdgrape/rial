@@ -50,12 +50,20 @@ import rial.util.DebugControl
  * new AddFPGeneric(spec, spec, spec, RoundSpec.roundToEven, PipelineStageConfig.atOut(3))
  * }}}
  *
+ * The two addends are taken on `in`, the sum is given on `out`. The pipeline
+ * registers advance only while `in.valid` is high: a stage that carries
+ * nothing does not clock its registers, so the datapath holds its content
+ * while `in.valid` is low. The flag travels with the data, one chain per
+ * boundary, exactly as in [[rial.util.SharedPipe]]: `out.valid` is `in.valid`
+ * delayed by [[getStage]] cycles of `in.valid` being high. It does not change
+ * the latency of the module, and with `PipelineStageConfig.none` there is no
+ * register to enable, so `out` simply follows `in` combinationally.
+ *
  * {{{
  * class AddFPGeneric(...) extends Module {
  *   val io = IO(new Bundle{
- *     val x = Input (UInt(xSpec.W.W))
- *     val y = Input (UInt(ySpec.W.W))
- *     val z = Output(UInt(zSpec.W.W))
+ *     val in  = Flipped(Valid(new AddFPGeneric.Input(xSpec, ySpec)))
+ *     val out = Valid(UInt(zSpec.W.W))
  *   })
  *   //...
  * }
@@ -101,15 +109,16 @@ class AddFPGeneric(
   def getStage = nStage
 
   val io = IO(new Bundle{
-    val x   = Input(UInt(xSpec.W.W))
-    val y   = Input(UInt(ySpec.W.W))
-    val z   = Output(UInt(zSpec.W.W))
+    val in  = Flipped(Valid(new AddFPGeneric.Input(xSpec, ySpec)))
+    val out = Valid(UInt(zSpec.W.W))
   })
 
   //----------------------------------------------------------------------
   // S0 : input registers ("in")
-  val xIn = ShiftRegister(io.x, stages.at("in"))
-  val yIn = ShiftRegister(io.y, stages.at("in"))
+  private val cutIn = new SharedPipe("in", io.in.valid, stages.at("in"))
+
+  val xIn = cutIn(io.in.bits.x)
+  val yIn = cutIn(io.in.bits.y)
 
   //----------------------------------------------------------------------
   // S1 : decompose / classify / exponent difference / mantissa padding
@@ -184,9 +193,8 @@ class AddFPGeneric(
   val yzeroFar = Mux(exXlargerThanY, xzero, yzero)
 
   //---------------------------- stage "unpack" --------------------------
-  private def cutUnpack[T <: Data](x: T): T = {
-    ShiftRegister(x, stages.at("unpack"))
-  }
+  private val cutUnpack = new SharedPipe("unpack", cutIn.valid, stages.at("unpack"))
+
   // Signals read by `dbgPrintf` only must not create registers in a normal
   // (non-debug) build, so they are piped only when the printfs exist.
   private def cutUnpackDbg[T <: Data](x: T): T = {
@@ -230,9 +238,8 @@ class AddFPGeneric(
   val diffFar = Mux(exXlargerThanYUnpack, diffExXYUnpack(diffExW-2,0), diffExYXUnpack(diffExW-2,0))
 
   //---------------------------- stage "swap" ----------------------------
-  private def cutSwap[T <: Data](x: T): T = {
-    ShiftRegister(x, stages.at("swap"))
-  }
+  private val cutSwap = new SharedPipe("swap", cutUnpack.valid, stages.at("swap"))
+
   private def cutSwapDbg[T <: Data](x: T): T = {
     if (enableDebug) {
       cutSwap(x)
@@ -323,9 +330,8 @@ class AddFPGeneric(
   val yNearShift = Mux( nearShiftSwap, Cat(0.U(1.W), yNear), Cat(yNear, 0.U(1.W)) )
 
   //--------------------------- stage "align" ----------------------------
-  private def cutAlign[T <: Data](x: T): T = {
-    ShiftRegister(x, stages.at("align"))
-  }
+  private val cutAlign = new SharedPipe("align", cutSwap.valid, stages.at("align"))
+
   private def cutAlignDbg[T <: Data](x: T): T = {
     if (enableDebug) {
       cutAlign(x)
@@ -402,9 +408,8 @@ class AddFPGeneric(
   }
 
   //---------------------------- stage "add" -----------------------------
-  private def cutAdd[T <: Data](x: T): T = {
-    ShiftRegister(x, stages.at("add"))
-  }
+  private val cutAdd = new SharedPipe("add", cutAlign.valid, stages.at("add"))
+
   private def cutAddDbg[T <: Data](x: T): T = {
     if (enableDebug) {
       cutAdd(x)
@@ -481,7 +486,7 @@ class AddFPGeneric(
       // wider than sumNearAbsAdd, so the two disagree by exactly one there.
       // The shift amount is a don't care in that case: zeroSel forces the
       // result to zero.
-      assert(sumNearAbsAdd === 0.U || shiftRef === shiftSum)
+      assert(!cutAdd.valid || sumNearAbsAdd === 0.U || shiftRef === shiftSum)
     }
 
     (shiftSum, sumNearNorm)
@@ -531,9 +536,7 @@ class AddFPGeneric(
   val zsgn0   = Mux(nearAdd, nearSign, xFarSignAdd)
 
   //---------------------------- stage "norm" ----------------------------
-  private def cutNorm[T <: Data](x: T): T = {
-    ShiftRegister(x, stages.at("norm"))
-  }
+  private val cutNorm = new SharedPipe("norm", cutAdd.valid, stages.at("norm"))
 
   val zmanSelNorm    = cutNorm(zmanSel)
   val incSelNorm     = cutNorm(incSel)
@@ -568,9 +571,7 @@ class AddFPGeneric(
   dbgPrintf("zex0 = %d, zeroAfterAdd = %d\n", zex0, zeroAfterAdd)
 
   //--------------------------- stage "round" ----------------------------
-  private def cutRound[T <: Data](x: T): T = {
-    ShiftRegister(x, stages.at("round"))
-  }
+  private val cutRound = new SharedPipe("round", cutNorm.valid, stages.at("round"))
 
   val zmanBitsRound     = cutRound(zman0(zSpec.manW-1, 0))
   val zexBitsRound      = cutRound(zex0(zSpec.exW-1, 0))
@@ -601,8 +602,12 @@ class AddFPGeneric(
 
   val z0 = Cat(zsgn, zex, zman)
 
-  io.z   := ShiftRegister(z0, stages.at("out"))
-  dbgPrintf("x=%x y=%x z=%x\n", io.x, io.y, io.z)
+  //---------------------------- stage "out" -----------------------------
+  private val cutOut = new SharedPipe("out", cutRound.valid, stages.at("out"))
+
+  io.out.bits  := cutOut(z0)
+  io.out.valid := cutOut.valid
+  dbgPrintf("x=%x y=%x z=%x\n", io.in.bits.x, io.in.bits.y, io.out.bits)
 }
 
 /** Pipeline stage points of [[rial.arith.AddFPGeneric]].
@@ -610,6 +615,17 @@ class AddFPGeneric(
  * @see [[rial.util.StagePoint]]
  */
 object AddFPGeneric {
+
+  /** Input of [[rial.arith.AddFPGeneric]]: the two addends.
+   *
+   * @param xSpec floating point spec of the left hand side input
+   * @param ySpec floating point spec of the right hand side input
+   */
+  class Input(xSpec: RealSpec, ySpec: RealSpec) extends Bundle {
+    val x = UInt(xSpec.W.W)
+    val y = UInt(ySpec.W.W)
+  }
+
   /** Ordered boundaries of the adder datapath, with a rough,
    *  target-independent estimate of the delay of the logic ending at each. */
   val stagePoints: Seq[StagePoint] = Seq(

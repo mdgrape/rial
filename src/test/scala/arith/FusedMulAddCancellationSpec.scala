@@ -26,10 +26,12 @@ class FusedMulAddCancellationSpec extends AnyFlatSpec with ChiselSim with Matche
     new FusedMulAddFPGeneric(s, s, s, s, RoundSpec.roundToEven, PipelineStageConfig.none)
 
   private def w(c: FusedMulAddFPGeneric, x: Long, y: Long, z: Long): BigInt = {
-    c.io.x.poke(BigInt(x).U(c.io.x.getWidth.W))
-    c.io.y.poke(BigInt(y).U(c.io.y.getWidth.W))
-    c.io.z.poke(BigInt(z).U(c.io.z.getWidth.W))
-    c.io.w.peek().litValue // combinational (PipelineStageConfig.none)
+    c.io.in.valid.poke(true.B) // no register to enable here, the FMA is combinational
+    c.io.in.bits.x.poke(BigInt(x).U(c.io.in.bits.x.getWidth.W))
+    c.io.in.bits.y.poke(BigInt(y).U(c.io.in.bits.y.getWidth.W))
+    c.io.in.bits.z.poke(BigInt(z).U(c.io.in.bits.z.getWidth.W))
+    assert(c.io.out.valid.peek().litToBoolean, "out.valid is low")
+    c.io.out.bits.peek().litValue // combinational (PipelineStageConfig.none)
   }
 
   behavior of "FusedMulAddFPGeneric exact cancellation (x*y + z == 0 -> +0)"

@@ -30,8 +30,12 @@ class FusedMulAddRoundingSpec extends AnyFlatSpec with ChiselSim with Matchers {
       .value.toBigInt.toInt & 0xffff
 
   private def hw(c: FusedMulAddFPGeneric, x: Int, y: Int, z: Int): Int = {
-    c.io.x.poke(x.U(16.W)); c.io.y.poke(y.U(16.W)); c.io.z.poke(z.U(16.W))
-    c.io.w.peek().litValue.toInt & 0xffff
+    c.io.in.valid.poke(true.B) // no register to enable here, the FMA is combinational
+    c.io.in.bits.x.poke(x.U(16.W))
+    c.io.in.bits.y.poke(y.U(16.W))
+    c.io.in.bits.z.poke(z.U(16.W))
+    assert(c.io.out.valid.peek().litToBoolean, "out.valid is low")
+    c.io.out.bits.peek().litValue.toInt & 0xffff
   }
 
   private def randNormal(r: Random): Int = {
