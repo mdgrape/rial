@@ -10,6 +10,8 @@ package rial.dyn
 import chisel3._
 import chisel3.util._
 
+import rial.util._
+
 // All the modes share one subtractor `a - b` built as a chain of laneW-bit
 // adders, cut at the element boundaries (see [[rial.dyn.DynLane]]). From the
 // chain we get, per lane,
@@ -28,16 +30,8 @@ import chisel3.util._
  * {{{
  * class DynCompare(...) extends Module {
  *   val io = IO(new Bundle{
- *     val in  = Input(new Bundle {
- *       val a    = UInt(width.W)
- *       val b    = UInt(width.W)
- *       val mode = UInt(modeW.W)
- *     })
- *     val out = Output(new Bundle {
- *       val eq = Vec(nLanes, Bool())
- *       val lt = Vec(nLanes, Bool())
- *       val gt = Vec(nLanes, Bool())
- *     })
+ *     val in  = Flipped(Valid(new DynCompare.Input(laneW, nLanes)))
+ *     val out = Valid(new DynCompare.Output(nLanes))
  *   })
  *   //...
  * }
@@ -49,69 +43,147 @@ import chisel3.util._
  * bits into the corresponding mode value.
  *
  * The result of an element is broadcast to all the lanes it occupies, so
- * `io.out.eq(i)` is always the result for the element that contains lane `i`
- * whatever the mode is. To get a per-byte mask, `Cat` of `Fill(laneW, flag)`
- * can be used. `ne`, `le` and `ge` are just `!eq`, `!gt` and `!lt`.
+ * `io.out.bits.eq(i)` is always the result for the element that contains lane
+ * `i` whatever the mode is. To get a per-byte mask, `Cat` of `Fill(laneW,
+ * flag)` can be used. `ne`, `le` and `ge` are just `!eq`, `!gt` and `!lt`.
+ *
+ * Pipeline registers can be enabled at the following points of the datapath
+ * (names for `PipelineStageConfig.specify`):
+ *
+ *  - `"in"`  the module input
+ *  - `"sub"` after the shared carry chain
+ *  - `"out"` the module output
+ *
+ * [[getStage]] gives the resulting latency, and `out.valid` is `in.valid`
+ * delayed by that many cycles.
+ *
+ * {{{
+ * // two registers, placed by the module
+ * new DynCompare(8, 4, true, 2)
+ * // hand-picked positions
+ * new DynCompare(8, 4, true, PipelineStageConfig.specify("sub" -> 1, "out" -> 1))
+ * // combinational
+ * new DynCompare(8, 4, true, PipelineStageConfig.none)
+ * }}}
  *
  * @constructor construct DynCompare module
- * @param laneW   width of the narrowest element (and of the carry chain unit)
- * @param nLanes  number of lanes. must be a power of 2
- * @param signed  if true, elements are compared as signed integers
- * @param latency latency of this module
+ * @param laneW  width of the narrowest element (and of the carry chain unit)
+ * @param nLanes number of lanes. must be a power of 2
+ * @param signed if true, elements are compared as signed integers
+ * @param stage  pipeline registers of this module
+ *
+ * @see [[rial.util.PipelineStageConfig]]
+ * @see [[rial.util.StagePoint]]
  */
 class DynCompare(
-  val laneW   : Int = 8,
-  val nLanes  : Int = 4,
-  val signed  : Boolean = true,
-  val latency : Int = 0
+  val laneW  : Int = 8,
+  val nLanes : Int = 4,
+  val signed : Boolean = true,
+  val stage  : PipelineStageConfig = PipelineStageConfig.none
 ) extends Module {
 
   require(laneW   >= 1,   s"laneW must be positive, but got ${laneW}")
   require(nLanes  >= 1,   s"nLanes must be positive, but got ${nLanes}")
   require(isPow2(nLanes), s"nLanes must be a power of 2, but got ${nLanes}")
-  require(latency >= 0,   s"latency must not be negative, but got ${latency}")
+
+  /** Boundaries at which pipeline registers can be placed; see the class doc. */
+  val stagePoints = DynCompare.stagePoints
+
+  val stages = stage.resolve(stagePoints)
+
+  val nStage = stages.total
+
+  def getStage = nStage
 
   val width = laneW * nLanes
   val modeW = DynLane.modeW(nLanes)
 
   val io = IO(new Bundle {
-    val in  = Input(new Bundle {
-      val a    = UInt(width.W)
-      val b    = UInt(width.W)
-      val mode = UInt(modeW.W)
-    })
-    val out = Output(new Bundle {
-      val eq = Vec(nLanes, Bool())
-      val lt = Vec(nLanes, Bool())
-      val gt = Vec(nLanes, Bool())
-    })
+    val in  = Flipped(Valid(new DynCompare.Input(laneW, nLanes)))
+    val out = Valid(new DynCompare.Output(nLanes))
   })
 
-  val mode  = io.in.mode
-  val heads = DynLane.heads(mode, nLanes)
+  //----------------------------------------------------------------------
+  // S0 : input registers ("in")
+  private val cutIn = new SharedPipe("in", io.in.valid, stages.at("in"))
+
+  val aIn    = cutIn(io.in.bits.a)
+  val bIn    = cutIn(io.in.bits.b)
+  val modeIn = cutIn(io.in.bits.mode)
+
+  //----------------------------------------------------------------------
+  // S1 : the shared carry chain of a - b
+
+  val heads = DynLane.heads(modeIn, nLanes)
   val tails = DynLane.tails(heads)
 
-  val a = DynLane.operand(io.in.a, laneW, nLanes, tails, signed)
-  val b = DynLane.operand(io.in.b, laneW, nLanes, tails, signed)
+  val a = DynLane.operand(aIn, laneW, nLanes, tails, signed)
+  val b = DynLane.operand(bIn, laneW, nLanes, tails, signed)
 
-  // the shared carry chain of a - b
-  val sub  = DynLane.subtract(a, b, heads)
-  val cout = sub.map(s => s(laneW).asBool)
-  val zacc = DynLane.accumulate(sub.map(s => s(laneW-1, 0) === 0.U), heads)
+  val sub      = DynLane.subtract(a, b, heads)
+  val coutComb = sub.map(s => s(laneW).asBool)
+  val zaccComb = DynLane.accumulate(sub.map(s => s(laneW-1, 0) === 0.U), heads)
 
-  // result of the element that ends at lane i. only valid where tails(i).
+  //---------------------------- stage "sub" -----------------------------
+  private val cutSub = new SharedPipe("sub", cutIn.valid, stages.at("sub"))
+
+  val cout    = coutComb.map(c => cutSub(c))
+  val zacc    = zaccComb.map(z => cutSub(z))
+  val modeSub = cutSub(modeIn)
+
+  //----------------------------------------------------------------------
+  // S2 : result of the element that ends at lane i. only valid where tails(i).
+
   val eqAt = zacc
   val ltAt = cout.map(c => !c)
   val gtAt = cout.zip(zacc).map{ case(c, z) => c && !z }
 
   // give every lane the result of the element that contains it.
-  val eq = DynLane.broadcast(eqAt, mode, nLanes)
-  val lt = DynLane.broadcast(ltAt, mode, nLanes)
-  val gt = DynLane.broadcast(gtAt, mode, nLanes)
+  val eqComb = DynLane.broadcast(eqAt, modeSub, nLanes)
+  val ltComb = DynLane.broadcast(ltAt, modeSub, nLanes)
+  val gtComb = DynLane.broadcast(gtAt, modeSub, nLanes)
+
+  //---------------------------- stage "out" -----------------------------
+  private val cutOut = new SharedPipe("out", cutSub.valid, stages.at("out"))
 
   for(i <- 0 until nLanes) {
-    io.out.eq(i) := ShiftRegister(eq(i), latency)
-    io.out.lt(i) := ShiftRegister(lt(i), latency)
-    io.out.gt(i) := ShiftRegister(gt(i), latency)
+    io.out.bits.eq(i) := cutOut(eqComb(i))
+    io.out.bits.lt(i) := cutOut(ltComb(i))
+    io.out.bits.gt(i) := cutOut(gtComb(i))
   }
+  io.out.valid := cutOut.valid
+}
+
+/** Input and output bundles and pipeline stage points of
+ *  [[rial.dyn.DynCompare]].
+ *
+ * @see [[rial.util.StagePoint]]
+ */
+object DynCompare {
+
+  /** Input of [[rial.dyn.DynCompare]]: the two operands and the element width.
+   *
+   * @param laneW  width of the narrowest element
+   * @param nLanes number of lanes
+   */
+  class Input(laneW: Int, nLanes: Int) extends Bundle {
+    val a    = UInt((laneW * nLanes).W)
+    val b    = UInt((laneW * nLanes).W)
+    val mode = UInt(DynLane.modeW(nLanes).W)
+  }
+
+  /** Output of [[rial.dyn.DynCompare]]: the three flags per lane.
+   *
+   * @param nLanes number of lanes
+   */
+  class Output(nLanes: Int) extends Bundle {
+    val eq = Vec(nLanes, Bool())
+    val lt = Vec(nLanes, Bool())
+    val gt = Vec(nLanes, Bool())
+  }
+
+  /** Boundaries at which pipeline registers can be placed; see
+   *  [[rial.dyn.DynCompare]]. */
+  val stagePoints: Seq[StagePoint] = Seq(
+    StagePoint("sub", 3), StagePoint("out", 1))
 }

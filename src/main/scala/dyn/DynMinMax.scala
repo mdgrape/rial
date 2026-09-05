@@ -10,6 +10,8 @@ package rial.dyn
 import chisel3._
 import chisel3.util._
 
+import rial.util._
+
 // The selector comes from the same carry chain as [[rial.dyn.DynCompare]] uses:
 // the carry-out at the topmost lane of an element is 1 iff a >= b there. Note
 // that the equality chain of DynCompare is not needed here, because when the
@@ -32,15 +34,8 @@ import chisel3.util._
  * {{{
  * class DynMinMax(...) extends Module {
  *   val io = IO(new Bundle{
- *     val in  = Input(new Bundle {
- *       val a    = UInt(width.W)
- *       val b    = UInt(width.W)
- *       val mode = UInt(modeW.W)
- *     })
- *     val out = Output(new Bundle {
- *       val min = UInt(width.W)
- *       val max = UInt(width.W)
- *     })
+ *     val in  = Flipped(Valid(new DynMinMax.Input(laneW, nLanes)))
+ *     val out = Valid(new DynMinMax.Output(laneW, nLanes))
  *   })
  *   //...
  * }
@@ -53,66 +48,145 @@ import chisel3.util._
  *
  * The selection is made per element, so in the int8x4 mode each byte of the
  * output comes from whichever input has the smaller (or larger) byte there, and
- * `io.out.min` is generally a mixture of the bytes of the two inputs.
+ * `io.out.bits.min` is generally a mixture of the bytes of the two inputs.
  *
  * `min` and `max` share one comparison, hence a module that outputs both costs
  * almost nothing more than one that outputs only either of them; it is directly
  * usable as the compare-exchange element of a sorting network. Unused output is
  * eliminated by the synthesis tool.
  *
+ * Pipeline registers can be enabled at the following points of the datapath
+ * (names for `PipelineStageConfig.specify`):
+ *
+ *  - `"in"`  the module input
+ *  - `"cmp"` after the comparison
+ *  - `"out"` the module output
+ *
+ * [[getStage]] gives the resulting latency, and `out.valid` is `in.valid`
+ * delayed by that many cycles.
+ *
+ * {{{
+ * // two registers, placed by the module
+ * new DynMinMax(8, 4, true, 2)
+ * // hand-picked positions
+ * new DynMinMax(8, 4, true, PipelineStageConfig.specify("cmp" -> 1, "out" -> 1))
+ * // combinational
+ * new DynMinMax(8, 4, true, PipelineStageConfig.none)
+ * }}}
+ *
  * @constructor construct DynMinMax module
- * @param laneW   width of the narrowest element (and of the carry chain unit)
- * @param nLanes  number of lanes. must be a power of 2
- * @param signed  if true, elements are compared as signed integers
- * @param latency latency of this module
+ * @param laneW  width of the narrowest element (and of the carry chain unit)
+ * @param nLanes number of lanes. must be a power of 2
+ * @param signed if true, elements are compared as signed integers
+ * @param stage  pipeline registers of this module
+ *
+ * @see [[rial.util.PipelineStageConfig]]
+ * @see [[rial.util.StagePoint]]
  */
 class DynMinMax(
-  val laneW   : Int = 8,
-  val nLanes  : Int = 4,
-  val signed  : Boolean = true,
-  val latency : Int = 0
+  val laneW  : Int = 8,
+  val nLanes : Int = 4,
+  val signed : Boolean = true,
+  val stage  : PipelineStageConfig = PipelineStageConfig.none
 ) extends Module {
 
   require(laneW   >= 1,   s"laneW must be positive, but got ${laneW}")
   require(nLanes  >= 1,   s"nLanes must be positive, but got ${nLanes}")
   require(isPow2(nLanes), s"nLanes must be a power of 2, but got ${nLanes}")
-  require(latency >= 0,   s"latency must not be negative, but got ${latency}")
+
+  /** Boundaries at which pipeline registers can be placed; see the class doc. */
+  val stagePoints = DynMinMax.stagePoints
+
+  val stages = stage.resolve(stagePoints)
+
+  val nStage = stages.total
+
+  def getStage = nStage
 
   val width = laneW * nLanes
   val modeW = DynLane.modeW(nLanes)
 
   val io = IO(new Bundle {
-    val in  = Input(new Bundle {
-      val a    = UInt(width.W)
-      val b    = UInt(width.W)
-      val mode = UInt(modeW.W)
-    })
-    val out = Output(new Bundle {
-      val min = UInt(width.W)
-      val max = UInt(width.W)
-    })
+    val in  = Flipped(Valid(new DynMinMax.Input(laneW, nLanes)))
+    val out = Valid(new DynMinMax.Output(laneW, nLanes))
   })
 
-  val mode  = io.in.mode
-  val heads = DynLane.heads(mode, nLanes)
+  //----------------------------------------------------------------------
+  // S0 : input registers ("in")
+  private val cutIn = new SharedPipe("in", io.in.valid, stages.at("in"))
+
+  val aIn    = cutIn(io.in.bits.a)
+  val bIn    = cutIn(io.in.bits.b)
+  val modeIn = cutIn(io.in.bits.mode)
+
+  //----------------------------------------------------------------------
+  // S1 : the carry chain of a - b. the carry-out at the topmost lane of an
+  // element is 1 iff a >= b there. when a == b either operand gives the same
+  // answer, so the equality chain that DynCompare needs is not built here.
+
+  val heads = DynLane.heads(modeIn, nLanes)
   val tails = DynLane.tails(heads)
 
-  val a = DynLane.operand(io.in.a, laneW, nLanes, tails, signed)
-  val b = DynLane.operand(io.in.b, laneW, nLanes, tails, signed)
+  val a = DynLane.operand(aIn, laneW, nLanes, tails, signed)
+  val b = DynLane.operand(bIn, laneW, nLanes, tails, signed)
 
-  // the carry chain of a - b. the carry-out at the topmost lane of an element
-  // is 1 iff a >= b there. when a == b either operand gives the same answer, so
-  // the equality chain that DynCompare needs is not built here.
-  val geAt = DynLane.subtract(a, b, heads).map(s => s(laneW).asBool)
-  val ge   = DynLane.broadcast(geAt, mode, nLanes)
+  val geAt   = DynLane.subtract(a, b, heads).map(s => s(laneW).asBool)
+  val geComb = DynLane.broadcast(geAt, modeIn, nLanes)
 
-  // select the original (unbiased) lanes
-  val al = DynLane.split(io.in.a, laneW, nLanes)
-  val bl = DynLane.split(io.in.b, laneW, nLanes)
+  //---------------------------- stage "cmp" -----------------------------
+  private val cutCmp = new SharedPipe("cmp", cutIn.valid, stages.at("cmp"))
 
-  val min = DynLane.concat(Seq.tabulate(nLanes)(i => Mux(ge(i), bl(i), al(i))))
-  val max = DynLane.concat(Seq.tabulate(nLanes)(i => Mux(ge(i), al(i), bl(i))))
+  val ge   = geComb.map(g => cutCmp(g))
+  val aCmp = cutCmp(aIn)
+  val bCmp = cutCmp(bIn)
 
-  io.out.min := ShiftRegister(min, latency)
-  io.out.max := ShiftRegister(max, latency)
+  //----------------------------------------------------------------------
+  // S2 : select the original (unbiased) lanes
+
+  val al = DynLane.split(aCmp, laneW, nLanes)
+  val bl = DynLane.split(bCmp, laneW, nLanes)
+
+  val minComb = DynLane.concat(Seq.tabulate(nLanes)(i => Mux(ge(i), bl(i), al(i))))
+  val maxComb = DynLane.concat(Seq.tabulate(nLanes)(i => Mux(ge(i), al(i), bl(i))))
+
+  //---------------------------- stage "out" -----------------------------
+  private val cutOut = new SharedPipe("out", cutCmp.valid, stages.at("out"))
+
+  io.out.bits.min := cutOut(minComb)
+  io.out.bits.max := cutOut(maxComb)
+  io.out.valid    := cutOut.valid
+}
+
+/** Input and output bundles and pipeline stage points of
+ *  [[rial.dyn.DynMinMax]].
+ *
+ * @see [[rial.util.StagePoint]]
+ */
+object DynMinMax {
+
+  /** Input of [[rial.dyn.DynMinMax]]: the two operands and the element width.
+   *
+   * @param laneW  width of the narrowest element
+   * @param nLanes number of lanes
+   */
+  class Input(laneW: Int, nLanes: Int) extends Bundle {
+    val a    = UInt((laneW * nLanes).W)
+    val b    = UInt((laneW * nLanes).W)
+    val mode = UInt(DynLane.modeW(nLanes).W)
+  }
+
+  /** Output of [[rial.dyn.DynMinMax]]: the lane-wise minimum and maximum.
+   *
+   * @param laneW  width of the narrowest element
+   * @param nLanes number of lanes
+   */
+  class Output(laneW: Int, nLanes: Int) extends Bundle {
+    val min = UInt((laneW * nLanes).W)
+    val max = UInt((laneW * nLanes).W)
+  }
+
+  /** Boundaries at which pipeline registers can be placed; see
+   *  [[rial.dyn.DynMinMax]]. */
+  val stagePoints: Seq[StagePoint] = Seq(
+    StagePoint("cmp", 3), StagePoint("out", 1))
 }

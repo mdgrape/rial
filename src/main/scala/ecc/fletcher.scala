@@ -10,6 +10,8 @@ package rial.ecc
 import chisel3._
 import chisel3.util._
 
+import rial.util._
+
 // Fletcher-16
 //
 // Ai = Ai-1 + di
@@ -40,33 +42,62 @@ import chisel3.util._
  * {{{
  * class Fletcher(...) extends Module {
  *   val io = IO(new Bundle{
- *     val in  = Input(new Bundle {
- *       val valid = Bool()
- *       val bits  = UInt(inputW.W)
- *     })
- *     val out = Output(new Bundle {
- *       val valid = Bool()
- *       val bits  = UInt(checksumW.W)
- *     })
+ *     val in  = Flipped(Valid(UInt(inputW.W)))
+ *     val out = Valid(UInt(checksumW.W))
  *   })
  *   //...
  * }
  * }}}
  *
+ * The whole input word is checksummed in one shot: it is split into elements
+ * of `checksumW/2` bits, `in.bits` of one cycle is one message.
+ *
+ * Pipeline registers can be enabled at the following points of the datapath
+ * (names for `PipelineStageConfig.specify`):
+ *
+ *  - `"in"`  the module input
+ *  - `"sum"` after the weighted sum and the sum of the elements
+ *  - `"mod"` after the modulo of the weighted sum
+ *  - `"out"` the module output
+ *
+ * [[getStage]] gives the resulting latency, and `out.valid` is `in.valid`
+ * delayed by that many cycles.
+ *
+ * {{{
+ * // two registers, placed by the module
+ * new Fletcher(16, 64, 2)
+ * // hand-picked positions
+ * new Fletcher(16, 64, PipelineStageConfig.specify("sum" -> 1, "mod" -> 1))
+ * // combinational
+ * new Fletcher(16, 64, PipelineStageConfig.none)
+ * }}}
+ *
  * @constructor construct Fletcher module
  * @param checksumW checksum width. if 16, use Fletcher-16.
  * @param inputW    input width. if it is not a multiple of checksumW/2, the input will be extended with zero (zero-padding)
- * @param latency   latency of this module.
+ * @param stage     pipeline registers of this module.
+ *
+ * @see [[rial.util.PipelineStageConfig]]
+ * @see [[rial.util.StagePoint]]
  */
 class Fletcher(
   checksumW: Int, // if 16, use Fletcher-16.
   inputW:    Int, // if not a multiple of checksumW/2, it will be 0-padded.
-  latency:   Int  // latency.
+  stage:     PipelineStageConfig
 ) extends Module {
 
   assert(checksumW % 2 == 0)
   val elemW = checksumW / 2
   val mod = (1 << elemW) - 1
+
+  /** Boundaries at which pipeline registers can be placed; see the class doc. */
+  val stagePoints = Fletcher.stagePoints
+
+  val stages = stage.resolve(stagePoints)
+
+  val nStage = stages.total
+
+  def getStage = nStage
 
   def splitIntoElems(x: UInt): Seq[UInt] = {
     // 0-pad to make it a multiple of elemW
@@ -85,36 +116,73 @@ class Fletcher(
   // -------------------------------------------------------------------------
 
   val io = IO(new Bundle {
-    val in  = Input(new Bundle {
-      val valid = Bool()
-      val bits  = UInt(inputW.W)
-    })
-    val out = Output(new Bundle {
-      val valid = Bool()
-      val bits  = UInt(checksumW.W)
-    })
+    val in  = Flipped(Valid(UInt(inputW.W)))
+    val out = Valid(UInt(checksumW.W))
   })
 
-  val d = VecInit(splitIntoElems(io.in.bits))
+  //----------------------------------------------------------------------
+  // S0 : input registers ("in")
+  private val cutIn = new SharedPipe("in", io.in.valid, stages.at("in"))
+
+  val xIn = cutIn(io.in.bits)
+
+  //----------------------------------------------------------------------
+  // S1 : the weighted sum Bn and, beside it, the sum of the elements An
+
+  val d = VecInit(splitIntoElems(xIn))
   val n = d.length
 
   val maxBn = ((1 << elemW) - 1) * (n * (n+1)) / 2
   val bnW = log2Ceil(maxBn+1)
-  val bn = VecInit(d.zipWithIndex.map{
+  val bnComb = VecInit(d.zipWithIndex.map{
     case(v, i) => { (v * (d.length-i).U).pad(bnW) }
   }).reduceTree(_+_)
 
-  val amod0 = d.reduceTree(modsum(_,_))
-  val bmod0 = VecInit(splitIntoElems(bn)).reduceTree(modsum(_,_))
+  val amod0Comb = d.reduceTree(modsum(_,_))
 
-  val amod = Mux(amod0 === mod.U, 0.U(elemW.W), amod0)
-  val bmod = Mux(bmod0 === mod.U, 0.U(elemW.W), bmod0)
-  val checksum = Cat(bmod, amod)
+  //---------------------------- stage "sum" -----------------------------
+  private val cutSum = new SharedPipe("sum", cutIn.valid, stages.at("sum"))
 
-  assert(amod.getWidth == elemW)
-  assert(bmod.getWidth == elemW)
-  assert(checksum.getWidth == checksumW)
+  val bn    = cutSum(bnComb)
+  val amod0 = cutSum(amod0Comb)
 
-  io.out.valid := ShiftRegister(io.in.valid, latency, false.B, true.B)
-  io.out.bits  := ShiftRegister(checksum,    latency, 0.U,     true.B)
+  //----------------------------------------------------------------------
+  // S2 : Bn mod 255
+
+  val bmod0Comb = VecInit(splitIntoElems(bn)).reduceTree(modsum(_,_))
+
+  //---------------------------- stage "mod" -----------------------------
+  private val cutMod = new SharedPipe("mod", cutSum.valid, stages.at("mod"))
+
+  val bmod0    = cutMod(bmod0Comb)
+  val amod0Mod = cutMod(amod0)
+
+  //----------------------------------------------------------------------
+  // S3 : mod255(0xff) is 0, and then the two halves are concatenated
+
+  val amodComb = Mux(amod0Mod === mod.U, 0.U(elemW.W), amod0Mod)
+  val bmodComb = Mux(bmod0    === mod.U, 0.U(elemW.W), bmod0)
+  val checksumComb = Cat(bmodComb, amodComb)
+
+  assert(amodComb.getWidth == elemW)
+  assert(bmodComb.getWidth == elemW)
+  assert(checksumComb.getWidth == checksumW)
+
+  //---------------------------- stage "out" -----------------------------
+  private val cutOut = new SharedPipe("out", cutMod.valid, stages.at("out"))
+
+  io.out.bits  := cutOut(checksumComb)
+  io.out.valid := cutOut.valid
+}
+
+/** Pipeline stage points of [[rial.ecc.Fletcher]].
+ *
+ * @see [[rial.util.StagePoint]]
+ */
+object Fletcher {
+
+  /** Boundaries at which pipeline registers can be placed; see
+   *  [[rial.ecc.Fletcher]]. */
+  val stagePoints: Seq[StagePoint] = Seq(
+    StagePoint("sum", 3), StagePoint("mod", 3), StagePoint("out", 1))
 }

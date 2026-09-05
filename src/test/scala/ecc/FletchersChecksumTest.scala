@@ -4,6 +4,7 @@ import org.scalatest._
 import org.scalatest.funspec.AnyFunSpec
 
 import rial.ecc._
+import rial.util.PipelineStageConfig
 
 import chisel3._
 import chisel3.util._
@@ -39,12 +40,17 @@ class FletchersChecksumTest extends AnyFunSpec with ChiselSim with EmitVcd {
     (bmod << 8) + amod
   }
 
-  def runtest(dataW: Int, latency: Int, seed: Int) = {
-    it(f"Fletcher16(dataW=${dataW}, latency=${latency})") {
+  def runtest(dataW: Int, stage: PipelineStageConfig, seed: Int) = {
+    it(f"Fletcher16(dataW=${dataW}, stage=[${stage.getString}])") {
       val n = getOption[Int]("n").getOrElse(1000)
-      simulate(new Fletcher(16, dataW, latency)) {
+      simulate(new Fletcher(16, dataW, stage)) {
         c => {
           val rng = new Random(seed)
+          // the pipeline registers advance while in.valid is high, which it is
+          // for the whole run
+          c.io.in.valid.poke(true.B)
+          val latency = c.getStage
+          assert(latency == stage.resolve(Fletcher.stagePoints).total)
 
           val q = new Queue[(BigInt, Int)]
           for(i <- 0 until n + latency) {
@@ -53,18 +59,21 @@ class FletchersChecksumTest extends AnyFunSpec with ChiselSim with EmitVcd {
             val zref = fletcher16Soft(dataW, xin)
             q += ((xin, zref))
 
-            c.io.in.valid.poke(true.B)
-            c.io.in.bits .poke(xin.U(dataW.W))
-            val zvalid = c.io.out.valid.peek().litValue == 1
+            c.io.in.bits.poke(xin.U(dataW.W))
+            val zvalid = c.io.out.valid.peek().litToBoolean
             val zout   = c.io.out.bits.peek().litValue
 
             // println(f"xin=${xin}%x, zout=${zout}%x, zref=${zref}%x")
+
+            // out.valid is in.valid delayed by the latency
+            assert(zvalid == (latency <= i),
+              f"out.valid is ${zvalid}%b after $i%d cycle(s) of a " +
+              f"$latency%d stage pipeline")
 
             c.clock.step(1)
 
             if(latency <= i) {
               val (x, z) = q.dequeue()
-              assert(zvalid)
               assert(z == zout, f"checksum(${x}%x) = ${z}%x, but checksumSoft(${x}%x) = ${zout}%x")
             }
           }
@@ -74,16 +83,22 @@ class FletchersChecksumTest extends AnyFunSpec with ChiselSim with EmitVcd {
   }
 
   describe("Fletcher's checksum compared to software impl") {
-    runtest( 32, 0, 123456789)
-    runtest( 32, 1, 123456789)
-    runtest( 32, 2, 123456789)
+    for (dataW <- Seq(32, 64, 128)) {
+      runtest(dataW, PipelineStageConfig.none, 123456789)
+    }
+  }
 
-    runtest( 64, 0, 123456789)
-    runtest( 64, 1, 123456789)
-    runtest( 64, 2, 123456789)
-
-    runtest(128, 0, 123456789)
-    runtest(128, 1, 123456789)
-    runtest(128, 2, 123456789)
+  // Pipelined configurations. A representative subset only: one verilator
+  // build per configuration, so this is deliberately not a sweep.
+  //  - default(n) : the registers are placed by Fletcher itself
+  //  - specify    : one register at every declared point, which exercises
+  //                 every single pipeline register of the datapath
+  describe("Fletcher's checksum with pipeline registers") {
+    for (stage <- Seq(
+      PipelineStageConfig.default(1),
+      PipelineStageConfig.default(2),
+      PipelineStageConfig.specify("in" -> 1, "sum" -> 1, "mod" -> 1, "out" -> 1))) {
+      runtest(64, stage, 123456789)
+    }
   }
 }
