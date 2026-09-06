@@ -309,7 +309,9 @@ class FusedMulAddFPGeneric(
   val zManPad       = Cat(0.U(3.W), zmanMul, 0.U((farProdWidth - (1+zSpec.manW) - 3).W))
   val zManInverted  = Mux(xyzopMul, -(zManPad.asSInt), zManPad.asSInt)
   val zManAligned0  = zManInverted.asSInt >> diffExXYZMul(zShiftOutW-1, 0)
-  val zManAligned   = Mux(zShiftOut, 0.U,
+  // Fully shifted out: an effective subtraction (xyzop) still owes a borrow
+  // (see sumFarProd below); all-ones is that borrow folded into the operand.
+  val zManAligned   = Mux(zShiftOut, Fill(farProdWidth, xyzopMul),
     zManAligned0(zManAligned0.getWidth - 1, zManAligned0.getWidth - 1 - (farProdWidth-1)))
   val prodPad       = Cat(0.U(2.W), xyprodMul, 0.U((farProdWidth - 2 - xyprodMul.getWidth).W)) // XXX FIXME
 
@@ -350,11 +352,10 @@ class FusedMulAddFPGeneric(
   // S4 : far path (product is larger), significand add
   //
   // Effective subtraction (xyzop) with the subtrahend fully shifted out of the
-  // window (zShiftOut) forces zManAligned to 0, losing the borrow: the true value
-  // is product - epsilon, just BELOW the windowed product, so a round-to-even tie
-  // must round DOWN. Apply the borrow so round/sticky see 'just below'.
-  val sumFarProd    = Mux(zShiftOutAlign && xyzopAlign,
-    (prodPadAlign + zManAlignedAlign) - 1.U, prodPadAlign + zManAlignedAlign)
+  // window (zShiftOut) loses the borrow: the true value is product - epsilon,
+  // just BELOW the windowed product, so a round-to-even tie must round DOWN.
+  // zManAligned carries that borrow as all-ones, so this is a plain add.
+  val sumFarProd    = prodPadAlign + zManAlignedAlign
   // shiftSticky only reads signals of the segment that ends at "align"; the
   // source computes it after sumFarProd, so its register follows here.
   val shiftSticky   = PriorityEncoder(zManInverted) < diffExXYZMul(zShiftOutW-1, 0) || zShiftOut
