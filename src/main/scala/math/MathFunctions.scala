@@ -172,18 +172,29 @@ class MathFunctions(
     ))
   )} else { None }
 
-  // Pre-mult driver wires: each function that wants the multiplier overrides
-  // these in its own when-block below. Default = 0 (no spurious switching).
-  val (preMulValid, preMulLhs, preMulRhs) = if (needPreMul) { (
-    Some(WireDefault(false.B)),
-    Some(WireDefault(0.U(PreProcMultiplier.lhsW(cfg.funcs, spec).W))),
-    Some(WireDefault(0.U((1+manW).W)))
-  )} else {(None, None, None)}
+  /** the operand set one function offers to the pre-process multiplier. */
+  private def preMulOperands = new MathFunctions.MulOperands(
+    PreProcMultiplier.lhsW(cfg.funcs, spec), 1 + manW)
+
+  // Pre-mult operands, one set per function: each function that wants the
+  // multiplier drives its own set in its block below and offers 0 otherwise.
+  // Only the selected function's set is ever asked for, so the multiplier
+  // input is one flat selection on `selIn`.
+  val preMulArgs: Option[Map[FuncKind, Valid[MathFunctions.MulOperands]]] =
+    if (needPreMul) {
+      Some(cfg.funcs.map(fn => {
+        fn -> WireDefault(0.U.asTypeOf(Valid(preMulOperands)))
+      }).toMap)
+    } else {
+      None
+    }
 
   if (preMul.isDefined) {
-    preMul.get.io.in.valid    := preMulValid.get
-    preMul.get.io.in.bits.lhs := preMulLhs.get
-    preMul.get.io.in.bits.rhs := preMulRhs.get
+    val args = MuxLookup(selIn, 0.U.asTypeOf(Valid(preMulOperands)))(
+      cfg.funcs.map(fn => cfg.signal(fn) -> preMulArgs.get(fn)))
+    preMul.get.io.in.valid    := args.valid
+    preMul.get.io.in.bits.lhs := args.bits.lhs
+    preMul.get.io.in.bits.rhs := args.bits.rhs
   }
 
   // ==========================================================================
@@ -224,24 +235,21 @@ class MathFunctions(
     ))
   )} else { None }
 
-  val (postMulValid, postMulLhs, postMulRhs) = if (needPostMul) { (
-    Some(WireDefault(false.B)),
-    Some(WireDefault(0.U((1 + bitW.outBitW).W))),
-    Some(WireDefault(0.U((1+manW).W)))
-  )} else {(None, None, None)}
+  /** the operand set one function offers to the post-process multiplier. */
+  private def postMulOperands = new MathFunctions.MulOperands(
+    1 + bitW.outBitW, 1 + manW)
 
-  // stage "mulArgs": the operands the per-function blocks below select
-  private val cutMulArgsIn: Option[SharedPipe] = if (needPostMul) {
-    Some(new SharedPipe("mulArgsIn", postMulValid.get, nMulArgs))
-  } else {
-    None
-  }
-
-  if (postMul.isDefined) {
-    postMul.get.io.in.valid     := cutMulArgsIn.get.valid
-    postMul.get.io.in.bits.lhs  := cutMulArgsIn.get(postMulLhs.get)
-    postMul.get.io.in.bits.rhs  := cutMulArgsIn.get(postMulRhs.get)
-  }
+  // Post-mult operands, one set per function, driven the same way as the
+  // pre-mult ones; the selection itself sits at the "mulArgs" boundary below,
+  // where the function signal has reached the polynomial output.
+  val postMulArgs: Option[Map[FuncKind, Valid[MathFunctions.MulOperands]]] =
+    if (needPostMul) {
+      Some(cfg.funcs.map(fn => {
+        fn -> WireDefault(0.U.asTypeOf(Valid(postMulOperands)))
+      }).toMap)
+    } else {
+      None
+    }
 
   // ==========================================================================
   // stage "pre": the argument reduction of every function
@@ -291,16 +299,15 @@ class MathFunctions(
     }).toMap
   )}
 
-  val polynomialCoef = MuxCase(0.U.asTypeOf(Valid(UInt(polynomialCoefW.W))),
-    cfg.funcs.map(fn => {
-      (selCalc === cfg.signal(fn)) -> polynomialCoefs(fn)
-    })
-  )
+  // one flat selection on the function signal, at the two boundaries the
+  // coefficients and the interval offset reach it
+  val polynomialCoef =
+    MuxLookup(selCalc, 0.U.asTypeOf(Valid(UInt(polynomialCoefW.W))))(
+      cfg.funcs.map(fn => cfg.signal(fn) -> polynomialCoefs(fn)))
+
   val polynomialDx = if (bitW.nOrder == 0) { None } else { Some(
-    Pipe(MuxCase(0.U.asTypeOf(Valid(UInt(bitW.inBitW.W))),
-      cfg.funcs.map(fn => {
-        (selTab === cfg.signal(fn)) -> polynomialDxs.get(fn)
-      })
+    Pipe(MuxLookup(selTab, 0.U.asTypeOf(Valid(UInt(bitW.inBitW.W))))(
+      cfg.funcs.map(fn => cfg.signal(fn) -> polynomialDxs.get(fn))
     ), nTable)
   )}
 
@@ -341,6 +348,24 @@ class MathFunctions(
   // multiplier
   // ==========================================================================
 
+  // the operand set of the function `selPost` names, on its way to the
+  // post-process multiplier
+  private val postMulIn = postMulArgs.map(args => {
+    MuxLookup(selPost, 0.U.asTypeOf(Valid(postMulOperands)))(
+      cfg.funcs.map(fn => cfg.signal(fn) -> args(fn)))
+  })
+
+  // stage "mulArgs": the selected operands
+  private val cutMulArgsIn = postMulIn.map(in => {
+    new SharedPipe("mulArgsIn", in.valid, nMulArgs)
+  })
+
+  if (postMul.isDefined) {
+    postMul.get.io.in.valid    := cutMulArgsIn.get.valid
+    postMul.get.io.in.bits.lhs := cutMulArgsIn.get(postMulIn.get.bits.lhs)
+    postMul.get.io.in.bits.rhs := cutMulArgsIn.get(postMulIn.get.bits.rhs)
+  }
+
   private val cutMulArgs = new SharedPipe("mulArgs", cutPoly.valid, nMulArgs)
 
   val selMul = cutMulArgs(selPost)
@@ -374,9 +399,11 @@ class MathFunctions(
     fn -> WireDefault(0.U.asTypeOf(Valid(UInt(spec.W.W))))
   }).toMap
 
-  val zMux = MuxCase(0.U, cfg.funcs.map(fn => {
-    (selOut === cfg.signal(fn) && zs(fn).valid) -> zs(fn).bits
-  }))
+  // `io.out.valid` is `cutPost.valid`, which is low in every cycle in which
+  // the selected function's `zs` is, so the result is selected on `selOut`
+  // alone.
+  val zMux = MuxLookup(selOut, 0.U(spec.W.W))(
+    cfg.funcs.map(fn => cfg.signal(fn) -> zs(fn).bits))
 
   io.out := Pipe(cutPost.valid, zMux, stages.at("out"))
 
@@ -574,16 +601,12 @@ class MathFunctions(
     val sincosTab  = toModule[SinCosTableCoeff ](tabs (Sin))
     val sincosPost = toModule[SinCosPostProcess](posts(Sin))
 
-    val isSinSelIn    = selIn === cfg.signal(Sin)
-    val isCosSelIn    = selIn === cfg.signal(Cos)
-    val sincosSelIn   = isSinSelIn || isCosSelIn
-
-    // ----- pre-mult driver: 1/π * (1 + x.man) -----
-    when (sincosSelIn) {
-      preMulLhs.get   := SinCosPreMulArgs.lhs(spec, preMul.get.lhsW)
-      preMulRhs.get   := Cat(1.U(1.W), xIn.bits.man)
-      preMulValid.get := xIn.valid
-    }
+    // ----- pre-mult operands: 1/π * (1 + x.man), the same set for both -----
+    Seq(Sin, Cos).foreach(fn => {
+      preMulArgs.get(fn).valid    := xIn.valid
+      preMulArgs.get(fn).bits.lhs := SinCosPreMulArgs.lhs(spec, preMul.get.lhsW)
+      preMulArgs.get(fn).bits.rhs := Cat(1.U(1.W), xIn.bits.man)
+    })
 
     // ----- pre stage: x and sel on the far side of the pre-mult -----
     val isSinAtPre     = selPre === cfg.signal(Sin)
@@ -606,16 +629,15 @@ class MathFunctions(
       polynomialDxs.get(Cos) := sincosPre.io.dx.get
     }
 
-    // ----- post-mult driver: polynomial * (1 + yman) -----
+    // ----- post-mult operands: polynomial * (1 + yman) -----
     val sincosInfoAtPost = Pipe(sincosPre.io.info, nTabToPoly)
-    val sincosSelAtPost  = (selPost === cfg.signal(Sin)) ||
-      (selPost === cfg.signal(Cos))
 
-    when (sincosSelAtPost) {
-      postMulLhs.get := Cat(1.U(1.W), polynomialEval.io.out.bits)
-      postMulRhs.get := Cat(1.U(1.W), sincosInfoAtPost.bits.yman)
-      postMulValid.get := polynomialEval.io.out.valid && sincosInfoAtPost.valid
-    }
+    Seq(Sin, Cos).foreach(fn => {
+      postMulArgs.get(fn).valid    :=
+        polynomialEval.io.out.valid && sincosInfoAtPost.valid
+      postMulArgs.get(fn).bits.lhs := Cat(1.U(1.W), polynomialEval.io.out.bits)
+      postMulArgs.get(fn).bits.rhs := Cat(1.U(1.W), sincosInfoAtPost.bits.yman)
+    })
 
     // ----- post -----
     sincosPost.io.pre := Pipe(sincosInfoAtPost, nMulToPost)
@@ -636,14 +658,10 @@ class MathFunctions(
     val ntab = toModule[ExpNonTable   ](nontabs(Exp))
     val post = toModule[ExpPostProcess](posts  (Exp))
 
-    val expSelIn = selIn === cfg.signal(Exp)
-
-    // ----- pre-mult driver: log2(e) * (1 + x.man) -----
-    when (expSelIn) {
-      preMulLhs.get   := ExpPreMulArgs.lhs(spec, preMul.get.lhsW)
-      preMulRhs.get   := Cat(1.U(1.W), xIn.bits.man)
-      preMulValid.get := xIn.valid
-    }
+    // ----- pre-mult operands: log2(e) * (1 + x.man) -----
+    preMulArgs.get(Exp).valid    := xIn.valid
+    preMulArgs.get(Exp).bits.lhs := ExpPreMulArgs.lhs(spec, preMul.get.lhsW)
+    preMulArgs.get(Exp).bits.rhs := Cat(1.U(1.W), xIn.bits.man)
 
     // ----- pre stage -----
     val expSelAtPre = selPre === cfg.signal(Exp)
@@ -704,13 +722,10 @@ class MathFunctions(
     mulArgs.io.info := ntab.io.z
     mulArgs.io.zres := polynomialEval.io.out.bits
 
-    val logSelAtPost = selPost === cfg.signal(Log)
-
-    when (logSelAtPost) {
-      postMulLhs.get   := mulArgs.io.mul.bits.lhs
-      postMulRhs.get   := mulArgs.io.mul.bits.rhs
-      postMulValid.get := mulArgs.io.mul.valid && polynomialEval.io.out.valid
-    }
+    postMulArgs.get(Log).valid    :=
+      mulArgs.io.mul.valid && polynomialEval.io.out.valid
+    postMulArgs.get(Log).bits.lhs := mulArgs.io.mul.bits.lhs
+    postMulArgs.get(Log).bits.rhs := mulArgs.io.mul.bits.rhs
 
     // ----- post -----
     post.io.info := Pipe(ntab.io.z, nMulToPost)
@@ -783,13 +798,10 @@ class MathFunctions(
     mulArgs.io.zres   := polynomialEval.io.out.bits
     mulArgs.io.xManW1 := xManW1AtPost
 
-    val acos2SelAtPost = selPost === cfg.signal(ACosPhase2)
-
-    when (acos2SelAtPost) {
-      postMulLhs.get   := mulArgs.io.mul.bits.lhs
-      postMulRhs.get   := mulArgs.io.mul.bits.rhs
-      postMulValid.get := mulArgs.io.mul.valid && polynomialEval.io.out.valid
-    }
+    postMulArgs.get(ACosPhase2).valid    :=
+      mulArgs.io.mul.valid && polynomialEval.io.out.valid
+    postMulArgs.get(ACosPhase2).bits.lhs := mulArgs.io.mul.bits.lhs
+    postMulArgs.get(ACosPhase2).bits.rhs := mulArgs.io.mul.bits.rhs
 
     // flags & x.ex pipelined to the input of the post-process
     val flagsAtAfterMul = Pipe(pre.io.flags, nTabToPost)
@@ -839,13 +851,9 @@ class MathFunctions(
     mulArgs.io.minMan    := infoAtPost.bits.minMan
     mulArgs.io.valid     := infoAtPost.valid && polynomialEval.io.out.valid
 
-    val atan2P1SelAtPost = selPost === cfg.signal(ATan2Phase1)
-
-    when (atan2P1SelAtPost) {
-      postMulLhs.get   := mulArgs.io.mul.bits.lhs
-      postMulRhs.get   := mulArgs.io.mul.bits.rhs
-      postMulValid.get := mulArgs.io.mul.valid
-    }
+    postMulArgs.get(ATan2Phase1).valid    := mulArgs.io.mul.valid
+    postMulArgs.get(ATan2Phase1).bits.lhs := mulArgs.io.mul.bits.lhs
+    postMulArgs.get(ATan2Phase1).bits.rhs := mulArgs.io.mul.bits.rhs
 
     // info & flags pipelined to the input of the post-process; the
     // post-process reads only zex and xySameMan
@@ -891,13 +899,10 @@ class MathFunctions(
     mulArgs.io.isLinear := isLinearAtPost.bits
     mulArgs.io.xManW1   := xManW1AtPost
 
-    val atan2P2SelAtPost = selPost === cfg.signal(ATan2Phase2)
-
-    when (atan2P2SelAtPost) {
-      postMulLhs.get   := mulArgs.io.mul.bits.lhs
-      postMulRhs.get   := mulArgs.io.mul.bits.rhs
-      postMulValid.get := mulArgs.io.mul.valid && polynomialEval.io.out.valid
-    }
+    postMulArgs.get(ATan2Phase2).valid    :=
+      mulArgs.io.mul.valid && polynomialEval.io.out.valid
+    postMulArgs.get(ATan2Phase2).bits.lhs := mulArgs.io.mul.bits.lhs
+    postMulArgs.get(ATan2Phase2).bits.rhs := mulArgs.io.mul.bits.rhs
 
     // flags, xex, isLinear pipelined to the input of the post-process
     val flagsAtAfterMul    = Pipe(pre.io.flags,    nTabToPost)
@@ -978,14 +983,11 @@ class MathFunctions(
     val tab  = toModule[ScaleMixtureGaussianTableCoeff ](tabs (ScaleMixtureGaussian))
     val post = toModule[ScaleMixtureGaussianPostProcess](posts(ScaleMixtureGaussian))
 
-    val smgSelIn = selIn === cfg.signal(ScaleMixtureGaussian)
-
-    // ----- pre-mult driver: (1/sgmA^2) * (1 + x.man) -----
-    when (smgSelIn) {
-      preMulLhs.get   := ScaleMixtureGaussianPreMulArgs.lhs(sgmA, spec, preMul.get.lhsW)
-      preMulRhs.get   := Cat(1.U(1.W), xIn.bits.man)
-      preMulValid.get := xIn.valid
-    }
+    // ----- pre-mult operands: (1/sgmA^2) * (1 + x.man) -----
+    preMulArgs.get(ScaleMixtureGaussian).valid    := xIn.valid
+    preMulArgs.get(ScaleMixtureGaussian).bits.lhs :=
+      ScaleMixtureGaussianPreMulArgs.lhs(sgmA, spec, preMul.get.lhsW)
+    preMulArgs.get(ScaleMixtureGaussian).bits.rhs := Cat(1.U(1.W), xIn.bits.man)
 
     // ----- pre stage: x and sel on the far side of the pre-mult -----
     val smgSelAtPre = selPre === cfg.signal(ScaleMixtureGaussian)
@@ -1009,12 +1011,9 @@ class MathFunctions(
     mulArgs.io.zres      := polynomialEval.io.out.bits
     mulArgs.io.valid     := infoAtPost.valid && polynomialEval.io.out.valid
 
-    val smgSelAtPost = selPost === cfg.signal(ScaleMixtureGaussian)
-    when (smgSelAtPost) {
-      postMulLhs.get   := mulArgs.io.mul.bits.lhs
-      postMulRhs.get   := mulArgs.io.mul.bits.rhs
-      postMulValid.get := mulArgs.io.mul.valid
-    }
+    postMulArgs.get(ScaleMixtureGaussian).valid    := mulArgs.io.mul.valid
+    postMulArgs.get(ScaleMixtureGaussian).bits.lhs := mulArgs.io.mul.bits.lhs
+    postMulArgs.get(ScaleMixtureGaussian).bits.rhs := mulArgs.io.mul.bits.rhs
 
     // ----- post stage: pipe info & z0Ex to the input of the post-process -----
     val infoAtAfterMul = Pipe(infoAtPost, nMulToPost)
@@ -1052,6 +1051,20 @@ object MathFunctions {
     } else {
       None
     }
+  }
+
+  /** The operands one function offers to a shared multiplier.
+   *
+   * Every configured function drives its own set and the set of the selected
+   * function reaches the multiplier, so the operands are picked by one flat
+   * mux on the function signal.
+   *
+   * @param lhsW width of the left operand
+   * @param rhsW width of the right operand
+   */
+  class MulOperands(val lhsW: Int, val rhsW: Int) extends Bundle {
+    val lhs = UInt(lhsW.W)
+    val rhs = UInt(rhsW.W)
   }
 
   /** Boundaries at which pipeline registers can be placed; see
