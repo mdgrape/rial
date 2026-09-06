@@ -297,11 +297,11 @@ class MathFunctions(
     })
   )
   val polynomialDx = if (bitW.nOrder == 0) { None } else { Some(
-    MuxCase(0.U.asTypeOf(Valid(UInt(bitW.inBitW.W))),
+    Pipe(MuxCase(0.U.asTypeOf(Valid(UInt(bitW.inBitW.W))),
       cfg.funcs.map(fn => {
-        (selCalc === cfg.signal(fn)) -> polynomialDxs.get(fn)
+        (selTab === cfg.signal(fn)) -> polynomialDxs.get(fn)
       })
-    )
+    ), nTable)
   )}
 
   // ==========================================================================
@@ -484,7 +484,7 @@ class MathFunctions(
 
     polynomialCoefs(Sqrt) := tab.io.cs
     if(bitW.nOrder != 0) {
-      polynomialDxs.get(Sqrt) := Pipe(pre.io.dx.get, nTable)
+      polynomialDxs.get(Sqrt) := pre.io.dx.get
     }
 
     ntab.io.x.valid := xTab.valid && selTab === cfg.signal(Sqrt)
@@ -512,7 +512,7 @@ class MathFunctions(
 
     polynomialCoefs(InvSqrt) := tab.io.cs
     if(bitW.nOrder != 0) {
-      polynomialDxs.get(InvSqrt) := Pipe(pre.io.dx.get, nTable)
+      polynomialDxs.get(InvSqrt) := pre.io.dx.get
     }
 
     ntab.io.x.valid := xTab.valid && selTab === cfg.signal(InvSqrt)
@@ -540,7 +540,7 @@ class MathFunctions(
 
     polynomialCoefs(Reciprocal) := tab.io.cs
     if(bitW.nOrder != 0) {
-      polynomialDxs.get(Reciprocal) := Pipe(pre.io.dx.get, nTable)
+      polynomialDxs.get(Reciprocal) := pre.io.dx.get
     }
 
     ntab.io.x.valid := xTab.valid && selTab === cfg.signal(Reciprocal)
@@ -594,9 +594,8 @@ class MathFunctions(
     polynomialCoefs(Sin) := sincosTab.io.cs
     polynomialCoefs(Cos) := sincosTab.io.cs
     if(bitW.nOrder != 0) {
-      val dxAtCalc = Pipe(sincosPre.io.dx.get, nTable)
-      polynomialDxs.get(Sin) := dxAtCalc
-      polynomialDxs.get(Cos) := dxAtCalc
+      polynomialDxs.get(Sin) := sincosPre.io.dx.get
+      polynomialDxs.get(Cos) := sincosPre.io.dx.get
     }
 
     // ----- post-mult driver: polynomial * (1 + yman) -----
@@ -651,7 +650,7 @@ class MathFunctions(
 
     polynomialCoefs(Exp) := tab.io.cs
     if(bitW.nOrder != 0) {
-      polynomialDxs.get(Exp) := Pipe(pre.io.dx.get, nTable)
+      polynomialDxs.get(Exp) := pre.io.dx.get
     }
 
     // ----- non-table ------
@@ -686,7 +685,7 @@ class MathFunctions(
 
     polynomialCoefs(Log) := tab.io.cs
     if(bitW.nOrder != 0) {
-      polynomialDxs.get(Log) := Pipe(pre.io.dx.get, nTable)
+      polynomialDxs.get(Log) := pre.io.dx.get
     }
 
     ntab.io.x.valid := xTab.valid && selTab === cfg.signal(Log)
@@ -734,7 +733,7 @@ class MathFunctions(
 
     polynomialCoefs(ACosPhase1) := sqrtTab.io.cs
     if (bitW.nOrder != 0) {
-      polynomialDxs.get(ACosPhase1) := Pipe(pre.io.dx.get, nTable)
+      polynomialDxs.get(ACosPhase1) := pre.io.dx.get
     }
 
     // pre.io.flags leaves the pre-process at the table input; pipeline it to
@@ -766,7 +765,7 @@ class MathFunctions(
 
     polynomialCoefs(ACosPhase2) := tab.io.cs
     if (bitW.nOrder != 0) {
-      polynomialDxs.get(ACosPhase2) := Pipe(pre.io.dx.get, nTable)
+      polynomialDxs.get(ACosPhase2) := pre.io.dx.get
     }
 
     // post-mult args at the polynomial output: lhs = polynomial w/ hidden 1,
@@ -821,7 +820,7 @@ class MathFunctions(
 
     polynomialCoefs(ATan2Phase1) := recTab.io.cs
     if (bitW.nOrder != 0) {
-      polynomialDxs.get(ATan2Phase1) := Pipe(pre.io.dx.get, nTable)
+      polynomialDxs.get(ATan2Phase1) := pre.io.dx.get
     }
 
     // ---- post-mult args at the polynomial output: lhs (poly+hidden 1), rhs (1+minMan) ----
@@ -867,7 +866,7 @@ class MathFunctions(
 
     polynomialCoefs(ATan2Phase2) := tab.io.cs
     if (bitW.nOrder != 0) {
-      polynomialDxs.get(ATan2Phase2) := Pipe(pre.io.dx.get, nTable)
+      polynomialDxs.get(ATan2Phase2) := pre.io.dx.get
     }
 
     // ---- post-mult args at the polynomial output ----
@@ -913,7 +912,7 @@ class MathFunctions(
 
     polynomialCoefs(Sigmoid) := tab.io.cs
     if (bitW.nOrder != 0) {
-      polynomialDxs.get(Sigmoid) := Pipe(pre.io.dx.get, nTable)
+      polynomialDxs.get(Sigmoid) := pre.io.dx.get
     }
 
     // info pipelined from the table input to the input of the post-process
@@ -939,7 +938,7 @@ class MathFunctions(
 
     polynomialCoefs(SoftPlus) := tab.io.cs
     if (bitW.nOrder != 0) {
-      polynomialDxs.get(SoftPlus) := Pipe(pre.io.dx.get, nTable)
+      polynomialDxs.get(SoftPlus) := pre.io.dx.get
     }
 
     val infoAtPost = Pipe(pre.io.info, nTabToPost)
@@ -985,7 +984,7 @@ class MathFunctions(
     tab.io.adr := pre.io.adr
     polynomialCoefs(ScaleMixtureGaussian) := tab.io.cs
     if (bitW.nOrder != 0) {
-      polynomialDxs.get(ScaleMixtureGaussian) := Pipe(pre.io.dx.get, nTable)
+      polynomialDxs.get(ScaleMixtureGaussian) := pre.io.dx.get
     }
 
     // ----- post-mult args at the polynomial output -----
