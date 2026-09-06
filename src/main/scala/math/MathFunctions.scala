@@ -473,6 +473,14 @@ class MathFunctions(
 
   // --------------------------------------------------------------------------
 
+  /** [[SqrtNonTable]]'s output at the post-process input.  Sqrt and ACosPhase1
+   *  read the same net, so it is delayed once. */
+  private val sqrtNtabAtPost = if (cfg.has(Sqrt)) {
+    Some(Pipe(toModule[SqrtNonTable](nontabs(Sqrt)).io.z, nMulToPost))
+  } else {
+    None
+  }
+
   if(cfg.has(Sqrt)) {
     val pre  = toModule[SqrtPreProcess ](pres   (Sqrt))
     val tab  = toModule[SqrtTableCoeff ](tabs   (Sqrt))
@@ -490,7 +498,7 @@ class MathFunctions(
     ntab.io.x.valid := xTab.valid && selTab === cfg.signal(Sqrt)
     ntab.io.x.bits  := xTab.bits
 
-    val ntabAtPost = Pipe(ntab.io.z, nMulToPost)
+    val ntabAtPost = sqrtNtabAtPost.get
 
     post.io.in.valid     := ntabAtPost.valid && zresPostMul.valid
     post.io.in.bits.info := ntabAtPost.bits
@@ -739,7 +747,7 @@ class MathFunctions(
     // pre.io.flags leaves the pre-process at the table input; pipeline it to
     // the input of the post-process
     val flagsAtPost = Pipe(pre.io.flags, nTabToPost)
-    val ntabAtPost  = Pipe(sqrtNtab.io.z, nMulToPost)
+    val ntabAtPost  = sqrtNtabAtPost.get
 
     post.io.in.valid       := ntabAtPost.valid && zresPostMul.valid && flagsAtPost.valid
     post.io.in.bits.info   := ntabAtPost.bits
@@ -840,7 +848,7 @@ class MathFunctions(
     }
 
     // info & flags pipelined to the input of the post-process
-    val infoAtAfterMul  = Pipe(pre.io.info,  nTabToPost)
+    val infoAtAfterMul  = Pipe(infoAtPost,   nMulToPost)
     val flagsAtAfterMul = Pipe(pre.io.flags, nTabToPost)
 
     post.io.info  := infoAtAfterMul
@@ -888,7 +896,7 @@ class MathFunctions(
     // flags, xex, isLinear pipelined to the input of the post-process
     val flagsAtAfterMul    = Pipe(pre.io.flags,    nTabToPost)
     val xexAtAfterMul      = Pipe(pre.io.xex,      nTabToPost)
-    val isLinearAtAfterMul = Pipe(pre.io.isLinear, nTabToPost)
+    val isLinearAtAfterMul = Pipe(isLinearAtPost,  nMulToPost)
 
     post.io.flags    := flagsAtAfterMul
     post.io.xex      := xexAtAfterMul
