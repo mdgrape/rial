@@ -29,6 +29,10 @@ object CRC {
 
 /** Stateless CRC calculator
  *
+ * One word of `w` bits is folded into the remainder every cycle, so the input
+ * width `w` must be at least the remainder width `n` (the order of `g`);
+ * narrower words have to be assembled into one `w`-bit word upstream.
+ *
  * {{{
  * class CRCcore(...) extends Module {
  *   val io = IO(new Bundle{
@@ -42,7 +46,7 @@ object CRC {
  *
  * @constructor construct CRCcore module
  * @param g     coefficients of generator polynomial (with highest order)
- * @param w     Width of input
+ * @param w     Width of input (must be at least the order of `g`)
  */
 class CRCcore ( g : BigInt, w : Int ) extends Module {
 
@@ -53,19 +57,19 @@ class CRCcore ( g : BigInt, w : Int ) extends Module {
     sys.exit(1)
   }
 
+  require(n <= w,
+    f"CRCcore: input width w=$w is narrower than the remainder width n=$n " +
+     "(the order of the generator polynomial). The input width must be at " +
+     "least the remainder width; assemble the narrower words into one " +
+     f"$n-bit or wider word upstream and feed that word per cycle.")
+
   val io = IO(iodef = new Bundle {
     val x  = Input(UInt(w.W))
     val ri = Input(UInt(n.W))
     val ro = Output(UInt(n.W))
   } )
 
-  val y = io.x ^ ( if (n>w) {
-    // Reminder width > input width
-    io.ri(n-1, n-w)
-  } else {
-    // Reminder width <= input width
-    io.ri << (w-n)
-  } )
+  val y = io.x ^ (io.ri << (w-n))
 
   // Calculate CRC of 2^(i+n)
   val r = (0 to w-1).map( i => CRC.calcCRC(BigInt(1)<<i, g) )

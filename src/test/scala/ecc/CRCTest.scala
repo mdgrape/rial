@@ -10,6 +10,7 @@ import chisel3.util._
 import chisel3.simulator.scalatest.ChiselSim
 import chisel3.simulator.scalatest.Cli.EmitVcd
 import chisel3.simulator.scalatest.HasCliOptions.CliOption
+import _root_.circt.stage.ChiselStage
 
 import scala.collection.mutable.{Queue, ArrayBuffer}
 import scala.util.Random
@@ -81,5 +82,19 @@ class CRC16Test extends AnyFunSpec with ChiselSim with EmitVcd {
 
   describe("CRC-16(g=0x18005) result compared to software impl") {
     runtest(4, 123456789)
+  }
+
+  describe("CRCcore requires the input to be at least as wide as the remainder") {
+
+    it("rejects CRC-32 (n=32) with 16 bit words") {
+      val e = intercept[IllegalArgumentException] {
+        ChiselStage.emitCHIRRTL(new CRCcore(0x104C11DB7L, 16))
+      }
+      assert(e.getMessage.contains("CRCcore"))
+    }
+
+    it("accepts CRC-16 (n=16) with 16 bit words") {
+      ChiselStage.emitCHIRRTL(new CRCcore(0x18005, 16))
+    }
   }
 }
