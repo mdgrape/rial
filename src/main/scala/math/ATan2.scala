@@ -635,21 +635,28 @@ class ATan2Phase2PostProcess(
   val zExPL  = atanExDiff
   val zManPL = atanManDiff(manW - 1, 0)
 
-  val zExNL  = (exBias + 1).U(exW.W)
-  val zManNL = piComb((manW + 4) - 2, 3) + piComb(2)
-
+  // ---- statuses 1..3: round the combination, each at its own bit ----
+  // status 1 rounds at bit 3, status 2 at bit 2 or 1 depending on whether
+  // pi/2 - atan came out >= 1, status 3 at bit 2.  Shifting the combination
+  // down by that much first leaves a single increment for all three.
   val halfPiMinusATanMoreThan1 = piComb((manW + 4) - 2)
-  val zExPS  = (exBias - 1).U(exW.W) + halfPiMinusATanMoreThan1
-  val zManPS = Mux(halfPiMinusATanMoreThan1,
-                   piComb((manW + 4) - 3, 2) + piComb(1),
-                   piComb((manW + 4) - 4, 1) + piComb(0))
+  val piCombShift = MuxCase(1.U(2.W), Seq(
+    (flagsDiff.status === ATan2Status.xIsNegIsLarger ) -> 2.U(2.W),
+    (flagsDiff.status === ATan2Status.xIsPosIsSmaller) ->
+      Mux(halfPiMinusATanMoreThan1, 1.U(2.W), 0.U(2.W)),
+  ))
+  val piCombShifted = piComb >> piCombShift
+  val piCombRounded = piCombShifted((manW + 4) - 1, 1) +& piCombShifted(0)
 
-  val halfPiPlusATanRounded  = dropLSB(2, piComb) + piComb(1)
-  val halfPiPlusATanMoreThan2 = halfPiPlusATanRounded(manW + 1)
+  val zExNL  = (exBias + 1).U(exW.W)
+  val zExPS  = (exBias - 1).U(exW.W) + halfPiMinusATanMoreThan1
+
+  // status 3 rounds before it normalises, so it re-slices the rounded value
+  val halfPiPlusATanMoreThan2 = piCombRounded(manW + 1)
   val zExNS  = exBias.U(exW.W) + halfPiPlusATanMoreThan2
   val zManNS = Mux(halfPiPlusATanMoreThan2,
-                   halfPiPlusATanRounded(manW,     1),
-                   halfPiPlusATanRounded(manW - 1, 0))
+                   piCombRounded(manW,     1),
+                   piCombRounded(manW - 1, 0))
 
   val zExNormalComb = MuxCase(0.U(exW.W), Seq(
     (flagsDiff.status === ATan2Status.xIsPosIsLarger ) -> zExPL,
@@ -659,8 +666,8 @@ class ATan2Phase2PostProcess(
   ))
   val zManNormalComb = MuxCase(0.U(manW.W), Seq(
     (flagsDiff.status === ATan2Status.xIsPosIsLarger ) -> zManPL(manW - 1, 0),
-    (flagsDiff.status === ATan2Status.xIsNegIsLarger ) -> zManNL(manW - 1, 0),
-    (flagsDiff.status === ATan2Status.xIsPosIsSmaller) -> zManPS(manW - 1, 0),
+    (flagsDiff.status === ATan2Status.xIsNegIsLarger ) -> piCombRounded(manW - 1, 0),
+    (flagsDiff.status === ATan2Status.xIsPosIsSmaller) -> piCombRounded(manW - 1, 0),
     (flagsDiff.status === ATan2Status.xIsNegIsSmaller) -> zManNS(manW - 1, 0),
   ))
 
