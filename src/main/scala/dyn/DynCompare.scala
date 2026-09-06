@@ -122,7 +122,17 @@ class DynCompare(
 
   val sub      = DynLane.subtract(a, b, heads)
   val coutComb = sub.map(s => s(laneW).asBool)
-  val zaccComb = DynLane.accumulate(sub.map(s => s(laneW-1, 0) === 0.U), heads)
+
+  // lane equality does not have to wait for the carry chain. At the head of an
+  // element the carry-in is the forced 1, so the difference is zero exactly
+  // when the two lanes are equal; at any lane above it the accumulate only
+  // lets a result through when every lower lane of the element was equal,
+  // which is what forces that same carry-in. The bias cancels in an equality,
+  // so the raw lanes answer it.
+  val eqLaneComb = DynLane.split(aIn, laneW, nLanes)
+    .zip(DynLane.split(bIn, laneW, nLanes))
+    .map{ case(x, y) => x === y }
+  val zaccComb = DynLane.accumulate(eqLaneComb, heads)
 
   //---------------------------- stage "sub" -----------------------------
   private val cutSub = new SharedPipe("sub", cutIn.valid, stages.at("sub"))
