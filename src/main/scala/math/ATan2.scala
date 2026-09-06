@@ -605,26 +605,23 @@ class ATan2Phase2PostProcess(
   val atanManAlign = cutAlign(atanMan)
   val flagsAlign   = cutAlign(flagsEx)
 
-  // ---- status 1: ysgn * (pi - atan(|y|/|x|))  (x<0, |x|>|y|) ----
-  // pi - atan in (3pi/4, pi] ~ (2.35, 3.14], so the result has ex = 1.
-  val piMinusATanComb = piManW1 - atanAligned
-
-  // ---- status 2: ysgn * (pi/2 - atan(|x|/|y|)) (x>0, |x|<|y|) ----
-  // pi/2 - atan in (pi/4, pi/2] ~ (0.78, 1.57], so ex is exBias-1 or exBias.
-  val halfPiMinusATanComb = halfPiManW1 - atanAligned
-
-  // ---- status 3: ysgn * (pi/2 + atan(|x|/|y|)) (x<0, |x|<|y|) ----
-  // pi/2 + atan in (pi/2, 3pi/4] ~ (1.57, 2.35], so ex is exBias or exBias+1.
-  val halfPiPlusATanComb = halfPiManW1 + atanAligned
+  // The three combinations the statuses ask for are one adder: status(1)
+  // selects pi vs pi/2, status 3 adds where 1 and 2 subtract.  Status 0 does
+  // not read the combination at all.
+  //   status 1: ysgn * (pi   - atan(|y|/|x|))  (x<0, |x|>|y|)
+  //   status 2: ysgn * (pi/2 - atan(|x|/|y|))  (x>0, |x|<|y|)
+  //   status 3: ysgn * (pi/2 + atan(|x|/|y|))  (x<0, |x|<|y|)
+  val piSelected = Mux(flagsAlign.status(1), halfPiManW1, piManW1)
+  val atanAdd    = flagsAlign.status === ATan2Status.xIsNegIsSmaller
+  val piCombComb = piSelected +
+    Mux(atanAdd, atanAligned, (~atanAligned).asUInt) + (!atanAdd).asUInt
 
   // --------------------------------------------------------------------------
-  // stage "diff": pi - atan, pi/2 - atan and pi/2 + atan
+  // stage "diff": pi -/+ atan or pi/2 -/+ atan
 
   private val cutDiff = new SharedPipe("diff", cutAlign.valid, stages.at("diff"))
 
-  val piMinusATan     = cutDiff(piMinusATanComb)
-  val halfPiMinusATan = cutDiff(halfPiMinusATanComb)
-  val halfPiPlusATan  = cutDiff(halfPiPlusATanComb)
+  val piComb          = cutDiff(piCombComb)
   val atanExDiff      = cutDiff(atanExAlign)
   val atanManDiff     = cutDiff(atanManAlign)
   val flagsDiff       = cutDiff(flagsAlign)
@@ -634,15 +631,15 @@ class ATan2Phase2PostProcess(
   val zManPL = atanManDiff(manW - 1, 0)
 
   val zExNL  = (exBias + 1).U(exW.W)
-  val zManNL = piMinusATan((manW + 4) - 2, 3) + piMinusATan(2)
+  val zManNL = piComb((manW + 4) - 2, 3) + piComb(2)
 
-  val halfPiMinusATanMoreThan1 = halfPiMinusATan((manW + 4) - 2)
+  val halfPiMinusATanMoreThan1 = piComb((manW + 4) - 2)
   val zExPS  = (exBias - 1).U(exW.W) + halfPiMinusATanMoreThan1
   val zManPS = Mux(halfPiMinusATanMoreThan1,
-                   halfPiMinusATan((manW + 4) - 3, 2) + halfPiMinusATan(1),
-                   halfPiMinusATan((manW + 4) - 4, 1) + halfPiMinusATan(0))
+                   piComb((manW + 4) - 3, 2) + piComb(1),
+                   piComb((manW + 4) - 4, 1) + piComb(0))
 
-  val halfPiPlusATanRounded  = dropLSB(2, halfPiPlusATan) + halfPiPlusATan(1)
+  val halfPiPlusATanRounded  = dropLSB(2, piComb) + piComb(1)
   val halfPiPlusATanMoreThan2 = halfPiPlusATanRounded(manW + 1)
   val zExNS  = exBias.U(exW.W) + halfPiPlusATanMoreThan2
   val zManNS = Mux(halfPiPlusATanMoreThan2,
