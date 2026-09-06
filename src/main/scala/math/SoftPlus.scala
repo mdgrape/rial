@@ -154,15 +154,9 @@ class SoftPlusTableCoeff(
   require(all.length == 2 * (1 << adrW),
     s"expected 2 * 2^${adrW} softplus table entries, got ${all.length}")
 
-  val n     = 1 << adrW
-  val vecP  = VecInit(all.slice(0, n        ).map(c => c.U(coefBW.W)))
-  val vecN  = VecInit(all.slice(n, 2 * n    ).map(c => c.U(coefBW.W)))
+  val packed = VecInit(all.map(c => c.U(coefBW.W)))
 
-  val selNeg = io.adr.bits(adrW)       // MSB = xsgn
-  val subAdr = io.adr.bits(adrW - 1, 0)
-
-  val cs = Mux(selNeg, vecN(subAdr), vecP(subAdr))
-  io.cs := Pipe(io.adr.valid, cs, stage)
+  io.cs := Pipe(io.adr.valid, packed(io.adr.bits), stage)
 }
 
 // -------------------------------------------------------------------------

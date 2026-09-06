@@ -109,27 +109,14 @@ class LogTableCoeff(
     val cs  = Valid(UInt(coefBW.W))
   })
 
-  // Slice the concatenated table into three sub-Vecs (one per path).
+  // The concatenated table is already in the order the address selects.
   val all = PolynomialGenerator.packTable(coeff)
   require(all.length == 4 * (1 << adrW),
     s"expected 4 * 2^${adrW} log table entries, got ${all.length}")
 
-  val n    = 1 << adrW
-  val vecN = VecInit(all.slice(0,     n    ).map(c => c.U(coefBW.W)))
-  val vecG = VecInit(all.slice(n,     2 * n).map(c => c.U(coefBW.W)))
-  val vecP = VecInit(all.slice(2 * n, 3 * n).map(c => c.U(coefBW.W)))
+  val packed = VecInit(all.map(c => c.U(coefBW.W)))
 
-  val exAddr = io.adr.bits(adrW + 1, adrW)
-  val subAdr = io.adr.bits(adrW - 1, 0)
-
-  val csN = vecN(subAdr)
-  val csG = vecG(subAdr)
-  val csP = vecP(subAdr)
-
-  val csMuxed = Mux(exAddr === 0.U, csN,
-                Mux(exAddr === 1.U, csG, csP))
-
-  io.cs := Pipe(io.adr.valid, csMuxed, stage)
+  io.cs := Pipe(io.adr.valid, packed(io.adr.bits), stage)
 }
 
 // -------------------------------------------------------------------------
