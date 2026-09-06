@@ -102,11 +102,17 @@ object DynLane {
     if (signed) { bias(lanes, tails) } else { lanes }
   }
 
-  /** lane-wise `a - b` as a chain of laneW bit adders (a + ~b + 1)
+  /** lane-wise `a - b` as one carry chain over guard interleaved operands
    *
    * The carry-in of a lane that starts a new element is forced to 1 (the `+1`
    * of the two's complement negation) and otherwise comes from the lane below,
-   * so the chain is cut at each element boundary.
+   * so the chain is cut at each element boundary. Instead of gating the carry
+   * between separate per-lane adders, a guard bit is inserted below every lane
+   * but the lowest, holding that lane's head flag on the `a` side against the
+   * 1 that the inversion puts on the `b` side. The guard's carry-out is then
+   * `maj(head, 1, carry from below) = head | carry`, which is exactly the
+   * carry-in the element width asks for, computed inside the chain. The sum
+   * bits at the lane positions are unchanged by the guards.
    *
    * @return per-lane result of laneW+1 bits. bit laneW is the carry-out, which
    *         is 1 iff there was no borrow, i.e. iff a >= b (unsigned) within the
@@ -120,12 +126,22 @@ object DynLane {
     val laneW = a.head.getWidth
     require(a.forall(_.getWidth == laneW) && b.forall(_.getWidth == laneW))
 
-    val sub = new ArrayBuffer[UInt] // sub(i) is laneW+1 bits; bit laneW is the carry-out
-    for(i <- 0 until a.length) {
-      val cin = if (i == 0) { true.B } else { Mux(heads(i), true.B, sub(i-1)(laneW)) }
-      sub += ((a(i) +& (~b(i)).asUInt) + cin.asUInt) // laneW+1 bits, never overflows
-    }
-    sub.toSeq
+    val n  = a.length
+    val ag = Cat(((n-1) to 1 by -1).flatMap(i => Seq(a(i), heads(i).asUInt)) :+ a(0))
+    val bg = Cat(((n-1) to 1 by -1).flatMap(i => Seq(b(i), 0.U(1.W))) :+ b(0))
+    val sum = (ag +& (~bg).asUInt) + 1.U // n*(laneW+1) bits, never overflows
+
+    // the guard above lane i holds head(i+1) ^ 1 ^ cout(i), so the carry-out
+    // of every lane but the topmost is read back off the chain
+    Seq.tabulate(n)(i => {
+      val lo   = i * (laneW + 1)
+      val cout = if (i == n-1) {
+        sum(n * (laneW + 1) - 1)
+      } else {
+        ~(sum(lo + laneW) ^ heads(i+1).asUInt)
+      }
+      Cat(cout, sum(lo + laneW - 1, lo))
+    })
   }
 
   /** AND-accumulate x from the head of each element up to each lane */
