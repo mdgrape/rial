@@ -259,6 +259,27 @@ class ExpTableCoeff(
 
   val adrW = coeff.bitW.addrW
 
+  // The polynomial approximates 2^t-1 on [0, 1) with `padding` bits below the
+  // mantissa LSB, and ExpPostProcess rounds that result to manW bits.  Should
+  // the rounding carry into the hidden bit, the correction term in
+  // ExpPostProcess would be built from the wrong mantissa, so require that the
+  // table cannot reach the value at which the rounding carries.
+  private val padding = coeff.bitW.outBitW - spec.manW
+
+  if (padding > 0) {
+    val maxPoly   = ExpTableCoeff.maxPolynomial(coeff)
+    val threshold = (BigInt(1) << coeff.bitW.outBitW) - (BigInt(1) << (padding - 1))
+
+    require(maxPoly < threshold,
+      f"ExpTableCoeff: the polynomial reaches $maxPoly, at or above the " +
+      f"$threshold at which rounding to ${spec.manW} bits carries into the " +
+      f"hidden bit (nOrder=${coeff.bitW.nOrder}, addrW=$adrW, " +
+      f"inBitW=${coeff.bitW.inBitW}, outBitW=${coeff.bitW.outBitW}, " +
+      f"manW=${spec.manW}, padding=$padding). " +
+      "Widen outBitW or refine the table so that the approximation of 2^t-1 " +
+      "stays below the threshold.")
+  }
+
   val io = IO(new Bundle {
     val adr = Flipped(Valid(UInt(adrW.W)))
     val cs  = Valid(UInt(coeff.bitW.coefBits.reduce(_+_).W))
@@ -268,6 +289,35 @@ class ExpTableCoeff(
     c.U(coeff.bitW.coefBits.reduce(_+_).W)
   }))
   io.cs := Pipe(io.adr.valid, packed(io.adr.bits), stage)
+}
+
+/** Table checks of [[rial.math.ExpTableCoeff]]. */
+object ExpTableCoeff {
+
+  /** The largest value the polynomial of `coeff` can evaluate to.
+   *
+   *  It evaluates the table with [[rial.table.PolynomialEval.eval]], the
+   *  software model of the hardware evaluator, over every `dx` of the last
+   *  interval and the two extreme `dx` of every other interval.  The table
+   *  approximates the increasing 2^t-1, so its maximum lives in the last
+   *  interval; the endpoints of the others guard that assumption.
+   *
+   *  @param coeff the coefficients of the exp table
+   *  @return the maximum of the integer polynomial result
+   */
+  def maxPolynomial(coeff: PolynomialCoefficients): BigInt = {
+    val nInterval = coeff.coeffs.length
+    val dxMax     = (BigInt(1) << coeff.bitW.inBitW) - 1
+
+    val lastMax = (BigInt(0) to dxMax).map(dx => {
+      PolynomialEval.eval(nInterval - 1, dx, coeff)
+    }).max
+
+    (0 until (nInterval - 1)).foldLeft(lastMax)( (acc, addr) => {
+      acc.max(PolynomialEval.eval(addr, BigInt(0), coeff))
+         .max(PolynomialEval.eval(addr, dxMax,     coeff))
+    })
+  }
 }
 
 // -------------------------------------------------------------------------
