@@ -261,6 +261,10 @@ class ScaleMixtureGaussianPostMulArgs(
 
   val zTableScaleDigit = ScaleMixtureGaussianTable.tableMaxBitDigit(sgmA, sgmB)
 
+  require(zTableScaleDigit <= fracW,
+    s"the table scale (${zTableScaleDigit}) must fit under 1.0 (${fracW}) so " +
+    "that z0 keeps its zero LSBs; see z0man below")
+
   val io = IO(new Bundle {
     val useTable = Input(Bool())
     val xsgmA2Man = Input(UInt(manW.W))
@@ -273,26 +277,26 @@ class ScaleMixtureGaussianPostMulArgs(
   val zTable       = Mux(io.useTable, io.zres, 0.U(fracW.W))
   val zTableScaled = Cat(zTable, 0.U(zTableScaleDigit.W)) // (fracW + zTableScaleDigit) bits
 
-  // z0 = zTableScaled + 1.0 (where 1.0 = 1 << fracW)
+  // z0 = zTableScaled + 1.0 (where 1.0 = 1 << fracW); 1.0 alone sets bit fracW,
+  // so the leading one of z0 sits between bit fracW and bit fracW+zTableScaleDigit
+  // and only those bits decide the normalising shift.
   val z0 = zTableScaled +& Cat(1.U(1.W), 0.U(fracW.W))
   val z0W = (fracW + zTableScaleDigit + 1).U(log2Up(fracW + zTableScaleDigit + 2).W) -
-            PriorityEncoder(Reverse(z0))
-  val z0Shift = z0W - (1 + fracW).U
+            PriorityEncoder(Reverse(z0(fracW + zTableScaleDigit, fracW)))
+  val z0Shift = (z0W - (1 + fracW).U)(log2Up(zTableScaleDigit + 1) - 1, 0)
 
-  // round to (1 + fracW)
-  val z0Rounded0 = Cat(z0, 0.U(1.W)) >> z0Shift // pad LSB so the half-bit is captured
-  val z0Rounded  = z0Rounded0(z0Rounded0.getWidth - 1, 1) +& z0Rounded0(0)
-  val z0MoreThan2AfterRound = z0Rounded.head(1)
+  // Normalise to (1 + fracW).  The shift is at most zTableScaleDigit and z0 has
+  // that many zero LSBs, so the bit below the kept ones is always zero: there is
+  // nothing to round and the result can never grow past 2.0.
+  val z0man = (z0 >> z0Shift)(fracW, 0)
 
-  val z0man = Mux(z0MoreThan2AfterRound === 1.U, z0Rounded >> 1, z0Rounded)
-
-  val z0ex0 = z0W +& (exBias - 1 - fracW).U(exW.W) +& z0MoreThan2AfterRound
-  val z0ex  = Mux(z0ex0.head(2).orR,
+  val z0ex0 = z0W +& (exBias - 1 - fracW).U(exW.W)
+  val z0ex  = Mux(z0ex0.head(1).orR,
                   (spec.exMax + 1 + exBias).U(exW.W),
                   z0ex0(exW - 1, 0))
 
   val out = Wire(new ScaleMixtureGaussianPostMulArgsOutput(spec, fracW))
-  out.lhs  := z0man(fracW, 0)
+  out.lhs  := z0man
   out.rhs  := Cat(1.U(1.W), io.xsgmA2Man)
   out.z0ex := z0ex
   io.mul.valid := io.valid

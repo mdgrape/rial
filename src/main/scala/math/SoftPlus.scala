@@ -207,7 +207,9 @@ class SoftPlusPostProcess(
   // `+ 1.U` would wrap to 0).
   val zShiftComb = Mux(zres === 0.U, zres.getWidth.U,
                        PriorityEncoder(Reverse(zres))) +& 1.U
-  val zmanW1Comb = zres << zShiftComb
+  // the shift is the leading zero count plus one, so the leading one lands on
+  // bit calcW and nothing is shifted past it.
+  val zmanW1Comb = (zres << zShiftComb)(calcW, 0)
 
   // --------------------------------------------------------------------------
   // stage "norm": the normalized mantissa
@@ -218,8 +220,9 @@ class SoftPlusPostProcess(
   val zShift   = cutNorm(zShiftComb)
   val infoNorm = cutNorm(infoIn)
 
+  // +& : the carry out of the round is what zmanRoundedMoreThan1 tests
   val zmanW1Rounded = if (extraBits > 0) {
-    (zmanW1 >> extraBits) + zmanW1(extraBits - 1)
+    (zmanW1 >> extraBits) +& zmanW1(extraBits - 1)
   } else {
     zmanW1
   }

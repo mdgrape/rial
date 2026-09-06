@@ -199,8 +199,10 @@ class SigmoidPostProcess(
   val infoFold = cutFold(infoIn)
 
   // ---- normalize: leftshift until top bit is at position (calcW + 1) ----
+  // the shift is the leading zero count of zRes, so the result is as wide as
+  // zRes: the leading one lands on bit calcW+1 and nothing is shifted past it.
   val zShiftComb = Mux(zRes === 0.U, zRes.getWidth.U, PriorityEncoder(Reverse(zRes)))
-  val zmanW1Comb = zRes << zShiftComb
+  val zmanW1Comb = (zRes << zShiftComb)(calcW + 1, 0)
 
   // --------------------------------------------------------------------------
   // stage "norm": the normalized mantissa
@@ -211,7 +213,8 @@ class SigmoidPostProcess(
   val zShift   = cutNorm(zShiftComb)
   val infoNorm = cutNorm(infoFold)
 
-  val zmanW1Rounded = (zmanW1 >> (extraBits + 1)) + zmanW1(extraBits)
+  // +& : the carry out of the round is what zmanRoundedMoreThan1 tests
+  val zmanW1Rounded = (zmanW1 >> (extraBits + 1)) +& zmanW1(extraBits)
 
   val zmanRoundedMoreThan1 = zmanW1Rounded >= (BigInt(1) << (manW + 1)).U
   val zmanComb = Mux(zmanRoundedMoreThan1, Fill(manW, 1.U(1.W)),
