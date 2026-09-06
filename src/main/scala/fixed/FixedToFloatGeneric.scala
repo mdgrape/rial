@@ -131,13 +131,26 @@ class FixedToFloatGeneric(
   //----------------------------------------------------------------------
   // S2 : leading zero count and normalisation shift
 
-  val xclz = PriorityEncoder(Reverse(xabsAbs))
-  val xShifted = (xabsAbs << xclz)(xSpec.W-1, 0)
+  // the bits the normalisation pushes below the round bit only feed the
+  // sticky, so they leave the datapath here instead of crossing the "norm"
+  // boundary: bit i of |x| ends up below the round bit exactly when
+  // i + xclz < stickyW, which the same left shift on the low stickyW bits
+  // answers directly
+  val stickyW = max(0, xSpec.W - zSpec.manW - 2)
+
+  val xclz     = PriorityEncoder(Reverse(xabsAbs))
+  val xShifted = (xabsAbs << xclz)(xSpec.W-1, stickyW)
+  val xSticky  = if (stickyW == 0) {
+    false.B
+  } else {
+    ((xabsAbs(stickyW-1, 0) << xclz)(stickyW-1, 0)).orR
+  }
 
   //---------------------------- stage "norm" ----------------------------
   private val cutNorm = new SharedPipe("norm", cutAbs.valid, stages.at("norm"))
 
   val xShiftedNorm = cutNorm(xShifted)
+  val xStickyNorm  = cutNorm(xSticky)
   val xclzNorm     = cutNorm(xclz)
   val zSgnNorm     = cutNorm(zSgnAbs)
   val xzeroNorm    = cutNorm(xzeroAbs)
@@ -146,29 +159,33 @@ class FixedToFloatGeneric(
   //----------------------------------------------------------------------
   // S3 : mantissa selection and rounding
 
+  // xShiftedNorm starts at bit stickyW of the normalised value
+  private def normBits(hi: Int, lo: Int) = xShiftedNorm(hi - stickyW, lo - stickyW)
+  private def normBit (i:  Int)          = xShiftedNorm(i - stickyW)
+
   val zexInc = Wire(UInt(1.W))
   val zman0 = Wire(UInt(zSpec.manW.W))
   if(xSpec.W < zSpec.manW+1) {
     // need to add least bits (0)
     val padding = zSpec.manW+1 - xSpec.W
     assert(0 < padding)
-    zman0 := Cat(xShiftedNorm(xSpec.W-2, 0), Fill(padding, 0.U(1.W)))
+    zman0 := Cat(normBits(xSpec.W-2, 0), Fill(padding, 0.U(1.W)))
     zexInc := 0.U // no rounding, so no carry into the exponent
 
   } else if(xSpec.W == zSpec.manW+1) {
     // no padding needed
-    zman0 := xShiftedNorm(zSpec.manW-1, 0) // remove the leading 1
+    zman0 := normBits(zSpec.manW-1, 0) // remove the leading 1
     zexInc := 0.U // no rounding, so no carry into the exponent
 
   } else if(xSpec.W == zSpec.manW+2) {
     // rounding, but sticky bit is always 0
 
     val sticky = false.B
-    val round  = xShiftedNorm(0).asBool
-    val lsb    = xShiftedNorm(1).asBool
+    val round  = normBit(0).asBool
+    val lsb    = normBit(1).asBool
     val inc = FloatChiselUtil.roundIncBySpec(roundSpec, lsb, round, sticky)
 
-    val manRounded = xShiftedNorm(xSpec.W-2, 1) +& inc.asUInt
+    val manRounded = normBits(xSpec.W-2, 1) +& inc.asUInt
     zexInc := manRounded(zSpec.manW)
     zman0  := manRounded(zSpec.manW-1, 0)
 
@@ -179,12 +196,12 @@ class FixedToFloatGeneric(
     val roundBit = xSpec.W - zSpec.manW - 2
     assert(0 < lsbBit  )
     assert(0 < roundBit)
-    val lsb      = xShiftedNorm(lsbBit       ).asBool
-    val round    = xShiftedNorm(roundBit     ).asBool
-    val sticky   = xShiftedNorm(roundBit-1, 0).orR
+    val lsb      = normBit(lsbBit  ).asBool
+    val round    = normBit(roundBit).asBool
+    val sticky   = xStickyNorm
     val inc = FloatChiselUtil.roundIncBySpec(roundSpec, lsb, round, sticky)
 
-    val manRounded = xShiftedNorm(xSpec.W-2, xSpec.W-zSpec.manW-1) +& inc.asUInt
+    val manRounded = normBits(xSpec.W-2, xSpec.W-zSpec.manW-1) +& inc.asUInt
     zexInc := manRounded(zSpec.manW)
     zman0  := manRounded(zSpec.manW-1, 0)
   }
