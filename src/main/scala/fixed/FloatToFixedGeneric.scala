@@ -152,8 +152,10 @@ class FloatToFixedGeneric(
   val zTmpSticky = zTmpShiftedAlign(xSpec.manW-1, 0).orR
   val zTmpInc    = FloatChiselUtil.roundIncBySpec(roundSpec, zTmpLSB, zTmpRound, zTmpSticky)
 
-  val zAbs = zTmpShiftedAlign(zSpec.W + xSpec.manW, xSpec.manW+1) + zTmpInc.asUInt
-  val z    = Mux(xsgnAlign === 0.U, zAbs, ~zAbs + 1.U)
+  // one adder for the rounding increment and the two's complement:
+  // sgn=0 gives w + inc, sgn=1 gives ~w + (1 - inc) == -(w + inc) mod 2^W
+  val zTmpWindow = zTmpShiftedAlign(zSpec.W + xSpec.manW, xSpec.manW+1)
+  val z = (zTmpWindow ^ Fill(zSpec.W, xsgnAlign)) + (xsgnAlign ^ zTmpInc.asUInt)
 
   // -----------------------------------------------------------------------
   // special cases; this path runs in parallel with the alignment shift and
