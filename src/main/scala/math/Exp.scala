@@ -285,7 +285,7 @@ class ExpPostProcInfo(val spec: RealSpec, val padding: Int) extends Bundle {
   val zinf        = Bool()
   val zzero       = Bool()
   val zIsNonTable = Bool()
-  val zCorrCoef   = if (padding != 0) Some(UInt(scala.math.min(6, 1 + spec.manW + padding).W)) else None
+  val xfracLSBs   = if (padding != 0) Some(UInt(padding.W)) else None
 }
 
 class ExpNonTable(
@@ -321,28 +321,13 @@ class ExpNonTable(
   val infoIn = cutIn(io.info.bits)
 
   // ------------------------------------------------------------------------
-  // small inline multiplier for the correction coefficient ln(2) * xfracLSBs
-
-  val zCorrCoefComb: Option[UInt] = if (padding != 0) {
-    val coefficient = (Real.log(Real.two))(coeffW).toBigInt.U(coeffW.W)
-    val xfracLSBs   = infoIn.xfracLSBs.get
-    val zCorrCoef0  = coefficient * xfracLSBs
-    val zCorrCoefW  = coeffW + padding
-    val zCorrCoef   = zCorrCoef0(zCorrCoefW - 1, zCorrCoefW - zCorrTmpW)
-    assert(zCorrCoef.getWidth == zCorrTmpW)
-    Some(zCorrCoef)
-  } else {
-    None
-  }
-
-  // ------------------------------------------------------------------------
   // stage "mul": the correction coefficient
 
   private val cutMul = new SharedPipe("mul", cutIn.valid, stages.at("mul"))
 
   val zout = Wire(new ExpPostProcInfo(spec, padding))
   if (padding != 0) {
-    zout.zCorrCoef.get := cutMul(zCorrCoefComb.get)
+    zout.xfracLSBs.get := cutMul(infoIn.xfracLSBs.get)
   }
 
   val x    = cutMul(xIn)
@@ -417,6 +402,7 @@ class ExpPostProcess(
   val extraBits = padding
 
   val zCorrTmpW = scala.math.min(6, 1 + manW + padding)
+  val coeffW    = scala.math.min(8, manW + 1)
 
   /** Boundaries at which pipeline registers can be placed. */
   val stagePoints = ExpPostProcess.stagePoints
@@ -453,12 +439,29 @@ class ExpPostProcess(
 
   val zCorrectionComb = Wire(UInt(1.W))
   if (padding != 0) {
-    val zCorrTerm0 = Cat(1.U(1.W), zman0(manW - 1, 0)) * infoRound.zCorrCoef.get
-    val zCorrTermW = 1 + manW + zCorrTmpW
-    val zCorrTerm  = zCorrTerm0(zCorrTermW - 1, zCorrTermW - zCorrTmpW)
-    assert(zCorrTerm.getWidth == zCorrTmpW)
-    zCorrectionComb := (zCorrTerm(zCorrTmpW - 1).asBool ||
-                        zCorrTerm(zCorrTmpW - 2).asBool).asUInt
+    // The correction asks whether (2^manW + zman0) * coef(k) reaches
+    // 2^(manW + zCorrTmpW - 1), where k is the padding-wide xfracLSBs and
+    // coef(k) = (ln2 * k) >> (coeffW + padding - zCorrTmpW).  k takes only
+    // 2^padding values, so each one is a constant compare on zman0.
+    val ln2       = (Real.log(Real.two))(coeffW).toBigInt
+    val threshold = BigInt(1) << (manW + zCorrTmpW - 1)
+    val hidden    = BigInt(1) << manW
+    val corrCases = (0 until (1 << padding)).flatMap(k => {
+      val coef = (ln2 * k) >> (coeffW + padding - zCorrTmpW)
+      if (coef == 0) {
+        None
+      } else {
+        val lo = (threshold + coef - 1) / coef - hidden
+        if (lo >= hidden) {
+          None
+        } else if (lo <= 0) {
+          Some(k.U(padding.W) -> true.B)
+        } else {
+          Some(k.U(padding.W) -> (zman0(manW - 1, 0) >= lo.U))
+        }
+      }
+    })
+    zCorrectionComb := MuxLookup(infoRound.xfracLSBs.get, false.B)(corrCases).asUInt
   } else {
     zCorrectionComb := 0.U(1.W)
   }
