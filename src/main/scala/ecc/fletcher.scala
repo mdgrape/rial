@@ -132,11 +132,22 @@ class Fletcher(
   val d = VecInit(splitIntoElems(xIn))
   val n = d.length
 
-  val maxBn = ((1 << elemW) - 1) * (n * (n+1)) / 2
-  val bnW = log2Ceil(maxBn+1)
-  val bnComb = VecInit(d.zipWithIndex.map{
-    case(v, i) => { (v * (d.length-i).U).pad(bnW) }
-  }).reduceTree(_+_)
+  // Bn is only ever read modulo 2^elemW - 1, and there 2^elemW is 1, so
+  // multiplying an element by 2^k is rotating it left by k bits. Every weight
+  // therefore becomes one rotated copy of its element per set bit, which
+  // leaves no multiplier and no operand wider than an element plus the depth
+  // of the reduction.
+  def rotl(x: UInt, k: Int): UInt = {
+    val s = k % elemW
+    if (s == 0) { x } else { Cat(x(elemW-1-s, 0), x(elemW-1, elemW-s)) }
+  }
+
+  val bnTerms = d.zipWithIndex.flatMap{ case(v, i) => {
+    val weight = n - i
+    (0 until log2Ceil(weight+1)).filter(k => ((weight >> k) & 1) == 1).map(k => rotl(v, k))
+  }}
+  val bnW    = elemW + log2Ceil(bnTerms.length)
+  val bnComb = VecInit(bnTerms.map(_.pad(bnW))).reduceTree(_+_)
 
   val amod0Comb = d.reduceTree(modsum(_,_))
 
