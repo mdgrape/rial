@@ -120,8 +120,12 @@ class MultFPIntGeneric(
     yval := yIn
   }
 
-  val yLength = (yWidth-1).U - PriorityEncoder(Reverse(yval))
-  val yman    = (yval << ((yWidth-1).U - yLength))(yWidth, 0)
+  // the leading-zero count is the normalisation shift, and the exponent is
+  // what is left of the width after it. the shifted mantissa has its leading
+  // one at bit yWidth-1, so bit yWidth would always be zero
+  val ylz     = PriorityEncoder(Reverse(yval))
+  val yman    = (yval << ylz)(yWidth-1, 0)
+  val yLength = (yWidth-1).U - ylz
   val yex     = yLength
 //   printf("y = %b(%d)\n", io.in.bits.y, io.in.bits.y)
 //   printf("yWidth  = %d\n", yWidth.U)
