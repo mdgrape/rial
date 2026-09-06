@@ -5,9 +5,9 @@
 // The fractional part feeds the polynomial table (which approximates 2^t-1
 // in [0, 1)), and the integer part becomes the result's exponent.
 //
-// A small ln(2)*xfracLSBs correction term is computed in ExpNonTable and
-// applied in ExpPostProcess to recover the precision lost when rounding the
-// pre-product to the table address width.
+// A small ln(2)*xfracLSBs correction term is applied in ExpPostProcess to
+// recover the precision lost when rounding the pre-product to the table
+// address width.
 //
 // Copyright (C) Toru Niina RIKEN BDR 2021
 //
@@ -350,9 +350,6 @@ class ExpNonTable(
 
   val padding = bitW.outBitW - manW
 
-  val zCorrTmpW = scala.math.min(6, 1 + manW + padding)
-  val coeffW    = scala.math.min(8, manW + 1)
-
   /** Boundaries at which pipeline registers can be placed. */
   val stagePoints = ExpNonTable.stagePoints
 
@@ -367,21 +364,8 @@ class ExpNonTable(
   private val cutIn = new SharedPipe("in", io.x.valid && io.info.valid,
     stages.at("in"))
 
-  val xIn    = cutIn(io.x.bits)
-  val infoIn = cutIn(io.info.bits)
-
-  // ------------------------------------------------------------------------
-  // stage "mul": the correction coefficient
-
-  private val cutMul = new SharedPipe("mul", cutIn.valid, stages.at("mul"))
-
-  val zout = Wire(new ExpPostProcInfo(spec, padding))
-  if (padding != 0) {
-    zout.xfracLSBs.get := cutMul(infoIn.xfracLSBs.get)
-  }
-
-  val x    = cutMul(xIn)
-  val info = cutMul(infoIn)
+  val x    = cutIn(io.x.bits)
+  val info = cutIn(io.info.bits)
 
   // ------------------------------------------------------------------------
   // exponent + special-flag computation
@@ -407,15 +391,28 @@ class ExpNonTable(
   val zzero = (x.sgn === 1.U) &&
               ((xExUdfLimBiased <= xex) || ((-spec.exMin).U < xint) || x.inf)
 
-  zout.zex         := Mux(znan || zinf, Fill(exW, 1.U(1.W)),
-                      Mux(zzero,        0.U(exW.W),
-                                        zex0))
-  zout.znan        := znan
-  zout.zinf        := zinf
-  zout.zzero       := zzero
-  zout.zIsNonTable := znan || zinf || zzero
+  val zComb = Wire(new ExpPostProcInfo(spec, padding))
+  zComb.zex         := Mux(znan || zinf, Fill(exW, 1.U(1.W)),
+                       Mux(zzero,        0.U(exW.W),
+                                         zex0))
+  zComb.znan        := znan
+  zComb.zinf        := zinf
+  zComb.zzero       := zzero
+  zComb.zIsNonTable := znan || zinf || zzero
+  if (padding != 0) {
+    zComb.xfracLSBs.get := info.xfracLSBs.get
+  }
 
-  io.z := Pipe(cutMul.valid, zout, stages.at("out"))
+  // ------------------------------------------------------------------------
+  // stage "ex": from here on only the result travels, so the delay that lines
+  // this path up with the table and the polynomial carries the output bits
+  // rather than the operand it was computed from
+
+  private val cutEx = new SharedPipe("ex", cutIn.valid, stages.at("ex"))
+
+  val zEx = cutEx(zComb)
+
+  io.z := Pipe(cutEx.valid, zEx, stages.at("out"))
 }
 
 /** Pipeline stage points of [[rial.math.ExpNonTable]]. */
@@ -423,11 +420,11 @@ object ExpNonTable {
 
   /** Boundaries at which pipeline registers can be placed.
    *
-   *  - `"mul"` the correction coefficient
-   *  - `"out"` the exponent and the special values
+   *  - `"ex"`  the exponent and the special values
+   *  - `"out"` the module output
    */
   val stagePoints: Seq[StageElem] = Seq(
-    StagePoint("mul", 3.0),
+    StagePoint("ex",  3.0),
     StagePoint("out", 3.0))
 }
 
