@@ -76,6 +76,12 @@ class ATan2Phase1Info(val spec: RealSpec) extends Bundle {
   val minMan    = UInt(spec.manW.W)
 }
 
+/** The part of [[rial.math.ATan2Phase1Info]] the post-process reads. */
+class ATan2Phase1PostInfo(val spec: RealSpec) extends Bundle {
+  val zex       = UInt(spec.exW.W)
+  val xySameMan = Bool()
+}
+
 class ATan2Phase1PreProcess(
   val spec:  RealSpec,
   val bitW:  PolynomialBitWidth,
@@ -284,7 +290,7 @@ class ATan2Phase1PostProcess(
   val stages = stage.resolve(stagePoints)
 
   val io = IO(new Bundle {
-    val info  = Flipped(Valid(new ATan2Phase1Info(spec)))
+    val info  = Flipped(Valid(new ATan2Phase1PostInfo(spec)))
     val flags = Flipped(Valid(new ATan2Flags))
     val mul   = Flipped(Valid(new PostProcMultiplierOutput(manW)))
     val z     = Valid(UInt(spec.W.W))
@@ -305,8 +311,7 @@ class ATan2Phase1PostProcess(
 
   // ---- assemble the normal-case ratio ----
   val zManNormalComb = Mux(!infoIn.zex.orR || infoIn.xySameMan, 0.U(manW.W),
-                       Mux(infoIn.maxXYMan0,                    infoIn.minMan,
-                                                                zManMul))
+                                                                zManMul)
 
   // --------------------------------------------------------------------------
   // stage "man": the ratio mantissa

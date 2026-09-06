@@ -847,8 +847,14 @@ class MathFunctions(
       postMulValid.get := mulArgs.io.mul.valid
     }
 
-    // info & flags pipelined to the input of the post-process
-    val infoAtAfterMul  = Pipe(infoAtPost,   nMulToPost)
+    // info & flags pipelined to the input of the post-process; the
+    // post-process reads only zex and xySameMan
+    val postInfo = Wire(Valid(new ATan2Phase1PostInfo(spec)))
+    postInfo.valid          := infoAtPost.valid
+    postInfo.bits.zex       := infoAtPost.bits.zex
+    postInfo.bits.xySameMan := infoAtPost.bits.xySameMan
+
+    val infoAtAfterMul  = Pipe(postInfo,     nMulToPost)
     val flagsAtAfterMul = Pipe(pre.io.flags, nTabToPost)
 
     post.io.info  := infoAtAfterMul
