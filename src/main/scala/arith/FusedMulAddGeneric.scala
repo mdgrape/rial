@@ -546,8 +546,12 @@ class FusedMulAddFPGeneric(
   }
 
   val farAddSgn   = Mux(xysgnAlign.asBool, ~sumFarAdd(sumFarAdd.getWidth-1), sumFarAdd(sumFarAdd.getWidth-1))
-  val farAddAbs0  = Mux(sumFarAdd(sumFarAdd.getWidth-1), -sumFarAdd, sumFarAdd)
-  val farAddAbs   = Mux(xyzopAlign && shiftStickyFarAddAlign && farAddAbs0 =/= 0.S, farAddAbs0 - 1.S, farAddAbs0)
+  // On this path xyEx <= zEx - 3, so an effective subtraction (xyzop) always
+  // leaves sumFarAdd strictly negative: the borrow rides the negate's carry-in
+  // (-s - 1 == ~s) and the "not zero" guard cannot fire.
+  val farAddDec   = xyzopAlign && shiftStickyFarAddAlign
+  val farAddAbs   = Mux(sumFarAdd(sumFarAdd.getWidth-1),
+    (~sumFarAdd).asUInt + (!farAddDec).asUInt, sumFarAdd.asUInt)
 
   //---------------------- stage "add" (far addend path) --------------------
   val farAddAbsAdd         = cutAdd(farAddAbs)
