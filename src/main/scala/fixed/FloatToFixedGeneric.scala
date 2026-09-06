@@ -136,25 +136,40 @@ class FloatToFixedGeneric(
   } else {
     ((zSpec.W-1 + xSpec.exBias).U - yUnpack.get - xexUnpack)(zTmpShiftBits-1, 0)
   }
-  val zTmpShifted = zTmp >> zTmpShift
+  // the result only reads bit xSpec.manW of the shifted value and the bits
+  // above it, so the shifter runs on the matching window of zTmp
+  val zTmpShifted = zTmp(zSpec.W + xSpec.manW, xSpec.manW) >> zTmpShift
+
+  // everything the shift pushes below that window is the sticky, and it is a
+  // mantissa bit: bit i of the mantissa lands below bit xSpec.manW exactly
+  // when the shift is larger than i + zSpec.W - xSpec.manW
+  val zTmpSticky = (0 to xSpec.manW).map(i => {
+    val dropAt = i + zSpec.W - xSpec.manW
+    if (dropAt < 0) {
+      xmanW1Unpack(i).asBool
+    } else {
+      xmanW1Unpack(i).asBool && zTmpShift > dropAt.U
+    }
+  }).reduce(_ || _)
 
   //--------------------------- stage "align" ----------------------------
   private val cutAlign = new SharedPipe("align", cutUnpack.valid, stages.at("align"))
 
   val zTmpShiftedAlign = cutAlign(zTmpShifted)
+  val zTmpStickyAlign  = cutAlign(zTmpSticky)
   val xsgnAlign        = cutAlign(xsgnUnpack)
 
   //----------------------------------------------------------------------
   // S3 : rounding increment and negation; in parallel, the exponent range
   //      check (see the special case section below)
-  val zTmpLSB    = zTmpShiftedAlign(xSpec.manW+1).asBool
-  val zTmpRound  = zTmpShiftedAlign(xSpec.manW  ).asBool
-  val zTmpSticky = zTmpShiftedAlign(xSpec.manW-1, 0).orR
-  val zTmpInc    = FloatChiselUtil.roundIncBySpec(roundSpec, zTmpLSB, zTmpRound, zTmpSticky)
+  val zTmpLSB   = zTmpShiftedAlign(1).asBool
+  val zTmpRound = zTmpShiftedAlign(0).asBool
+  val zTmpInc   = FloatChiselUtil.roundIncBySpec(roundSpec, zTmpLSB, zTmpRound,
+                                                 zTmpStickyAlign)
 
   // one adder for the rounding increment and the two's complement:
   // sgn=0 gives w + inc, sgn=1 gives ~w + (1 - inc) == -(w + inc) mod 2^W
-  val zTmpWindow = zTmpShiftedAlign(zSpec.W + xSpec.manW, xSpec.manW+1)
+  val zTmpWindow = zTmpShiftedAlign(zSpec.W, 1)
   val z = (zTmpWindow ^ Fill(zSpec.W, xsgnAlign)) + (xsgnAlign ^ zTmpInc.asUInt)
 
   // -----------------------------------------------------------------------
