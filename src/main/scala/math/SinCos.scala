@@ -20,7 +20,7 @@
 //
 package rial.math
 
-import scala.math.{max => smax}
+import scala.math.{max => smax, min => smin}
 
 import spire.math.Real
 import spire.implicits._
@@ -169,9 +169,20 @@ class SinCosPreProcess(
   // --------------------------------------------------------------------------
   // fold x/π into [0, 2)
 
+  // Past a right shift of `manW + 4` every bit the rounding below reads is
+  // already zero, so the down-shift amount is held at the width that holds
+  // it and saturates there.
+  val downShiftW = smin(log2Ceil(manW + 5), log2Ceil(xOverPiFracW))
+  assert(downShiftW <= exW, f"downShiftW(${downShiftW}) must be <= exW(${exW})")
+
   val xOverPiExMoreThan1 = (xOverPiEx >= exBias.U)
   val xOverPiExNobiasPos = (xOverPiEx - exBias.U)(log2Up(xOverPiFracW) - 1, 0)
-  val xOverPiExNobiasNeg = (exBias.U - xOverPiEx)(log2Up(xOverPiFracW) - 1, 0)
+
+  val xOverPiExNobiasNegFull = (exBias.U - xOverPiEx)
+  val xOverPiExNobiasNeg     = Mux(
+    xOverPiExNobiasNegFull(exW, downShiftW).orR,
+    Fill(downShiftW, 1.U(1.W)),
+    xOverPiExNobiasNegFull(downShiftW - 1, 0))
 
   val xOverPiAlignPos = (xOverPi << xOverPiExNobiasPos)(xOverPiFracW, 0)
   val xOverPiAlignNeg = (xOverPi >> xOverPiExNobiasNeg)(xOverPiFracW, 0)
