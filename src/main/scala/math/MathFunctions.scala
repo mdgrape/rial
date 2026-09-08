@@ -9,7 +9,7 @@ import chisel3._
 import chisel3.util._
 
 import rial.table._
-import rial.arith.{RealSpec, RoundSpec}
+import rial.arith.{MulImpl, Multiplier, RealSpec, RoundSpec}
 import rial.util._
 
 import scala.collection.mutable.ArrayBuffer
@@ -27,8 +27,8 @@ import scala.reflect.ClassTag
  * (names for `PipelineStageConfig.specify`):
  *
  *  - `"in"`        the module input
- *  - `"preMul.*"`  the boundaries of the shared pre-process multiplier,
- *                  see [[rial.math.PreProcMultiplier]] for the names
+ *  - `"preMul.*"`  the boundaries of the shared pre-process multiplier, see
+ *                  [[rial.arith.Multiplier]] for the names
  *  - `"pre.*"`     the argument reduction of each function, one path per
  *                  function, see below
  *  - `"table"`     after the coefficient table lookup
@@ -77,17 +77,28 @@ import scala.reflect.ClassTag
  * }}}
  *
  * @constructor Constructs a new MathFunctions module.
- * @param cfg   Configuration that determines which functions are supported.
- * @param spec  RealSpec for input/output floating point numbers.
- * @param stage pipeline registers of this module.
+ * @param cfg         Configuration that determines which functions are
+ *                    supported.
+ * @param spec        RealSpec for input/output floating point numbers.
+ * @param stage       pipeline registers of this module.
+ * @param preMulImpl  structure of the product of the pre-process multiplier.
+ * @param postMulImpl structure of the product of the post-process multiplier.
+ *                    The two multipliers are chosen separately because they
+ *                    are not the same shape: the pre-process one is a wide
+ *                    operand times a mantissa, the post-process one two
+ *                    mantissas followed by the rounding. The polynomial keeps
+ *                    a plain product; its operands fit one hard multiplier.
  *
+ * @see [[rial.arith.MulImpl]]
  * @see [[rial.util.PipelineStageConfig]]
  * @see [[rial.util.StagePoint]]
  */
 class MathFunctions(
-  val cfg:   MathFuncConfig,
-  val spec:  RealSpec,
-  val stage: PipelineStageConfig
+  val cfg:         MathFuncConfig,
+  val spec:        RealSpec,
+  val stage:       PipelineStageConfig,
+  val preMulImpl:  MulImpl = MulImpl.plain,
+  val postMulImpl: MulImpl = MulImpl.plain
 ) extends Module {
 
   import FuncKind._
@@ -102,7 +113,7 @@ class MathFunctions(
   val coeffs = cfg.coeffs
 
   /** Boundaries at which pipeline registers can be placed; see the class doc. */
-  val stagePoints = MathFunctions.stagePoints(cfg)
+  val stagePoints = MathFunctions.stagePoints(cfg, preMulImpl, postMulImpl)
 
   val stages = stage.resolve(stagePoints)
 
@@ -164,17 +175,15 @@ class MathFunctions(
     0
   }
 
-  val preMul: Option[PreProcMultiplier] = if (needPreMul) { Some(
-    Module(new PreProcMultiplier(
-      lhsW  = PreProcMultiplier.lhsW(cfg.funcs, spec),
-      manW  = manW,
-      stage = stages.sub("preMul"),
-    ))
+  /** width of the left hand operand of the pre-process multiplier. */
+  val preMulLhsW = PreProcMultiplier.lhsW(cfg.funcs, spec)
+
+  val preMul: Option[Multiplier] = if (needPreMul) { Some(
+    Module(new Multiplier(preMulLhsW, 1 + manW, preMulImpl, stages.sub("preMul")))
   )} else { None }
 
   /** the operand set one function offers to the pre-process multiplier. */
-  private def preMulOperands = new MathFunctions.MulOperands(
-    PreProcMultiplier.lhsW(cfg.funcs, spec), 1 + manW)
+  private def preMulOperands = new MathFunctions.MulOperands(preMulLhsW, 1 + manW)
 
   // Pre-mult operands, one set per function: each function that wants the
   // multiplier drives its own set in its block below and offers 0 otherwise.
@@ -192,9 +201,9 @@ class MathFunctions(
   if (preMul.isDefined) {
     val args = MuxLookup(selIn, 0.U.asTypeOf(Valid(preMulOperands)))(
       cfg.funcs.map(fn => cfg.signal(fn) -> preMulArgs.get(fn)))
-    preMul.get.io.in.valid    := args.valid
-    preMul.get.io.in.bits.lhs := args.bits.lhs
-    preMul.get.io.in.bits.rhs := args.bits.rhs
+    preMul.get.io.in.valid  := args.valid
+    preMul.get.io.in.bits.x := args.bits.lhs
+    preMul.get.io.in.bits.y := args.bits.rhs
   }
 
   // ==========================================================================
@@ -232,6 +241,7 @@ class MathFunctions(
       manW      = manW,
       roundSpec = RoundSpec.roundToEven,
       stage     = stages.sub("postMul"),
+      mulImpl   = postMulImpl,
     ))
   )} else { None }
 
@@ -604,7 +614,7 @@ class MathFunctions(
     // ----- pre-mult operands: 1/π * (1 + x.man), the same set for both -----
     Seq(Sin, Cos).foreach(fn => {
       preMulArgs.get(fn).valid    := xIn.valid
-      preMulArgs.get(fn).bits.lhs := SinCosPreMulArgs.lhs(spec, preMul.get.lhsW)
+      preMulArgs.get(fn).bits.lhs := SinCosPreMulArgs.lhs(spec, preMulLhsW)
       preMulArgs.get(fn).bits.rhs := Cat(1.U(1.W), xIn.bits.man)
     })
 
@@ -660,7 +670,7 @@ class MathFunctions(
 
     // ----- pre-mult operands: log2(e) * (1 + x.man) -----
     preMulArgs.get(Exp).valid    := xIn.valid
-    preMulArgs.get(Exp).bits.lhs := ExpPreMulArgs.lhs(spec, preMul.get.lhsW)
+    preMulArgs.get(Exp).bits.lhs := ExpPreMulArgs.lhs(spec, preMulLhsW)
     preMulArgs.get(Exp).bits.rhs := Cat(1.U(1.W), xIn.bits.man)
 
     // ----- pre stage -----
@@ -986,7 +996,7 @@ class MathFunctions(
     // ----- pre-mult operands: (1/sgmA^2) * (1 + x.man) -----
     preMulArgs.get(ScaleMixtureGaussian).valid    := xIn.valid
     preMulArgs.get(ScaleMixtureGaussian).bits.lhs :=
-      ScaleMixtureGaussianPreMulArgs.lhs(sgmA, spec, preMul.get.lhsW)
+      ScaleMixtureGaussianPreMulArgs.lhs(sgmA, spec, preMulLhsW)
     preMulArgs.get(ScaleMixtureGaussian).bits.rhs := Cat(1.U(1.W), xIn.bits.man)
 
     // ----- pre stage: x and sel on the far side of the pre-mult -----
@@ -1076,17 +1086,21 @@ object MathFunctions {
    * `"preMul"`, `"mulArgs"` and `"postMul"` are declared only when one of the
    * functions of `cfg` needs the corresponding multiplier.
    *
-   * @param cfg configuration of the module these boundaries are for
+   * @param cfg         configuration of the module these boundaries are for
+   * @param preMulImpl  structure of the pre-process multiplier's product
+   * @param postMulImpl structure of the post-process multiplier's product
    */
-  def stagePoints(cfg: MathFuncConfig): Seq[StageElem] = {
+  def stagePoints(cfg: MathFuncConfig,
+    preMulImpl:  MulImpl = MulImpl.plain,
+    postMulImpl: MulImpl = MulImpl.plain): Seq[StageElem] = {
     val preMul: Seq[StageElem] = if (PreProcMultiplier.isNeeded(cfg.funcs)) {
-      Seq(StageGroup("preMul", PreProcMultiplier.stagePoints))
+      Seq(StageGroup("preMul", Multiplier.stagePoints(preMulImpl)))
     } else {
       Seq.empty[StageElem]
     }
     val postMul: Seq[StageElem] = if (PostProcMultiplier.isNeeded(cfg.funcs)) {
       Seq(StagePoint("mulArgs", 1.0),
-          StageGroup("postMul", PostProcMultiplier.stagePoints))
+          StageGroup("postMul", PostProcMultiplier.stagePoints(postMulImpl)))
     } else {
       Seq.empty[StageElem]
     }

@@ -16,8 +16,10 @@ package rial.math
 import chisel3._
 import chisel3.util._
 
-import rial.arith.RoundSpec
 import rial.arith.FloatChiselUtil
+import rial.arith.MulImpl
+import rial.arith.Multiplier
+import rial.arith.RoundSpec
 import rial.math.FuncKind._
 import rial.util._
 
@@ -31,10 +33,11 @@ private[rial] class PostProcMultiplier(
   val manW:      Int,
   val roundSpec: RoundSpec,
   val stage:     PipelineStageConfig,
+  val mulImpl:   MulImpl = MulImpl.plain,
 ) extends Module {
 
   /** Boundaries at which pipeline registers can be placed. */
-  val stagePoints = PostProcMultiplier.stagePoints
+  val stagePoints = PostProcMultiplier.stagePoints(mulImpl)
 
   val stages = stage.resolve(stagePoints)
 
@@ -56,14 +59,19 @@ private[rial] class PostProcMultiplier(
   val lhsIn = cutIn(io.in.bits.lhs)
   val rhsIn = cutIn(io.in.bits.rhs)
 
-  val prodComb = lhsIn * rhsIn
+  // ------------------------- stage "prod.*" -------------------------
+  val mult = Module(new Multiplier(
+    1 + fracW, 1 + manW, mulImpl, stages.sub("prod")))
 
-  // -------------------------- stage "prod" --------------------------
-  // right at the output of the multiplier, so that the register can be
-  // absorbed into the DSP block
-  private val cutProd = new SharedPipe("prod", cutIn.valid, stages.at("prod"))
+  mult.io.in.valid  := cutIn.valid
+  mult.io.in.bits.x := lhsIn
+  mult.io.in.bits.y := rhsIn
 
-  val prod      = cutProd(prodComb)
+  // latency of the product; the valid that leaves it is the one the rounding
+  // below and the output register run on
+  private val cutProd = new SharedPipe("prod", cutIn.valid, stages.latency("prod"))
+
+  val prod      = mult.io.out.bits
   val moreThan2 = prod((manW + 1) + (fracW + 1) - 1)
 
   val roundBits = fracW
@@ -89,12 +97,14 @@ object PostProcMultiplier {
   /** Boundaries at which pipeline registers can be placed; see
    *  [[rial.math.PostProcMultiplier]].
    *
-   *  - `"prod"` the product
-   *  - `"out"`  the rounded mantissa
+   *  - `"prod.*"` the boundaries of the [[rial.arith.Multiplier]] that forms
+   *               the product, see its doc for the names; the group name
+   *               `"prod"` stands for `"prod.out"`
+   *  - `"out"`    the rounded mantissa
    */
-  val stagePoints: Seq[StageElem] = Seq(
-    StagePoint("prod", 2.0),
-    StagePoint("out",  2.0))
+  def stagePoints(mulImpl: MulImpl): Seq[StageElem] = Seq(
+    StageGroup("prod", Multiplier.stagePoints(mulImpl)),
+    StagePoint("out", 2.0))
 
   /** True iff any configured function requires the post-process multiplier. */
   def isNeeded(funcs: Seq[FuncKind]): Boolean = {
