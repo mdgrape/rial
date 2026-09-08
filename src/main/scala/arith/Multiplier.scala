@@ -94,18 +94,22 @@ object MulImpl {
  *
  * `io.out.bits` is the `xW + yW` bit product of `io.in.bits.x` and
  * `io.in.bits.y`, unsigned by default and two's complement when `signed` is
- * set (the operands and the result are then read with `asSInt`). A module that
- * needs a product instantiates this one and does nothing else about it: what
- * a wide operand costs, and what a two's complement one costs once it is
- * sliced, is this module's business. `MulImpl.plain` is the plain product and
- * asks nothing of the operands.
+ * set (the operands and the result are then read with `asSInt`).
+ *
+ * A module that needs a product instantiates this one and does nothing else
+ * about it: what a wide operand costs, and what a two's complement one costs
+ * once it is sliced, is this module's business. `MulImpl.plain` is the plain
+ * product and asks nothing of the operands.
  *
  * Pipeline registers can be enabled at the following points of the datapath
  * (names for `PipelineStageConfig.specify`):
  *
- *  - `"in"`  the module input
- *  - `"pp"`  after the partial products, only with `MulImpl.split`
- *  - `"out"` the module output, after the sum of the partial products
+ *  - `"in"`     the module input
+ *  - `"pp"`     after the partial products, only with `MulImpl.split`
+ *  - `"chainK"` after the k-th partial sum, `K` = 1 ... one less than the
+ *               number of hops, so only when a plain product is split into
+ *               more than two slices
+ *  - `"out"`    the module output, after the sum of the partial products
  *
  * [[getStage]] gives the resulting latency, and `io.out.valid` is
  * `io.in.valid` delayed by that many cycles. The module is inlined into the
@@ -141,8 +145,11 @@ class Multiplier(
   signed: Boolean = false,
 ) extends Module with InlineInstance {
 
+  /** Number of boundaries the chain of partial sums offers here. */
+  val nChain = Multiplier.chainPoints(impl, xW, yW, signed)
+
   /** Boundaries at which pipeline registers can be placed; see the class doc. */
-  val stagePoints = Multiplier.stagePoints(impl)
+  val stagePoints = Multiplier.stagePoints(impl, nChain)
 
   val stages = stage.resolve(stagePoints)
 
@@ -172,6 +179,42 @@ class Multiplier(
 
   private val cutPp = new SharedPipe("pp", cutIn.valid, nPp)
 
+  /** The cut the sum of the partial products ends at. */
+  private var cutLast: SharedPipe = cutPp
+
+  /** The product of the partial products [[Multiplier.partials]] returns, each
+   *  adding its own to what came before it, shifted down by the slice width;
+   *  the boundary `"chainK"` sits between two of those additions.
+   */
+  private def chained(parts: Seq[UInt]): UInt = {
+    if (parts.length == 1) {
+      Multiplier.fit(parts.head, outW)
+    } else {
+      val sw = impl.sliceW.get
+      var carried = parts.head
+      var rest    = parts.tail
+      var low     = Seq.empty[UInt]
+      var k       = 1
+      while (rest.nonEmpty) {
+        val next = rest.head +& (carried >> sw)
+        val done = low :+ carried(sw - 1, 0)
+        rest = rest.tail
+        if (rest.nonEmpty) {
+          val cut = new SharedPipe(s"chain$k", cutLast.valid, stages.at(s"chain$k"))
+          carried = cut(next)
+          low     = done.map(l => cut(l))
+          rest    = rest.map(r => cut(r))
+          cutLast = cut
+          k      += 1
+        } else {
+          carried = next
+          low     = done
+        }
+      }
+      Multiplier.fit(Cat(carried, Cat(low.reverse)), outW)
+    }
+  }
+
   // `plain` is the product as it would be written by hand and nothing else: a
   // hard multiplier takes both operands as they are, so there is nothing to
   // shape. A slice of an operand is what does not fit one, and the slices are
@@ -190,23 +233,22 @@ class Multiplier(
     } else {
       xIn * yIn
     }
-  } else {
+  } else if (signed) {
     val raw = Multiplier.partials(xIn, yIn, impl)
-    if (signed) {
-      val m   = xW.min(yW)
-      val sub = (Mux(xIn(xW-1), yIn, 0.U) << (xW - m)) +&
-                (Mux(yIn(yW-1), xIn, 0.U) << (yW - m))
-      val head  = Multiplier.fit(raw.head, outW) - Cat(
-        Multiplier.fit(sub, outW - m), 0.U(m.W))
-      val terms = head +: Multiplier.placed(raw.tail, impl, outW, 1)
-      Multiplier.sumWide(terms.map(t => cutPp(t)), outW)
-    } else {
-      Multiplier.sum(raw.map(p => cutPp(p)), impl, outW)
-    }
+    val m   = xW.min(yW)
+    val sub = (Mux(xIn(xW-1), yIn, 0.U) << (xW - m)) +&
+              (Mux(yIn(yW-1), xIn, 0.U) << (yW - m))
+    val head = Multiplier.fit(raw.head, outW) - Cat(
+      Multiplier.fit(sub, outW - m), 0.U(m.W))
+    Multiplier.sumWide(
+      (head +: Multiplier.placed(raw.tail, impl, outW, 1)).map(t => cutPp(t)),
+      outW)
+  } else {
+    chained(Multiplier.partials(xIn, yIn, impl).map(p => cutPp(p)))
   }
 
   // --------------------------- stage "out" --------------------------
-  io.out := Pipe(cutPp.valid, prod, stages.at("out"))
+  io.out := Pipe(cutLast.valid, prod, stages.at("out"))
 }
 
 /** Input bundle and pipeline stage points of [[rial.arith.Multiplier]].
@@ -226,13 +268,42 @@ object Multiplier {
   }
 
   /** Boundaries at which pipeline registers can be placed; see
-   *  [[rial.arith.Multiplier]]. `"pp"` exists only with `MulImpl.split`.
+   *  [[rial.arith.Multiplier]]. `"pp"` exists only with `MulImpl.split`, and
+   *  the `nChain` boundaries `"chain1"` ... `"chain<nChain>"` only when the
+   *  sum of the partial products is a chain of more than one addition;
+   *  [[chainPoints]] is how many that is.
+   *
+   * @param impl   structure of the product
+   * @param nChain number of boundaries inside the sum
    */
-  def stagePoints(impl: MulImpl): Seq[StagePoint] = {
+  def stagePoints(impl: MulImpl, nChain: Int = 0): Seq[StagePoint] = {
     if (impl.isSplit) {
-      Seq(StagePoint("pp", 3.0), StagePoint("out", 3.0))
+      (StagePoint("pp", 3.0) +:
+        (1 to nChain).map(k => StagePoint(s"chain$k", 2.0))) :+
+        StagePoint("out", 3.0)
     } else {
       Seq(StagePoint("out", 4.0))
+    }
+  }
+
+  /** Number of boundaries the sum of the partial products offers for these
+   *  parameters, which is one less than the number of additions it takes.
+   *
+   * A product that is not split, or split in two, is one addition and has
+   * none; a two's complement product is summed together with the terms its
+   * sign costs rather than in a chain, and has none either.
+   *
+   * @param xW     width of the left hand operand
+   * @param yW     width of the right hand operand
+   * @param signed the operands are two's complement
+   */
+  def chainPoints(impl: MulImpl, xW: Int, yW: Int,
+    signed: Boolean = false): Int = {
+
+    if (signed) {
+      0
+    } else {
+      (sliceBits(xW.max(yW), impl).length - 2).max(0)
     }
   }
 
@@ -263,29 +334,6 @@ object Multiplier {
       sliceBits(x.getWidth, impl).map({ case (hi, lo) => x(hi, lo) * y })
     } else {
       sliceBits(y.getWidth, impl).map({ case (hi, lo) => x * y(hi, lo) })
-    }
-  }
-
-  /** The `outW` bit product of the partial products [[partials]] returns.
-   *
-   * The partial products are summed the way one hard multiplier hands its
-   * result to the next: each adds its own product to what came before it,
-   * shifted down by the slice width, and the bits that fall below the shift
-   * are already bits of the product. So however many slices there are, each
-   * addition is one carry chain and the chain of them is the path the blocks
-   * have between them.
-   */
-  private def sum(parts: Seq[UInt], impl: MulImpl, outW: Int): UInt = {
-    if (parts.length == 1) {
-      fit(parts.head, outW)
-    } else {
-      val sw = impl.sliceW.get
-      val (acc, low) = parts.tail.foldLeft((parts.head, Seq.empty[UInt]))({
-        case ((carried, done), p) => {
-          (p +& (carried >> sw), done :+ carried(sw - 1, 0))
-        }
-      })
-      fit(Cat(acc, Cat(low.reverse)), outW)
     }
   }
 

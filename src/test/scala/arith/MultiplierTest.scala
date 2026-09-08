@@ -62,7 +62,8 @@ class MultiplierTest extends AnyFunSpec with ChiselSim with EmitVcd {
           c.io.out.valid.expect(true.B)
           assert(c.io.out.bits.peek().litValue == ze,
             f"Multiplier(${xW}, ${yW}, ${impl.tag}, signed=${signed}): " +
-            f"x=${xe}%x y=${ye}%x -> ${c.io.out.bits.peek().litValue}%x, expected ${ze}%x")
+            f"x=${xe}%x y=${ye}%x -> ${c.io.out.bits.peek().litValue}%x, " +
+            f"expected ${ze}%x")
         }
         c.clock.step(1)
       }
@@ -80,6 +81,16 @@ class MultiplierTest extends AnyFunSpec with ChiselSim with EmitVcd {
     it("split at 17 of an operand that needs three slices") {
       mulTest(39, 24, MulImpl.split(17),
         PipelineStageConfig.specify("pp" -> 1), false, 12)
+    }
+    it("three slices with a register between the hops of the chain") {
+      mulTest(39, 24, MulImpl.split(17),
+        PipelineStageConfig.specify("pp" -> 1, "chain1" -> 1, "out" -> 1),
+        false, 12)
+    }
+    it("four slices with both chain points registered") {
+      mulTest(56, 12, MulImpl.split(17),
+        PipelineStageConfig.specify("in" -> 1, "pp" -> 1, "chain1" -> 1,
+          "chain2" -> 1, "out" -> 1), false, 8)
     }
     it("split at 17 of the right hand operand, which is the wider one") {
       mulTest(12, 39, MulImpl.split(17),

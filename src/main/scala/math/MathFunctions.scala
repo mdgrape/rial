@@ -116,7 +116,7 @@ class MathFunctions(
 
   /** Boundaries at which pipeline registers can be placed; see the class doc. */
   val stagePoints = MathFunctions.stagePoints(cfg, preMulImpl, postMulImpl,
-    polyMulImpl)
+    polyMulImpl, Some(spec))
 
   val stages = stage.resolve(stagePoints)
 
@@ -1094,13 +1094,19 @@ object MathFunctions {
    * @param preMulImpl  structure of the pre-process multiplier's product
    * @param postMulImpl structure of the post-process multiplier's product
    * @param polyMulImpl structure of the polynomial's products
+   * @param spec        floating point spec of the module, which the widths of
+   *                    the pre-process multiplier follow; without it that
+   *                    multiplier offers no boundary inside its own sum
    */
   def stagePoints(cfg: MathFuncConfig,
     preMulImpl:  MulImpl = MulImpl.plain,
     postMulImpl: MulImpl = MulImpl.plain,
-    polyMulImpl: MulImpl = MulImpl.plain): Seq[StageElem] = {
+    polyMulImpl: MulImpl = MulImpl.plain,
+    spec:        Option[RealSpec] = None): Seq[StageElem] = {
+    val preMulChain = spec.map(sp => Multiplier.chainPoints(preMulImpl,
+      PreProcMultiplier.lhsW(cfg.funcs, sp), 1 + sp.manW)).getOrElse(0)
     val preMul: Seq[StageElem] = if (PreProcMultiplier.isNeeded(cfg.funcs)) {
-      Seq(StageGroup("preMul", Multiplier.stagePoints(preMulImpl)))
+      Seq(StageGroup("preMul", Multiplier.stagePoints(preMulImpl, preMulChain)))
     } else {
       Seq.empty[StageElem]
     }
