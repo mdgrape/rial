@@ -441,7 +441,7 @@ class MathFunctions(
     case Sqrt        => Sqrt        -> Module(new SqrtPreProcess       (spec, bitW, preStage(Sqrt       )))
     case InvSqrt     => InvSqrt     -> Module(new InvSqrtPreProcess    (spec, bitW, preStage(InvSqrt    )))
     case Reciprocal  => Reciprocal  -> Module(new ReciprocalPreProcess (spec, bitW, preStage(Reciprocal )))
-    case Sin         => Sin         -> Module(new SinCosPreProcess     (spec, bitW, preStage(Sin        )))
+    case Sin         => Sin         -> Module(new SinCosPreProcess     (spec, bitW, preStage(Sin        ), cfg.sinCos))
     case Exp         => Exp         -> Module(new ExpPreProcess        (spec, bitW, preStage(Exp        )))
     case Log         => Log         -> Module(new LogPreProcess        (spec, bitW, preStage(Log        )))
     case ACosPhase1  => ACosPhase1  -> Module(new ACosPhase1PreProcess (spec, bitW, preStage(ACosPhase1 )))

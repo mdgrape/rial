@@ -164,6 +164,9 @@ object FuncKind extends Enumeration {
  *  @constructor create a new MathFuncConfig.
  *  @param funcs the list of functions that should be supported.
  *  @param ScaleMixtureGaussianSigma sigmaA and sigmaB for ScaleMixtureGaussian.
+ *  @param sinCos the range of the argument sin/cos are calculated for; `None`
+ *                covers the whole format. Outside the range sin/cos return a
+ *                meaningless, but finite, value in [-1, 1].
  */
 class MathFuncConfig(
   val funcs:   Seq[FuncKind.FuncKind],
@@ -172,6 +175,7 @@ class MathFuncConfig(
   val inBitW:  Int,
   val outBitW: Int,
   val scaleMixtureGaussianSigma: Option[(Double, Double)] = None,
+  val sinCos:  Option[SinCosDomain] = None,
 ) {
 
   assert(funcs.length > 0, "At least one function should be supported")
@@ -271,14 +275,26 @@ class MathFuncConfig(
 
   // --------------------------------------------------------------------------
 
+  /** The same configuration with the argument range of sin/cos restricted.
+   *
+   *  @param domain the range to restrict the reduction to, `None` for the
+   *                whole format
+   */
+  def restrictSinCos(domain: Option[SinCosDomain]): MathFuncConfig = {
+    new MathFuncConfig(funcs, nOrder, addrW, inBitW, outBitW,
+      scaleMixtureGaussianSigma, domain)
+  }
+
   def getString: String = {
     // Compact representation when funcs matches one of the predefined sets in
     // the companion object.  Keeps the test names (which include this string)
     // short enough to avoid hitting OS filename-length limits.
-    if      (funcs == MathFuncConfig.all     ) { "all" }
-    else if (funcs == MathFuncConfig.standard) { "standard" }
-    else if (funcs == MathFuncConfig.simple  ) { "simple" }
-    else    { funcs.map(fn => FuncKind.getString(fn)).mkString("[", ", ", "]") }
+    val fs =
+      if      (funcs == MathFuncConfig.all     ) { "all" }
+      else if (funcs == MathFuncConfig.standard) { "standard" }
+      else if (funcs == MathFuncConfig.simple  ) { "simple" }
+      else    { funcs.map(fn => FuncKind.getString(fn)).mkString("[", ", ", "]") }
+    fs + sinCos.map(d => f"_sinCosEx${d.maxEx}").getOrElse("")
   }
 }
 

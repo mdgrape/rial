@@ -168,6 +168,32 @@ class CosTest extends AnyFunSpec
     "Test the smallest exponents", generateUnderflow(_, _), cosRefFP32)
 
   // --------------------------------------------------------------------------
+  // the same arguments, with the reduction restricted to their range
+
+  val fp32TwoPi = fp32Config.restrictSinCos(
+    Some(SinCosDomain.twoPi(RealSpec.Float32Spec)))
+  val fp32Pi = fp32Config.restrictSinCos(
+    Some(SinCosDomain.pi(RealSpec.Float32Spec)))
+  val cosRefTwoPi = SinCosSimGeneric(false, fp32TwoPi.coeffs(Cos), _: RealGeneric)
+  val cosRefPi    = SinCosSimGeneric(false, fp32Pi.coeffs(Cos),    _: RealGeneric)
+
+  runtest(RealSpec.Float32Spec, fp32TwoPi, noPipeStage,
+    "Test Within (-2pi, 2pi)", generateRealWithin(4 * Pi, _, _), cosRefTwoPi)
+  runtest(RealSpec.Float32Spec, fp32TwoPi, noPipeStage,
+    "Test special values", generateSpecialValues(_, _), cosRefTwoPi)
+  runtest(RealSpec.Float32Spec, fp32TwoPi, noPipeStage,
+    "Test the smallest exponents", generateUnderflow(_, _), cosRefTwoPi)
+  runtest(RealSpec.Float32Spec, fp32TwoPi, MathTestUtil.allPoints(fp32TwoPi),
+    "Test Within (-2pi, 2pi)", generateRealWithin(4 * Pi, _, _), cosRefTwoPi)
+
+  runtest(RealSpec.Float32Spec, fp32Pi, noPipeStage,
+    "Test Within (-pi, pi)", generateRealWithin(2 * Pi, _, _), cosRefPi)
+  runtest(RealSpec.Float32Spec, fp32Pi, noPipeStage,
+    "Test the smallest exponents", generateUnderflow(_, _), cosRefPi)
+  runtest(RealSpec.Float32Spec, fp32Pi, MathTestUtil.allPoints(fp32Pi),
+    "Test Within (-pi, pi)", generateRealWithin(2 * Pi, _, _), cosRefPi)
+
+  // --------------------------------------------------------------------------
   // BFloat16
 
   val bf16Config = MathFuncConfig.standardBF16

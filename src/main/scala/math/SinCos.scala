@@ -73,6 +73,65 @@ object SinCosPreMulArgs {
 }
 
 // -------------------------------------------------------------------------
+//
+// the range of the argument that the reduction covers
+//
+
+/** The range of |x| that the sin/cos argument reduction is built for.
+ *
+ *  The reduction folds |x|/π into [0, 2) by shifting it by its own
+ *  exponent, so the range of |x| it has to cover sets the width of that
+ *  shift. `maxEx` is the largest unbiased exponent of |x| the reduction
+ *  covers: it is built for every finite |x| < 2^(maxEx+1), down to the
+ *  argument at which |x|/π underflows (below that sin(x) is ±0 and
+ *  cos(x) is ±1). For an |x| outside the range the result is a
+ *  meaningless, but finite, value in [-1, 1].
+ *
+ *  A narrower range shortens the two segments of the reduction that carry
+ *  the fold and the normalisation of what it leaves, `"pre.sinCos.norm" ->
+ *  "pre.sinCos.fold"` and `"pre.sinCos.fold" -> "pre.sinCos.shift"`; it
+ *  changes neither the boundaries nor the latency of
+ *  [[rial.math.SinCosPreProcess]].
+ *
+ *  {{{
+ *  val cfg = MathFuncConfig.standardFP32.restrictSinCos(
+ *    Some(SinCosDomain.twoPi(RealSpec.Float32Spec)))
+ *  }}}
+ *
+ *  @param maxEx the largest unbiased exponent of |x| to cover
+ */
+case class SinCosDomain(maxEx: Int) {
+
+  /** The largest number of bits the fold shifts |x|/π up by.
+   *
+   *  |x| < 2^(maxEx+1) and π > 2, so |x|/π < 2^maxEx.
+   */
+  def maxFoldShift: Int = {
+    smax(0, maxEx - 1)
+  }
+
+}
+
+/** Factory for [[rial.math.SinCosDomain]]. */
+object SinCosDomain {
+
+  /** Every finite argument of the format. */
+  def full(spec: RealSpec): SinCosDomain = {
+    SinCosDomain(spec.exMax)
+  }
+
+  /** |x| up to the largest power of two above 2π. */
+  def twoPi(spec: RealSpec): SinCosDomain = {
+    SinCosDomain(smin(2, spec.exMax))
+  }
+
+  /** |x| up to the largest power of two above π. */
+  def pi(spec: RealSpec): SinCosDomain = {
+    SinCosDomain(smin(1, spec.exMax))
+  }
+}
+
+// -------------------------------------------------------------------------
 //  _ __  _ __ ___ _ __  _ __ ___   ___ ___  ___ ___
 // | '_ \| '__/ _ \ '_ \| '__/ _ \ / __/ _ \/ __/ __|
 // | |_) | | |  __/ |_) | | | (_) | (_|  __/\__ \__ \
@@ -91,14 +150,18 @@ class SinCosPreProcInfo(val spec: RealSpec) extends Bundle {
 }
 
 class SinCosPreProcess(
-  val spec:  RealSpec,
-  val bitW:  PolynomialBitWidth,
-  val stage: PipelineStageConfig,
+  val spec:   RealSpec,
+  val bitW:   PolynomialBitWidth,
+  val stage:  PipelineStageConfig,
+  val domain: Option[SinCosDomain] = None,
 ) extends Module {
 
   val exW    = spec.exW
   val manW   = spec.manW
   val exBias = spec.exBias
+
+  /** The range of the argument the reduction is built for. */
+  val range = domain.getOrElse(SinCosDomain.full(spec))
 
   val adrW   = bitW.addrW
   val dxW    = bitW.inBitW
@@ -169,14 +232,14 @@ class SinCosPreProcess(
   // --------------------------------------------------------------------------
   // fold x/π into [0, 2)
 
-  // Past a right shift of `manW + 4` every bit the rounding below reads is
-  // already zero, so the down-shift amount is held at the width that holds
-  // it and saturates there.
+  // The up-shift is bounded by the range the reduction covers, the down-shift
+  // by the point past which every bit the rounding below reads is zero: both
+  // shift amounts are held at that width and saturate there.
+  val foldShiftW = smin(log2Ceil(range.maxFoldShift + 1), log2Ceil(xOverPiFracW))
   val downShiftW = smin(log2Ceil(manW + 5), log2Ceil(xOverPiFracW))
   assert(downShiftW <= exW, f"downShiftW(${downShiftW}) must be <= exW(${exW})")
 
   val xOverPiExMoreThan1 = (xOverPiEx >= exBias.U)
-  val xOverPiExNobiasPos = (xOverPiEx - exBias.U)(log2Up(xOverPiFracW) - 1, 0)
 
   val xOverPiExNobiasNegFull = (exBias.U - xOverPiEx)
   val xOverPiExNobiasNeg     = Mux(
@@ -184,7 +247,12 @@ class SinCosPreProcess(
     Fill(downShiftW, 1.U(1.W)),
     xOverPiExNobiasNegFull(downShiftW - 1, 0))
 
-  val xOverPiAlignPos = (xOverPi << xOverPiExNobiasPos)(xOverPiFracW, 0)
+  val xOverPiAlignPos = if (foldShiftW == 0) {
+    xOverPi
+  } else {
+    val xOverPiExNobiasPos = (xOverPiEx - exBias.U)(foldShiftW - 1, 0)
+    (xOverPi << xOverPiExNobiasPos)(xOverPiFracW, 0)
+  }
   val xOverPiAlignNeg = (xOverPi >> xOverPiExNobiasNeg)(xOverPiFracW, 0)
   val xOverPiAligned  = Mux(xOverPiIsZero, 0.U((xOverPiFracW + 1).W),
                         Mux(xOverPiExMoreThan1, xOverPiAlignPos, xOverPiAlignNeg))
