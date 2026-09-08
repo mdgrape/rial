@@ -110,6 +110,27 @@ case class SinCosDomain(maxEx: Int) {
     smax(0, maxEx - 1)
   }
 
+  /** The largest shift the normalisation of the folded argument needs, when
+   *  the range is narrow enough for that shift to be known.
+   *
+   *  The fold cancels the leading bits of |x|/π when x is close to a multiple
+   *  of π/2, and the normalisation shifts what is left back up. How far the
+   *  cancellation reaches is a property of the binary expansion of the 1/π
+   *  constant over the arguments the range admits, so this is a checked
+   *  bound, not a derived one: every mantissa of the two formats named here
+   *  has been walked, at every fold shift a range up to the second period
+   *  admits, and none cancels more than `manW + 4` bits. A range that admits
+   *  more, or a format that has not been walked, gives `None` and the whole
+   *  folded argument is searched.
+   */
+  def maxNormShift(spec: RealSpec): Option[Int] = {
+    val walked = Seq(RealSpec.Float32Spec, RealSpec.BFloat16Spec)
+    if (maxEx <= 2 && walked.exists(_ == spec)) {
+      Some(spec.manW + 4)
+    } else {
+      None
+    }
+  }
 }
 
 /** Factory for [[rial.math.SinCosDomain]]. */
@@ -324,8 +345,9 @@ class SinCosPreProcess(
   // normalize yman0: shift its leading one up, and take the shift out of the
   // exponent.
   val yman0W           = yman0.getWidth
-  val yman0Shift0      = PriorityEncoder(Reverse(yman0))
-  val yman0ShiftW      = log2Up(yman0W)
+  val normShiftMax     = range.maxNormShift(spec).getOrElse(yman0W - 1)
+  val yman0ShiftW      = log2Ceil(normShiftMax + 1)
+  val yman0Shift0      = PriorityEncoder(Reverse(yman0.head(normShiftMax + 1)))
   val yman0Shift       = yman0Shift0(yman0ShiftW - 1, 0)
   val yman0ShiftedComb = (yman0 << yman0Shift)(yman0W - 1, 0)
   val yexShiftedComb   = yex0 - yman0Shift
