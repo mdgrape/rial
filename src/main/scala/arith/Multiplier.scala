@@ -268,26 +268,24 @@ object Multiplier {
 
   /** The `outW` bit product of the partial products [[partials]] returns.
    *
-   * The low slice of the least significant partial product is already a slice
-   * of the product, and the rest is one flat sum, so the whole summation is
-   * one carry chain.
+   * The partial products are summed the way one hard multiplier hands its
+   * result to the next: each adds its own product to what came before it,
+   * shifted down by the slice width, and the bits that fall below the shift
+   * are already bits of the product. So however many slices there are, each
+   * addition is one carry chain and the chain of them is the path the blocks
+   * have between them.
    */
   private def sum(parts: Seq[UInt], impl: MulImpl, outW: Int): UInt = {
     if (parts.length == 1) {
       fit(parts.head, outW)
     } else {
-      val sw   = impl.sliceW.get
-      val hiW  = outW - sw
-      val ends = parts.zipWithIndex.map({ case (p, i) =>
-        if (i == 0) {
-          fit(p >> sw, hiW)
-        } else if (i == 1) {
-          fit(p, hiW)
-        } else {
-          Cat(fit(p, hiW - (i - 1) * sw), 0.U(((i - 1) * sw).W))
+      val sw = impl.sliceW.get
+      val (acc, low) = parts.tail.foldLeft((parts.head, Seq.empty[UInt]))({
+        case ((carried, done), p) => {
+          (p +& (carried >> sw), done :+ carried(sw - 1, 0))
         }
       })
-      Cat(sumWide(ends, hiW), parts.head(sw - 1, 0))
+      fit(Cat(acc, Cat(low.reverse)), outW)
     }
   }
 
