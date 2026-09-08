@@ -365,11 +365,14 @@ class AddFPGeneric(
       diffSgnAlign, sumFar, yAddFarAlign, negIncFarAlign)
   }
 
-  val sumNear = xNearAlign - yNearShiftAlign
+  // Both differences are formed side by side, so the absolute value is a
+  // selection and not a negation appended to the subtraction.
+  val sumNear    = xNearAlign - yNearShiftAlign
+  val sumNearNeg = yNearShiftAlign - xNearAlign
   // The below includes 1.xxxx+round bit
   //  width = maxManWxy+2
   val sumNearSign = getMSB1(0,sumNear)
-  val sumNearAbs = Mux(sumNearSign, -sumNear(maxManWxy+1,0), sumNear(maxManWxy+1,0))
+  val sumNearAbs = Mux(sumNearSign, sumNearNeg(maxManWxy+1,0), sumNear(maxManWxy+1,0))
   val sumNearZero = !sumNear.orR
 
   // leading zero anticipation, in parallel with the subtraction above
@@ -542,20 +545,33 @@ class AddFPGeneric(
 
   //----------------------------------------------------------------------
   // S6 : rounding increment and exponent adjustment
-  val zman0   = zmanSelNorm +& incSelNorm
+  // The increment carries out of the significand only when every bit of it is
+  // one, so the carry is an AND of the significand and does not wait for the
+  // carry chain of the increment.
+  val zmanCarry = incSelNorm && zmanSelNorm.andR
+  val zman0     = Cat(zmanCarry, zmanSelNorm + incSelNorm)
 
   // Calculate zex Range
   val zexMax = zexBaseMax+2
   // In cases when zSpec.manW is smaller, it will increase 2 (result become 4)
   val zexMin = zexBaseMin - sumNearAbs.getWidth
   val zexW   = getWidthToRepresentNumbersAlwaysSigned( Seq(zexMin,  zexMax) )
-  val zex0   = zexNormNorm.pad(zexW) - exSubNorm + zman0(zSpec.manW).zext
-  val zeroAfterAdd = if(zSpec.disableSubnormal){
-    (zex0 <= 0.S) || zeroSelNorm // if subnormal is disabled, include ex==0 as zero.
-  } else {
-    (zex0 <  0.S) || zeroSelNorm
+  // The exponent of both carry outcomes, and the range flags of both, are
+  // formed in parallel with the increment; the carry only selects one of them.
+  val zexKeep = zexNormNorm.pad(zexW) - exSubNorm             // carry out = 0
+  val zexInc  = zexNormNorm.pad(zexW) - (exSubNorm -& 1.S)    // carry out = 1
+  val zex0    = Mux(zmanCarry, zexInc, zexKeep)
+  def zexZero(zex : SInt) : Bool = {
+    if(zSpec.disableSubnormal){
+      zex <= 0.S // if subnormal is disabled, include ex==0 as zero.
+    } else {
+      zex <  0.S
+    }
   }
-  val infAfterAdd = zex0 >= maskI(zSpec.exW).S
+  val zeroAfterAdd = Mux(zmanCarry, zexZero(zexInc), zexZero(zexKeep)) || zeroSelNorm
+  val infAfterAdd = Mux(zmanCarry,
+    zexInc  >= maskI(zSpec.exW).S,
+    zexKeep >= maskI(zSpec.exW).S)
 
   dbgPrintf("zex0 = %d, zeroAfterAdd = %d\n", zex0, zeroAfterAdd)
 
