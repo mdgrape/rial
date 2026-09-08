@@ -2,6 +2,7 @@ package rial.table
 
 import scala.math._
 
+import rial.arith.{MulImpl, Multiplier}
 import rial.util._
 
 import chisel3._
@@ -16,10 +17,12 @@ import chisel3.util._
  * Pipeline registers can be enabled at the following points of the datapath
  * (names for `PipelineStageConfig.specify`):
  *
- *  - `"in"`    the module input
- *  - `"prodK"` after the k-th product
- *  - `"stepK"` after the k-th multiply-add, `K` = 1 ... `bitW.nOrder`
- *  - `"out"`   the module output
+ *  - `"in"`      the module input
+ *  - `"prodK.*"` the boundaries of the [[rial.arith.Multiplier]] of the k-th
+ *                multiply-add, see its doc for the names; the group name
+ *                `"prodK"` stands for `"prodK.out"`, after the k-th product
+ *  - `"stepK"`   after the k-th multiply-add, `K` = 1 ... `bitW.nOrder`
+ *  - `"out"`     the module output
  *
  * [[getStage]] gives the resulting latency, and `io.out.valid` is
  * `io.in.valid` delayed by that many cycles.
@@ -41,7 +44,9 @@ import chisel3.util._
  * @param stage          pipeline registers of this module
  * @param clampNegToZero clamp a negative result to zero instead of letting it
  *                       wrap around
+ * @param mulImpl        structure of the product of a multiply-add
  *
+ * @see [[rial.arith.MulImpl]]
  * @see [[rial.util.PipelineStageConfig]]
  * @see [[rial.util.StagePoint]]
  */
@@ -49,6 +54,7 @@ class PolynomialEval(
   bitW: PolynomialBitWidth,
   stage: PipelineStageConfig,
   clampNegToZero: Boolean = false,
+  mulImpl: MulImpl = MulImpl.plain,
 ) extends Module {
 
   /** `n` registers at the module output. */
@@ -64,7 +70,7 @@ class PolynomialEval(
   val order = bitW.nOrder
 
   /** Boundaries at which pipeline registers can be placed; see the class doc. */
-  val stagePoints = PolynomialEval.stagePoints(order)
+  val stagePoints = PolynomialEval.stagePoints(order, mulImpl)
 
   val stages = stage.resolve(stagePoints)
 
@@ -135,12 +141,17 @@ class PolynomialEval(
     for(k <- (order-1) to 0 by -1) {
       val idx     = order - k // position of the multiply-add in evaluation order
       val xminW   = min(accCur.getWidth, xPrec) // min(calcBits, xPrec)
-      val prod    = xCur(xPrec, xPrec - xminW).asSInt * accCur
+      val mult    = Module(new Multiplier(xminW + 1, accCur.getWidth, mulImpl,
+        stages.sub(s"prod${idx}"), signed = true))
+
+      mult.io.in.valid  := validCur
+      mult.io.in.bits.x := xCur(xPrec, xPrec - xminW)
+      mult.io.in.bits.y := accCur.asUInt
 
       // the raw product, right at the output of the multiplier, so that the
       // register can be absorbed into the DSP block
-      val cutProd   = new SharedPipe(s"prod${idx}", validCur, stages.at(s"prod${idx}"))
-      val prodProd  = cutProd(prod)
+      val cutProd   = new SharedPipe(s"prod${idx}", validCur, stages.latency(s"prod${idx}"))
+      val prodProd  = mult.io.out.bits.asSInt
       val xProd     = cutProd(xCur)
       val coefProd  = cutProd(coefCur)
       val validProd = cutProd.valid
@@ -178,11 +189,17 @@ class PolynomialEval(
 object PolynomialEval {
 
   /** Boundaries at which pipeline registers can be placed for a polynomial of
-   * order `nOrder`; see [[rial.table.PolynomialEval]].
+   * order `nOrder`; see [[rial.table.PolynomialEval]]. The boundaries of the
+   * multiplier of each multiply-add appear as the group `"prodK"`.
+   *
+   * @param nOrder  order of the polynomial
+   * @param mulImpl structure of the product of a multiply-add
    */
-  def stagePoints(nOrder: Int): Seq[StagePoint] = {
+  def stagePoints(nOrder: Int,
+    mulImpl: MulImpl = MulImpl.plain): Seq[StageElem] = {
     (1 to nOrder).flatMap(k => {
-      Seq(StagePoint(s"prod$k", 2.0), StagePoint(s"step$k", 1.0))
+      Seq(StageGroup(s"prod$k", Multiplier.stagePoints(mulImpl)),
+          StagePoint(s"step$k", 1.0))
     }) :+ StagePoint("out", 1.0)
   }
 
