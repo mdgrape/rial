@@ -114,12 +114,15 @@ private[rial] class ProbitTable(
  * (names for `PipelineStageConfig.specify`):
  *
  *  - `"in"`     the module input
+ *  - `"decode"` after the interval decode
  *  - `"table"`  after the coefficient table lookup
  *  - `"poly.*"` the boundaries of the [[rial.table.PolynomialEval]] submodule
  *               that evaluates the polynomial of the interval, see its doc for
  *               the names; the group name `"poly"` stands for `"poly.out"`
  *  - `"scale"`  after the scale lookup
- *  - `"mul"`    after the mantissa product
+ *  - `"mul.*"`  the boundaries of the [[rial.arith.Multiplier]] that forms the
+ *               mantissa product, see its doc for the names; the group name
+ *               `"mul"` stands for `"mul.out"`
  *  - `"out"`    the module output
  *
  * [[getStage]] gives the resulting latency, and `z.valid` is `rnd.valid`
@@ -141,7 +144,10 @@ private[rial] class ProbitTable(
  * @param nOrder       order of the polynomial of an interval.
  * @param stage        pipeline registers of this module.
  * @param lumpOctaves  deepest tail octaves merged into one interval.
+ * @param mulImpl      structure of the products of the polynomial and of the
+ *                     mantissa.
  *
+ * @see [[rial.arith.MulImpl]]
  * @see [[rial.util.PipelineStageConfig]]
  * @see [[rial.util.StagePoint]]
  */
@@ -151,10 +157,11 @@ class GenRandomGaussian(
   nOrder:      Int,
   stage:       PipelineStageConfig,
   lumpOctaves: Int = 2, // deepest tail octaves merged into one interval
+  mulImpl:     MulImpl = MulImpl.plain,
 ) extends Module {
 
   /** Boundaries at which pipeline registers can be placed; see the class doc. */
-  val stagePoints = GenRandomGaussian.stagePoints(nOrder)
+  val stagePoints = GenRandomGaussian.stagePoints(nOrder, mulImpl)
 
   val stages = stage.resolve(stagePoints)
 
@@ -185,16 +192,6 @@ class GenRandomGaussian(
   val xex0 = rndIn(rndW-3, spec.manW)
   val xman = rndIn(spec.manW-1, 0)
 
-  // Main range (xex0 != 0): the lowest set bit of xex0 selects the octave.
-  // 0bxxxxxx1 -> 0          : 1/ 4~1/2 : exBias-2
-  // 0bxxxxx10 -> 1          : 1/ 8~1/4 : exBias-3
-  // ...
-  val xex = Mux(xex0 === 0.U, xex0.getWidth.U, PriorityEncoder(xex0))
-  // mantissa part for xex0===0.U
-  val clz = Mux(xman === 0.U, spec.manW.U, PriorityEncoder(Reverse(xman)))
-
-  // ---------------------------------------------------------------
-
   val inBitW  = spec.manW
   val outBitW = spec.manW
 
@@ -207,7 +204,8 @@ class GenRandomGaussian(
   val deepIndiv   = spec.manW - lumpOctaves                // e.g. 21
   val nOctaves    = mainOctaves + deepIndiv                // e.g. 60
   val nIntervals  = 1 + nOctaves + 1                       // e.g. 62
-  val lumpAddr    = (nIntervals - 1).U
+  val addrW       = log2Ceil(nIntervals)                   // e.g. 6
+  val lumpAddr    = (nIntervals - 1).U(addrW.W)
 
   val table  = new ProbitTable(spec, nOrder, nIntervals, inBitW, outBitW, lumpOctaves)
   val bitW   = table.getBitWidth()
@@ -222,47 +220,78 @@ class GenRandomGaussian(
   //   page 1, xex0 != 0       -> idx xex+1            (main octaves 1..mainOctaves)
   //   page 1, xex0 == 0, deep -> idx mainOctaves+1+clz (deep octaves), clamped to
   //                              the lumped interval once clz reaches deepIndiv.
-  val addr = WireDefault(0.U(log2Ceil(nIntervals).W))
-  when(page === 0.U) {
-    addr := 0.U
-  }.elsewhen(xex0 =/= 0.U) {
-    addr := xex +& 1.U
-  }.elsewhen(clz < deepIndiv.U) {
-    addr := (mainOctaves + 1).U +& clz
-  }.otherwise {
-    addr := lumpAddr
+  //
+  // The main range takes the octave from the lowest set bit of xex0
+  //   0bxxxxxx1 -> 0          : 1/ 4~1/2 : exBias-2
+  //   0bxxxxx10 -> 1          : 1/ 8~1/4 : exBias-3
+  //   ...
+  // and the deep tail from the leading zeros of xman, so one scan for the lowest
+  // set bit of the two of them, laid end to end, tells the octave of either.
+  // The scans are grouped, and they select the table index and the shift of the
+  // position rather than the octave number, so that the deepest paths of this
+  // stage are two selections rather than a priority chain over the whole word
+  // followed by an address decode and a shifter control.
+  val scan = Cat(Reverse(xman), xex0)
+
+  // the deep tail, saturated at the lumped interval
+  val deepAddr = GenRandomGaussian.firstSetSelect(Reverse(xman), lumpAddr)(i => {
+    min(mainOctaves + 1 + i, nIntervals - 1).U(addrW.W)
+  })
+  // the main range, with the central page as one more, lowest, position and the
+  // deep tail as the result when no octave bit of it is set, so that the
+  // address needs no selection of its own
+  val addr = GenRandomGaussian.firstSetSelect(Cat(xex0, ~page), deepAddr)(i => {
+    i.U(addrW.W)
+  })
+
+  // Shift of the position inside the interval. `dxBits` is 1.xman followed by
+  // inBitW zeros, and every interval takes its position as the inBitW-bit
+  // window of it that starts at `dxShift`:
+  //   page 0            : 1.xman >> 1 >> xex, i.e. the window at inBitW+1+xex
+  //   page 1, main      : xman itself, the window at inBitW
+  //   page 1, deep      : xman without its leading zeros and leading one, the
+  //                       window at inBitW-1-clz
+  //   page 1, lumped    : the lowest lumpOctaves bits of xman, spanning the
+  //                       interval linearly, the window at inBitW-deepIndiv
+  val dxShiftW  = log2Ceil(inBitW + 2 + mainOctaves)
+  val centralShift = (i: Int) => inBitW + 1 + min(i, mainOctaves)
+  val octaveShift  = (i: Int) => inBitW - min(deepIndiv, max(0, i - mainOctaves + 1))
+  val dxShiftOf = (i: Int) => {
+    Mux(page === 0.U, centralShift(i).U(dxShiftW.W), octaveShift(i).U(dxShiftW.W))
   }
-  val coef = packed(addr).asTypeOf( MixedVec(bitW.coefBits.map(w => SInt(w.W))) )
+  val dxShift = GenRandomGaussian.firstSetSelect(scan, dxShiftOf(scan.getWidth))(dxShiftOf)
+
+  // --------------------------- stage "decode" --------------------------
+  private val cutDecode = new SharedPipe("decode", validIn, stages.at("decode"))
+
+  val addrDecode  = cutDecode(addr)
+  val shiftDecode = cutDecode(dxShift)
+  val pageDecode  = cutDecode(page)
+  val xmanDecode  = cutDecode(xman)
+  val sgnDecode   = cutDecode(sgn)
+  val validDecode = cutDecode.valid
+
+  val coef = packed(addrDecode).asTypeOf( MixedVec(bitW.coefBits.map(w => SInt(w.W))) )
 
   // position inside the interval, as a signed value in [-1, 1)
   val sdx = if(nOrder != 0) {
-    val dx = WireDefault(0.U(inBitW.W))
-    when(page === 0.U) {
-      dx := (Cat(1.U(1.W), xman(spec.manW-1, 1)) >> xex)
-    }.elsewhen(xex0 =/= 0.U) {
-      dx := xman
-    }.elsewhen(clz < deepIndiv.U) {
-      // deep octave: drop xman's leading zeros and leading 1, MSB-align the rest
-      dx := (xman << (clz +& 1.U))(inBitW-1, 0)
-    }.otherwise {
-      // lumped interval: the lowest `lumpOctaves` bits of xman span it linearly
-      dx := (xman << (spec.manW - lumpOctaves))(inBitW-1, 0)
-    }
+    val dxBits = Cat(1.U(1.W), xmanDecode, 0.U(inBitW.W))
+    val dx = (dxBits >> shiftDecode)(inBitW-1, 0)
     Some(Cat(~dx(inBitW-1), dx(inBitW-2, 0)).asSInt)
   } else {
     None
   }
 
   // --------------------------- stage "table" ---------------------------
-  private val cutTable = new SharedPipe("table", validIn, stages.at("table"))
+  private val cutTable = new SharedPipe("table", validDecode, stages.at("table"))
 
   val coefTable  = cutTable(coef)
   val sdxTable   = sdx.map(x => cutTable(x))
-  val pageTable  = cutTable(page)
-  val addrTable  = cutTable(addr)
-  val xexTable   = cutTable(xex)
-  val xmanTable  = cutTable(xman)
-  val sgnTable   = cutTable(sgn)
+  val pageTable  = cutTable(pageDecode)
+  val addrTable  = cutTable(addrDecode)
+  val shiftTable = cutTable(shiftDecode)
+  val xmanTable  = cutTable(xmanDecode)
+  val sgnTable   = cutTable(sgnDecode)
   val validTable = cutTable.valid
 
   // ---------------------------------------------------------------
@@ -270,7 +299,8 @@ class GenRandomGaussian(
 
   // we need to clamp negative value. since the last part of the probit is steep,
   // the 3rd order polynomial sometimes fail to fit around x~0.
-  val polynomial = Module(new PolynomialEval(bitW, stages.sub("poly"), clampNegToZero = true))
+  val polynomial = Module(new PolynomialEval(bitW, stages.sub("poly"),
+    clampNegToZero = true, mulImpl = mulImpl))
 
   polynomial.io.in.valid       := validTable
   polynomial.io.in.bits.coeffs := coefTable
@@ -285,11 +315,11 @@ class GenRandomGaussian(
 
   private val cutPoly = new SharedPipe("poly", validTable, nPoly)
 
-  val postPage = cutPoly(pageTable)
-  val postAddr = cutPoly(addrTable)
-  val postEx   = cutPoly(xexTable)
-  val postMan  = cutPoly(xmanTable)
-  val postSgn  = cutPoly(sgnTable)
+  val postPage  = cutPoly(pageTable)
+  val postAddr  = cutPoly(addrTable)
+  val postShift = cutPoly(shiftTable)
+  val postMan   = cutPoly(xmanTable)
+  val postSgn   = cutPoly(sgnTable)
 
   // -----------------------------------------------------------------
   // S3 : scale table and the operands of the mantissa product
@@ -303,8 +333,10 @@ class GenRandomGaussian(
   val scaleEx    = scale(spec.manW+spec.exW-1, spec.manW)
   val scaleMan   = scale(spec.manW-1, 0)
 
-  // page=0
-  val mulEx    = Mux(postPage === 0.U, (spec.exBias-2).U(spec.exW.W) - postEx, scaleEx)
+  // page=0; the shift of the position carries the octave, so the exponent
+  // (exBias-2) - xex is the one of the window at inBitW+1+xex
+  val mulEx    = Mux(postPage === 0.U,
+    (spec.exBias - 1 + inBitW).U(spec.exW.W) - postShift, scaleEx)
   val mulMan   = Mux(postPage === 0.U, postMan, scaleMan)
   val mulManW1 = Cat(1.U(1.W), mulMan)
 
@@ -313,23 +345,35 @@ class GenRandomGaussian(
 
   val yManW1Scale   = cutScale(yManW1)
   val mulExScale    = cutScale(mulEx)
+  // the exponent of a product that came out >= 2.0, ready so that the
+  // normalisation of the next stage is a selection and not an increment
+  val mulExUpScale  = cutScale(mulEx + 1.U)
   val mulManW1Scale = cutScale(mulManW1)
   val sgnScale      = cutScale(postSgn)
   val validScale    = cutScale.valid
 
   // -----------------------------------------------------------------
-  // S4 : mantissa product
+  // S4 : mantissa product ("mul.*")
 
   val prodW = (1+spec.manW)*2
-  val prod  = yManW1Scale * mulManW1Scale
+
+  val mult = Module(new Multiplier(
+    yManW1Scale.getWidth, mulManW1Scale.getWidth, mulImpl, stages.sub("mul")))
+
+  mult.io.in.valid  := validScale
+  mult.io.in.bits.x := yManW1Scale
+  mult.io.in.bits.y := mulManW1Scale
 
   // ---------------------------- stage "mul" ----------------------------
-  private val cutMul = new SharedPipe("mul", validScale, stages.at("mul"))
+  // latency of the product; the signals that bypass it are delayed by the
+  // same number of cycles, so they stay aligned with mult.io.out
+  private val cutMul = new SharedPipe("mul", validScale, stages.latency("mul"))
 
-  val prodMul  = cutMul(prod)
-  val mulExMul = cutMul(mulExScale)
-  val sgnMul   = cutMul(sgnScale)
-  val validMul = cutMul.valid
+  val prodMul    = mult.io.out.bits
+  val mulExMul   = cutMul(mulExScale)
+  val mulExUpMul = cutMul(mulExUpScale)
+  val sgnMul     = cutMul(sgnScale)
+  val validMul   = cutMul.valid
 
   // -----------------------------------------------------------------
   // S5 : normalise the product and assemble the result
@@ -341,7 +385,7 @@ class GenRandomGaussian(
   )
 
   val zsgn = sgnMul
-  val zex  = mulExMul + prodMoreThan2
+  val zex  = Mux(prodMoreThan2, mulExUpMul, mulExMul)
   val zman = prodManW1(spec.manW-1, 0)
 
   val z = Cat(zsgn, zex, zman)
@@ -358,16 +402,60 @@ class GenRandomGaussian(
  */
 object GenRandomGaussian {
 
+  /** Bits of a lowest-set-bit scan that share one candidate value. */
+  private val scanGroupW = 6
+
+  /** Selects the value that the lowest set bit of `bits` stands for: bit `i`
+   * gives `value(i)`, and `none` is the result when no bit is set.
+   *
+   * The bits are scanned in groups: every group offers the value of its own
+   * lowest set bit, and the first non-empty group picks one of them, so that
+   * the result is two selections deep rather than one priority chain over the
+   * whole word.
+   *
+   * @param bits  the word to scan.
+   * @param none  the result when `bits` is zero.
+   * @param value the value of each bit position.
+   */
+  private[rial] def firstSetSelect(bits: UInt, none: UInt)(value: Int => UInt): UInt = {
+    val nBits = bits.getWidth
+    if (nBits <= scanGroupW) {
+      PriorityMux(bits.asBools :+ true.B, (0 until nBits).map(value) :+ none)
+    } else {
+      val nGroups = (nBits + scanGroupW - 1) / scanGroupW
+      val groups  = (0 until nGroups).map(g => {
+        bits(min(nBits, (g + 1) * scanGroupW) - 1, g * scanGroupW)
+      })
+      val chosen = groups.zipWithIndex.map({ case (grp, g) => {
+        PriorityMux(grp.asBools, (0 until grp.getWidth).map(j => {
+          value(g * scanGroupW + j)
+        }))
+      }})
+      firstSetSelect(VecInit(groups.map(_.orR)).asUInt, none)(g => chosen(g))
+    }
+  }
+
   /** Boundaries at which pipeline registers can be placed; see
-   * [[rial.rng.GenRandomGaussian]]. The boundaries of the polynomial
-   * submodule appear as the group `"poly"`.
+   * [[rial.rng.GenRandomGaussian]], for a plain product.
    *
    * @param nOrder order of the polynomial of an interval.
    */
-  def stagePoints(nOrder: Int): Seq[StageElem] = Seq(
+  def stagePoints(nOrder: Int): Seq[StageElem] = {
+    stagePoints(nOrder, MulImpl.plain)
+  }
+
+  /** Boundaries at which pipeline registers can be placed; see
+   * [[rial.rng.GenRandomGaussian]]. The boundaries of the polynomial and of
+   * the mantissa product appear as the groups `"poly"` and `"mul"`.
+   *
+   * @param nOrder  order of the polynomial of an interval.
+   * @param mulImpl structure of the products.
+   */
+  def stagePoints(nOrder: Int, mulImpl: MulImpl): Seq[StageElem] = Seq(
+    StagePoint("decode", 3),
     StagePoint("table", 3),
-    StageGroup("poly", PolynomialEval.stagePoints(nOrder)),
+    StageGroup("poly", PolynomialEval.stagePoints(nOrder, mulImpl)),
     StagePoint("scale", 2),
-    StagePoint("mul", 3),
+    StageGroup("mul", Multiplier.stagePoints(mulImpl)),
     StagePoint("out", 1))
 }

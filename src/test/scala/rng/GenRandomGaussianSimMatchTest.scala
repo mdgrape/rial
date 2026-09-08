@@ -7,7 +7,7 @@ import chisel3.simulator.scalatest.Cli.EmitVcd
 import chisel3.simulator.scalatest.HasCliOptions.CliOption
 
 import rial.rng._
-import rial.arith.RealSpec
+import rial.arith.{MulImpl, RealSpec}
 import rial.util.PipelineStageConfig
 
 import scala.util.Random
@@ -60,9 +60,10 @@ class GenRandomGaussianSimMatchTest extends AnyFunSpec with ChiselSim with EmitV
   private def lumpInput(): BigInt =
     pack(signPage(1), BigInt(0), BigInt(rng.nextInt(1 << lump)))
 
-  it("GenRandomGaussian HW == GenRandomGaussianSim across every interval window") {
+  def matchTest(mulImpl: MulImpl): Unit = {
     val n = getOption[Int]("n").getOrElse(16)
-    simulate(new GenRandomGaussian(rndW, spec, nOrder, PipelineStageConfig.none, lump)) { c =>
+    simulate(new GenRandomGaussian(rndW, spec, nOrder, PipelineStageConfig.none,
+      lump, mulImpl)) { c =>
       c.io.rnd.valid.poke(true.B)
       var checked = 0
       val fails = scala.collection.mutable.ArrayBuffer.empty[String]
@@ -86,5 +87,13 @@ class GenRandomGaussianSimMatchTest extends AnyFunSpec with ChiselSim with EmitV
       info(s"checked $checked inputs across ${mainOctaves + deepIndiv + 2} windows")
       assert(fails.isEmpty, "\n  " + fails.mkString("\n  "))
     }
+  }
+
+  it("GenRandomGaussian HW == GenRandomGaussianSim across every interval window") {
+    matchTest(MulImpl.plain)
+  }
+
+  it("... with the products split at 17 too") {
+    matchTest(MulImpl.split(17))
   }
 }
