@@ -174,6 +174,13 @@ class SinCosPreProcess(
   val xOverPiAlignNeg = (xOverPi >> xOverPiExNobiasNeg)(xOverPiFracW, 0)
   val xOverPiAligned  = Mux(xOverPiExMoreThan1, xOverPiAlignPos, xOverPiAlignNeg)
 
+  // A right shift by two or more clears the two top bits, so the branch the
+  // exponent below takes needs a two-bit window of `xOverPi` rather than the
+  // whole shifter; this is `xOverPiAlignNeg.head(2)`.
+  val xOverPiAlignNeg2MSBs =
+    Mux(xOverPiExNobiasNeg === 0.U, xOverPi.head(2),
+    Mux(xOverPiExNobiasNeg === 1.U, Cat(0.U(1.W), xOverPi.head(1)), 0.U(2.W)))
+
   // --------------------------------------------------------------------------
   // sign of result, derived from the 2 MSBs of (|x|/π mod 2)
   //
@@ -212,7 +219,7 @@ class SinCosPreProcess(
   // For 0 < x < π/2 we use x/π itself (un-aligned) to keep precision.
   val ymanAsIs = xOverPi(xOverPi.getWidth - 1, 2)
   val yexAsIs  = xOverPiEx
-  val nonAlign = !xOverPiExMoreThan1 && xOverPiAligned2MSBs === 0.U && isSinNorm
+  val nonAlign = !xOverPiExMoreThan1 && xOverPiAlignNeg2MSBs === 0.U && isSinNorm
 
   assert(ymanAsIs.getWidth == ymanPos.getWidth)
   val yman0Comb = Mux(nonAlign, ymanAsIs, ymanAligned)

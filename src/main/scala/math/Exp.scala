@@ -149,6 +149,15 @@ class ExpPreProcess(
                                                     xprodLSB, xprodRound, xprodSticky)
   val xprodRoundedComb = xprodShifted +& xprodInc
 
+  // The alignment below shifts by `(xIntW + exBias) - xex`, where `xex` is
+  // `xex0` plus the two carries of the rounding above. Both carries are
+  // known only after the "round" boundary but take three values together, so
+  // the four candidate shifts and their clamp are formed here and the
+  // boundary is followed by a mux instead of a carry chain.
+  val xShiftCandComb = (0 to 3).map(i => (xIntW + exBias - i).U(exW.W) - xex0)
+
+  val xShiftBigComb = xShiftCandComb.take(3).map(c => c >= (xValW + 1).U)
+
   // ------------------------------------------------------------------------
   // stage "round": the rounded product x * log2(e)
 
@@ -156,14 +165,14 @@ class ExpPreProcess(
 
   val xprodRounded   = cutRound(xprodRoundedComb)
   val xprodMoreThan2 = cutRound(xprodMoreThan2Comb)
-  val xexRound       = cutRound(xex0)
+  val xShiftCand     = xShiftCandComb.map(c => cutRound(c))
+  val xShiftBig      = xShiftBigComb.map(b => cutRound(b))
   val xsgnRound      = cutRound(xsgn)
 
   assert(xprodRounded.getWidth == manW + 1 + extraMan)
   val xprodMoreThan2AfterRounded = xprodRounded(manW + extraMan)
 
   val xman2 = xprodRounded(manW + extraMan - 1, 0)
-  val xex   = xexRound + xprodMoreThan2AfterRounded + xprodMoreThan2
 
   assert(!cutRound.valid || xprodMoreThan2AfterRounded +& xprodMoreThan2 =/= 2.U)
 
@@ -174,9 +183,16 @@ class ExpPreProcess(
   // ------------------------------------------------------------------------
   // split into integer/fractional parts
 
-  val xshift0     = (xIntW + exBias).U(exW.W) - xex
-  val xshift      = xshift0(xIntW - 1, 0)
-  val xValShifted = Mux(xshift0 >= (xValW + 1).U, 0.U, xVal >> (xshift - 1.U(1.W)))
+  val xexdWide = xprodMoreThan2AfterRounded +& xprodMoreThan2
+
+  private def byCarry[T <: Data](cands: Seq[T]): T = {
+    MuxLookup(xexdWide, cands(0))(cands.zipWithIndex.tail.map({
+      case (c, i) => i.U -> c
+    }))
+  }
+
+  val xshiftM1    = byCarry(xShiftCand.tail)(xIntW - 1, 0)
+  val xValShifted = Mux(byCarry(xShiftBig), 0.U, xVal >> xshiftM1)
   val xValRoundedComb = (xValShifted >> 1) + xValShifted(0)
 
   // ------------------------------------------------------------------------
@@ -502,13 +518,18 @@ class ExpPostProcess(
         if (lo >= hidden) {
           None
         } else if (lo <= 0) {
-          Some(k.U(padding.W) -> true.B)
+          Some(k.U(padding.W) -> hidden.U((manW + 1).W))
         } else {
-          Some(k.U(padding.W) -> (zman0(manW - 1, 0) >= lo.U))
+          Some(k.U(padding.W) -> (hidden - lo).U((manW + 1).W))
         }
       }
     })
-    zCorrectionComb := MuxLookup(infoRound.xfracLSBs.get, false.B)(corrCases).asUInt
+    // `zman0 >= lo` is the carry out of `zman0 + (2^manW - lo)`, so the
+    // comparators become one constant selected by `xfracLSBs` and one carry
+    // chain; `2^manW` makes the carry unconditional and `0` impossible.
+    val corrOffset =
+      MuxLookup(infoRound.xfracLSBs.get, 0.U((manW + 1).W))(corrCases)
+    zCorrectionComb := (zman0(manW - 1, 0) +& corrOffset)(manW)
   } else {
     zCorrectionComb := 0.U(1.W)
   }

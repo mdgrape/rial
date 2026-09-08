@@ -137,32 +137,46 @@ class ATan2Phase1PreProcess(
   val yExMan = Cat(yIn.ex, yIn.man)
   val yIsLargerComb = xExMan < yExMan
 
+  // the mantissas are compared here, next to the comparison above, so that the
+  // exponent difference below is a mux and not a second comparison
+  val xManGreaterComb = xIn.man > yIn.man
+  val xySameManComb   = xIn.man === yIn.man
+
+  // the two exponent differences the ratio needs, one per outcome of the
+  // comparison, so that only a mux of them is left below
+  val exDiffXYComb = (xIn.ex +& exBias.U(exW.W)).zext - yIn.ex.zext
+  val exDiffYXComb = (yIn.ex +& exBias.U(exW.W)).zext - xIn.ex.zext
+
   // --------------------------------------------------------------------------
   // stage "cmp": which of |x| and |y| is the larger
 
   private val cutCmp = new SharedPipe("cmp", cutIn.valid, stages.at("cmp"))
 
-  val yIsLarger = cutCmp(yIsLargerComb)
-  val x         = cutCmp(xIn)
-  val y         = cutCmp(yIn)
+  val yIsLarger    = cutCmp(yIsLargerComb)
+  val xManGreater  = cutCmp(xManGreaterComb)
+  val xySameManCmp = cutCmp(xySameManComb)
+  val exDiffXY     = cutCmp(exDiffXYComb)
+  val exDiffYX     = cutCmp(exDiffYXComb)
+  val x            = cutCmp(xIn)
+  val y            = cutCmp(yIn)
 
   // ---- exponent of min/max ratio ----
-  val minex     = Mux(yIsLarger, x.ex, y.ex)
-  val maxex     = Mux(yIsLarger, y.ex, x.ex)
-  val diffexDec = Mux(yIsLarger, y.man > x.man, x.man > y.man)
-  val zeroed    = (minex +& exBias.U(exW.W)) <= (maxex +& diffexDec.asUInt)
+  // `exDiff` is `(min(x,y).ex + exBias) - max(x,y).ex`
+  val exDiff    = Mux(yIsLarger, exDiffXY, exDiffYX)
+  val diffexDec = Mux(yIsLarger, !xManGreater && !xySameManCmp, xManGreater)
+  val zeroed    = exDiff <= diffexDec.asUInt.zext
 
-  val zex0 = Mux(x.inf && y.inf, exBias.U(exW.W),
-             Mux((x.inf && !y.inf) || (!x.inf && y.inf) || (x.zero) || (y.zero), 0.U(exW.W),
-                 ((minex +& exBias.U) - maxex) - diffexDec.asUInt))
-  val zexComb = Mux(zeroed, 0.U(exW.W), zex0(exW - 1, 0))
+  val zex0 = Mux(x.inf && y.inf, exBias.S,
+             Mux((x.inf && !y.inf) || (!x.inf && y.inf) || (x.zero) || (y.zero), 0.S,
+                 exDiff - diffexDec.asUInt.zext))
+  val zexComb = Mux(zeroed, 0.U(exW.W), zex0.asUInt(exW - 1, 0))
 
   // ---- specials (NaN-boxed) ----
   val xpos      = x.sgn === 0.U
   val xneg      = x.sgn === 1.U
   val tooLargeX = (zeroed && !yIsLarger) || ( x.inf && !y.inf) || (!x.zero &&  y.zero)
   val tooLargeY = (zeroed &&  yIsLarger) || (!x.inf &&  y.inf) || ( x.zero && !y.zero)
-  val samexy    = x.ex === y.ex && x.man === y.man && !x.nan && !y.nan
+  val samexy    = x.ex === y.ex && xySameManCmp && !x.nan && !y.nan
   val zerozero  = x.zero && y.zero
 
   val znan      =  x.nan || y.nan
@@ -189,8 +203,6 @@ class ATan2Phase1PreProcess(
   val maxManComb = Mux(yIsLarger, y.man, x.man)
   val minManComb = Mux(yIsLarger, x.man, y.man)
 
-  val xySameManComb = x.man === y.man
-
   // --------------------------------------------------------------------------
   // stage "ex": the ratio exponent and the flags
 
@@ -200,7 +212,7 @@ class ATan2Phase1PreProcess(
   val flags     = cutEx(flagsComb)
   val maxMan    = cutEx(maxManComb)
   val minMan    = cutEx(minManComb)
-  val xySameMan = cutEx(xySameManComb)
+  val xySameMan = cutEx(xySameManCmp)
 
   // --------------------------------------------------------------------------
   // stage "out"
