@@ -83,11 +83,12 @@ import scala.reflect.ClassTag
  * @param stage       pipeline registers of this module.
  * @param preMulImpl  structure of the product of the pre-process multiplier.
  * @param postMulImpl structure of the product of the post-process multiplier.
- *                    The two multipliers are chosen separately because they
- *                    are not the same shape: the pre-process one is a wide
- *                    operand times a mantissa, the post-process one two
- *                    mantissas followed by the rounding. The polynomial keeps
- *                    a plain product; its operands fit one hard multiplier.
+ * @param polyMulImpl structure of the products of the polynomial.
+ *                    The three are chosen separately because they are not the
+ *                    same shape: the pre-process multiplier is a wide operand
+ *                    times a mantissa, the post-process one two mantissas
+ *                    followed by the rounding, and the polynomial a position
+ *                    times an accumulator, in a chain.
  *
  * @see [[rial.arith.MulImpl]]
  * @see [[rial.util.PipelineStageConfig]]
@@ -98,7 +99,8 @@ class MathFunctions(
   val spec:        RealSpec,
   val stage:       PipelineStageConfig,
   val preMulImpl:  MulImpl = MulImpl.plain,
-  val postMulImpl: MulImpl = MulImpl.plain
+  val postMulImpl: MulImpl = MulImpl.plain,
+  val polyMulImpl: MulImpl = MulImpl.plain
 ) extends Module {
 
   import FuncKind._
@@ -113,7 +115,8 @@ class MathFunctions(
   val coeffs = cfg.coeffs
 
   /** Boundaries at which pipeline registers can be placed; see the class doc. */
-  val stagePoints = MathFunctions.stagePoints(cfg, preMulImpl, postMulImpl)
+  val stagePoints = MathFunctions.stagePoints(cfg, preMulImpl, postMulImpl,
+    polyMulImpl)
 
   val stages = stage.resolve(stagePoints)
 
@@ -288,7 +291,8 @@ class MathFunctions(
   // Polynomial Evaluator (shared), stages "poly.*"
   // ==========================================================================
 
-  val polynomialEval = Module(new PolynomialEval(bitW, stages.sub("poly")))
+  val polynomialEval = Module(new PolynomialEval(bitW, stages.sub("poly"),
+    mulImpl = polyMulImpl))
 
   val nPoly = stages.latency("poly")
 
@@ -1089,10 +1093,12 @@ object MathFunctions {
    * @param cfg         configuration of the module these boundaries are for
    * @param preMulImpl  structure of the pre-process multiplier's product
    * @param postMulImpl structure of the post-process multiplier's product
+   * @param polyMulImpl structure of the polynomial's products
    */
   def stagePoints(cfg: MathFuncConfig,
     preMulImpl:  MulImpl = MulImpl.plain,
-    postMulImpl: MulImpl = MulImpl.plain): Seq[StageElem] = {
+    postMulImpl: MulImpl = MulImpl.plain,
+    polyMulImpl: MulImpl = MulImpl.plain): Seq[StageElem] = {
     val preMul: Seq[StageElem] = if (PreProcMultiplier.isNeeded(cfg.funcs)) {
       Seq(StageGroup("preMul", Multiplier.stagePoints(preMulImpl)))
     } else {
@@ -1108,7 +1114,8 @@ object MathFunctions {
     Seq(StageParallel("pre", prePaths(cfg)),
         StagePoint("table", 2.0),
         StagePoint("coef",  1.0),
-        StageGroup("poly",  PolynomialEval.stagePoints(cfg.bitW.nOrder))) ++
+        StageGroup("poly",  PolynomialEval.stagePoints(cfg.bitW.nOrder,
+          polyMulImpl))) ++
     postMul ++
     Seq(StageParallel("post", postPaths(cfg)),
         StagePoint("out",  1.0))
