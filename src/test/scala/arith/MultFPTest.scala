@@ -40,8 +40,8 @@ class MultFPTest extends AnyFunSpec with ChiselSim with EmitVcd {
   }
 
   def multTest(xSpec : RealSpec, ySpec : RealSpec, zSpec : RealSpec, roundSpec : RoundSpec,
-    n : Int, stage : PipelineStageConfig ) = {
-      simulate(new MultFPGeneric( xSpec, ySpec, zSpec, roundSpec, stage )) { c =>
+    n : Int, stage : PipelineStageConfig, mulImpl : MulImpl = MulImpl.plain ) = {
+      simulate(new MultFPGeneric( xSpec, ySpec, zSpec, roundSpec, stage, mulImpl )) { c =>
         {
           // the pipeline registers advance while in.valid is high; it stays high
           c.io.in.valid.poke(true.B)
@@ -143,6 +143,25 @@ class MultFPTest extends AnyFunSpec with ChiselSim with EmitVcd {
     it(f"Multiplier BFloat16 with pipereg [${PipelineStageConfig.default(3).getString}]") {
       multTest( RealSpec.BFloat16Spec, RealSpec.BFloat16Spec, RealSpec.BFloat16Spec,
         RoundSpec.roundToEven, n, PipelineStageConfig.default(3))
+    }
+  }
+
+  // The mantissa product as one partial product per slice of the x mantissa,
+  // which adds the point "mul.pp" between the products and their sum.
+  describe("Test x*y with a split mantissa product") {
+    it(f"Multiplier Float split at 12 with a register at every point") {
+      multTest( RealSpec.Float32Spec, RealSpec.Float32Spec, RealSpec.Float32Spec,
+        RoundSpec.roundToEven, n,
+        PipelineStageConfig.specify("unpack" -> 1, "mul.pp" -> 1, "mul.out" -> 1,
+                                    "norm" -> 1, "round" -> 1), MulImpl.split(12))
+    }
+    it(f"Multiplier Float split at 17 with pipereg 0") {
+      multTest( RealSpec.Float32Spec, RealSpec.Float32Spec, RealSpec.Float32Spec,
+        RoundSpec.roundToEven, n, PipelineStageConfig.none, MulImpl.split(17))
+    }
+    it(f"Multiplier BFloat16 split at 4 with pipereg [${PipelineStageConfig.default(3).getString}]") {
+      multTest( RealSpec.BFloat16Spec, RealSpec.BFloat16Spec, RealSpec.BFloat16Spec,
+        RoundSpec.roundToEven, n, PipelineStageConfig.default(3), MulImpl.split(4))
     }
   }
 }
