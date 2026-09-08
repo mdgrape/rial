@@ -156,8 +156,14 @@ object SinCosSimGeneric {
 
     // -----------------------------------------------------------------------
     // fold full-range x/pi into [0, 2)
+    //
+    // x/pi underflows when its exponent is at or below the smallest normal
+    // one; the reduced argument is then zero, so sin(x) is +-0 and cos(x)
+    // is +-1.
 
-    val xOverPiAligned: SafeLong = if (xOverPiEx == 0) {
+    val xOverPiIsZero = xOverPiEx <= 0
+
+    val xOverPiAligned: SafeLong = if (xOverPiIsZero) {
       SafeLong(0)
     } else if (xOverPiEx >= exBias) {
       // drop bits representing ≥ 2
@@ -203,7 +209,7 @@ object SinCosSimGeneric {
         (exBias,
          (SafeLong(1) << (1 + xOverPiFracW - 1))
            - slice(0, 1 + xOverPiFracW - 1, xOverPiAligned))
-      } else if (xOverPiAlignedMoreThan1 ||
+      } else if (xOverPiAlignedMoreThan1 || xOverPiIsZero ||
                  (exBias <= xOverPiEx && xOverPiAligned2MSBs == 0)) {
         (exBias, slice(0, 1 + xOverPiFracW - 1, xOverPiAligned))
       } else {

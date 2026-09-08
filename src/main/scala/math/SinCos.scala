@@ -160,7 +160,10 @@ class SinCosPreProcess(
   val isSinNorm = cutNorm(isSinIn)
   val znanNorm  = cutNorm(znanIn)
 
-  val xOverPiIsZero = xOverPiEx(exW)
+  // |x|/π underflows: `xOverPiEx` is a biased exponent one bit wider than
+  // the format's, so the argument is below the smallest normal |x|/π when
+  // the subtraction above borrowed or landed on the zero exponent.
+  val xOverPiIsZero = xOverPiEx(exW) || xOverPiEx === 0.U
   assert(xOverPi.getWidth == xOverPiFracW + 1)
 
   // --------------------------------------------------------------------------
@@ -172,7 +175,8 @@ class SinCosPreProcess(
 
   val xOverPiAlignPos = (xOverPi << xOverPiExNobiasPos)(xOverPiFracW, 0)
   val xOverPiAlignNeg = (xOverPi >> xOverPiExNobiasNeg)(xOverPiFracW, 0)
-  val xOverPiAligned  = Mux(xOverPiExMoreThan1, xOverPiAlignPos, xOverPiAlignNeg)
+  val xOverPiAligned  = Mux(xOverPiIsZero, 0.U((xOverPiFracW + 1).W),
+                        Mux(xOverPiExMoreThan1, xOverPiAlignPos, xOverPiAlignNeg))
 
   // A right shift by two or more clears the two top bits, so the branch the
   // exponent below takes needs a two-bit window of `xOverPi` rather than the
@@ -219,7 +223,8 @@ class SinCosPreProcess(
   // For 0 < x < π/2 we use x/π itself (un-aligned) to keep precision.
   val ymanAsIs = xOverPi(xOverPi.getWidth - 1, 2)
   val yexAsIs  = xOverPiEx
-  val nonAlign = !xOverPiExMoreThan1 && xOverPiAlignNeg2MSBs === 0.U && isSinNorm
+  val nonAlign = !xOverPiIsZero && !xOverPiExMoreThan1 &&
+                 xOverPiAlignNeg2MSBs === 0.U && isSinNorm
 
   assert(ymanAsIs.getWidth == ymanPos.getWidth)
   val yman0Comb = Mux(nonAlign, ymanAsIs, ymanAligned)

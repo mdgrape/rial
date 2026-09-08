@@ -58,6 +58,16 @@ class SinTest extends AnyFunSpec
     new RealGeneric(spec, specialValues(idx))
   }
 
+  var underflowCounter = 0
+  /** |x| in the bands where |x|/pi underflows, and just above them. */
+  def generateUnderflow(spec: RealSpec, r: Random) = {
+    val ex = 1 + (underflowCounter % 4)
+    underflowCounter += 1
+    new RealGeneric(spec, (SafeLong(r.nextInt(2)) << (spec.W - 1)) +
+                          (SafeLong(ex) << spec.manW) +
+                          SafeLong(BigInt(spec.manW, r)))
+  }
+
   private def runtest(
     spec:  RealSpec,
     cfg:   MathFuncConfig,
@@ -149,6 +159,14 @@ class SinTest extends AnyFunSpec
 
   runtest(RealSpec.Float32Spec, fp32Config, sinCosPipeStage,
     "Test Within (-2pi, 2pi)", generateRealWithin(4 * Pi, _, _), sinRefFP32)
+
+  // --------------------------------------------------------------------------
+  // the smallest arguments, where |x|/pi underflows
+
+  runtest(RealSpec.Float32Spec, fp32Config, noPipeStage,
+    "Test the smallest exponents", generateUnderflow(_, _), sinRefFP32)
+  runtest(RealSpec.Float32Spec, fp32Config, MathTestUtil.allPoints(fp32Config),
+    "Test the smallest exponents", generateUnderflow(_, _), sinRefFP32)
 
   // --------------------------------------------------------------------------
   // BFloat16
