@@ -60,10 +60,12 @@ class GenRandomGaussianSimMatchTest extends AnyFunSpec with ChiselSim with EmitV
   private def lumpInput(): BigInt =
     pack(signPage(1), BigInt(0), BigInt(rng.nextInt(1 << lump)))
 
-  def matchTest(mulImpl: MulImpl): Unit = {
+  def matchTest(polyMulImpl: MulImpl,
+    scaleMulImpl: MulImpl = MulImpl.plain): Unit = {
+
     val n = getOption[Int]("n").getOrElse(16)
     simulate(new GenRandomGaussian(rndW, spec, nOrder, PipelineStageConfig.none,
-      lump, mulImpl)) { c =>
+      lump, polyMulImpl, scaleMulImpl)) { c =>
       c.io.rnd.valid.poke(true.B)
       var checked = 0
       val fails = scala.collection.mutable.ArrayBuffer.empty[String]
@@ -94,6 +96,14 @@ class GenRandomGaussianSimMatchTest extends AnyFunSpec with ChiselSim with EmitV
   }
 
   it("... with the products split at 17 too") {
-    matchTest(MulImpl.split(17))
+    matchTest(MulImpl.split(17), MulImpl.split(17))
+  }
+
+  it("... and with the polynomial's multiply-adds at 17") {
+    matchTest(MulImpl.macc(17), MulImpl.macc(17))
+  }
+
+  it("... and with a multiply-add polynomial over a split mantissa product") {
+    matchTest(MulImpl.macc(17), MulImpl.split(17))
   }
 }

@@ -144,8 +144,10 @@ private[rial] class ProbitTable(
  * @param nOrder       order of the polynomial of an interval.
  * @param stage        pipeline registers of this module.
  * @param lumpOctaves  deepest tail octaves merged into one interval.
- * @param mulImpl      structure of the products of the polynomial and of the
- *                     mantissa.
+ * @param polyMulImpl  structure of the products of the polynomial. Only this
+ *                     one has an addend to give a multiply-add, the
+ *                     coefficient of a Horner step.
+ * @param scaleMulImpl structure of the product of the mantissas.
  *
  * @see [[rial.arith.MulImpl]]
  * @see [[rial.util.PipelineStageConfig]]
@@ -157,11 +159,13 @@ class GenRandomGaussian(
   nOrder:      Int,
   stage:       PipelineStageConfig,
   lumpOctaves: Int = 2, // deepest tail octaves merged into one interval
-  mulImpl:     MulImpl = MulImpl.plain,
+  polyMulImpl:  MulImpl = MulImpl.plain,
+  scaleMulImpl: MulImpl = MulImpl.plain,
 ) extends Module {
 
   /** Boundaries at which pipeline registers can be placed; see the class doc. */
-  val stagePoints = GenRandomGaussian.stagePoints(nOrder, mulImpl)
+  val stagePoints =
+    GenRandomGaussian.stagePoints(nOrder, polyMulImpl, scaleMulImpl)
 
   val stages = stage.resolve(stagePoints)
 
@@ -300,7 +304,7 @@ class GenRandomGaussian(
   // we need to clamp negative value. since the last part of the probit is steep,
   // the 3rd order polynomial sometimes fail to fit around x~0.
   val polynomial = Module(new PolynomialEval(bitW, stages.sub("poly"),
-    clampNegToZero = true, mulImpl = mulImpl))
+    clampNegToZero = true, mulImpl = polyMulImpl))
 
   polynomial.io.in.valid       := validTable
   polynomial.io.in.bits.coeffs := coefTable
@@ -357,19 +361,23 @@ class GenRandomGaussian(
 
   val prodW = (1+spec.manW)*2
 
+  // the product of the mantissas has no addend of its own, so a multiply-add
+  // gets zero for one
   val mult = Module(new Multiplier(
-    yManW1Scale.getWidth, mulManW1Scale.getWidth, mulImpl, stages.sub("mul")))
+    yManW1Scale.getWidth, mulManW1Scale.getWidth, scaleMulImpl,
+    stages.sub("mul"), cW = Multiplier.zeroAddendW(scaleMulImpl)))
 
   mult.io.in.valid  := validScale
   mult.io.in.bits.x := yManW1Scale
   mult.io.in.bits.y := mulManW1Scale
+  mult.io.in.bits.c.foreach(c => c := 0.U)
 
   // ---------------------------- stage "mul" ----------------------------
   // latency of the product; the signals that bypass it are delayed by the
   // same number of cycles, so they stay aligned with mult.io.out
   private val cutMul = new SharedPipe("mul", validScale, stages.latency("mul"))
 
-  val prodMul    = mult.io.out.bits
+  val prodMul    = mult.io.out.bits(prodW-1, 0)
   val mulExMul   = cutMul(mulExScale)
   val mulExUpMul = cutMul(mulExUpScale)
   val sgnMul     = cutMul(sgnScale)
@@ -441,21 +449,23 @@ object GenRandomGaussian {
    * @param nOrder order of the polynomial of an interval.
    */
   def stagePoints(nOrder: Int): Seq[StageElem] = {
-    stagePoints(nOrder, MulImpl.plain)
+    stagePoints(nOrder, MulImpl.plain, MulImpl.plain)
   }
 
   /** Boundaries at which pipeline registers can be placed; see
    * [[rial.rng.GenRandomGaussian]]. The boundaries of the polynomial and of
    * the mantissa product appear as the groups `"poly"` and `"mul"`.
    *
-   * @param nOrder  order of the polynomial of an interval.
-   * @param mulImpl structure of the products.
+   * @param nOrder       order of the polynomial of an interval.
+   * @param polyMulImpl  structure of the products of the polynomial.
+   * @param scaleMulImpl structure of the product of the mantissas.
    */
-  def stagePoints(nOrder: Int, mulImpl: MulImpl): Seq[StageElem] = Seq(
+  def stagePoints(nOrder: Int, polyMulImpl: MulImpl,
+    scaleMulImpl: MulImpl): Seq[StageElem] = Seq(
     StagePoint("decode", 3),
     StagePoint("table", 3),
-    StageGroup("poly", PolynomialEval.stagePoints(nOrder, mulImpl)),
+    StageGroup("poly", PolynomialEval.stagePoints(nOrder, polyMulImpl)),
     StagePoint("scale", 2),
-    StageGroup("mul", Multiplier.stagePoints(mulImpl)),
+    StageGroup("mul", Multiplier.stagePoints(scaleMulImpl)),
     StagePoint("out", 1))
 }

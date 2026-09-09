@@ -64,7 +64,8 @@ class PolynomialEvalTest extends AnyFunSpec with ChiselSim {
     val res = ArrayBuffer.empty[BigInt]
     simulate(new PolynomialEval(bitW, stage, clamp, mulImpl)) { c =>
       val latency = c.getStage
-      assert(latency == stage.resolve(PolynomialEval.stagePoints(bitW.nOrder)).total)
+      assert(latency ==
+        stage.resolve(PolynomialEval.stagePoints(bitW.nOrder, mulImpl)).total)
       c.io.in.valid.poke(true.B)
       for (i <- 0 until vectors.length + latency) {
         val (cs, x) = vectors(scala.math.min(i, vectors.length - 1))
@@ -198,7 +199,8 @@ class PolynomialEvalTest extends AnyFunSpec with ChiselSim {
   describe("PolynomialEval: the module matches the software model") {
 
     for ((nm, bw, cl) <- Seq(("order2", bitW2, false), ("order3", bitW3, true));
-         (mn, mi) <- Seq(("", MulImpl.plain), (", split at 17", MulImpl.split(17)))) {
+         (mn, mi) <- Seq(("", MulImpl.plain), (", split at 17", MulImpl.split(17)),
+           (", a multiply-add at 17", MulImpl.macc(17)))) {
       it(f"$nm reproduces PolynomialEval.eval bit for bit$mn") {
         val r = new Random(19660809)
         val vectors = randVectors(bw, nVec, r)
@@ -239,6 +241,17 @@ class PolynomialEvalTest extends AnyFunSpec with ChiselSim {
         PipelineStageConfig.specify(
           "prod1" -> 1, "step1" -> 1, "prod2" -> 1, "step2" -> 1,
           "prod3" -> 1, "step3" -> 1, "out" -> 1)), MulImpl.split(17))
+    }
+
+    it(f"order ${bitW3.nOrder} matches it with a multiply-add too") {
+      compare("order3 macc", bitW3, true, Seq(
+        PipelineStageConfig.default(2),
+        PipelineStageConfig.specify(
+          "prod1.pp" -> 1, "step1" -> 1, "prod2.pp" -> 1, "step2" -> 1,
+          "prod3.pp" -> 1, "step3" -> 1, "out" -> 1),
+        PipelineStageConfig.specify(
+          "prod1" -> 1, "step1" -> 1, "prod2" -> 1, "step2" -> 1,
+          "prod3" -> 1, "step3" -> 1, "out" -> 1)), MulImpl.macc(17))
     }
   }
 }

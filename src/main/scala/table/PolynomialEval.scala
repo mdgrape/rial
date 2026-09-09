@@ -18,11 +18,16 @@ import chisel3.util._
  * (names for `PipelineStageConfig.specify`):
  *
  *  - `"in"`      the module input
- *  - `"prodK.*"` the boundaries of the [[rial.arith.Multiplier]] of the k-th
- *                multiply-add, see its doc for the names; the group name
- *                `"prodK"` stands for `"prodK.out"`, after the k-th product
+ *  - `"prodK.*"` the boundaries of the [[rial.arith.Multiplier]] that is the
+ *                k-th multiply-add, see its doc for the names; the group name
+ *                `"prodK"` stands for `"prodK.out"`, after that multiply-add
  *  - `"stepK"`   after the k-th multiply-add, `K` = 1 ... `bitW.nOrder`
  *  - `"out"`     the module output
+ *
+ * With `MulImpl.macc` the coefficient of a step is the addend of that step's
+ * [[rial.arith.Multiplier]] rather than an adder behind it, so a register at
+ * `"prodK.pp"` and none at `"prodK"` leaves the multiply and the addend of a
+ * step inside one hard multiplier.
  *
  * [[getStage]] gives the resulting latency, and `io.out.valid` is
  * `io.in.valid` delayed by that many cycles.
@@ -44,7 +49,9 @@ import chisel3.util._
  * @param stage          pipeline registers of this module
  * @param clampNegToZero clamp a negative result to zero instead of letting it
  *                       wrap around
- * @param mulImpl        structure of the product of a multiply-add
+ * @param mulImpl        structure of the product of a multiply-add;
+ *                       `MulImpl.macc` folds the coefficient of the step into
+ *                       it
  *
  * @see [[rial.arith.MulImpl]]
  * @see [[rial.util.PipelineStageConfig]]
@@ -141,22 +148,38 @@ class PolynomialEval(
     for(k <- (order-1) to 0 by -1) {
       val idx     = order - k // position of the multiply-add in evaluation order
       val xminW   = min(accCur.getWidth, xPrec) // min(calcBits, xPrec)
+      // a multiply-add carries the coefficient of the step as its addend and
+      // takes the shift of the step with it; the other structures give the
+      // product alone, and the coefficient is added behind them
+      val onTile  = mulImpl.isMacc
+      val cBits   = if (onTile) {
+        Some(coefCur(k).getWidth + xminW)
+      } else {
+        None
+      }
       val mult    = Module(new Multiplier(xminW + 1, accCur.getWidth, mulImpl,
-        stages.sub(s"prod${idx}"), signed = true))
+        stages.sub(s"prod${idx}"), signed = true, cW = cBits,
+        shift = cBits.map(_ => xminW)))
 
       mult.io.in.valid  := validCur
       mult.io.in.bits.x := xCur(xPrec, xPrec - xminW)
       mult.io.in.bits.y := accCur.asUInt
+      if (onTile) {
+        mult.io.in.bits.c.get := (coefCur(k) << xminW).asUInt
+      }
 
-      // the raw product, right at the output of the multiplier, so that the
-      // register can be absorbed into the DSP block
+      // what crosses the multiplier alongside it: the position and the
+      // coefficients the later steps still need
       val cutProd   = new SharedPipe(s"prod${idx}", validCur, stages.latency(s"prod${idx}"))
-      val prodProd  = mult.io.out.bits.asSInt
       val xProd     = cutProd(xCur)
       val coefProd  = cutProd(coefCur)
       val validProd = cutProd.valid
 
-      val sumFull = (prodProd >> xminW).asSInt +& coefProd(k)
+      val sumFull = if (onTile) {
+        mult.io.out.bits.asSInt
+      } else {
+        (mult.io.out.bits.asSInt >> xminW).asSInt +& coefProd(k)
+      }
       accVec(k) := sumFull // drop the MSB (carry)
 
       assert(!validProd || (k == 0).B || accVec(k) === sumFull, "PolynomialEval: horner "+
