@@ -297,23 +297,6 @@ class Multiplier(
     }
   }
 
-  /** `v`, which is the sum of the partial products, with the addend on it when
-   *  there is one; the addend crosses the cuts the partial products crossed.
-   */
-  private def added(v: UInt): UInt = {
-    cIn match {
-      case Some(c) if signed => {
-        (v.asSInt +& cutsToSum.foldLeft(c)((d, cut) => cut(d)).asSInt).asUInt
-      }
-      case Some(c) => {
-        v +& cutsToSum.foldLeft(c)((d, cut) => cut(d))
-      }
-      case None => {
-        v
-      }
-    }
-  }
-
   /** `v` divided by `2^shift`, rounded down the way the module reads it. */
   private def dropped(v: UInt): UInt = {
     if (shiftW == 0) {
@@ -373,44 +356,77 @@ class Multiplier(
     sum.asUInt(outW-1, 0)
   }
 
-  // `plain` is the product as it would be written by hand and nothing else: a
-  // hard multiplier takes both operands as they are, so there is nothing to
-  // shape. A slice of an operand is what does not fit one, and the slices are
-  // unsigned, so a two's complement operand is read unsigned there and what
-  // that costs comes back: `x = xu - x[xW-1] * 2^xW` gives
-  //
-  //   x * y = xu*yu - (x < 0 ? yu : 0) * 2^xW - (y < 0 ? xu : 0) * 2^yW
-  //
-  // modulo 2^(xW+yW). The two terms beside the product are selections of an
-  // operand, so their sum is formed while the partial products are and then
-  // rides on the addend input of the least significant multiplier, which is
-  // where a hard multiplier subtracts a term for free.
-  val prod = if (cIn.isDefined && signed && loW != 0) {
-    offsetTiles(cIn.get)
-  } else if (!impl.isSliced) {
-    dropped(added(if (signed) {
-      (xIn.asSInt * yIn.asSInt).asUInt
+  /** The product of the two operands, in the structure `impl` names.
+   *
+   * A slice of an operand is what does not fit one multiplication, and the
+   * slices are unsigned, so a two's complement operand is read unsigned in
+   * them and what that costs comes back: `x = xu - x[xW-1] * 2^xW` gives
+   *
+   *   x * y = xu*yu - (x < 0 ? yu : 0) * 2^xW - (y < 0 ? xu : 0) * 2^yW
+   *
+   * modulo 2^(xW+yW). The two terms beside the product are selections of an
+   * operand, so their sum is formed while the partial products are and then
+   * rides on the addend input of the least significant multiplier, which is
+   * where a hard multiplier subtracts a term for free.
+   */
+  private def product(): UInt = {
+    if (!impl.isSliced) {
+      // the product as it would be written by hand: `MulImpl.plain` asks
+      // nothing of the operands, so there is nothing to shape
+      dropped(if (signed) {
+        (xIn.asSInt * yIn.asSInt).asUInt
+      } else {
+        xIn * yIn
+      })
+    } else if (!signed) {
+      // one partial product per slice, each added to what came before it: an
+      // unsigned `MulImpl.split`
+      dropped(chained(Multiplier.partials(xIn, yIn, impl).map(p => cutPp(p))))
     } else {
-      xIn * yIn
-    }))
-  } else if (cIn.isDefined && signed) {
-    // the operands fit one multiplication, so there is nothing to slice and
-    // nothing the addend has to be shaped around
-    dropped(cutPp(
-      ((xIn.asSInt * yIn.asSInt) +& cIn.get.asSInt).asUInt))
-  } else if (signed) {
-    val raw = Multiplier.partials(xIn, yIn, impl)
-    val m   = xW.min(yW)
-    val sub = (Mux(xIn(xW-1), yIn, 0.U) << (xW - m)) +&
-              (Mux(yIn(yW-1), xIn, 0.U) << (yW - m))
-    val head = Multiplier.fit(raw.head, prodW) - Cat(
-      Multiplier.fit(sub, prodW - m), 0.U(m.W))
-    dropped(Multiplier.sumWide(
-      (head +: Multiplier.placed(raw.tail, impl, prodW, 1)).map(t => cutPp(t)),
-      prodW))
-  } else {
-    dropped(added(
-      chained(Multiplier.partials(xIn, yIn, impl).map(p => cutPp(p)))))
+      // the partial products and the cost of their sign in one sum: a two's
+      // complement `MulImpl.split`
+      val raw = Multiplier.partials(xIn, yIn, impl)
+      val m   = xW.min(yW)
+      val sub = (Mux(xIn(xW-1), yIn, 0.U) << (xW - m)) +&
+                (Mux(yIn(yW-1), xIn, 0.U) << (yW - m))
+      val head = Multiplier.fit(raw.head, prodW) - Cat(
+        Multiplier.fit(sub, prodW - m), 0.U(m.W))
+      dropped(Multiplier.sumWide(
+        (head +: Multiplier.placed(raw.tail, impl, prodW, 1)).map(t => cutPp(t)),
+        prodW))
+    }
+  }
+
+  /** The product of the two operands with the addend `c` on it, shaped so that
+   *  each multiplication and the addend it carries stay one multiply-add.
+   */
+  private def multiplyAdd(c: UInt): UInt = {
+    if (signed && loW == 0) {
+      // one multiplication and its addend: the operands fit one slice, so
+      // there is nothing to slice and nothing the addend has to be shaped
+      // around
+      dropped(cutPp(
+        ((xIn.asSInt * yIn.asSInt) +& c.asSInt).asUInt))
+    } else if (!signed) {
+      // one partial product per slice chained into the sum, the addend on the
+      // final sum across the cuts the partial products cross: an unsigned
+      // multiply-add
+      dropped(chained(Multiplier.partials(xIn, yIn, impl).map(p => cutPp(p)))
+        +& cutsToSum.foldLeft(c)((d, cut) => cut(d)))
+    } else {
+      // two tiles in offset binary, one multiply-add each: a two's complement
+      // multiply-add whose operands do not fit one slice
+      offsetTiles(c)
+    }
+  }
+
+  val prod = cIn match {
+    case Some(c) => {
+      multiplyAdd(c)
+    }
+    case None => {
+      product()
+    }
   }
 
   require(prod.getWidth == outW,
