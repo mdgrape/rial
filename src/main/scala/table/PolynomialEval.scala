@@ -151,8 +151,8 @@ class PolynomialEval(
       // a multiply-add carries the coefficient of the step as its addend and
       // takes the shift of the step with it; the other structures give the
       // product alone, and the coefficient is added behind them
-      val onTile  = mulImpl.isMacc
-      val cBits   = if (onTile) {
+      val isMacc  = mulImpl.isMacc
+      val cBits   = if (isMacc) {
         Some(coefCur(k).getWidth + xminW)
       } else {
         None
@@ -164,7 +164,7 @@ class PolynomialEval(
       mult.io.in.valid  := validCur
       mult.io.in.bits.x := xCur(xPrec, xPrec - xminW)
       mult.io.in.bits.y := accCur.asUInt
-      if (onTile) {
+      if (isMacc) {
         mult.io.in.bits.c.get := (coefCur(k) << xminW).asUInt
       }
 
@@ -175,7 +175,7 @@ class PolynomialEval(
       val coefProd  = cutProd(coefCur)
       val validProd = cutProd.valid
 
-      val sumFull = if (onTile) {
+      val sumFull = if (isMacc) {
         mult.io.out.bits.asSInt
       } else {
         (mult.io.out.bits.asSInt >> xminW).asSInt +& coefProd(k)
