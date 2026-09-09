@@ -212,7 +212,7 @@ class MultiplierTest extends AnyFunSpec with ChiselSim with EmitVcd {
     }
     it("refuses an operand wider than two slices") {
       assertThrows[IllegalArgumentException] {
-        Multiplier.cutBit(19, 40, MulImpl.macc(17), true, 18)
+        Multiplier.loSliceW(19, 40, MulImpl.macc(17), true, 18)
       }
     }
     it("refuses a multiply-add with no addend") {

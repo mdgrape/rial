@@ -56,7 +56,7 @@ case class MulImpl(kind: String, sliceW: Option[Int] = None) {
     kind == "macc"
   }
 
-  /** True for the structures that cut an operand into slices. */
+  /** True for the structures that slice an operand. */
   def isSliced: Boolean = {
     isSplit || isMacc
   }
@@ -136,7 +136,7 @@ object MulImpl {
  * multiply-add, is this module's business. `MulImpl.plain` is the plain
  * product and asks nothing of the operands.
  *
- * A two's complement multiply-add cuts the right hand operand in two when
+ * A two's complement multiply-add splits the right hand operand in two when
  * neither operand fits a slice, so it then needs `yW` to be at most twice the
  * slice width; the left hand operand is not sliced. Where the narrower
  * operand already fits a slice the product is one multiplication and the
@@ -214,10 +214,10 @@ class Multiplier(
   /** Bits the result drops at its bottom. */
   val shiftW = shift.getOrElse(0)
 
-  /** Bit at which the right hand operand is cut for a two's complement
+  /** Bit at which the right hand operand is split for a two's complement
    *  multiply-add, or zero when the product is one multiplication.
    */
-  val loW = Multiplier.cutBit(xW, yW, impl, signed, shiftW)
+  val loW = Multiplier.loSliceW(xW, yW, impl, signed, shiftW)
 
   val outW = Multiplier.outWidth(xW, yW, cW, shiftW)
 
@@ -312,7 +312,7 @@ class Multiplier(
    *  addend, so that each of them is one multiply-add of a hard multiplier.
    *
    * The left hand operand enters in offset binary, `x = xOff - 2^(xW-1)`, and
-   * the right hand one unsigned and cut at `loW` into `yHi` and `yLo`, so that
+   * the right hand one unsigned and split at `loW` into `yHi` and `yLo`, so that
    * with `off = c - y * 2^(xW-1)` gathering the offset of `xOff` and the
    * addend, and `off = offHi * 2^loW + offLo`,
    *
@@ -385,14 +385,14 @@ class Multiplier(
     } else {
       // the partial products and the cost of their sign in one sum: a two's
       // complement `MulImpl.split`
-      val raw = Multiplier.partials(xIn, yIn, impl)
+      val parts = Multiplier.partials(xIn, yIn, impl)
       val m   = xW.min(yW)
       val sub = (Mux(xIn(xW-1), yIn, 0.U) << (xW - m)) +&
                 (Mux(yIn(yW-1), xIn, 0.U) << (yW - m))
-      val head = Multiplier.fit(raw.head, prodW) - Cat(
+      val head = Multiplier.fit(parts.head, prodW) - Cat(
         Multiplier.fit(sub, prodW - m), 0.U(m.W))
       dropped(Multiplier.sumWide(
-        (head +: Multiplier.placed(raw.tail, impl, prodW, 1)).map(t => cutPp(t)),
+        (head +: Multiplier.placed(parts.tail, impl, prodW, 1)).map(t => cutPp(t)),
         prodW))
     }
   }
@@ -488,11 +488,11 @@ object Multiplier {
     }
   }
 
-  /** Bit at which a two's complement multiply-add cuts its right hand operand,
+  /** Bit at which a two's complement multiply-add splits its right hand operand,
    *  or zero when it forms the product as one multiplication.
    *
-   * There is no cut when the product already fits one multiplication, that is
-   * when the narrower operand is within a slice. Otherwise the cut leaves both
+   * There is no split when the product already fits one multiplication, that is
+   * when the narrower operand is within a slice. Otherwise the split leaves both
    * halves within one slice and, where it can, at or below the shift, so that
    * the two halves meet again over the high bits alone.
    *
@@ -503,15 +503,15 @@ object Multiplier {
    * @param shift  bits the result drops at its bottom
    *
    * @throws IllegalArgumentException if the right hand operand is wider than
-   *         two slices, which this form does not cut.
+   *         two slices, which this form does not split.
    */
-  def cutBit(xW: Int, yW: Int, impl: MulImpl, signed: Boolean,
+  def loSliceW(xW: Int, yW: Int, impl: MulImpl, signed: Boolean,
     shift: Int): Int = {
 
     impl.sliceW match {
       case Some(w) if impl.isMacc && signed && xW.min(yW) > w => {
         require(yW <= 2 * w,
-          s"a two's complement multiply-add cuts its right hand operand in " +
+          s"a two's complement multiply-add splits its right hand operand in " +
           s"two, so $yW bits do not fit slices of $w bits")
         val lower = (yW - w).max(1)
         val upper = w.min(shift)
@@ -533,7 +533,7 @@ object Multiplier {
    * @param xW  width of the left hand operand
    * @param yW  width of the right hand operand
    * @param cW  width of the addend
-   * @param loW bit at which the right hand operand is cut
+   * @param loW bit at which the right hand operand is split
    */
   def hiWidth(xW: Int, yW: Int, cW: Int, loW: Int): Int = {
     val mulW = xW + yW - loW + 1
@@ -546,7 +546,7 @@ object Multiplier {
    *
    * @param xW  width of the left hand operand
    * @param yW  width of the right hand operand
-   * @param loW bit at which the right hand operand is cut
+   * @param loW bit at which the right hand operand is split
    */
   def negWidth(xW: Int, yW: Int, loW: Int): Int = {
     (xW + yW + 1).max(xW + loW + 1) + 1
@@ -592,7 +592,7 @@ object Multiplier {
     }
   }
 
-  /** The slices `impl` cuts an operand of `w` bits into, least significant
+  /** The slices `impl` splits an operand of `w` bits into, least significant
    *  first, as (high bit, low bit) pairs.
    */
   private def sliceBits(w: Int, impl: MulImpl): Seq[(Int, Int)] = {

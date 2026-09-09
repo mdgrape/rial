@@ -460,12 +460,16 @@ object GenRandomGaussian {
    * @param polyMulImpl  structure of the products of the polynomial.
    * @param scaleMulImpl structure of the product of the mantissas.
    */
-  def stagePoints(nOrder: Int, polyMulImpl: MulImpl,
-    scaleMulImpl: MulImpl): Seq[StageElem] = Seq(
-    StagePoint("decode", 3),
-    StagePoint("table", 3),
-    StageGroup("poly", PolynomialEval.stagePoints(nOrder, polyMulImpl)),
-    StagePoint("scale", 2),
-    StageGroup("mul", Multiplier.stagePoints(scaleMulImpl)),
-    StagePoint("out", 1))
+  def stagePoints(
+    nOrder: Int, polyMulImpl: MulImpl, scaleMulImpl: MulImpl
+  ): Seq[StageElem] = {
+    Seq(
+      StagePoint("decode", 3),
+      StagePoint("table", 3),
+      StageGroup("poly", PolynomialEval.stagePoints(nOrder, polyMulImpl)),
+      StagePoint("scale", 2),
+      StageGroup("mul", Multiplier.stagePoints(scaleMulImpl)),
+      StagePoint("out", 1)
+    )
+  }
 }

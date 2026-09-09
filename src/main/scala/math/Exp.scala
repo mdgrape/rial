@@ -156,7 +156,7 @@ class ExpPreProcess(
   // boundary is followed by a mux instead of a carry chain.
   val xShiftCandComb = (0 to 3).map(i => (xIntW + exBias - i).U(exW.W) - xex0)
 
-  val xShiftBigComb = xShiftCandComb.take(3).map(c => c >= (xValW + 1).U)
+  val xShiftOverflowsComb = xShiftCandComb.take(3).map(c => c >= (xValW + 1).U)
 
   // ------------------------------------------------------------------------
   // stage "round": the rounded product x * log2(e)
@@ -166,7 +166,7 @@ class ExpPreProcess(
   val xprodRounded   = cutRound(xprodRoundedComb)
   val xprodMoreThan2 = cutRound(xprodMoreThan2Comb)
   val xShiftCand     = xShiftCandComb.map(c => cutRound(c))
-  val xShiftBig      = xShiftBigComb.map(b => cutRound(b))
+  val xShiftOverflows      = xShiftOverflowsComb.map(b => cutRound(b))
   val xsgnRound      = cutRound(xsgn)
 
   assert(xprodRounded.getWidth == manW + 1 + extraMan)
@@ -183,16 +183,16 @@ class ExpPreProcess(
   // ------------------------------------------------------------------------
   // split into integer/fractional parts
 
-  val xexdWide = xprodMoreThan2AfterRounded +& xprodMoreThan2
+  val roundCarries = xprodMoreThan2AfterRounded +& xprodMoreThan2
 
-  private def byCarry[T <: Data](cands: Seq[T]): T = {
-    MuxLookup(xexdWide, cands(0))(cands.zipWithIndex.tail.map({
+  private def selectByCarries[T <: Data](cands: Seq[T]): T = {
+    MuxLookup(roundCarries, cands(0))(cands.zipWithIndex.tail.map({
       case (c, i) => i.U -> c
     }))
   }
 
-  val xshiftM1    = byCarry(xShiftCand.tail)(xIntW - 1, 0)
-  val xValShifted = Mux(byCarry(xShiftBig), 0.U, xVal >> xshiftM1)
+  val xshiftM1    = selectByCarries(xShiftCand.tail)(xIntW - 1, 0)
+  val xValShifted = Mux(selectByCarries(xShiftOverflows), 0.U, xVal >> xshiftM1)
   val xValRoundedComb = (xValShifted >> 1) + xValShifted(0)
 
   // ------------------------------------------------------------------------

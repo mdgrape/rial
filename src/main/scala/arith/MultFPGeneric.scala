@@ -230,8 +230,8 @@ class MultFPGeneric(
   // selection, and so do the two candidate sums, with and without the
   // adjustment that the normalisation and the rounding carry ask for
   val exSum = xexMul.pad(exW) + yexMul.pad(exW)
-  val ex0 = exSum + exAdd
-  val ex1 = exSum + exAdd + 1.U
+  val exKeep = exSum + exAdd
+  val exInc = exSum + exAdd + 1.U
 
   /** Output exponent bits, "zero or negative" and "infinite" of a candidate. */
   def exFlags(ex: UInt): (UInt, Bool, Bool) = {
@@ -247,24 +247,24 @@ class MultFPGeneric(
     (ex(zSpec.exW-1,0), exZero || exNeg, exInf)
   }
 
-  val (exBits0, exZN0, exInf0) = exFlags(ex0)
-  val (exBits1, exZN1, exInf1) = exFlags(ex1)
+  val (exBitsKeep, exZNKeep, exInfKeep) = exFlags(exKeep)
+  val (exBitsInc, exZNInc, exInfInc) = exFlags(exInc)
 
-  val exBits0Norm = cutNorm(exBits0)
-  val exBits1Norm = cutNorm(exBits1)
-  val exZN0Norm   = cutNorm(exZN0)
-  val exZN1Norm   = cutNorm(exZN1)
-  val exInf0Norm  = cutNorm(exInf0)
-  val exInf1Norm  = cutNorm(exInf1)
+  val exBitsKeepNorm = cutNorm(exBitsKeep)
+  val exBitsIncNorm = cutNorm(exBitsInc)
+  val exZNKeepNorm   = cutNorm(exZNKeep)
+  val exZNIncNorm   = cutNorm(exZNInc)
+  val exInfKeepNorm  = cutNorm(exInfKeep)
+  val exInfIncNorm  = cutNorm(exInfInc)
 
   //----------------------------------------------------------------------
   // S4 : the exponent adjustment is a selection between the two candidates,
   //      so it does not wait for the rounding increment of the mantissa
-  val exUp = moreThan2Norm | moreThan2AfterRound
+  val exCarry = moreThan2Norm | moreThan2AfterRound
 
-  val exZN    = Mux(exUp, exZN1Norm, exZN0Norm) || zzeroNorm
-  val exInf   = zinfNorm || Mux(exUp, exInf1Norm, exInf0Norm)
-  val zexBits = Mux(exUp, exBits1Norm, exBits0Norm)
+  val exZN    = Mux(exCarry, exZNIncNorm, exZNKeepNorm) || zzeroNorm
+  val exInf   = zinfNorm || Mux(exCarry, exInfIncNorm, exInfKeepNorm)
+  val zexBits = Mux(exCarry, exBitsIncNorm, exBitsKeepNorm)
 
   //--------------------------- stage "round" ----------------------------
   private val cutRound = new SharedPipe("round", cutNorm.valid, stages.at("round"))

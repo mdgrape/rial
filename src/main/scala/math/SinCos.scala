@@ -123,7 +123,7 @@ case class SinCosDomain(maxEx: Int) {
    *  more, or a format that has not been walked, gives `None` and the whole
    *  folded argument is searched.
    */
-  def maxNormShift(spec: RealSpec): Option[Int] = {
+  def maxNormShiftOf(spec: RealSpec): Option[Int] = {
     val walked = Seq(RealSpec.Float32Spec, RealSpec.BFloat16Spec)
     if (maxEx <= 2 && walked.exists(_ == spec)) {
       Some(spec.manW + 4)
@@ -345,9 +345,9 @@ class SinCosPreProcess(
   // normalize yman0: shift its leading one up, and take the shift out of the
   // exponent.
   val yman0W           = yman0.getWidth
-  val normShiftMax     = range.maxNormShift(spec).getOrElse(yman0W - 1)
-  val yman0ShiftW      = log2Ceil(normShiftMax + 1)
-  val yman0Shift0      = PriorityEncoder(Reverse(yman0.head(normShiftMax + 1)))
+  val maxNormShift     = range.maxNormShiftOf(spec).getOrElse(yman0W - 1)
+  val yman0ShiftW      = log2Ceil(maxNormShift + 1)
+  val yman0Shift0      = PriorityEncoder(Reverse(yman0.head(maxNormShift + 1)))
   val yman0Shift       = yman0Shift0(yman0ShiftW - 1, 0)
   val yman0ShiftedComb = (yman0 << yman0Shift)(yman0W - 1, 0)
   val yexShiftedComb   = yex0 - yman0Shift
