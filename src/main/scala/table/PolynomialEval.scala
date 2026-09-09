@@ -33,12 +33,13 @@ import chisel3.util._
  * `io.in.valid` delayed by that many cycles.
  *
  * {{{
- * // two registers, placed by the module
+ * // two registers, placed by the module; a plain Int means the same
  * new PolynomialEval(bitW, PipelineStageConfig.default(2))
+ * new PolynomialEval(bitW, 2)
  * // one register at the multiplier of the first multiply-add, one after it
  * new PolynomialEval(bitW, PipelineStageConfig.specify("prod1" -> 1, "step1" -> 1))
- * // two registers at the module output, which is what a plain Int means
- * new PolynomialEval(bitW, 2)
+ * // two registers at the module output
+ * new PolynomialEval(bitW, PipelineStageConfig.atOut(2))
  * // combinational
  * new PolynomialEval(bitW, PipelineStageConfig.none)
  * }}}
@@ -63,16 +64,6 @@ class PolynomialEval(
   clampNegToZero: Boolean = false,
   mulImpl: MulImpl = MulImpl.plain,
 ) extends Module {
-
-  /** `n` registers at the module output. */
-  def this(bitW: PolynomialBitWidth, stage: Int, clampNegToZero: Boolean) = {
-    this(bitW, PipelineStageConfig.atOut(stage), clampNegToZero)
-  }
-
-  /** `n` registers at the module output. */
-  def this(bitW: PolynomialBitWidth, stage: Int) = {
-    this(bitW, PipelineStageConfig.atOut(stage), false)
-  }
 
   val order = bitW.nOrder
 

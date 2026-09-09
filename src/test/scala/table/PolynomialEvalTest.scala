@@ -171,7 +171,7 @@ class PolynomialEvalTest extends AnyFunSpec with ChiselSim {
     it("puts every register at the output") {
       var seen: PipelineStages = null
       ChiselStage.emitCHIRRTL {
-        val m = new PolynomialEval(bitW2, 2)
+        val m = new PolynomialEval(bitW2, PipelineStageConfig.atOut(2))
         seen = m.stages
         m
       }
@@ -187,7 +187,7 @@ class PolynomialEvalTest extends AnyFunSpec with ChiselSim {
     it("puts every register at the output when clamping too") {
       var seen: PipelineStages = null
       ChiselStage.emitCHIRRTL {
-        val m = new PolynomialEval(bitW2, 3, clampNegToZero = true)
+        val m = new PolynomialEval(bitW2, PipelineStageConfig.atOut(3), clampNegToZero = true)
         seen = m.stages
         m
       }
