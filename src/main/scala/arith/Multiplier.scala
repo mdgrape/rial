@@ -25,9 +25,16 @@ import rial.util._
  *                       placed on the partial products, which is where a hard
  *                       multiplier of at most `w` bits on its narrow port has
  *                       one.
+ *  - `MulImpl.macc(w)`  a multiply-add: the product carries an addend, and it
+ *                       is shaped so that the addend rides on the addend input
+ *                       a hard multiplier of at most `w` bits on its narrow
+ *                       port has, rather than on an adder of its own.
+ *                       [[rial.arith.Multiplier]] asks its caller for the
+ *                       addend, and only with this structure; a module that
+ *                       has none of its own gives zero.
  *
- * @param kind   `"plain"` or `"split"`
- * @param sliceW width of an operand slice, for `"split"`
+ * @param kind   `"plain"`, `"split"` or `"macc"`
+ * @param sliceW width of an operand slice, for `"split"` and `"macc"`
  *
  * @see [[rial.arith.Multiplier]]
  */
@@ -36,12 +43,22 @@ case class MulImpl(kind: String, sliceW: Option[Int] = None) {
   require(MulImpl.kinds.contains(kind),
     s"unknown multiplier structure '$kind'; " +
     s"known ones are ${MulImpl.kinds.mkString(", ")}")
-  require(!isSplit || sliceW.exists(_ > 0),
-    "a split multiplier needs a positive slice width")
+  require(!isSliced || sliceW.exists(_ > 0),
+    s"a $kind multiplier needs a positive slice width")
 
   /** True for the structure that slices one operand. */
   def isSplit: Boolean = {
     kind == "split"
+  }
+
+  /** True for the structure that carries an addend. */
+  def isMacc: Boolean = {
+    kind == "macc"
+  }
+
+  /** True for the structures that cut an operand into slices. */
+  def isSliced: Boolean = {
+    isSplit || isMacc
   }
 
   /** Short name, for a generated module or file name, e.g. `"split17"`. */
@@ -54,7 +71,7 @@ case class MulImpl(kind: String, sliceW: Option[Int] = None) {
 object MulImpl {
 
   /** Every structure [[rial.arith.MulImpl]] names. */
-  val kinds: Seq[String] = Seq("plain", "split")
+  val kinds: Seq[String] = Seq("plain", "split", "macc")
 
   /** One product. */
   val plain: MulImpl = MulImpl("plain")
@@ -64,48 +81,76 @@ object MulImpl {
     MulImpl("split", Some(w))
   }
 
-  /** Reads `"plain"` or `"split:<w>"`.
+  /** A multiply-add whose addend rides on a hard multiplier of `w` bits. */
+  def macc(w: Int): MulImpl = {
+    MulImpl("macc", Some(w))
+  }
+
+  /** Reads `"plain"`, `"split:<w>"` or `"macc:<w>"`.
    *
-   * @throws IllegalArgumentException if `s` names neither.
+   * @throws IllegalArgumentException if `s` names none of them.
    */
   def parse(s: String): MulImpl = {
     val t = s.trim
+    val sliced = Seq("split" -> (split _), "macc" -> (macc _)).collectFirst {
+      case (k, make) if t.startsWith(k + ":") => {
+        val v = t.drop(k.length + 1)
+        val w = try {
+          v.toInt
+        } catch {
+          case _: NumberFormatException => {
+            throw new IllegalArgumentException(
+              s"multiplier structure '$k:$v': '$v' is not an int")
+          }
+        }
+        make(w)
+      }
+    }
     if (t == "plain") {
       plain
-    } else if (t.startsWith("split:")) {
-      val v = t.drop("split:".length)
-      val w = try {
-        v.toInt
-      } catch {
-        case _: NumberFormatException => {
-          throw new IllegalArgumentException(
-            s"multiplier structure 'split:$v': '$v' is not an int")
-        }
-      }
-      split(w)
     } else {
-      throw new IllegalArgumentException(
-        s"unknown multiplier structure '$s'; expected plain or split:<w>")
+      sliced.getOrElse(throw new IllegalArgumentException(
+        s"unknown multiplier structure '$s'; " +
+        s"expected plain, split:<w> or macc:<w>"))
     }
   }
 }
 
 /** Product of two integers, with the structure [[rial.arith.MulImpl]] names.
  *
- * `io.out.bits` is the `xW + yW` bit product of `io.in.bits.x` and
- * `io.in.bits.y`, unsigned by default and two's complement when `signed` is
- * set (the operands and the result are then read with `asSInt`).
+ * `io.out.bits` is the product of `io.in.bits.x` and `io.in.bits.y`, unsigned
+ * by default and two's complement when `signed` is set (the operands, the
+ * addend and the result are then read with `asSInt`).
+ *
+ * `MulImpl.macc` makes the product a multiply-add: the input then carries an
+ * addend `io.in.bits.c` at the weight of the product, and `cW` gives its
+ * width. The other structures have no addend and must not be given one.
+ *
+ * With `shift` the result is divided by `2^shift`, rounded down, so that
+ * `io.out.bits` is `(x * y + c) >> shift`; every structure takes it, and a
+ * module that wants no shift leaves it out.
  *
  * A module that needs a product instantiates this one and does nothing else
- * about it: what a wide operand costs, and what a two's complement one costs
- * once it is sliced, is this module's business. `MulImpl.plain` is the plain
+ * about it: what a wide operand costs, what a two's complement one costs once
+ * it is sliced, and where the addend has to sit for the product to stay one
+ * multiply-add, is this module's business. `MulImpl.plain` is the plain
  * product and asks nothing of the operands.
+ *
+ * A two's complement multiply-add cuts the right hand operand in two when
+ * neither operand fits a slice, so it then needs `yW` to be at most twice the
+ * slice width; the left hand operand is not sliced. Where the narrower
+ * operand already fits a slice the product is one multiplication and the
+ * addend rides on it. Both shapes put the multiply and the addend of a tile
+ * behind the same boundary, so a register at `"pp"` and none at `"out"`
+ * leaves each tile a multiply-add of one hard multiplier.
  *
  * Pipeline registers can be enabled at the following points of the datapath
  * (names for `PipelineStageConfig.specify`):
  *
  *  - `"in"`     the module input
- *  - `"pp"`     after the partial products, only with `MulImpl.split`
+ *  - `"pp"`     after the partial products, only with `MulImpl.split` and
+ *               `MulImpl.macc`; with `macc` these are the tiles of the
+ *               multiply-add
  *  - `"chainK"` after the k-th partial sum, `K` = 1 ... one less than the
  *               number of hops, so only when a plain product is split into
  *               more than two slices
@@ -124,6 +169,10 @@ object MulImpl {
  *   PipelineStageConfig.specify("pp" -> 1, "out" -> 1))
  * // a two's complement product, combinational
  * new Multiplier(19, 24, MulImpl.split(17), PipelineStageConfig.none, true)
+ * // a two's complement multiply-add, its result divided by 2^18, its tiles
+ * // registered
+ * new Multiplier(19, 24, MulImpl.macc(17),
+ *   PipelineStageConfig.specify("pp" -> 1), true, Some(41), Some(18))
  * }}}
  *
  * @constructor create a chisel Module Multiplier
@@ -132,6 +181,9 @@ object MulImpl {
  * @param impl   structure of the product
  * @param stage  pipeline registers of this module
  * @param signed read both operands and the result as two's complement
+ * @param cW     width of the addend, which `MulImpl.macc` has and the other
+ *               structures do not
+ * @param shift  bits the result drops at its bottom, when it drops any
  *
  * @see [[rial.arith.MulImpl]]
  * @see [[rial.util.PipelineStageConfig]]
@@ -143,6 +195,8 @@ class Multiplier(
   impl:   MulImpl = MulImpl.plain,
   stage:  PipelineStageConfig = PipelineStageConfig.none,
   signed: Boolean = false,
+  cW:     Option[Int] = None,
+  shift:  Option[Int] = None,
 ) extends Module with InlineInstance {
 
   /** Number of boundaries the chain of partial sums offers here. */
@@ -157,10 +211,31 @@ class Multiplier(
 
   def getStage = nStage
 
-  val outW = xW + yW
+  /** Bits the result drops at its bottom. */
+  val shiftW = shift.getOrElse(0)
+
+  /** Bit at which the right hand operand is cut for a two's complement
+   *  multiply-add, or zero when the product is one multiplication.
+   */
+  val loW = Multiplier.cutBit(xW, yW, impl, signed, shiftW)
+
+  val outW = Multiplier.outWidth(xW, yW, cW, shiftW)
+
+  /** Width of the product on its own. */
+  private val prodW = xW + yW
+
+  require(!impl.isMacc || cW.isDefined,
+    "a macc multiplier is a multiply-add and needs the width of its addend")
+  require(impl.isMacc || cW.isEmpty,
+    s"a ${impl.kind} multiplier has no addend; ask for MulImpl.macc to get one")
+  require(shiftW >= 0,
+    s"a multiplier drops no negative number of bits, but shift is $shiftW")
+  require(outW > 0,
+    s"a multiplier of $xW by $yW bits with an addend of ${cW.getOrElse(0)} " +
+    s"bits has nothing left after a shift of $shiftW")
 
   val io = IO(new Bundle {
-    val in  = Flipped(Valid(new Multiplier.Input(xW, yW)))
+    val in  = Flipped(Valid(new Multiplier.Input(xW, yW, cW)))
     val out = Valid(UInt(outW.W))
   })
 
@@ -169,9 +244,10 @@ class Multiplier(
 
   val xIn = cutIn(io.in.bits.x)
   val yIn = cutIn(io.in.bits.y)
+  val cIn = io.in.bits.c.map(c => cutIn(c))
 
   // --------------------------- stage "pp" ---------------------------
-  private val nPp = if (impl.isSplit) {
+  private val nPp = if (impl.isSliced) {
     stages.at("pp")
   } else {
     0
@@ -182,13 +258,18 @@ class Multiplier(
   /** The cut the sum of the partial products ends at. */
   private var cutLast: SharedPipe = cutPp
 
+  /** The cuts a partial product crosses before it reaches the sum, so that an
+   *  addend that joins the sum can be made to cross the same ones.
+   */
+  private var cutsToSum: Seq[SharedPipe] = Seq(cutPp)
+
   /** The product of the partial products [[Multiplier.partials]] returns, each
    *  adding its own to what came before it, shifted down by the slice width;
    *  the boundary `"chainK"` sits between two of those additions.
    */
   private def chained(parts: Seq[UInt]): UInt = {
     if (parts.length == 1) {
-      Multiplier.fit(parts.head, outW)
+      Multiplier.fit(parts.head, prodW)
     } else {
       val sw = impl.sliceW.get
       var carried = parts.head
@@ -204,15 +285,92 @@ class Multiplier(
           carried = cut(next)
           low     = done.map(l => cut(l))
           rest    = rest.map(r => cut(r))
-          cutLast = cut
-          k      += 1
+          cutLast   = cut
+          cutsToSum = cutsToSum :+ cut
+          k        += 1
         } else {
           carried = next
           low     = done
         }
       }
-      Multiplier.fit(Cat(carried, Cat(low.reverse)), outW)
+      Multiplier.fit(Cat(carried, Cat(low.reverse)), prodW)
     }
+  }
+
+  /** `v`, which is the sum of the partial products, with the addend on it when
+   *  there is one; the addend crosses the cuts the partial products crossed.
+   */
+  private def added(v: UInt): UInt = {
+    cIn match {
+      case Some(c) if signed => {
+        (v.asSInt +& cutsToSum.foldLeft(c)((d, cut) => cut(d)).asSInt).asUInt
+      }
+      case Some(c) => {
+        v +& cutsToSum.foldLeft(c)((d, cut) => cut(d))
+      }
+      case None => {
+        v
+      }
+    }
+  }
+
+  /** `v` divided by `2^shift`, rounded down the way the module reads it. */
+  private def dropped(v: UInt): UInt = {
+    if (shiftW == 0) {
+      v
+    } else if (signed) {
+      (v.asSInt >> shiftW).asUInt
+    } else {
+      v >> shiftW
+    }
+  }
+
+  /** A two's complement multiply-add as two multiplications that each take one
+   *  addend, so that each of them is one multiply-add of a hard multiplier.
+   *
+   * The left hand operand enters in offset binary, `x = xOff - 2^(xW-1)`, and
+   * the right hand one unsigned and cut at `loW` into `yHi` and `yLo`, so that
+   * with `off = c - y * 2^(xW-1)` gathering the offset of `xOff` and the
+   * addend, and `off = offHi * 2^loW + offLo`,
+   *
+   *   x * y + c = 2^loW * (xOff*yHi + offHi) - neg + 2^loW - 1
+   *
+   * where `neg = (y < 0 ? xOff : 0) * 2^yW + (2^loW - 1 - offLo) - xOff*yLo`.
+   * The `2^loW - 1` is what makes the shift of a subtracted term exact, and
+   * `2^loW - 1 - offLo` is the bitwise complement of `offLo`, so the two
+   * corrections stay one addend each.
+   */
+  private def offsetTiles(c: UInt): UInt = {
+    val xOff = Cat(~xIn(xW-1), xIn(xW-2, 0))
+    val off  = c.asSInt -& (yIn.asSInt << (xW - 1))
+
+    val prodHi = (xOff * yIn(yW-1, loW)).zext +& (off >> loW)
+    val negBase = Cat(Mux(yIn(yW-1), xOff, 0.U(xW.W)),
+      0.U((yW - loW).W), ~off(loW-1, 0))
+    val prodNeg = negBase.zext -& (xOff * yIn(loW-1, 0)).zext
+
+    require(prodHi.getWidth == Multiplier.hiWidth(xW, yW, cW.get, loW),
+      s"multiply-add tile is ${prodHi.getWidth} bits, " +
+      s"expected ${Multiplier.hiWidth(xW, yW, cW.get, loW)}")
+    require(prodNeg.getWidth == Multiplier.negWidth(xW, yW, loW),
+      s"multiply-add tile is ${prodNeg.getWidth} bits, " +
+      s"expected ${Multiplier.negWidth(xW, yW, loW)}")
+
+    val hiPp  = cutPp(prodHi)
+    val negPp = cutPp(prodNeg)
+
+    // the low `loW` bits of the sum are dropped anyway when the shift reaches
+    // past them, and then the two tiles meet over the high bits alone
+    val sum = if (loW <= shiftW) {
+      (hiPp -& (negPp >> loW)) >> (shiftW - loW)
+    } else {
+      (Cat(hiPp.asUInt, Fill(loW, 1.U(1.W))).asSInt -& negPp) >> shiftW
+    }
+
+    require(sum.getWidth >= outW,
+      s"multiply-add result is ${sum.getWidth} bits, expected at least $outW")
+
+    sum.asUInt(outW-1, 0)
   }
 
   // `plain` is the product as it would be written by hand and nothing else: a
@@ -227,25 +385,36 @@ class Multiplier(
   // operand, so their sum is formed while the partial products are and then
   // rides on the addend input of the least significant multiplier, which is
   // where a hard multiplier subtracts a term for free.
-  val prod = if (!impl.isSplit) {
-    if (signed) {
+  val prod = if (cIn.isDefined && signed && loW != 0) {
+    offsetTiles(cIn.get)
+  } else if (!impl.isSliced) {
+    dropped(added(if (signed) {
       (xIn.asSInt * yIn.asSInt).asUInt
     } else {
       xIn * yIn
-    }
+    }))
+  } else if (cIn.isDefined && signed) {
+    // the operands fit one multiplication, so there is nothing to slice and
+    // nothing the addend has to be shaped around
+    dropped(cutPp(
+      ((xIn.asSInt * yIn.asSInt) +& cIn.get.asSInt).asUInt))
   } else if (signed) {
     val raw = Multiplier.partials(xIn, yIn, impl)
     val m   = xW.min(yW)
     val sub = (Mux(xIn(xW-1), yIn, 0.U) << (xW - m)) +&
               (Mux(yIn(yW-1), xIn, 0.U) << (yW - m))
-    val head = Multiplier.fit(raw.head, outW) - Cat(
-      Multiplier.fit(sub, outW - m), 0.U(m.W))
-    Multiplier.sumWide(
-      (head +: Multiplier.placed(raw.tail, impl, outW, 1)).map(t => cutPp(t)),
-      outW)
+    val head = Multiplier.fit(raw.head, prodW) - Cat(
+      Multiplier.fit(sub, prodW - m), 0.U(m.W))
+    dropped(Multiplier.sumWide(
+      (head +: Multiplier.placed(raw.tail, impl, prodW, 1)).map(t => cutPp(t)),
+      prodW))
   } else {
-    chained(Multiplier.partials(xIn, yIn, impl).map(p => cutPp(p)))
+    dropped(added(
+      chained(Multiplier.partials(xIn, yIn, impl).map(p => cutPp(p)))))
   }
+
+  require(prod.getWidth == outW,
+    s"product is ${prod.getWidth} bits, expected $outW")
 
   // --------------------------- stage "out" --------------------------
   io.out := Pipe(cutLast.valid, prod, stages.at("out"))
@@ -257,14 +426,114 @@ class Multiplier(
  */
 object Multiplier {
 
-  /** Input of [[rial.arith.Multiplier]]: the two factors.
+  /** Input of [[rial.arith.Multiplier]]: the two factors, and the addend of a
+   *  multiply-add when the module was asked for one.
    *
    * @param xW width of the left hand operand
    * @param yW width of the right hand operand
+   * @param cW width of the addend, when there is one
    */
-  class Input(xW: Int, yW: Int) extends Bundle {
+  class Input(xW: Int, yW: Int, cW: Option[Int] = None) extends Bundle {
     val x = UInt(xW.W)
     val y = UInt(yW.W)
+    val c = cW.map(w => UInt(w.W))
+  }
+
+  /** The `cW` a module that has no addend of its own passes, which is the
+   *  narrowest one `MulImpl.macc` accepts and nothing at all for a structure
+   *  that has no addend. Such a module drives `io.in.bits.c` with zero and
+   *  reads the low `xW + yW` bits of the result, which are the product.
+   *
+   * @param impl structure of the product
+   */
+  def zeroAddendW(impl: MulImpl): Option[Int] = {
+    if (impl.isMacc) {
+      Some(1)
+    } else {
+      None
+    }
+  }
+
+  /** Width of the result of [[rial.arith.Multiplier]] for these parameters.
+   *
+   * @param xW    width of the left hand operand
+   * @param yW    width of the right hand operand
+   * @param cW    width of the addend, when there is one
+   * @param shift bits the result drops at its bottom
+   */
+  def outWidth(xW: Int, yW: Int, cW: Option[Int], shift: Int): Int = {
+    cW match {
+      case Some(w) => {
+        (xW + yW).max(w) + 1 - shift
+      }
+      case None => {
+        xW + yW - shift
+      }
+    }
+  }
+
+  /** Bit at which a two's complement multiply-add cuts its right hand operand,
+   *  or zero when it forms the product as one multiplication.
+   *
+   * There is no cut when the product already fits one multiplication, that is
+   * when the narrower operand is within a slice. Otherwise the cut leaves both
+   * halves within one slice and, where it can, at or below the shift, so that
+   * the two halves meet again over the high bits alone.
+   *
+   * @param xW     width of the left hand operand
+   * @param yW     width of the right hand operand
+   * @param impl   structure of the product
+   * @param signed the operands are two's complement
+   * @param shift  bits the result drops at its bottom
+   *
+   * @throws IllegalArgumentException if the right hand operand is wider than
+   *         two slices, which this form does not cut.
+   */
+  def cutBit(xW: Int, yW: Int, impl: MulImpl, signed: Boolean,
+    shift: Int): Int = {
+
+    impl.sliceW match {
+      case Some(w) if impl.isMacc && signed && xW.min(yW) > w => {
+        require(yW <= 2 * w,
+          s"a two's complement multiply-add cuts its right hand operand in " +
+          s"two, so $yW bits do not fit slices of $w bits")
+        val lower = (yW - w).max(1)
+        val upper = w.min(shift)
+        if (upper >= lower) {
+          (yW / 2).max(lower).min(upper)
+        } else {
+          (yW / 2).max(lower).min(w)
+        }
+      }
+      case _ => {
+        0
+      }
+    }
+  }
+
+  /** Width of the tile of a two's complement multiply-add that carries the
+   *  addend; see [[rial.arith.Multiplier]].
+   *
+   * @param xW  width of the left hand operand
+   * @param yW  width of the right hand operand
+   * @param cW  width of the addend
+   * @param loW bit at which the right hand operand is cut
+   */
+  def hiWidth(xW: Int, yW: Int, cW: Int, loW: Int): Int = {
+    val mulW = xW + yW - loW + 1
+    val addW = cW.max(xW + yW - 1) + 1 - loW
+    mulW.max(addW) + 1
+  }
+
+  /** Width of the tile of a two's complement multiply-add that carries the
+   *  offsets; see [[rial.arith.Multiplier]].
+   *
+   * @param xW  width of the left hand operand
+   * @param yW  width of the right hand operand
+   * @param loW bit at which the right hand operand is cut
+   */
+  def negWidth(xW: Int, yW: Int, loW: Int): Int = {
+    (xW + yW + 1).max(xW + loW + 1) + 1
   }
 
   /** Boundaries at which pipeline registers can be placed; see
@@ -277,7 +546,7 @@ object Multiplier {
    * @param nChain number of boundaries inside the sum
    */
   def stagePoints(impl: MulImpl, nChain: Int = 0): Seq[StagePoint] = {
-    if (impl.isSplit) {
+    if (impl.isSliced) {
       (StagePoint("pp", 3.0) +:
         (1 to nChain).map(k => StagePoint(s"chain$k", 2.0))) :+
         StagePoint("out", 3.0)
@@ -312,7 +581,7 @@ object Multiplier {
    */
   private def sliceBits(w: Int, impl: MulImpl): Seq[(Int, Int)] = {
     impl.sliceW match {
-      case Some(sw) if impl.isSplit && sw < w => {
+      case Some(sw) if impl.isSliced && sw < w => {
         val n = (w + sw - 1) / sw
         (0 until n).map(i => ((w - 1).min((i + 1) * sw - 1), i * sw))
       }

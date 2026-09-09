@@ -60,18 +60,21 @@ private[rial] class PostProcMultiplier(
   val rhsIn = cutIn(io.in.bits.rhs)
 
   // ------------------------- stage "prod.*" -------------------------
+  // this product has no addend of its own, so a multiply-add gets zero for one
   val mult = Module(new Multiplier(
-    1 + fracW, 1 + manW, mulImpl, stages.sub("prod")))
+    1 + fracW, 1 + manW, mulImpl, stages.sub("prod"),
+    cW = Multiplier.zeroAddendW(mulImpl)))
 
   mult.io.in.valid  := cutIn.valid
   mult.io.in.bits.x := lhsIn
   mult.io.in.bits.y := rhsIn
+  mult.io.in.bits.c.foreach(c => c := 0.U)
 
   // latency of the product; the valid that leaves it is the one the rounding
   // below and the output register run on
   private val cutProd = new SharedPipe("prod", cutIn.valid, stages.latency("prod"))
 
-  val prod      = mult.io.out.bits
+  val prod      = mult.io.out.bits((1 + fracW) + (1 + manW) - 1, 0)
   val moreThan2 = prod((manW + 1) + (fracW + 1) - 1)
 
   val roundBits = fracW

@@ -132,19 +132,24 @@ class MultFPGeneric(
 
   //----------------------------------------------------------------------
   // S2 : Mantissa product ("mul.*")
+  // the product of the mantissas has no addend of its own, so a multiply-add
+  // gets zero for one
   val mult = Module(new Multiplier(
-    xmanUnpack.getWidth, ymanUnpack.getWidth, mulImpl, stages.sub("mul")))
+    xmanUnpack.getWidth, ymanUnpack.getWidth, mulImpl, stages.sub("mul"),
+    cW = Multiplier.zeroAddendW(mulImpl)))
 
   mult.io.in.valid  := cutUnpack.valid
   mult.io.in.bits.x := xmanUnpack
   mult.io.in.bits.y := ymanUnpack
+  mult.io.in.bits.c.foreach(c => c := 0.U)
 
   //---------------------------- stage "mul" -----------------------------
   // latency of the product; the signals that bypass it are delayed by the
   // same number of cycles, so they stay aligned with mult.io.out
   private val cutMul = new SharedPipe("mul", cutUnpack.valid, stages.latency("mul"))
 
-  val prodMul  = mult.io.out.bits
+  val prodMul  = mult.io.out.bits(
+    xmanUnpack.getWidth + ymanUnpack.getWidth - 1, 0)
   val xexMul   = cutMul(xexUnpack)
   val yexMul   = cutMul(yexUnpack)
   val zsgn0Mul = cutMul(zsgn0Unpack)

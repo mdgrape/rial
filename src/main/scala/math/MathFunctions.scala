@@ -182,8 +182,15 @@ class MathFunctions(
   val preMulLhsW = PreProcMultiplier.lhsW(cfg.funcs, spec)
 
   val preMul: Option[Multiplier] = if (needPreMul) { Some(
-    Module(new Multiplier(preMulLhsW, 1 + manW, preMulImpl, stages.sub("preMul")))
+    Module(new Multiplier(preMulLhsW, 1 + manW, preMulImpl,
+      stages.sub("preMul"), cW = Multiplier.zeroAddendW(preMulImpl)))
   )} else { None }
+
+  /** the product of the pre-process multiplier, without the room a
+   *  multiply-add keeps for an addend this module does not have.
+   */
+  val preMulProd: Option[UInt] =
+    preMul.map(m => m.io.out.bits(preMulLhsW + manW, 0))
 
   /** the operand set one function offers to the pre-process multiplier. */
   private def preMulOperands = new MathFunctions.MulOperands(preMulLhsW, 1 + manW)
@@ -207,6 +214,7 @@ class MathFunctions(
     preMul.get.io.in.valid  := args.valid
     preMul.get.io.in.bits.x := args.bits.lhs
     preMul.get.io.in.bits.y := args.bits.rhs
+    preMul.get.io.in.bits.c.foreach(c => c := 0.U)
   }
 
   // ==========================================================================
@@ -631,7 +639,7 @@ class MathFunctions(
     sincosPre.io.x.bits  := xPre.bits
 
     sincosPre.io.prod.valid := preMul.get.io.out.valid && sincosSelAtPre
-    sincosPre.io.prod.bits  := SinCosPreMulArgs.prod(spec, preMul.get.io.out.bits)
+    sincosPre.io.prod.bits  := SinCosPreMulArgs.prod(spec, preMulProd.get)
 
     // ----- table -----
     sincosTab.io.adr := sincosPre.io.adr
@@ -683,7 +691,7 @@ class MathFunctions(
     pre.io.x.valid := xPre.valid && expSelAtPre
     pre.io.x.bits  := xPre.bits
     pre.io.prod.valid := preMul.get.io.out.valid && expSelAtPre
-    pre.io.prod.bits  := ExpPreMulArgs.prod(spec, preMul.get.io.out.bits)
+    pre.io.prod.bits  := ExpPreMulArgs.prod(spec, preMulProd.get)
 
     // ----- table -----
     tab.io.adr := pre.io.adr
@@ -1008,7 +1016,7 @@ class MathFunctions(
     pre.io.x.valid := xPre.valid && smgSelAtPre
     pre.io.x.bits  := xPre.bits
     pre.io.prod.valid := preMul.get.io.out.valid && smgSelAtPre
-    pre.io.prod.bits  := ScaleMixtureGaussianPreMulArgs.prod(spec, preMul.get.io.out.bits)
+    pre.io.prod.bits  := ScaleMixtureGaussianPreMulArgs.prod(spec, preMulProd.get)
 
     // ----- table -----
     tab.io.adr := pre.io.adr
@@ -1106,7 +1114,8 @@ object MathFunctions {
     val preMulChain = spec.map(sp => Multiplier.chainPoints(preMulImpl,
       PreProcMultiplier.lhsW(cfg.funcs, sp), 1 + sp.manW)).getOrElse(0)
     val preMul: Seq[StageElem] = if (PreProcMultiplier.isNeeded(cfg.funcs)) {
-      Seq(StageGroup("preMul", Multiplier.stagePoints(preMulImpl, preMulChain)))
+      Seq(StageGroup("preMul",
+        Multiplier.stagePoints(preMulImpl, preMulChain)))
     } else {
       Seq.empty[StageElem]
     }
