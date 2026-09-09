@@ -15,7 +15,3 @@ CMakeCache.txt
 /clib/Makefile
 /clib/*/Makefile
 
-# FPGA synthesis flow (syn/)
-/syn/emit/target
-/syn/fpga/rtl/
-/syn/fpga/results/

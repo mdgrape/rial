@@ -3,7 +3,7 @@
 ThisBuild / scalaVersion     := "2.13.18"
 val chiselVersion = "7.11.0"
 
-// Settings shared between the library and the synthesis-support subprojects.
+// Settings of the library.
 lazy val commonSettings = Seq(
   scalacOptions ++= Seq(
     "-language:reflectiveCalls",
@@ -43,22 +43,4 @@ lazy val rial = (project in file("."))
       case x if x.endsWith("module-info.class")  => MergeStrategy.discard
       case _                                     => MergeStrategy.first
     },
-  )
-
-// SystemVerilog emitter used by the FPGA resource-estimation flow (syn/fpga).
-// Kept out of `rial` so that `rial/assembly` and `rial/test` are unaffected.
-lazy val synEmit = (project in file("syn/emit"))
-  .dependsOn(rial)
-  .settings(commonSettings)
-  .settings(
-    name    := "rial-syn-emit",
-    version := "0.1.0",
-    libraryDependencies ++= Seq(
-      "org.chipsalliance" %% "chisel" % chiselVersion,
-      ),
-    // Forked runs must see the build root so that relative --out paths
-    // (e.g. syn/fpga/rtl) resolve the same way as from the shell.
-    Compile / run / fork := true,
-    Compile / run / baseDirectory := (LocalRootProject / baseDirectory).value,
-    assembly / assemblyJarName := "rial-syn-emit.jar",
   )
