@@ -65,7 +65,7 @@ class FuncDumpTest extends AnyFunSpec
         c.io.in.bits.x.poke(0.U(spec.W.W))
         if (c.io.in.bits.y.isDefined) c.io.in.bits.y.get.poke(0.U(spec.W.W))
       }
-      val zi = c.io.out.bits.peek().litValue
+      val zi = c.io.out.bits.z.peek().litValue
       if (i > total) out += zi
       c.clock.step(1)
     }

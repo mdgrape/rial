@@ -63,7 +63,7 @@ class ATan2Phase1Test extends AnyFunSpec
           c.io.in.bits.x.poke(x.value.toBigInt.U(spec.W.W))
           c.io.in.bits.y.get.poke(y.value.toBigInt.U(spec.W.W))
 
-          val zi = c.io.out.bits.peek().litValue.toBigInt
+          val zi = c.io.out.bits.z.peek().litValue.toBigInt
           if (i > total) {
             assert(c.io.out.valid.peek().litToBoolean,
               f"io.out.valid is not set at cycle $i%d (latency $total%d)")

@@ -73,7 +73,7 @@ class ATan2Phase2Test extends AnyFunSpec
           // y is unused by Phase2 but the port must still be driven.
           if (c.io.in.bits.y.isDefined) c.io.in.bits.y.get.poke(0.U(spec.W.W))
 
-          val zi = c.io.out.bits.peek().litValue.toBigInt
+          val zi = c.io.out.bits.z.peek().litValue.toBigInt
           if (i > total) {
             assert(c.io.out.valid.peek().litToBoolean,
               f"io.out.valid is not set at cycle $i%d (latency $total%d)")

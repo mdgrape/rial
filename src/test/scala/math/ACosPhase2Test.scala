@@ -83,7 +83,7 @@ class ACosPhase2Test extends AnyFunSpec
           c.io.in.bits.sel.poke(cfg.signal(ACosPhase2))
           c.io.in.bits.x.poke(p1.value.toBigInt.U(spec.W.W))
 
-          val zi = c.io.out.bits.peek().litValue.toBigInt
+          val zi = c.io.out.bits.z.peek().litValue.toBigInt
           if (i > total) {
             assert(c.io.out.valid.peek().litToBoolean,
               f"io.out.valid is not set at cycle $i%d (latency $total%d)")
