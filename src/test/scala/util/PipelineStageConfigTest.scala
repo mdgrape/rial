@@ -795,6 +795,121 @@ class PipelineStageConfigTest extends AnyFunSpec {
   }
 
   // ==========================================================================
+  // parallel paths of their own latencies
+  // ==========================================================================
+
+  /** The same two paths, but each ending on its own boundary. */
+  val ownSplit: Seq[StageElem] = Seq(
+    StagePoint("head", 2),
+    StageParallel("mid", Seq(StageGroup("slow", slow), StageGroup("fast", fast)),
+      equalLatency = false),
+    StagePoint("out", 1))
+
+  /** Three paths of the same length but of very different granularity, each
+   *  ending on its own boundary.
+   */
+  val grains: Seq[StageElem] = Seq(
+    StageParallel("mid", Seq(
+      StageGroup("long", Seq(StagePoint("p1", 3), StagePoint("out", 3))),
+      StageGroup("fine", Seq(
+        StagePoint("p1", 2), StagePoint("p2", 2), StagePoint("out", 2))),
+      StageGroup("coarse", Seq(StagePoint("a", 5), StagePoint("out", 0)))),
+      equalLatency = false),
+    StagePoint("out", 0))
+
+  describe("PipelineStageConfig.resolve: parallel paths of their own latencies") {
+
+    it("asks for equal latencies unless told otherwise") {
+      assert(StageParallel("mid", Seq(StageGroup("fast", fast))).equalLatency)
+      val s = PipelineStageConfig.specify("mid.fast.a" -> 1).resolve(split)
+      assert(s.latency("mid.slow") == s.latency("mid.fast"))
+    }
+
+    it("leaves the other paths alone when a path is cut explicitly") {
+      val s = PipelineStageConfig.specify("mid.slow.p" -> 1).resolve(ownSplit)
+      assert(s.latency("mid.slow") == 1)
+      assert(s.latency("mid.fast") == 0)
+      assert(s.total == 1)
+    }
+
+    it("counts the longest path in the total") {
+      val s = PipelineStageConfig.specify("mid.fast.a" -> 2).resolve(ownSplit)
+      assert(s.latency("mid.fast") == 2)
+      assert(s.latency("mid.slow") == 0)
+      assert(s.total == 2)
+    }
+
+    it("refuses to give one latency for the whole parallel") {
+      val s = PipelineStageConfig.specify("mid.slow.p" -> 1).resolve(ownSplit)
+      val e = intercept[IllegalArgumentException] {
+        s.latency("mid")
+      }
+      assert(e.getMessage.contains("mid.<path>"))
+      assert(e.getMessage.contains("mid.slow"))
+    }
+
+    it("reads the name of a parallel as the out of every path") {
+      val s = PipelineStageConfig.specify("mid" -> 1).resolve(ownSplit)
+      assert(s.at("mid.slow.out") == 1)
+      assert(s.at("mid.fast.out") == 1)
+      assert(s.latency("mid.slow") == 1)
+      assert(s.latency("mid.fast") == 1)
+      assert(s.total == 1)
+    }
+
+    it("leaves a path alone when its logic is already short enough") {
+      // head 2 | mid.slow.p 4 | 4+2+1 : the bound is 7, the fast path is 6
+      val s = PipelineStageConfig.default(1).resolve(ownSplit)
+      assert(s.at("mid.slow.p") == 1)
+      assert(s.latency("mid.slow") == 1)
+      assert(s.latency("mid.fast") == 0)
+      assert(s.total == 1)
+    }
+
+    it("cuts every other path down to the longest stretch of logic left") {
+      // the long path is cut once, into 3 and 3, so the bound is 3
+      val s = PipelineStageConfig.default(1).resolve(grains)
+      assert(s.at("mid.long.p1") == 1)
+      assert(s.latency("mid.long") == 1)
+      // 2+2+2 needs two cuts to stay within 3, one would leave 4
+      assert(s.at("mid.fine.p1") == 1)
+      assert(s.at("mid.fine.p2") == 1)
+      assert(s.latency("mid.fine") == 2)
+      // 5 is longer than the bound, but there is only one point to cut at
+      assert(s.at("mid.coarse.a") == 1)
+      assert(s.latency("mid.coarse") == 1)
+      assert(s.total == 2)
+    }
+
+    it("keeps an explicit register and adds only the missing ones") {
+      val s = PipelineStageConfig(Map("mid.fine.p1" -> 1), auto = 1).resolve(grains)
+      assert(s.at("mid.long.p1") == 1)
+      assert(s.at("mid.fine.p1") == 1)
+      assert(s.at("mid.fine.p2") == 1)
+      assert(s.latency("mid.fine") == 2)
+    }
+
+    it("places nothing at all without an automatic register") {
+      for (c <- Seq(PipelineStageConfig.none, PipelineStageConfig.default(0))) {
+        val s = c.resolve(grains)
+        assert(s.total == 0, s"${c.getString}: ${s.getString}")
+        assert(s.latency("mid.long") == 0)
+        assert(s.latency("mid.fine") == 0)
+        assert(s.latency("mid.coarse") == 0)
+      }
+    }
+
+    it("hands one path down to its submodule") {
+      val s = PipelineStageConfig.default(1).resolve(grains)
+      val c = s.sub("mid.fine")
+      assert(c.auto == 0)
+      val inner = c.resolve(Seq(
+        StagePoint("p1", 2), StagePoint("p2", 2), StagePoint("out", 2)))
+      assert(inner.total == s.latency("mid.fine"))
+    }
+  }
+
+  // ==========================================================================
   // the parallels of the math datapath
   // ==========================================================================
 

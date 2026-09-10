@@ -64,9 +64,11 @@ case class StageGroup(name: String, points: Seq[StageElem]) extends StageElem
  *
  * A module whose datapath splits into several paths that are selected at run
  * time (one submodule per supported function, say) declares them as a
- * parallel. The paths start at the same boundary and end at the same
- * boundary, so they must have the same latency;
- * [[rial.util.PipelineStageConfig.resolve]] guarantees that.
+ * parallel. The paths start at the same boundary; with `equalLatency` they
+ * also end at the same one, so they all have the same latency, which
+ * [[rial.util.PipelineStageConfig.resolve]] guarantees. Without it each path
+ * ends on its own and keeps the latency its own registers give it, so a
+ * module that reads a path's output must ask for that path's latency.
  *
  * Each child is the boundary list of one path, as a
  * [[rial.util.StageGroup]]. The names of the children's boundaries are
@@ -80,18 +82,23 @@ case class StageGroup(name: String, points: Seq[StageElem]) extends StageElem
  * means `n` registers at the `"out"` of '''every''' child, and `"pre.in" ->
  * n` means `n` registers at the `"in"` of every child.
  * [[rial.util.PipelineStages.latency]] gives the common latency of the
- * children, and [[rial.util.PipelineStages.sub]] takes a `"parallel.child"`
- * name to hand one path down to its submodule.
+ * children if they have one and `latency("pre.sinCos")` that of one path, and
+ * [[rial.util.PipelineStages.sub]] takes a `"parallel.child"` name to hand one
+ * path down to its submodule.
  *
  * The automatic placement chooses the cuts of the longest child (the one with
- * the largest sum of weights) and then gives every other child as many
- * registers as it needs to match that latency. A parallel must not contain
- * another parallel.
+ * the largest sum of weights). With `equalLatency` every other child is then
+ * given as many registers as it needs to match that latency; without it, as
+ * few registers as it needs to keep its own logic no longer, between two
+ * registers, than the longest such piece the placement left. A parallel must
+ * not contain another parallel.
  *
- * @param name     name of the parallel, used as the prefix of its children
- * @param children the boundary list of each alternative path
+ * @param name         name of the parallel, used as the prefix of its children
+ * @param children     the boundary list of each alternative path
+ * @param equalLatency whether every path is to have the same latency
  */
-case class StageParallel(name: String, children: Seq[StageGroup]) extends StageElem
+case class StageParallel(name: String, children: Seq[StageGroup],
+  equalLatency: Boolean = true) extends StageElem
 
 /** A boundary of the flattened (fully dotted) point list.
  *
@@ -154,9 +161,12 @@ case class PipelineStages(counts: Map[String, Int], points: Seq[StageElem]) {
    *
    * For a point this is its number of registers, for a group the sum over the
    * group's own points, and for a [[rial.util.StageParallel]] the common
-   * latency of its paths (which the resolution made equal).
+   * latency of its paths. One path of a parallel is a group too, named
+   * `"parallel.path"`, e.g. `latency("pre.sinCos")`.
    *
-   * @throws IllegalArgumentException if `name` is not a declared name.
+   * @throws IllegalArgumentException if `name` is not a declared name, or if
+   *         it names a [[rial.util.StageParallel]] whose paths have their own
+   *         latencies.
    */
   def latency(name: String): Int = {
     PipelineStageConfig.elemsByName(points).get(name) match {
@@ -164,6 +174,12 @@ case class PipelineStages(counts: Map[String, Int], points: Seq[StageElem]) {
         counts.getOrElse(name + ".in", 0) + latencyOf(ps, name + ".")
       }
       case Some(p: StageParallel) => {
+        if (!p.equalLatency) {
+          throw new IllegalArgumentException(
+            s"the paths of '$name' have their own latencies; " +
+            s"ask for one of them with latency(\"$name.<path>\"), e.g. " +
+            s"latency(\"$name.${p.children.head.name}\")")
+        }
         latencyOf(Seq(p), name.dropRight(p.name.length))
       }
       case _ => {
@@ -181,17 +197,17 @@ case class PipelineStages(counts: Map[String, Int], points: Seq[StageElem]) {
       case StageGroup(n, ps) => {
         counts.getOrElse(prefix + n + ".in", 0) + latencyOf(ps, prefix + n + ".")
       }
-      case StageParallel(n, cs) => {
-        // every path has the same latency, so one of them stands for all
+      case StageParallel(n, cs, _) => {
+        // the paths run side by side, so the longest one holds up the datapath
         counts.getOrElse(prefix + n + ".in", 0) +
-          latencyOf(cs.take(1), prefix + n + ".")
+          cs.map(c => latencyOf(Seq(c), prefix + n + ".")).max
       }
     }.sum
   }
 
   /** Total number of pipeline registers, i.e. the latency of the module.
    *
-   * A set of parallel paths counts once, with the common latency of its paths.
+   * A set of parallel paths counts once, with the latency of its longest path.
    */
   def total: Int = {
     counts.getOrElse("in", 0) + latencyOf(points, "")
@@ -356,9 +372,11 @@ case class PipelineStageConfig(explicit: Map[String, Int] = Map.empty, auto: Int
    * simply a `ShiftRegister(x, n)`.
    *
    * Of a [[rial.util.StageParallel]] only the longest path takes part in the
-   * placement above; every other path is then given as many registers as it
-   * needs to reach the same latency, placed on its own points by the same
-   * rules.
+   * placement above; every other path is then cut on its own points by the
+   * same rules. It is given as many registers as it needs to reach the latency
+   * of the longest path, or, if the parallel does not ask for equal latencies,
+   * as few as it needs to leave no stretch of its logic longer than the
+   * longest stretch the placement above left.
    *
    * @throws IllegalArgumentException on a negative count, on a malformed
    *         `points` list, or if [[explicit]] names a point the module does not
@@ -459,25 +477,53 @@ case class PipelineStageConfig(explicit: Map[String, Int] = Map.empty, auto: Int
       counts(flat(ends(longest)).name) += surplus
     }
 
-    // every path of a set of parallel paths must have the same latency: the
-    // ones that are shorter than the longest are resolved again, on their own
-    // points, with the missing registers left to the automatic placement
+    // the counts of one path of a set of parallel paths, as a configuration of
+    // its own points
+    def explicitOf(prefix: String): Map[String, Int] = {
+      counts.collect {
+        case (k, v) if k.startsWith(prefix) => k.drop(prefix.length) -> v
+      }.toMap
+    }
+
+    // the placement of a path, written back under its prefix
+    def keep(prefix: String, c: StageGroup, cfg: PipelineStageConfig): Unit = {
+      cfg.resolve(c.points).counts.foreach { case (k, v) =>
+        counts(prefix + k) = v
+      }
+    }
+
+    // the longest stretch of logic the placement above left; no path of a set
+    // of parallel paths of its own latencies may be longer than this
+    lazy val bound = PipelineStageConfig.segments(
+      weights, nPoints, alreadyCut ++ chosen).max
+
     parallels.foreach { case (pname, par) =>
       val paths = par.children.map { c =>
         val prefix = pname + "." + c.name + "."
         val used   = counts.collect { case (k, v) if k.startsWith(prefix) => v }.sum
         (c, prefix, used)
       }
-      val latency = paths.map(_._3).max
-      paths.foreach { case (c, prefix, used) =>
-        if (used < latency) {
-          val cfg = PipelineStageConfig(
-            explicit = counts.collect {
-              case (k, v) if k.startsWith(prefix) => k.drop(prefix.length) -> v
-            }.toMap,
-            auto = latency - used)
-          cfg.resolve(c.points).counts.foreach { case (k, v) =>
-            counts(prefix + k) = v
+      if (par.equalLatency) {
+        // every path must have the same latency: the ones that are shorter
+        // than the longest are resolved again, on their own points, with the
+        // missing registers left to the automatic placement
+        val latency = paths.map(_._3).max
+        paths.foreach { case (c, prefix, used) =>
+          if (used < latency) {
+            keep(prefix, c, PipelineStageConfig(
+              explicit = explicitOf(prefix), auto = latency - used))
+          }
+        }
+      } else if (auto > 0) {
+        // each path keeps its own latency: the ones that do not take part in
+        // the placement above are given the fewest registers that bring their
+        // longest stretch of logic within the bound
+        val longest = PipelineStageConfig.longestPath(par.children)
+        paths.foreach { case (c, prefix, _) =>
+          if (c.name != longest.name) {
+            val own = explicitOf(prefix)
+            keep(prefix, c, PipelineStageConfig(explicit = own,
+              auto = PipelineStageConfig.autoWithin(c.points, own, bound)))
           }
         }
       }
@@ -567,7 +613,7 @@ object PipelineStageConfig {
         case StageGroup(n, ps) => {
           FlatPoint(prefix + n + ".in", 0.0, false) +: walk(ps, prefix + n + ".")
         }
-        case StageParallel(n, cs) => {
+        case StageParallel(n, cs, _) => {
           FlatPoint(prefix + n + ".in", 0.0, false) +:
             walk(Seq(longestPath(cs)), prefix + n + ".")
         }
@@ -598,7 +644,7 @@ object PipelineStageConfig {
       case StageGroup(_, ps) => {
         weightOf(ps)
       }
-      case StageParallel(_, cs) => {
+      case StageParallel(_, cs, _) => {
         weightOf(Seq(longestPath(cs)))
       }
     }.sum
@@ -618,7 +664,7 @@ object PipelineStageConfig {
         case StageGroup(n, ps) => {
           (prefix + n) +: walk(ps, prefix + n + ".")
         }
-        case StageParallel(n, cs) => {
+        case StageParallel(n, cs, _) => {
           walk(cs, prefix + n + ".")
         }
       }
@@ -680,7 +726,7 @@ object PipelineStageConfig {
         case StageGroup(n, ps) => {
           (prefix + n + ".in") +: walk(ps, prefix + n + ".")
         }
-        case StageParallel(n, cs) => {
+        case StageParallel(n, cs, _) => {
           (prefix + n + ".in") +: walk(cs, prefix + n + ".")
         }
       }
@@ -732,7 +778,7 @@ object PipelineStageConfig {
       case StageGroup(_, ps) => {
         checkPoints(ps)
       }
-      case StageParallel(n, cs) => {
+      case StageParallel(n, cs, _) => {
         if (cs.isEmpty) {
           throw new IllegalArgumentException(
             s"the set of parallel paths '$n' must have at least one path")
@@ -931,5 +977,38 @@ object PipelineStageConfig {
       }
     }
     picked(last)(nAuto)
+  }
+
+  /** The fewest automatically placed registers that bring the longest stretch
+   *  of logic of `points`, already cut by `explicit`, within `bound`.
+   *
+   * Stops once every point that may be cut carries a register: no further
+   * register would shorten anything.
+   */
+  private[util] def autoWithin(points: Seq[StageElem], explicit: Map[String, Int],
+    bound: Double): Int = {
+
+    val flat     = flatten(points)
+    val weights  = flat.map(_.weight).toVector
+    val nPoints  = flat.length
+    val internal = (0 until nPoints - 1)
+
+    def cutBy(counts: Map[String, Int], i: Int): Boolean = {
+      counts.getOrElse(flat(i).name, 0) > 0
+    }
+    def longestWith(n: Int): Double = {
+      val counts = PipelineStageConfig(explicit = explicit, auto = n)
+        .resolve(points).counts
+      segments(weights, nPoints, internal.filter(i => cutBy(counts, i)).toSet).max
+    }
+
+    val available = internal.count(i =>
+      flat(i).selectable && !cutBy(explicit, i))
+
+    var n = 0
+    while ((n < available) && (longestWith(n) > bound + tol)) {
+      n += 1
+    }
+    n
   }
 }
