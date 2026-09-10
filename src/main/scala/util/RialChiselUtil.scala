@@ -30,8 +30,10 @@ import ScalaUtil._
  */
 class SharedPipe(name: String, v: Bool, n: Int) {
 
-  /** the valid entering each stage of the cut, then the one leaving it. */
-  private val valids = Seq.iterate(v, n+1)(prev => RegNext(prev, false.B))
+  /** the valid after each register of the cut: `valids(0)` is the valid
+   *  entering the cut and `valids(n)` the one leaving it, i.e. [[valid]].
+   */
+  val valids: Seq[Bool] = Seq.iterate(v, n+1)(prev => RegNext(prev, false.B))
 
   // name the registers after the boundary, as the data ones are
   valids.tail.zipWithIndex.foreach { case (b, i) =>
@@ -46,9 +48,16 @@ class SharedPipe(name: String, v: Bool, n: Int) {
   /** the valid flag leaving the cut. */
   val valid: Bool = valids.last
 
+  /** `x` after each register of the cut: `taps(x)(0)` is `x` itself and
+   *  `taps(x)(k)` is `x` delayed by `k` registers of the cut.
+   */
+  def taps[T <: Data](x: T): Seq[T] = {
+    valids.init.scanLeft(x)((d, en) => RegEnable(d, en))
+  }
+
   /** pipe `x` through the cut, enabled by the valid entering each stage. */
   def apply[T <: Data](x: T): T = {
-    valids.init.foldLeft(x)((d, en) => RegEnable(d, en))
+    taps(x).last
   }
 }
 
