@@ -541,10 +541,9 @@ class MathFunctions(
 
   private val cutTable = new SharedPipe("table", validTab, nTable)
 
-  private val selCalcTaps = cutTable.taps(selTab)
-  private val tagCalcTaps = tagTab.map(t => cutTable.taps(t))
+  val selCalc = cutTable(selTab)
 
-  val selCalc = selCalcTaps.last
+  private val tagCalc = tagTab.map(t => cutTable(t))
 
   // ==========================================================================
   // Polynomial Evaluator (shared), stages "poly.*"
@@ -582,10 +581,9 @@ class MathFunctions(
 
   private val cutCoef = new SharedPipe("coef", cutTable.valid, nCoef)
 
-  private val selPolyTaps = cutCoef.taps(selCalc)
-  private val tagPolyTaps = tagCalcTaps.map(t => cutCoef.taps(t.last))
+  val selPoly = cutCoef(selCalc)
 
-  val selPoly = selPolyTaps.last
+  private val tagPoly = tagCalc.map(t => cutCoef(t))
 
   private val polyInValid = if (bitW.nOrder == 0) {
     polynomialCoef.valid
@@ -609,22 +607,9 @@ class MathFunctions(
 
   private val cutPoly = new SharedPipe("poly", cutCoef.valid, nPoly)
 
-  private val selPostTaps = cutPoly.taps(selPoly)
-  private val tagPostTaps = tagPolyTaps.map(t => cutPoly.taps(t.last))
+  val selPost = cutPoly(selPoly)
 
-  val selPost = selPostTaps.last
-
-  /** the valid flag at every age between the table input and the polynomial
-   *  output.
-   */
-  private val validToPoly: Seq[Bool] =
-    cutTable.valids ++ cutCoef.valids.tail ++ cutPoly.valids.tail
-
-  /** the function signal at every age between the table input and the
-   *  polynomial output.
-   */
-  private val selToPoly: Seq[UInt] =
-    selCalcTaps ++ selPolyTaps.tail ++ selPostTaps.tail
+  private val tagPost = tagPoly.map(t => cutPoly(t))
 
   // ==========================================================================
   // stages "mulArgs" and "postMul": everything that bypasses the post-process
@@ -652,7 +637,7 @@ class MathFunctions(
   private val cutMulArgs = new SharedPipe("mulArgs", cutPoly.valid, nMulArgs)
 
   private val selMulTaps = cutMulArgs.taps(selPost)
-  private val tagMulTaps = tagPostTaps.map(t => cutMulArgs.taps(t.last))
+  private val tagMulTaps = tagPost.map(t => cutMulArgs.taps(t))
 
   val selMul = selMulTaps.last
 
@@ -766,69 +751,29 @@ class MathFunctions(
   // ==========================================================================
   // io.issueOk: the functions that may be issued this cycle
   //
-  // An operation sitting in a register of the chains above is a known number
-  // of cycles away from the table input and from the output selection, the
-  // two boundaries every function shares. A function may be issued when no
-  // operation already in flight would reach either boundary in the cycle it
-  // would.
+  // Every function passes the table input and the output selection, the two
+  // boundaries they share, and reaches each of them a known number of cycles
+  // after it was issued. A reservation table on those two latencies says which
+  // functions may be issued now.
   // ==========================================================================
 
-  /** the function the signal names, at every age of a chain. */
-  private def decoded(sels: Seq[UInt]): Seq[Map[FuncKind, Bool]] = {
-    sels.map(s => cfg.funcs.map(fn => fn -> (s === cfg.signal(fn))).toMap)
-  }
-
   io.issueOk.foreach(ok => {
+    val tableInput = cfg.funcs.map(fn => {
+      cfg.signal(fn).litValue.toInt -> nInToTab(fn)
+    }).toMap
 
-    // which function each register of a chain holds, decoded once
-    val isToTab  = decoded(selToTab)
-    val isToPoly = decoded(selToPoly)
-    val isToOut  = decoded(selToOut)
+    val output = cfg.funcs.map(fn => {
+      cfg.signal(fn).litValue.toInt -> getStage(fn)
+    }).toMap
 
-    /** one term per register of a chain that holds an operation reaching a
-     *  boundary in `arrival` cycles, as the operation to issue would.
-     *
-     * `distanceOf(fn, i)` is the number of cycles an operation of `fn` sitting
-     * at position `i` of the chain still needs to reach that boundary. A
-     * register past the boundary at which `fn` left the chain holds a stale
-     * copy of the operation; the distance it gives is still the true one, so
-     * the term it adds is redundant but never wrong.
-     */
-    def busyOn(valids: Seq[Bool], is: Seq[Map[FuncKind, Bool]],
-      distanceOf: (FuncKind, Int) => Int, arrival: Int): Seq[Bool] = {
-      valids.indices.tail.flatMap(i => {
-        val rivals = cfg.funcs.filter(fn => distanceOf(fn, i) == arrival)
-        if (rivals.isEmpty) {
-          None
-        } else if (rivals.length == cfg.funcs.length) {
-          Some(valids(i))
-        } else {
-          Some(valids(i) && rivals.map(fn => is(i)(fn)).reduce(_ || _))
-        }
-      })
-    }
+    val table = Module(new ReservationTable(cfg.signalW,
+      1 + cfg.funcs.length, Seq(tableInput, output)))
 
-    /** whether an operation in flight blocks `fn` from being issued now. */
-    def busy(fn: FuncKind): Bool = {
-      val atTab = nInToTab(fn)
-      val atOut = getStage(fn) - nOut
-      val terms =
-        busyOn(validToTab, isToTab, (g, k) => nInToTab(g) - k, atTab) ++
-        busyOn(validToTab, isToTab, (g, k) => getStage(g) - nOut - k, atOut) ++
-        busyOn(validToPoly, isToPoly,
-          (g, j) => nTabToPoly - j + nPolyToOut(g), atOut) ++
-        busyOn(validToOut, isToOut, (g, m) => nPolyToOut(g) - m, atOut)
-      if (terms.isEmpty) {
-        false.B
-      } else {
-        terms.reduce(_ || _)
-      }
-    }
+    // the operation entering the module this cycle, as the `"in"` cut takes it
+    table.io.in.valid := io.in.valid && cfg.isValid(io.in.bits.sel)
+    table.io.in.bits  := io.in.bits.sel
 
-    ok(0) := true.B
-    cfg.funcs.zipWithIndex.foreach { case (fn, i) => {
-      ok(i + 1) := !busy(fn)
-    }}
+    ok := table.io.issueOk
   })
 
   // ==========================================================================
