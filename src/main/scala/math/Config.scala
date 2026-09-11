@@ -57,6 +57,22 @@ object FuncKind extends Enumeration {
 
   val ScaleMixtureGaussian = Value
 
+  /** 2^x, for an argument the caller has already scaled.
+   *
+   * `pow2(x * log2(e))` is exp(x), up to the rounding of that product.
+   */
+  val Pow2        = Value
+  /** sin(π x), for an argument the caller has already scaled.
+   *
+   * `sinPi(x / π)` is sin(x), up to the rounding of that quotient.
+   */
+  val SinPi       = Value
+  /** cos(π x), for an argument the caller has already scaled.
+   *
+   * `cosPi(x / π)` is cos(x), up to the rounding of that quotient.
+   */
+  val CosPi       = Value
+
   /** Returns enum name (e.g. FuncKind.Sqrt -> "Sqrt").
    */
   def getString(fn: FuncKind): String = {
@@ -75,6 +91,9 @@ object FuncKind extends Enumeration {
       case Sigmoid     => "Sigmoid"
       case SoftPlus    => "SoftPlus"
       case ScaleMixtureGaussian => "ScaleMixtureGaussian"
+      case Pow2        => "Pow2"
+      case SinPi       => "SinPi"
+      case CosPi       => "CosPi"
     }
   }
 
@@ -84,7 +103,8 @@ object FuncKind extends Enumeration {
    * The pre- and post-process of a function are one path of the parallels
    * `"pre"` and `"post"`, named after the function: the boundaries of the
    * pre-process of `fn` are `"pre.<pointName(fn)>.*"`. `Sin` and `Cos` share
-   * one pre-process and one post-process, so both give `"sinCos"`.
+   * one pre-process and one post-process, so both give `"sinCos"`, and
+   * `SinPi` and `CosPi` likewise both give `"sinPi"`.
    *
    * @param fn An enumerator of the function.
    */
@@ -104,6 +124,9 @@ object FuncKind extends Enumeration {
       case Sigmoid     => "sigmoid"
       case SoftPlus    => "softPlus"
       case ScaleMixtureGaussian => "scaleMixtureGaussian"
+      case Pow2        => "pow2"
+      case SinPi       => "sinPi"
+      case CosPi       => "sinPi"
     }
   }
 
@@ -117,7 +140,8 @@ object FuncKind extends Enumeration {
    */
   def needPostMult(fn: FuncKind): Boolean = {
     fn == ACosPhase2 || fn == ATan2Phase1 || fn == ATan2Phase2 ||
-    fn == Log || fn == Sin || fn == Cos || fn == ScaleMixtureGaussian
+    fn == Log || fn == Sin || fn == Cos || fn == ScaleMixtureGaussian ||
+    fn == SinPi || fn == CosPi
   }
 
   /** Returns list of funcs required to support that function.
@@ -141,6 +165,9 @@ object FuncKind extends Enumeration {
       case Sigmoid              => Seq(Sigmoid)
       case SoftPlus             => Seq(SoftPlus)
       case ScaleMixtureGaussian => Seq(ScaleMixtureGaussian)
+      case Pow2                 => Seq(Pow2)
+      case SinPi                => Seq(SinPi, CosPi)
+      case CosPi                => Seq(SinPi, CosPi)
     }
   }
 
@@ -166,7 +193,9 @@ object FuncKind extends Enumeration {
  *  @param ScaleMixtureGaussianSigma sigmaA and sigmaB for ScaleMixtureGaussian.
  *  @param sinCos the range of the argument sin/cos are calculated for; `None`
  *                covers the whole format. Outside the range sin/cos return a
- *                meaningless, but finite, value in [-1, 1].
+ *                meaningless, but finite, value in [-1, 1]. It restricts
+ *                sinPi/cosPi to the arguments of the same sin/cos, i.e. to the
+ *                x whose π x lies in that range.
  */
 class MathFuncConfig(
   val funcs:   Seq[FuncKind.FuncKind],
@@ -264,6 +293,9 @@ class MathFuncConfig(
     case ATan2Phase2 => (ATan2Phase2 -> new ATan2Phase2Table(nOrder, addrW, inBitW, outBitW))
     case Sigmoid     => (Sigmoid     -> new SigmoidTable    (nOrder, addrW, inBitW, outBitW))
     case SoftPlus    => (SoftPlus    -> new SoftPlusTable   (nOrder, addrW, inBitW, outBitW))
+    case Pow2        => (Pow2        -> new ExpTable        (nOrder, addrW, inBitW, outBitW))
+    case SinPi       => (SinPi       -> new SinCosTable     (nOrder, addrW, inBitW, outBitW))
+    case CosPi       => (CosPi       -> new SinCosTable     (nOrder, addrW, inBitW, outBitW))
     case ScaleMixtureGaussian => {
       val (sA, sB) = scaleMixtureGaussianSigma.get
       (ScaleMixtureGaussian -> new ScaleMixtureGaussianTable(sA, sB, nOrder, addrW, inBitW, outBitW))
@@ -290,9 +322,10 @@ class MathFuncConfig(
     // the companion object.  Keeps the test names (which include this string)
     // short enough to avoid hitting OS filename-length limits.
     val fs =
-      if      (funcs == MathFuncConfig.all     ) { "all" }
-      else if (funcs == MathFuncConfig.standard) { "standard" }
-      else if (funcs == MathFuncConfig.simple  ) { "simple" }
+      if      (funcs == MathFuncConfig.all           ) { "all" }
+      else if (funcs == MathFuncConfig.standard      ) { "standard" }
+      else if (funcs == MathFuncConfig.standardScaled) { "standardScaled" }
+      else if (funcs == MathFuncConfig.simple        ) { "simple" }
       else    { funcs.map(fn => FuncKind.getString(fn)).mkString("[", ", ", "]") }
     fs + sinCos.map(d => f"_sinCosEx${d.maxEx}").getOrElse("")
   }
@@ -331,6 +364,25 @@ object MathFuncConfig {
    */
   val standard = Seq(Sqrt, InvSqrt, Reciprocal, Sin, Cos,
     ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Exp, Log)
+
+  /** The [[standard]] set with the functions that need the pre-process
+   * multiplier replaced by the ones that take a scaled argument.
+   *
+   * includes:
+   * <ul>
+   *   <li> sqrt       </li>
+   *   <li> invsqrt    </li>
+   *   <li> reciprocal </li>
+   *   <li> acos       </li>
+   *   <li> atan2      </li>
+   *   <li> log        </li>
+   *   <li> pow2       </li>
+   *   <li> sinpi      </li>
+   *   <li> cospi      </li>
+   * </ul>
+   */
+  val standardScaled = Seq(Sqrt, InvSqrt, Reciprocal,
+    ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Log, Pow2, SinPi, CosPi)
 
   /** Defines all the supported math functions including too task-specific ones.
    *
@@ -379,6 +431,23 @@ object MathFuncConfig {
   /** Default BF16 config supporting the [[standard]] function set. */
   val standardBF16 = new MathFuncConfig(
     funcs   = standard,
+    nOrder  = 0,
+    addrW   = RealSpec.BFloat16Spec.manW,
+    inBitW  = 0,
+    outBitW = RealSpec.BFloat16Spec.manW + 1,
+  )
+
+  /** Default FP32 config supporting the [[standardScaled]] function set. */
+  val standardScaledFP32 = new MathFuncConfig(
+    funcs   = standardScaled,
+    nOrder  = 2,
+    addrW   = 8,
+    inBitW  = RealSpec.Float32Spec.manW - 8,
+    outBitW = RealSpec.Float32Spec.manW + 3,
+  )
+  /** Default BF16 config supporting the [[standardScaled]] function set. */
+  val standardScaledBF16 = new MathFuncConfig(
+    funcs   = standardScaled,
     nOrder  = 0,
     addrW   = RealSpec.BFloat16Spec.manW,
     inBitW  = 0,

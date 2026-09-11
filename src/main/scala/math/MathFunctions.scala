@@ -48,10 +48,11 @@ import scala.reflect.ClassTag
  * function, named after it with [[rial.math.FuncKind.pointName]]: the
  * boundaries of the argument reduction of `Sqrt` are `"pre.sqrt.*"` and those
  * of its result assembly `"post.sqrt.*"`, see the doc of the corresponding
- * submodule for the names. `Sin` and `Cos` share the path `"sinCos"`. `"pre"
- * -> n` (or `"post" -> n`) adds `n` registers to every path of the set; unless
- * each function keeps its own latency (see below), the paths of a set are
- * padded to the longest of them.
+ * submodule for the names. `Sin` and `Cos` share the path `"sinCos"`, and
+ * `SinPi` and `CosPi` the path `"sinPi"`; the path of `Pow2` is `"pow2"`.
+ * `"pre" -> n` (or `"post" -> n`) adds `n` registers to every path of the set;
+ * unless each function keeps its own latency (see below), the paths of a set
+ * are padded to the longest of them.
  *
  * `"preMul.*"`, `"mulArgs"` and `"postMul.*"` exist only when one of the
  * configured functions needs the corresponding multiplier;
@@ -797,7 +798,9 @@ class MathFunctions(
     case InvSqrt     => InvSqrt     -> Module(new InvSqrtPreProcess    (spec, bitW, preStage(InvSqrt    )))
     case Reciprocal  => Reciprocal  -> Module(new ReciprocalPreProcess (spec, bitW, preStage(Reciprocal )))
     case Sin         => Sin         -> Module(new SinCosPreProcess     (spec, bitW, preStage(Sin        ), cfg.sinCos))
+    case SinPi       => SinPi       -> Module(new SinCosPreProcess     (spec, bitW, preStage(SinPi      ), cfg.sinCos, scaled = true))
     case Exp         => Exp         -> Module(new ExpPreProcess        (spec, bitW, preStage(Exp        )))
+    case Pow2        => Pow2        -> Module(new ExpPreProcess        (spec, bitW, preStage(Pow2       )))
     case Log         => Log         -> Module(new LogPreProcess        (spec, bitW, preStage(Log        )))
     case ACosPhase1  => ACosPhase1  -> Module(new ACosPhase1PreProcess (spec, bitW, preStage(ACosPhase1 )))
     case ACosPhase2  => ACosPhase2  -> Module(new ACosPhase2PreProcess (spec, bitW, preStage(ACosPhase2 )))
@@ -817,8 +820,10 @@ class MathFunctions(
     case InvSqrt     => InvSqrt     -> Module(new InvSqrtTableCoeff    (spec, coeffs(InvSqrt    ), nTable))
     case Reciprocal  => Reciprocal  -> Module(new ReciprocalTableCoeff (spec, coeffs(Reciprocal ), nTable))
     case Sin         => Sin         -> Module(new SinCosTableCoeff     (spec, coeffs(Sin        ), nTable))
+    case SinPi       => SinPi       -> Module(new SinCosTableCoeff     (spec, coeffs(SinPi      ), nTable))
     case Log         => Log         -> Module(new LogTableCoeff        (spec, coeffs(Log        ), nTable))
     case Exp         => Exp         -> Module(new ExpTableCoeff        (spec, coeffs(Exp        ), nTable))
+    case Pow2        => Pow2        -> Module(new ExpTableCoeff        (spec, coeffs(Pow2       ), nTable))
     // ACosPhase1 shares Sqrt's TableCoeff
     case ACosPhase2  => ACosPhase2  -> Module(new ACosPhase2TableCoeff (spec, coeffs(ACosPhase2 ), nTable))
     // ATan2Phase1 shares Reciprocal's TableCoeff
@@ -839,6 +844,7 @@ class MathFunctions(
     case Reciprocal => Reciprocal -> Module(new ReciprocalNonTable(spec, bitW, nonTableStage))
     // sincos / acos do not have a dedicated non-table path
     case Exp        => Exp        -> Module(new ExpNonTable       (spec, bitW, nonTableStage))
+    case Pow2       => Pow2       -> Module(new ExpNonTable       (spec, bitW, nonTableStage))
     case Log        => Log        -> Module(new LogNonTable       (spec, bitW, nonTableStage))
     // ACosPhase1 reuses SqrtNonTable
     // ACosPhase2 doesn't need one.
@@ -849,7 +855,9 @@ class MathFunctions(
     case InvSqrt     => InvSqrt     -> Module(new InvSqrtPostProcess    (spec, bitW, postStage(InvSqrt    )))
     case Reciprocal  => Reciprocal  -> Module(new ReciprocalPostProcess (spec, bitW, postStage(Reciprocal )))
     case Sin         => Sin         -> Module(new SinCosPostProcess     (spec, bitW, postStage(Sin        )))
+    case SinPi       => SinPi       -> Module(new SinCosPostProcess     (spec, bitW, postStage(SinPi      )))
     case Exp         => Exp         -> Module(new ExpPostProcess        (spec, bitW, postStage(Exp        )))
+    case Pow2        => Pow2        -> Module(new ExpPostProcess        (spec, bitW, postStage(Pow2       )))
     case Log         => Log         -> Module(new LogPostProcess        (spec, bitW, postStage(Log        )))
     case ACosPhase1  => ACosPhase1  -> Module(new ACosPhase1PostProcess (spec, bitW, postStage(ACosPhase1 )))
     case ACosPhase2  => ACosPhase2  -> Module(new ACosPhase2PostProcess (spec, bitW, postStage(ACosPhase2 )))
@@ -1022,6 +1030,57 @@ class MathFunctions(
   }
 
   // --------------------------------------------------------------------------
+  // SinPi / CosPi -- the caller scaled the argument, so the constant of the
+  // pre-multiplication is one and the pre-process multiplier stays out of it.
+
+  if(cfg.has(SinPi) || cfg.has(CosPi)) {
+    assert(postMul.isDefined, "SinPi/CosPi requires the post-process multiplier")
+
+    val sinpiPre  = toModule[SinCosPreProcess ](pres (SinPi))
+    val sinpiTab  = toModule[SinCosTableCoeff ](tabs (SinPi))
+    val sinpiPost = toModule[SinCosPostProcess](posts(SinPi))
+
+    // ----- pre stage: the argument and its product with the constant one -----
+    val isSinAtPre    = selPreOf(SinPi) === cfg.signal(SinPi)
+    val sinpiSelAtPre = isSinAtPre || (selPreOf(CosPi) === cfg.signal(CosPi))
+
+    sinpiPre.io.isSin := isSinAtPre
+    sinpiPre.io.x.valid := xPreOf(SinPi).valid && sinpiSelAtPre
+    sinpiPre.io.x.bits  := xPreOf(SinPi).bits
+
+    sinpiPre.io.prod.valid := xPreOf(SinPi).valid && sinpiSelAtPre
+    sinpiPre.io.prod.bits  :=
+      SinCosPreMulArgs.prodOfOne(spec, xPreOf(SinPi).bits.man)
+
+    // ----- table -----
+    sinpiTab.io.adr := sinpiPre.io.adr
+
+    polynomialCoefs(SinPi) := sinpiTab.io.cs
+    polynomialCoefs(CosPi) := sinpiTab.io.cs
+    if(bitW.nOrder != 0) {
+      polynomialDxs.get(SinPi) := sinpiPre.io.dx.get
+      polynomialDxs.get(CosPi) := sinpiPre.io.dx.get
+    }
+
+    // ----- post-mult operands: polynomial * (1 + yman) -----
+    val sinpiInfoAtPost = Pipe(sinpiPre.io.info, nTabToPoly)
+
+    Seq(SinPi, CosPi).foreach(fn => {
+      postMulArgs.get(fn).valid    :=
+        polynomialEval.io.out.valid && sinpiInfoAtPost.valid
+      postMulArgs.get(fn).bits.lhs := Cat(1.U(1.W), polynomialEval.io.out.bits)
+      postMulArgs.get(fn).bits.rhs := Cat(1.U(1.W), sinpiInfoAtPost.bits.yman)
+    })
+
+    // ----- post -----
+    sinpiPost.io.pre := Pipe(sinpiInfoAtPost, nMulToPostOf(SinPi))
+    sinpiPost.io.mul := postMul.get.io.out
+
+    zs(SinPi) := sinpiPost.io.z
+    zs(CosPi) := sinpiPost.io.z
+  }
+
+  // --------------------------------------------------------------------------
   // Exp
 
   if(cfg.has(Exp)) {
@@ -1066,6 +1125,47 @@ class MathFunctions(
     post.io.in.bits.zres := zresAtPostOf(Exp).bits
 
     zs(Exp) := post.io.z
+  }
+
+  // --------------------------------------------------------------------------
+  // Pow2 -- the caller scaled the argument, so the constant of the
+  // pre-multiplication is one and the pre-process multiplier stays out of it.
+
+  if(cfg.has(Pow2)) {
+    val pre  = toModule[ExpPreProcess ](pres   (Pow2))
+    val tab  = toModule[ExpTableCoeff ](tabs   (Pow2))
+    val ntab = toModule[ExpNonTable   ](nontabs(Pow2))
+    val post = toModule[ExpPostProcess](posts  (Pow2))
+
+    // ----- pre stage: the argument and its product with the constant one -----
+    val pow2SelAtPre = selPreOf(Pow2) === cfg.signal(Pow2)
+
+    pre.io.x.valid := xPreOf(Pow2).valid && pow2SelAtPre
+    pre.io.x.bits  := xPreOf(Pow2).bits
+    pre.io.prod.valid := xPreOf(Pow2).valid && pow2SelAtPre
+    pre.io.prod.bits  := ExpPreMulArgs.prodOfOne(spec, xPreOf(Pow2).bits.man)
+
+    // ----- table -----
+    tab.io.adr := pre.io.adr
+
+    polynomialCoefs(Pow2) := tab.io.cs
+    if(bitW.nOrder != 0) {
+      polynomialDxs.get(Pow2) := pre.io.dx.get
+    }
+
+    // ----- non-table ------
+    ntab.io.x.valid := xTabOf(Pow2).valid && selTabOf(Pow2) === cfg.signal(Pow2)
+    ntab.io.x.bits  := xTabOf(Pow2).bits
+    ntab.io.info := pre.io.info
+
+    // ----- post -----
+    val ntabAtPost = Pipe(ntab.io.z, nMulToPostOf(Pow2))
+
+    post.io.in.valid     := ntabAtPost.valid && zresAtPostOf(Pow2).valid
+    post.io.in.bits.info := ntabAtPost.bits
+    post.io.in.bits.zres := zresAtPostOf(Pow2).bits
+
+    zs(Pow2) := post.io.z
   }
 
   // --------------------------------------------------------------------------
@@ -1524,7 +1624,8 @@ object MathFunctions {
 
   /** The argument reduction of each configured function, in `cfg.funcs` order.
    *
-   * `Sin` and `Cos` share one pre-process, so they contribute one path.
+   * `Sin` and `Cos` share one pre-process, so they contribute one path, and so
+   * do `SinPi` and `CosPi`.
    *
    * @param cfg configuration of the module these paths are for
    */
@@ -1535,11 +1636,13 @@ object MathFunctions {
       case InvSqrt     => path(InvSqrt,     InvSqrtPreProcess            .stagePoints)
       case Reciprocal  => path(Reciprocal,  ReciprocalPreProcess         .stagePoints)
       case Sin         => path(Sin,         SinCosPreProcess             .stagePoints)
+      case SinPi       => path(SinPi,       SinCosPreProcess             .stagePoints)
       case ACosPhase1  => path(ACosPhase1,  ACosPhase1PreProcess         .stagePoints)
       case ACosPhase2  => path(ACosPhase2,  ACosPhase2PreProcess         .stagePoints)
       case ATan2Phase1 => path(ATan2Phase1, ATan2Phase1PreProcess        .stagePoints)
       case ATan2Phase2 => path(ATan2Phase2, ATan2Phase2PreProcess        .stagePoints)
       case Exp         => path(Exp,         ExpPreProcess                .stagePoints)
+      case Pow2        => path(Pow2,        ExpPreProcess                .stagePoints)
       case Log         => path(Log,         LogPreProcess                .stagePoints)
       case Sigmoid     => path(Sigmoid,     SigmoidPreProcess            .stagePoints)
       case SoftPlus    => path(SoftPlus,    SoftPlusPreProcess           .stagePoints)
@@ -1551,7 +1654,8 @@ object MathFunctions {
 
   /** The result assembly of each configured function, in `cfg.funcs` order.
    *
-   * `Sin` and `Cos` share one post-process, so they contribute one path.
+   * `Sin` and `Cos` share one post-process, so they contribute one path, and so
+   * do `SinPi` and `CosPi`.
    *
    * @param cfg configuration of the module these paths are for
    */
@@ -1562,11 +1666,13 @@ object MathFunctions {
       case InvSqrt     => path(InvSqrt,     InvSqrtPostProcess            .stagePoints)
       case Reciprocal  => path(Reciprocal,  ReciprocalPostProcess         .stagePoints)
       case Sin         => path(Sin,         SinCosPostProcess             .stagePoints)
+      case SinPi       => path(SinPi,       SinCosPostProcess             .stagePoints)
       case ACosPhase1  => path(ACosPhase1,  ACosPhase1PostProcess         .stagePoints)
       case ACosPhase2  => path(ACosPhase2,  ACosPhase2PostProcess         .stagePoints)
       case ATan2Phase1 => path(ATan2Phase1, ATan2Phase1PostProcess        .stagePoints)
       case ATan2Phase2 => path(ATan2Phase2, ATan2Phase2PostProcess        .stagePoints)
       case Exp         => path(Exp,         ExpPostProcess                .stagePoints)
+      case Pow2        => path(Pow2,        ExpPostProcess                .stagePoints)
       case Log         => path(Log,         LogPostProcess                .stagePoints)
       case Sigmoid     => path(Sigmoid,     SigmoidPostProcess            .stagePoints)
       case SoftPlus    => path(SoftPlus,    SoftPlusPostProcess           .stagePoints)

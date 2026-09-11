@@ -70,6 +70,22 @@ object SinCosPreMulArgs {
     val w = out.getWidth
     out(w - 1, w - prodW(spec))
   }
+
+  /** The product of the mantissa by the constant one, in the field [[prod]]
+   *  occupies: what the pre-process reads for an argument the caller has
+   *  already divided by π. The pre-process takes the exponent of such a
+   *  product from the argument itself, see `scaled` of
+   *  [[rial.math.SinCosPreProcess]].
+   *
+   *  @param spec floating point spec of the argument
+   *  @param man  mantissa of the argument, without its hidden one
+   */
+  def prodOfOne(spec: RealSpec, man: UInt): UInt = {
+    val product = Cat(0.U(1.W), 1.U(1.W), man, 0.U((lhsW(spec) - 1).W))
+    assert(product.getWidth == prodW(spec),
+      f"prodOfOne(${product.getWidth}) must be prodW(${prodW(spec)}) wide")
+    product
+  }
 }
 
 // -------------------------------------------------------------------------
@@ -178,6 +194,9 @@ class SinCosPreProcess(
   val bitW:   PolynomialBitWidth,
   val stage:  PipelineStageConfig,
   val domain: Option[SinCosDomain] = None,
+  // whether the caller has already divided the argument by π, in which case
+  // `io.prod` carries the product of the mantissa by the constant one
+  val scaled: Boolean = false,
 ) extends Module {
 
   val exW    = spec.exW
@@ -228,7 +247,13 @@ class SinCosPreProcess(
 
   val xOverPiProd          = Mux(xex === 0.U, 0.U, prodIn)
   val xOverPiProdMoreThan2 = xOverPiProd((1 + manW) + oneOverPiW - 1)
-  val xOverPiExComb        = xex -& 2.U + xOverPiProdMoreThan2
+  // With the constant one the product is the mantissa itself and x/π is x,
+  // so the exponent is the one of x.
+  val xOverPiExComb = if (scaled) {
+    Cat(0.U(1.W), xex)
+  } else {
+    xex -& 2.U + xOverPiProdMoreThan2
+  }
   // x.ex > xOverPiEx always (xOverPiProdMoreThan2 ≤ 1); overflow here just
   // means x/π is tiny, not infinite.
 

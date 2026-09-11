@@ -106,6 +106,18 @@ class PerFunctionLatencyTest extends AnyFunSpec with ChiselSim {
         val x = within(spec, -87.0, 88.0)
         op(x, ExpSimGeneric(cfg.coeffs(Exp), x))
       }
+      case Pow2 => {
+        val x = within(spec, -126.0, 127.0)
+        op(x, Pow2SimGeneric(cfg.coeffs(Pow2), x))
+      }
+      case SinPi => {
+        val x = within(spec, -2.0, 2.0)
+        op(x, SinPiSimGeneric(true, cfg.coeffs(SinPi), x))
+      }
+      case CosPi => {
+        val x = within(spec, -2.0, 2.0)
+        op(x, SinPiSimGeneric(false, cfg.coeffs(CosPi), x))
+      }
       case Log => {
         val x = within(spec, 0.0, 128.0)
         val (cN, cP, cG) = logCoeffs.get
@@ -280,6 +292,7 @@ class PerFunctionLatencyTest extends AnyFunSpec with ChiselSim {
   val standardFP32 = MathFuncConfig.standardFP32
   val simpleFP32   = MathFuncConfig.simpleFP32
   val standardBF16 = MathFuncConfig.standardBF16
+  val standardScaledFP32 = MathFuncConfig.standardScaledFP32
 
   /** sin/cos reduced only over the range their arguments stay in. */
   val twoPiFP32 = standardFP32.restrictSinCos(Some(SinCosDomain.twoPi(fp32)))
@@ -319,6 +332,9 @@ class PerFunctionLatencyTest extends AnyFunSpec with ChiselSim {
 
   runtest("standardBF16, four registers", standardBF16, bf16,
     PipelineStageConfig.default(4), MulImpl.plain, true)
+
+  runtest("standardScaledFP32, six registers", standardScaledFP32, fp32,
+    PipelineStageConfig.default(6), MulImpl.plain, true, showLatencies = true)
 
   runtest("standardFP32, six registers, one latency for every function",
     standardFP32, fp32, PipelineStageConfig.default(6), MulImpl.plain, false)

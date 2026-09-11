@@ -60,6 +60,20 @@ object ExpPreMulArgs {
     val w = out.getWidth
     out(w - 1, w - prodW(spec))
   }
+
+  /** The product of the mantissa by the constant one, in the field [[prod]]
+   *  occupies: what the pre-process reads for an argument the caller has
+   *  already multiplied by log2(e).
+   *
+   *  @param spec floating point spec of the argument
+   *  @param man  mantissa of the argument, without its hidden one
+   */
+  def prodOfOne(spec: RealSpec, man: UInt): UInt = {
+    val product = Cat(0.U(1.W), 1.U(1.W), man, 0.U((lhsW(spec) - 1).W))
+    assert(product.getWidth == prodW(spec),
+      f"prodOfOne(${product.getWidth}) must be prodW(${prodW(spec)}) wide")
+    product
+  }
 }
 
 // -------------------------------------------------------------------------

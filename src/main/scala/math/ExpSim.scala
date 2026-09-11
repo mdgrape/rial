@@ -99,11 +99,14 @@ object ExpSimGeneric {
    *  @param x            input
    *  @param log2eExtraW  precision pad for the log2(e) constant. If `None`,
    *                      uses `defaultLog2eExtraW(x.spec)`.
+   *  @param scaled       whether the argument is already multiplied by
+   *                      log2(e), in which case the result is 2^x.
    */
   def apply(
     t:            PolynomialCoefficients,
     x:            RealGeneric,
     log2eExtraW:  Option[Int] = None,
+    scaled:       Boolean     = false,
   ): RealGeneric = {
 
     val spec   = x.spec
@@ -139,7 +142,11 @@ object ExpSimGeneric {
     // emulated pre-mult: x * log2(e)
 
     val log2eManW  = manW + log2eW
-    val log2eFixed = (Real.one / Real.log2)(log2eManW)
+    val log2eFixed = if (scaled) {
+      SafeLong(1) << log2eManW
+    } else {
+      (Real.one / Real.log2)(log2eManW)
+    }
 
     val xprod          = x.manW1 * log2eFixed
     val xprodW         = (1 + manW) + (1 + log2eManW)
@@ -239,5 +246,21 @@ object ExpSimGeneric {
     if (zex <= 0)          { return RealGeneric.zero(spec)    }
 
     new RealGeneric(spec, 0, zex.toInt, z)
+  }
+}
+
+/** Software simulator for the hardware that computes 2^x, the pipeline of
+ *  [[rial.math.ExpSimGeneric]] for an argument the caller has already
+ *  multiplied by log2(e).
+ */
+object Pow2SimGeneric {
+
+  /** Compute 2^x.
+   *
+   *  @param t polynomial coefficients (from ExpTable)
+   *  @param x input
+   */
+  def apply(t: PolynomialCoefficients, x: RealGeneric): RealGeneric = {
+    ExpSimGeneric(t, x, None, scaled = true)
   }
 }

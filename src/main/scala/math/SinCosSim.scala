@@ -114,12 +114,15 @@ object SinCosSimGeneric {
    *  @param x            input
    *  @param oneOverPiPad precision pad for the 1/pi constant; must match
    *                      the hardware. `None` uses `defaultOneOverPiPad`.
+   *  @param scaled       whether the argument is already divided by pi, in
+   *                      which case the result is sin(pi x) or cos(pi x).
    */
   def apply(
     isSin: Boolean,
     t:     PolynomialCoefficients,
     x:     RealGeneric,
     oneOverPiPad: Option[Int] = None,
+    scaled:       Boolean     = false,
   ): RealGeneric = {
 
     val spec   = x.spec
@@ -138,21 +141,32 @@ object SinCosSimGeneric {
     // set bit of the integer representation of 1/pi lands at position
     // `manW + pad`.
 
-    val oneOverPi = (Real.one / Real.pi)(manW + 2 + pad)
+    val oneOverPi = if (scaled) {
+      SafeLong(1) << (manW + pad)
+    } else {
+      (Real.one / Real.pi)(manW + 2 + pad)
+    }
     assert(bit(manW + pad, oneOverPi) == 1L)
 
     // No rounding here: we will later subtract 0.5 or 1.5 from this value,
     // so the low bits matter.
     val xOverPiProd          = x.manW1 * oneOverPi
     val xOverPiProdMoreThan2 = bit((1 + manW) + (1 + manW + pad) - 1, xOverPiProd)
-    val xOverPiEx            = if (x.ex == 0) 0 else x.ex - 2 + xOverPiProdMoreThan2
+    val xOverPiEx            = if (x.ex == 0) {
+      0
+    } else if (scaled) {
+      // with the constant one the product is the mantissa itself, so x/pi is x
+      x.ex
+    } else {
+      x.ex - 2 + xOverPiProdMoreThan2
+    }
 
     // extend the fraction one more bit (or not, depending on the overflow)
     val xOverPi      = xOverPiProd << (1 - xOverPiProdMoreThan2)
     val xOverPiFracW = (1 + manW) + (1 + manW + pad) - 1
 
-    assert((SafeLong(1) << xOverPiFracW) < xOverPi &&
-                                           xOverPi < (SafeLong(1) << (xOverPiFracW + 1)))
+    assert((SafeLong(1) << xOverPiFracW) <= xOverPi &&
+                                            xOverPi < (SafeLong(1) << (xOverPiFracW + 1)))
 
     // -----------------------------------------------------------------------
     // fold full-range x/pi into [0, 2)
@@ -203,11 +217,13 @@ object SinCosSimGeneric {
     // sin: pi/2-x or pi-x or x-pi or 2pi-x
     // cos: pi/2-x or x-pi/2 or 3pi/2-x or x-3pi/2
 
+    // The hardware folds the quadrant by complementing the bits of the aligned
+    // argument, which is the exact reflection less one unit in its last place.
     val (yex0, yman0): (Int, SafeLong) = if (isSin) {
       if (xOverPiAlignedMoreThan3over2 || xOverPiAlignedMoreThan1over2) {
         // pi/2 < |x|%(2pi) < pi    or    3/2 pi < |x|%(2pi) < 2pi
         (exBias,
-         (SafeLong(1) << (1 + xOverPiFracW - 1))
+         maskSL(1 + xOverPiFracW - 1)
            - slice(0, 1 + xOverPiFracW - 1, xOverPiAligned))
       } else if (xOverPiAlignedMoreThan1 || xOverPiIsZero ||
                  (exBias <= xOverPiEx && xOverPiAligned2MSBs == 0)) {
@@ -222,7 +238,7 @@ object SinCosSimGeneric {
         (exBias, slice(0, 1 + xOverPiFracW - 2, xOverPiAligned))
       } else {
         (exBias,
-         (SafeLong(1) << (1 + xOverPiFracW - 2))
+         maskSL(1 + xOverPiFracW - 2)
            - slice(0, 1 + xOverPiFracW - 2, xOverPiAligned))
       }
     }
@@ -323,5 +339,23 @@ object SinCosSimGeneric {
     val zEx  = wex - exBias + yex - exBias + zExInc + exBias + 2 // 2 for table
 
     new RealGeneric(spec, zSgn, zEx, zMan)
+  }
+}
+
+/** Software simulator for the hardware that computes sin(pi x) and cos(pi x),
+ *  the pipeline of [[rial.math.SinCosSimGeneric]] for an argument the caller
+ *  has already divided by pi.
+ */
+object SinPiSimGeneric {
+
+  /** Compute sin(pi x) or cos(pi x).
+   *
+   *  @param isSin true for sin(pi x), false for cos(pi x)
+   *  @param t     polynomial coefficients (from SinCosTable)
+   *  @param x     input
+   */
+  def apply(isSin: Boolean, t: PolynomialCoefficients, x: RealGeneric):
+      RealGeneric = {
+    SinCosSimGeneric(isSin, t, x, None, scaled = true)
   }
 }
