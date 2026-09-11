@@ -299,7 +299,8 @@ class PerFunctionLatencyTest extends AnyFunSpec with ChiselSim {
     "pre.atan2Phase1.ex", "pre.atan2Phase1.out", "pre.atan2Phase2.out",
     "pre.atan2Phase2.shift", "pre.exp.neg", "pre.exp.round", "pre.exp.shift",
     "pre.invSqrt.out", "pre.log.out", "pre.reciprocal.out", "pre.sinCos.fold",
-    "pre.sinCos.norm", "pre.sinCos.shift", "pre.sqrt.out", "table",
+    "pre.sinCos.lead", "pre.sinCos.norm", "pre.sinCos.shift", "pre.sqrt.out",
+    "table",
     "poly.step1", "poly.out", "poly.prod1.pp", "poly.prod2.pp", "preMul.pp",
     "preMul.out", "postMul.prod.pp", "postMul.prod", "postMul.out",
     "preMul.chain1").map(n => n -> 1).toMap)

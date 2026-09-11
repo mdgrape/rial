@@ -87,10 +87,13 @@ object SinCosPreMulArgs {
  *  cos(x) is ±1). For an |x| outside the range the result is a
  *  meaningless, but finite, value in [-1, 1].
  *
- *  A narrower range shortens the two segments of the reduction that carry
- *  the fold and the normalisation of what it leaves, `"pre.sinCos.norm" ->
- *  "pre.sinCos.fold"` and `"pre.sinCos.fold" -> "pre.sinCos.shift"`; it
- *  changes neither the boundaries nor the latency of
+ *  A narrower range shortens the segments of the reduction that carry the
+ *  fold and the normalisation of what it leaves: `"pre.sinCos.norm" ->
+ *  "pre.sinCos.fold"`, which aligns |x|/π over fewer bits,
+ *  `"pre.sinCos.fold" -> "pre.sinCos.lead"`, which searches a shorter
+ *  window for the leading one, and `"pre.sinCos.lead" ->
+ *  "pre.sinCos.shift"`, which shifts by a narrower amount; it changes
+ *  neither the boundaries nor the latency of
  *  [[rial.math.SinCosPreProcess]].
  *
  *  {{{
@@ -344,24 +347,37 @@ class SinCosPreProcess(
 
   // normalize yman0: shift its leading one up, and take the shift out of the
   // exponent.
-  val yman0W           = yman0.getWidth
-  val maxNormShift     = range.maxNormShiftOf(spec).getOrElse(yman0W - 1)
-  val yman0ShiftW      = log2Ceil(maxNormShift + 1)
-  val yman0Shift0      = PriorityEncoder(Reverse(yman0.head(maxNormShift + 1)))
-  val yman0Shift       = yman0Shift0(yman0ShiftW - 1, 0)
-  val yman0ShiftedComb = (yman0 << yman0Shift)(yman0W - 1, 0)
-  val yexShiftedComb   = yex0 - yman0Shift
+  val yman0W       = yman0.getWidth
+  val maxNormShift = range.maxNormShiftOf(spec).getOrElse(yman0W - 1)
+  val yman0ShiftW  = log2Ceil(maxNormShift + 1)
+  val yman0Shift0  = PriorityEncoder(Reverse(yman0.head(maxNormShift + 1)))
+  val yman0Shift   = yman0Shift0(yman0ShiftW - 1, 0)
+
+  // --------------------------------------------------------------------------
+  // stage "lead": the position of the leading one
+
+  private val cutLead = new SharedPipe("lead", cutFold.valid, stages.at("lead"))
+
+  val yman0ShiftLead    = cutLead(yman0Shift)
+  val yman0Lead         = cutLead(yman0)
+  val yex0Lead          = cutLead(yex0)
+  val ymanIsNonZeroLead = cutLead(ymanIsNonZeroComb)
+  val zsgnLead          = cutLead(zsgnFold)
+  val znanLead          = cutLead(znanFold)
+
+  val yman0ShiftedComb = (yman0Lead << yman0ShiftLead)(yman0W - 1, 0)
+  val yexShiftedComb   = yex0Lead - yman0ShiftLead
 
   // --------------------------------------------------------------------------
   // stage "shift": the normalized argument
 
-  private val cutShift = new SharedPipe("shift", cutFold.valid, stages.at("shift"))
+  private val cutShift = new SharedPipe("shift", cutLead.valid, stages.at("shift"))
 
   val yman0Shifted  = cutShift(yman0ShiftedComb)
   val yexShifted    = cutShift(yexShiftedComb)
-  val ymanIsNonZero = cutShift(ymanIsNonZeroComb)
-  val zsgnShift     = cutShift(zsgnFold)
-  val znanShift     = cutShift(znanFold)
+  val ymanIsNonZero = cutShift(ymanIsNonZeroLead)
+  val zsgnShift     = cutShift(zsgnLead)
+  val znanShift     = cutShift(znanLead)
 
   // round it to a manW-bit mantissa, like the old code.
   val yman0RoundBit = yman0W - manW - 1
@@ -418,6 +434,7 @@ object SinCosPreProcess {
    *
    *  - `"norm"`  the normalized x/π
    *  - `"fold"`  the folded argument
+   *  - `"lead"`  the position of the leading one of the folded argument
    *  - `"shift"` the normalized argument
    *  - `"round"` the rounded argument
    *  - `"out"`   the table address and the info
@@ -425,7 +442,8 @@ object SinCosPreProcess {
   val stagePoints: Seq[StageElem] = Seq(
     StagePoint("norm",  3.0),
     StagePoint("fold",  4.0),
-    StagePoint("shift", 2.0),
+    StagePoint("lead",  1.0),
+    StagePoint("shift", 1.0),
     StagePoint("round", 2.0),
     StagePoint("out",   2.0))
 }
