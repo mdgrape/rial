@@ -37,7 +37,10 @@ import scala.reflect.ClassTag
  *                  submodule that evaluates the polynomial of the interval,
  *                  see its doc for the names; the group name `"poly"` stands
  *                  for `"poly.out"`
- *  - `"mulArgs"`   after the post-process multiplier operand selection
+ *  - `"mulArgs.*"` the operands of the post-process multiplier: `"form"`
+ *                  after each function has formed the operands it offers and
+ *                  `"out"` after the selected ones; the group name
+ *                  `"mulArgs"` stands for `"mulArgs.out"`
  *  - `"postMul.*"` the boundaries of the shared post-process multiplier,
  *                  see [[rial.math.PostProcMultiplier]] for the names
  *  - `"post.*"`    the result assembly of each function, one path per
@@ -54,7 +57,7 @@ import scala.reflect.ClassTag
  * unless each function keeps its own latency (see below), the paths of a set
  * are padded to the longest of them.
  *
- * `"preMul.*"`, `"mulArgs"` and `"postMul.*"` exist only when one of the
+ * `"preMul.*"`, `"mulArgs.*"` and `"postMul.*"` exist only when one of the
  * configured functions needs the corresponding multiplier;
  * [[MathFunctions.stagePoints]] gives the points of a given configuration.
  *
@@ -306,7 +309,25 @@ class MathFunctions(
   }
 
   val nMulArgs = if (needPostMul) {
-    stages.at("mulArgs")
+    stages.latency("mulArgs")
+  } else {
+    0
+  }
+
+  /** registers between the operands a function forms and their selection.
+   *
+   * The `"in"` of the group sits where the polynomial output already is, so
+   * its registers stand before the operands are formed as well.
+   */
+  val nMulArgsForm = if (needPostMul) {
+    stages.at("mulArgs.in") + stages.at("mulArgs.form")
+  } else {
+    0
+  }
+
+  /** registers after the selection of the operands. */
+  val nMulArgsOut = if (needPostMul) {
+    stages.at("mulArgs.out")
   } else {
     0
   }
@@ -329,8 +350,8 @@ class MathFunctions(
     1 + bitW.outBitW, 1 + manW)
 
   // Post-mult operands, one set per function, driven the same way as the
-  // pre-mult ones; the selection itself sits at the "mulArgs" boundary below,
-  // where the function signal has reached the polynomial output.
+  // pre-mult ones; the selection itself sits at the "mulArgs.out" boundary
+  // below, where the function signal has reached the formed operands.
   val postMulArgs: Option[Map[FuncKind, Valid[MathFunctions.MulOperands]]] =
     if (needPostMul) {
       Some(cfg.funcs.map(fn => {
@@ -617,16 +638,39 @@ class MathFunctions(
   // multiplier
   // ==========================================================================
 
-  // the operand set of the function `selPost` names, on its way to the
+  private val cutMulArgs = new SharedPipe("mulArgs", cutPoly.valid, nMulArgs)
+
+  private val selMulTaps = cutMulArgs.taps(selPost)
+  private val tagMulTaps = tagPost.map(t => cutMulArgs.taps(t))
+
+  val selMul = selMulTaps.last
+
+  /** the function signal where the formed operands are selected. */
+  private val selMulArgsForm = selMulTaps(nMulArgsForm)
+
+  // stage "mulArgs.form": the operand set every function offers, each one
+  // carried by the valid of its own function; a function that never uses
+  // the multiplier offers its zero set as it is
+  private val mulArgsForm: Option[Map[FuncKind, Valid[MathFunctions.MulOperands]]] =
+    postMulArgs.map(args => cfg.funcs.map(fn => {
+      if (FuncKind.needPostMult(fn)) {
+        val name = "mulArgsForm" + FuncKind.pointName(fn).capitalize
+        fn -> cutValid(new SharedPipe(name, args(fn).valid, nMulArgsForm), args(fn))
+      } else {
+        fn -> args(fn)
+      }
+    }).toMap)
+
+  // the operand set of the function `selMulArgsForm` names, on its way to the
   // post-process multiplier
-  private val postMulIn = postMulArgs.map(args => {
-    MuxLookup(selPost, 0.U.asTypeOf(Valid(postMulOperands)))(
+  private val postMulIn = mulArgsForm.map(args => {
+    MuxLookup(selMulArgsForm, 0.U.asTypeOf(Valid(postMulOperands)))(
       cfg.funcs.map(fn => cfg.signal(fn) -> args(fn)))
   })
 
-  // stage "mulArgs": the selected operands
+  // stage "mulArgs.out": the selected operands
   private val cutMulArgsIn = postMulIn.map(in => {
-    new SharedPipe("mulArgsIn", in.valid, nMulArgs)
+    new SharedPipe("mulArgsIn", in.valid, nMulArgsOut)
   })
 
   if (postMul.isDefined) {
@@ -634,13 +678,6 @@ class MathFunctions(
     postMul.get.io.in.bits.lhs := cutMulArgsIn.get(postMulIn.get.bits.lhs)
     postMul.get.io.in.bits.rhs := cutMulArgsIn.get(postMulIn.get.bits.rhs)
   }
-
-  private val cutMulArgs = new SharedPipe("mulArgs", cutPoly.valid, nMulArgs)
-
-  private val selMulTaps = cutMulArgs.taps(selPost)
-  private val tagMulTaps = tagPost.map(t => cutMulArgs.taps(t))
-
-  val selMul = selMulTaps.last
 
   private val cutPostMul = new SharedPipe("postMul", cutMulArgs.valid, nPostMul)
 
@@ -1574,8 +1611,9 @@ object MathFunctions {
   /** Boundaries at which pipeline registers can be placed; see
    * [[rial.math.MathFunctions]]. The argument reduction and the result
    * assembly of the configured functions appear as the parallels `"pre"` and
-   * `"post"`, the polynomial and the multipliers as the groups `"poly"`,
-   * `"preMul"` and `"postMul"`.
+   * `"post"`, the polynomial, the multipliers and the operands of the
+   * post-process multiplier as the groups `"poly"`, `"preMul"`, `"mulArgs"`
+   * and `"postMul"`.
    *
    * `"preMul"`, `"mulArgs"` and `"postMul"` are declared only when one of the
    * functions of `cfg` needs the corresponding multiplier.
@@ -1606,7 +1644,8 @@ object MathFunctions {
       Seq.empty[StageElem]
     }
     val postMul: Seq[StageElem] = if (PostProcMultiplier.isNeeded(cfg.funcs)) {
-      Seq(StagePoint("mulArgs", 1.0),
+      Seq(StageGroup("mulArgs",
+            Seq(StagePoint("form", 1.0), StagePoint("out", 0.5))),
           StageGroup("postMul", PostProcMultiplier.stagePoints(postMulImpl)))
     } else {
       Seq.empty[StageElem]

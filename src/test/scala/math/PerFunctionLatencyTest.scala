@@ -151,7 +151,7 @@ class PerFunctionLatencyTest extends AnyFunSpec with ChiselSim {
     val waits = cfg.funcs.exists(g => FuncKind.needPostMult(g)) &&
       (!perFunctionLatency || FuncKind.needPostMult(fn))
     val postMul = if (waits) {
-      stages.at("mulArgs") + stages.latency("postMul")
+      stages.latency("mulArgs") + stages.latency("postMul")
     } else {
       0
     }
@@ -324,8 +324,17 @@ class PerFunctionLatencyTest extends AnyFunSpec with ChiselSim {
   runtest("standardFP32, a register at every boundary", standardFP32, fp32,
     MathTestUtil.allPoints(standardFP32), MulImpl.plain, true)
 
+  /** the 500 MHz placement with a register on the operands each function
+   *  offers to the post-process multiplier as well.
+   */
+  val atFiveHundredMHzForm = PipelineStageConfig.specify(
+    atFiveHundredMHz.explicit + ("mulArgs.form" -> 1))
+
   runtest("standardFP32 at 500 MHz, sin/cos over (-2pi, 2pi)", twoPiFP32, fp32,
     atFiveHundredMHz, MulImpl.split(17), true, showLatencies = true)
+
+  runtest("standardFP32 at 500 MHz, a register on the formed operands too",
+    standardFP32, fp32, atFiveHundredMHzForm, MulImpl.split(17), true)
 
   runtest("simpleFP32, three registers", simpleFP32, fp32,
     PipelineStageConfig.default(3), MulImpl.plain, true)
