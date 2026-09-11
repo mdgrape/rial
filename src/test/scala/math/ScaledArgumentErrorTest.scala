@@ -21,6 +21,11 @@ import scala.util.Random
 // relative error of both around the multiples of pi, where the rounding of
 // x / pi costs the most.
 //
+// The last table compares the two sinPi: the one whose table holds
+// sin(pi y)/y and multiplies by y in its post-process, and the one whose
+// table holds sin(pi y) itself, over the bands of |x| where the result
+// approaches zero.
+//
 // Run with:  sbt "testOnly rial.tests.ScaledArgumentErrorTest"
 //
 class ScaledArgumentErrorTest extends AnyFunSpec {
@@ -33,6 +38,7 @@ class ScaledArgumentErrorTest extends AnyFunSpec {
 
   val cfg       = MathFuncConfig.standardFP32
   val scaledCfg = MathFuncConfig.standardScaledFP32
+  val fixedCfg  = MathFuncConfig.standardFixedFP32
 
   val log2e = 1.0 / log(2.0)
 
@@ -115,6 +121,40 @@ class ScaledArgumentErrorTest extends AnyFunSpec {
           None
         }
       })
+    }
+  }
+
+  it("the error of sinPi(x) and of sinPiFixed(x) over the bands of |x|") {
+    println(f"sinPi(x) and sinPiFixed(x) against sin(pi x), ${n}%d arguments " +
+            f"per band")
+    println("  band            max ulp   mean ulp   max rel     max ulp   " +
+            "mean ulp   max rel")
+    println("                   sinPi      sinPi      sinPi     sinPiFixed " +
+            "sinPiFixed sinPiFixed")
+    for (k <- -24 to -2) {
+      var maxA = 0.0
+      var maxB = 0.0
+      var sumA = 0.0
+      var sumB = 0.0
+      var relA = 0.0
+      var relB = 0.0
+      for (i <- 1 to n) {
+        val x     = inBand(k)
+        val exact = sin(Pi * x.toDouble)
+        val ref   = fl32(exact)
+        val a = SinPiSimGeneric(true, scaledCfg.coeffs(SinPi), x)
+        val b = SinPiFixedSimGeneric(true, fixedCfg.coeffs(SinPiFixed), x)
+        maxA = max(maxA, ulp(a, ref))
+        maxB = max(maxB, ulp(b, ref))
+        sumA += ulp(a, ref)
+        sumB += ulp(b, ref)
+        if (exact != 0.0) {
+          relA = max(relA, abs(a.toDouble - exact) / abs(exact))
+          relB = max(relB, abs(b.toDouble - exact) / abs(exact))
+        }
+      }
+      println(f"  [2^$k%3d, 2^${k + 1}%3d)  ${maxA}%10.0f ${sumA / n}%10.1f " +
+              f"${relA}%10.2e ${maxB}%10.0f ${sumB / n}%10.1f ${relB}%10.2e")
     }
   }
 

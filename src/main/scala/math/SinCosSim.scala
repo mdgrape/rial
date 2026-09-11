@@ -89,50 +89,92 @@ object SinCosTable {
   }
 }
 
-/** Software simulator for the hardware sincos pipeline.
- *
- *  The hardware performs an `x * (1/pi)` multiplication in its pre-process
- *  stage; this simulator emulates that multiplication at the same precision
- *  as the hardware. The width of the 1/pi pad (`oneOverPiPad`) is exposed
- *  explicitly so that the eventual hardware port can use the same value.
- */
-object SinCosSimGeneric {
+// The table approximates  z(y0) = sin(Pi * y0 / 2)         for y0 in [0, 1)
+// z is in [0, 1), so the value is stored as it is.
+// (y0 at runtime corresponds to 2y, where y in [0, 1/2) is the argument-
+//  reduced |x|/pi after quadrant folding.)
+class SinPiFixedTable(
+  val nOrder:  Int,
+  val addrW:   Int,
+  val inBitW:  Int,
+  val outBitW: Int,
+) extends TableBase {
 
-  /** Default precision-pad bits for the 1/pi constant.
-   *
-   *  The 1/pi constant width is `manW + 2 + oneOverPiPad`. The default
-   *  `max(manW+1, 12)` matches the original math/ port, where 12 was the
-   *  minimum width needed to keep BFloat16 results within 2 LSB of an
-   *  FP64-reference computation.
+  private val func = (y0: Double) => {
+    sin(Pi * y0 / 2.0)
+  }
+
+  private val nIntervals = 1 << addrW
+  private val ft  = FuncTable(func, nOrder, nIntervals, 0.0, 1.0)
+  private val gen = new PolynomialGenerator(ft, inBitW, outBitW)
+
+  def getBitWidth(): PolynomialBitWidth = {
+    gen.getBitWidth()
+  }
+  def generateTable(bitW: PolynomialBitWidth): PolynomialCoefficients = {
+    gen.generateTable(bitW)
+  }
+}
+
+object SinPiFixedTable {
+  def fp32(): SinPiFixedTable = {
+    val addrW     = 8
+    val extraBits = 3
+    new SinPiFixedTable(
+      nOrder  = 2,
+      addrW   = addrW,
+      inBitW  = (RealSpec.Float32Spec.manW - addrW),
+      outBitW = (RealSpec.Float32Spec.manW + extraBits),
+    )
+  }
+  def bf16(): SinPiFixedTable = {
+    val addrW     = RealSpec.BFloat16Spec.manW
+    val extraBits = 1
+    new SinPiFixedTable(
+      nOrder  = 0,
+      addrW   = addrW,
+      inBitW  = (RealSpec.BFloat16Spec.manW - addrW),
+      outBitW = (RealSpec.BFloat16Spec.manW + extraBits),
+    )
+  }
+}
+
+// The argument reduction sin/cos and sinPi/cosPi share, and the value their
+// table holds for the argument it leaves.
+private[math] object SinCosReduction {
+
+  /** the sign of the result, the reduced argument y in [0, 1/2) and the value
+   *  of the table at it. The table is not read when y is 1/2 exactly, where
+   *  the result is +-1; `zres` is then zero.
    */
-  def defaultOneOverPiPad(spec: RealSpec): Int = max(spec.manW + 1, 12)
+  case class Reduced(
+    zsgn: Int,
+    yex:  Int,
+    yman: SafeLong,
+    zres: SafeLong,
+  )
 
-  /** Compute sin(x) or cos(x).
+  /** Reduce `x`, which must be finite, and read the table at what is left.
    *
-   *  @param isSin        true for sin(x), false for cos(x)
-   *  @param t            polynomial coefficients (from SinCosTable)
+   *  @param isSin        true for sin, false for cos
+   *  @param t            polynomial coefficients
    *  @param x            input
-   *  @param oneOverPiPad precision pad for the 1/pi constant; must match
-   *                      the hardware. `None` uses `defaultOneOverPiPad`.
-   *  @param scaled       whether the argument is already divided by pi, in
-   *                      which case the result is sin(pi x) or cos(pi x).
+   *  @param oneOverPiPad precision pad for the 1/pi constant
+   *  @param scaled       whether the argument is already divided by pi
    */
   def apply(
     isSin: Boolean,
     t:     PolynomialCoefficients,
     x:     RealGeneric,
-    oneOverPiPad: Option[Int] = None,
-    scaled:       Boolean     = false,
-  ): RealGeneric = {
+    oneOverPiPad: Option[Int],
+    scaled:       Boolean,
+  ): Reduced = {
 
     val spec   = x.spec
     val manW   = spec.manW
     val exBias = spec.exBias
 
-    if (x.isNaN)      { return RealGeneric.nan(spec) }
-    if (x.isInfinite) { return RealGeneric.nan(spec) }
-
-    val pad = oneOverPiPad.getOrElse(defaultOneOverPiPad(spec))
+    val pad = oneOverPiPad.getOrElse(SinCosSimGeneric.defaultOneOverPiPad(spec))
 
     // -----------------------------------------------------------------------
     // emulated pre-mult: x * (1/pi)
@@ -264,22 +306,13 @@ object SinCosSimGeneric {
     assert(yex != exBias - 1 || yman == SafeLong(0))
     assert(yman < (SafeLong(1) << manW))
 
-    // -----------------------------------------------------------------------
-    // special small-y cases
-
-    // y == 0.5 exactly  ->  result is ±1
+    // y == 0.5 exactly: the result is +-1, and the table is not read.
     if (yex == exBias - 1) {
-      assert(yman == SafeLong(0))
-      return new RealGeneric(spec, zSgn, exBias, SafeLong(0))
-    }
-    // y == 0  ->  result is ±0
-    if (yex == 0) {
-      assert(yman == SafeLong(0), f"yex == 0, but yman == ${yman}")
-      return new RealGeneric(spec, zSgn, 0, SafeLong(0))
+      return Reduced(zSgn, yex, yman, SafeLong(0))
     }
 
     // -----------------------------------------------------------------------
-    // table lookup of  z(2y) = sin(Pi*y) / y  in [1, Pi/2)
+    // table lookup
     //
     // The address used by the table is the bit pattern of `2y` (a manW-bit
     // unsigned in [0, 2^manW)). Note y in [0, 1/2) here, so 2y in [0, 1).
@@ -318,9 +351,80 @@ object SinCosSimGeneric {
       SafeLong(res0)
     }
 
+    Reduced(zSgn, yex, yman, res)
+  }
+}
+
+/** Software simulator for the hardware sincos pipeline.
+ *
+ *  The hardware performs an `x * (1/pi)` multiplication in its pre-process
+ *  stage; this simulator emulates that multiplication at the same precision
+ *  as the hardware. The width of the 1/pi pad (`oneOverPiPad`) is exposed
+ *  explicitly so that the eventual hardware port can use the same value.
+ */
+object SinCosSimGeneric {
+
+  /** Default precision-pad bits for the 1/pi constant.
+   *
+   *  The 1/pi constant width is `manW + 2 + oneOverPiPad`. The default
+   *  `max(manW+1, 12)` matches the original math/ port, where 12 was the
+   *  minimum width needed to keep BFloat16 results within 2 LSB of an
+   *  FP64-reference computation.
+   */
+  def defaultOneOverPiPad(spec: RealSpec): Int = max(spec.manW + 1, 12)
+
+  /** Compute sin(x) or cos(x).
+   *
+   *  @param isSin        true for sin(x), false for cos(x)
+   *  @param t            polynomial coefficients (from SinCosTable)
+   *  @param x            input
+   *  @param oneOverPiPad precision pad for the 1/pi constant; must match
+   *                      the hardware. `None` uses `defaultOneOverPiPad`.
+   *  @param scaled       whether the argument is already divided by pi, in
+   *                      which case the result is sin(pi x) or cos(pi x).
+   */
+  def apply(
+    isSin: Boolean,
+    t:     PolynomialCoefficients,
+    x:     RealGeneric,
+    oneOverPiPad: Option[Int] = None,
+    scaled:       Boolean     = false,
+  ): RealGeneric = {
+
+    val spec   = x.spec
+    val manW   = spec.manW
+    val exBias = spec.exBias
+
+    if (x.isNaN)      { return RealGeneric.nan(spec) }
+    if (x.isInfinite) { return RealGeneric.nan(spec) }
+
+    val y = SinCosReduction(isSin, t, x, oneOverPiPad, scaled)
+
+    val zSgn = y.zsgn
+    val yex  = y.yex
+    val yman = y.yman
+
+    // -----------------------------------------------------------------------
+    // special small-y cases
+
+    // y == 0.5 exactly  ->  result is ±1
+    if (yex == exBias - 1) {
+      assert(yman == SafeLong(0))
+      return new RealGeneric(spec, zSgn, exBias, SafeLong(0))
+    }
+    // y == 0  ->  result is ±0
+    if (yex == 0) {
+      assert(yman == SafeLong(0), f"yex == 0, but yman == ${yman}")
+      return new RealGeneric(spec, zSgn, 0, SafeLong(0))
+    }
+
+    val outPrec = t.bitW.outPrec
+
+    val ymanW1 = yman + (SafeLong(1) << manW)
+
     // wmanW1 represents z = sin(Pi*y)/y in [1, Pi/2) as a fixed-point with
     // the hidden 1 at position outPrec.
-    val wmanW1 = res + (SafeLong(1) << outPrec)
+    val wmanW1 = y.zres + (SafeLong(1) << outPrec)
 
     // -----------------------------------------------------------------------
     // emulated post-mult: sin(x) = (sin(Pi*y)/y) * y = wmanW1 * ymanW1
@@ -357,5 +461,61 @@ object SinPiSimGeneric {
   def apply(isSin: Boolean, t: PolynomialCoefficients, x: RealGeneric):
       RealGeneric = {
     SinCosSimGeneric(isSin, t, x, None, scaled = true)
+  }
+}
+
+/** Software simulator for the hardware that computes sin(pi x) and cos(pi x)
+ *  without either shared multiplier.
+ *
+ *  Its table holds sin(pi y) itself, so the polynomial output is a fixed point
+ *  value and the result assembly normalises it instead of multiplying it by
+ *  the reduced argument.
+ */
+object SinPiFixedSimGeneric {
+
+  /** Compute sin(pi x) or cos(pi x).
+   *
+   *  @param isSin true for sin(pi x), false for cos(pi x)
+   *  @param t     polynomial coefficients (from SinPiFixedTable)
+   *  @param x     input
+   */
+  def apply(isSin: Boolean, t: PolynomialCoefficients, x: RealGeneric):
+      RealGeneric = {
+
+    val spec   = x.spec
+    val manW   = spec.manW
+    val exBias = spec.exBias
+
+    if (x.isNaN)      { return RealGeneric.nan(spec) }
+    if (x.isInfinite) { return RealGeneric.nan(spec) }
+
+    val y = SinCosReduction(isSin, t, x, None, scaled = true)
+
+    // y == 0.5 exactly  ->  result is +-1
+    if (y.yex == exBias - 1) {
+      return new RealGeneric(spec, y.zsgn, exBias, SafeLong(0))
+    }
+    // the table gave zero  ->  result is +-0
+    if (y.zres == SafeLong(0)) {
+      return new RealGeneric(spec, y.zsgn, 0, SafeLong(0))
+    }
+
+    // -----------------------------------------------------------------------
+    // the table holds sin(pi y) in [0, 1) as a fixed point value: its leading
+    // zeros give the exponent, and what is left of it the mantissa.
+
+    val outPrec = t.bitW.outPrec
+
+    val count   = outPrec - binaryWidthSL(y.zres)
+    val shifted = y.zres << count
+
+    val extraBits            = outPrec - 1 - manW
+    val zRounded             = roundBySpec(RoundSpec.roundToEven, extraBits, shifted)
+    val zMoreThan2AfterRound = bit(manW + 1, zRounded)
+
+    val zMan = slice(0, manW, zRounded)
+    val zEx  = exBias - 1 - count + zMoreThan2AfterRound
+
+    new RealGeneric(spec, y.zsgn, zEx, zMan)
   }
 }

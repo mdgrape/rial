@@ -72,6 +72,46 @@ object FuncKind extends Enumeration {
    * `cosPi(x / π)` is cos(x), up to the rounding of that quotient.
    */
   val CosPi       = Value
+  /** sin(π x), for an argument the caller has already scaled, without either
+   *  shared multiplier.
+   *
+   * Its table approximates sin(π y) itself, so its precision is absolute: the
+   * relative error grows as the result approaches zero.
+   */
+  val SinPiFixed  = Value
+  /** cos(π x), for an argument the caller has already scaled, without either
+   *  shared multiplier.
+   *
+   * Its table approximates sin(π y) itself, so its precision is absolute: the
+   * relative error grows as the result approaches zero.
+   */
+  val CosPiFixed  = Value
+  /** log2(x), without either shared multiplier.
+   *
+   * Its table approximates log2(1 + t) itself, so the precision of the
+   * fraction of the result is absolute: the relative error grows as x
+   * approaches one from either side.
+   */
+  val Log2Fixed   = Value
+  /** atan(t) for |t| <= 1, without either shared multiplier.
+   *
+   * Its table approximates atan(t) itself, so its precision is absolute: the
+   * relative error grows as the result approaches zero, until t is small
+   * enough for atan(t) to be t, which it returns exactly. It takes the ratio
+   * itself, so the caller does the min/max, the reciprocal and the quadrant
+   * of an atan2; for |t| > 1 the result is finite but meaningless.
+   */
+  val ATanFixed   = Value
+  /** acos(x) for |x| <= 1, in one pass, without either shared multiplier.
+   *
+   * Its table holds the angle itself, one region per binade of 1 - |x|, each
+   * scaled by a power of two, so its precision is relative: the result stays
+   * within a few units of its last place over the whole of [-1, 1], the end
+   * where the angle vanishes included. A finite argument beyond an end of
+   * that range gets the value of that end, so an argument that overshoots it
+   * by rounding needs no clamp; an infinity or a NaN gives NaN.
+   */
+  val ACosFixed   = Value
 
   /** Returns enum name (e.g. FuncKind.Sqrt -> "Sqrt").
    */
@@ -94,6 +134,11 @@ object FuncKind extends Enumeration {
       case Pow2        => "Pow2"
       case SinPi       => "SinPi"
       case CosPi       => "CosPi"
+      case SinPiFixed  => "SinPiFixed"
+      case CosPiFixed  => "CosPiFixed"
+      case Log2Fixed   => "Log2Fixed"
+      case ATanFixed   => "ATanFixed"
+      case ACosFixed   => "ACosFixed"
     }
   }
 
@@ -104,7 +149,8 @@ object FuncKind extends Enumeration {
    * `"pre"` and `"post"`, named after the function: the boundaries of the
    * pre-process of `fn` are `"pre.<pointName(fn)>.*"`. `Sin` and `Cos` share
    * one pre-process and one post-process, so both give `"sinCos"`, and
-   * `SinPi` and `CosPi` likewise both give `"sinPi"`.
+   * `SinPi` and `CosPi` likewise both give `"sinPi"`, `SinPiFixed` and
+   * `CosPiFixed` both `"sinPiFixed"`.
    *
    * @param fn An enumerator of the function.
    */
@@ -127,6 +173,11 @@ object FuncKind extends Enumeration {
       case Pow2        => "pow2"
       case SinPi       => "sinPi"
       case CosPi       => "sinPi"
+      case SinPiFixed  => "sinPiFixed"
+      case CosPiFixed  => "sinPiFixed"
+      case Log2Fixed   => "log2Fixed"
+      case ATanFixed   => "atanFixed"
+      case ACosFixed   => "acosFixed"
     }
   }
 
@@ -156,7 +207,7 @@ object FuncKind extends Enumeration {
       case Reciprocal           => Seq(Reciprocal)
       case Sin                  => Seq(Sin, Cos)
       case Cos                  => Seq(Sin, Cos)
-      case ACosPhase1           => Seq(ACosPhase1,  ACosPhase2, Sqrt)
+      case ACosPhase1           => Seq(ACosPhase1,  Sqrt)
       case ACosPhase2           => Seq(ACosPhase1,  ACosPhase2, Sqrt)
       case ATan2Phase1          => Seq(ATan2Phase1, ATan2Phase2, Reciprocal)
       case ATan2Phase2          => Seq(ATan2Phase1, ATan2Phase2, Reciprocal)
@@ -168,6 +219,11 @@ object FuncKind extends Enumeration {
       case Pow2                 => Seq(Pow2)
       case SinPi                => Seq(SinPi, CosPi)
       case CosPi                => Seq(SinPi, CosPi)
+      case SinPiFixed           => Seq(SinPiFixed, CosPiFixed)
+      case CosPiFixed           => Seq(SinPiFixed, CosPiFixed)
+      case Log2Fixed            => Seq(Log2Fixed)
+      case ATanFixed            => Seq(ATanFixed)
+      case ACosFixed            => Seq(ACosFixed)
     }
   }
 
@@ -296,6 +352,11 @@ class MathFuncConfig(
     case Pow2        => (Pow2        -> new ExpTable        (nOrder, addrW, inBitW, outBitW))
     case SinPi       => (SinPi       -> new SinCosTable     (nOrder, addrW, inBitW, outBitW))
     case CosPi       => (CosPi       -> new SinCosTable     (nOrder, addrW, inBitW, outBitW))
+    case SinPiFixed  => (SinPiFixed  -> new SinPiFixedTable (nOrder, addrW, inBitW, outBitW))
+    case CosPiFixed  => (CosPiFixed  -> new SinPiFixedTable (nOrder, addrW, inBitW, outBitW))
+    case Log2Fixed   => (Log2Fixed   -> new Log2FixedTable  (nOrder, addrW, inBitW, outBitW))
+    case ATanFixed   => (ATanFixed   -> new ATanFixedTable  (nOrder, addrW, inBitW, outBitW))
+    case ACosFixed   => (ACosFixed   -> new ACosFixedTable  (nOrder, addrW, inBitW, outBitW))
     case ScaleMixtureGaussian => {
       val (sA, sB) = scaleMixtureGaussianSigma.get
       (ScaleMixtureGaussian -> new ScaleMixtureGaussianTable(sA, sB, nOrder, addrW, inBitW, outBitW))
@@ -325,6 +386,7 @@ class MathFuncConfig(
       if      (funcs == MathFuncConfig.all           ) { "all" }
       else if (funcs == MathFuncConfig.standard      ) { "standard" }
       else if (funcs == MathFuncConfig.standardScaled) { "standardScaled" }
+      else if (funcs == MathFuncConfig.standardFixed ) { "standardFixed" }
       else if (funcs == MathFuncConfig.simple        ) { "simple" }
       else    { funcs.map(fn => FuncKind.getString(fn)).mkString("[", ", ", "]") }
     fs + sinCos.map(d => f"_sinCosEx${d.maxEx}").getOrElse("")
@@ -383,6 +445,13 @@ object MathFuncConfig {
    */
   val standardScaled = Seq(Sqrt, InvSqrt, Reciprocal,
     ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Log, Pow2, SinPi, CosPi)
+
+  /** The [[standard]] set with every function that needs a shared multiplier
+   * replaced by the one that takes a scaled argument or reads the result
+   * itself out of its table.
+   */
+  val standardFixed = normalize(Seq(Sqrt, InvSqrt, Reciprocal, Pow2,
+    Log2Fixed, SinPiFixed, CosPiFixed, ACosFixed, ATanFixed))
 
   /** Defines all the supported math functions including too task-specific ones.
    *
@@ -448,6 +517,23 @@ object MathFuncConfig {
   /** Default BF16 config supporting the [[standardScaled]] function set. */
   val standardScaledBF16 = new MathFuncConfig(
     funcs   = standardScaled,
+    nOrder  = 0,
+    addrW   = RealSpec.BFloat16Spec.manW,
+    inBitW  = 0,
+    outBitW = RealSpec.BFloat16Spec.manW + 1,
+  )
+
+  /** Default FP32 config supporting the [[standardFixed]] function set. */
+  val standardFixedFP32 = new MathFuncConfig(
+    funcs   = standardFixed,
+    nOrder  = 2,
+    addrW   = 8,
+    inBitW  = RealSpec.Float32Spec.manW - 8,
+    outBitW = RealSpec.Float32Spec.manW + 3,
+  )
+  /** Default BF16 config supporting the [[standardFixed]] function set. */
+  val standardFixedBF16 = new MathFuncConfig(
+    funcs   = standardFixed,
     nOrder  = 0,
     addrW   = RealSpec.BFloat16Spec.manW,
     inBitW  = 0,

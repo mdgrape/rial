@@ -312,3 +312,102 @@ object ATan2Phase2Sim {
     ATan2Phase2SimGeneric(tATan, ATan2Phase1SimGeneric(tRec, yg, xg)).toFloat
   }
 }
+
+// =========================================================================
+// atan(t) for |t| <= 1, without either shared multiplier
+// =========================================================================
+
+// The table approximates atan(t) itself for t in [0, 1).
+//   atan(t) is in [0, pi/4), so the value is stored as it is.
+class ATanFixedTable(
+  val nOrder:  Int,
+  val addrW:   Int,
+  val inBitW:  Int,
+  val outBitW: Int,
+) extends TableBase {
+
+  private val func = (t: Double) => { atan(t) }
+
+  private val nIntervals = 1 << addrW
+  private val ft  = FuncTable(func, nOrder, nIntervals, 0.0, 1.0)
+  private val gen = new PolynomialGenerator(ft, inBitW, outBitW)
+
+  def getBitWidth(): PolynomialBitWidth = { gen.getBitWidth() }
+  def generateTable(bitW: PolynomialBitWidth): PolynomialCoefficients = {
+    gen.generateTable(bitW)
+  }
+}
+
+/** Software simulator for the hardware that computes atan(t) for |t| <= 1
+ *  without either shared multiplier.
+ *
+ *  Its table holds atan(t) itself, so the polynomial output is a fixed point
+ *  value and the result assembly normalises it instead of multiplying it by
+ *  the argument.
+ */
+object ATanFixedSimGeneric {
+
+  /** Compute atan(t).
+   *
+   *  @param t polynomial coefficients (from ATanFixedTable)
+   *  @param x the argument, whose absolute value must be at most one
+   */
+  def apply(t: PolynomialCoefficients, x: RealGeneric): RealGeneric = {
+
+    val spec   = x.spec
+    val manW   = spec.manW
+    val exBias = spec.exBias
+
+    if (x.isNaN) { return RealGeneric.nan(spec) }
+
+    // |t| >= 1 gives atan(1) = pi/4, the value the accurate atan2 gives for
+    // |y| == |x|; above 1 it is finite but meaningless.
+    if (x.ex >= exBias) {
+      val quarterPi = new RealGeneric(spec, Pi * 0.25)
+      return new RealGeneric(spec, x.sgn, quarterPi.ex, quarterPi.man)
+    }
+    if (x.isZero) { return new RealGeneric(spec, x.sgn, 0, SafeLong(0)) }
+
+    // atan(t) is t to the working precision below this exponent; the accurate
+    // second phase of atan2 shortens the same range the same way.
+    if (x.ex <= exBias + ATan2Phase2SimGeneric.calcLinearThreshold(manW)) {
+      return new RealGeneric(spec, x.sgn, x.ex, x.man)
+    }
+
+    // -----------------------------------------------------------------------
+    // table lookup at |t| aligned at the binary point
+
+    val addrW   = t.bitW.addrW
+    val outPrec = t.bitW.outPrec
+
+    val xShift = exBias - x.ex
+    val xFixed = x.manW1 >> xShift
+
+    val xW = manW - addrW
+    val (addr, xiv) = if (t.bitW.nOrder == 0) {
+      (xFixed.toInt, BigInt(0))
+    } else {
+      (slice(xW, addrW, xFixed).toInt, slice(0, xW, xFixed).toBigInt)
+    }
+
+    val zres = SafeLong(PolynomialEval.eval(addr, xiv, t))
+    assert(SafeLong(0) < zres && zres < (SafeLong(1) << outPrec),
+      f"xFixed = ${xFixed}, zres = ${zres} is not in (0, 2^${outPrec})")
+
+    // -----------------------------------------------------------------------
+    // the table gave atan(t) in [0, 1) as a fixed point value: its leading
+    // zeros give the exponent, and what is left of it the mantissa.
+
+    val count   = outPrec - binaryWidthSL(zres)
+    val shifted = zres << count
+
+    val extraBits            = outPrec - 1 - manW
+    val zRounded             = roundBySpec(RoundSpec.roundToEven, extraBits, shifted)
+    val zMoreThan2AfterRound = bit(manW + 1, zRounded)
+
+    val zMan = slice(0, manW, zRounded)
+    val zEx  = exBias - 1 - count + zMoreThan2AfterRound
+
+    new RealGeneric(spec, x.sgn, zEx, zMan)
+  }
+}

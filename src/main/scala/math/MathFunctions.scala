@@ -51,8 +51,11 @@ import scala.reflect.ClassTag
  * function, named after it with [[rial.math.FuncKind.pointName]]: the
  * boundaries of the argument reduction of `Sqrt` are `"pre.sqrt.*"` and those
  * of its result assembly `"post.sqrt.*"`, see the doc of the corresponding
- * submodule for the names. `Sin` and `Cos` share the path `"sinCos"`, and
- * `SinPi` and `CosPi` the path `"sinPi"`; the path of `Pow2` is `"pow2"`.
+ * submodule for the names. `Sin` and `Cos` share the path `"sinCos"`,
+ * `SinPi` and `CosPi` the path `"sinPi"` and `SinPiFixed` and `CosPiFixed`
+ * the path `"sinPiFixed"`; the path of `Pow2` is `"pow2"`, that of
+ * `Log2Fixed` `"log2Fixed"`, that of `ATanFixed` `"atanFixed"` and that of
+ * `ACosFixed` `"acosFixed"`.
  * `"pre" -> n` (or `"post" -> n`) adds `n` registers to every path of the set;
  * unless each function keeps its own latency (see below), the paths of a set
  * are padded to the longest of them.
@@ -836,9 +839,11 @@ class MathFunctions(
     case Reciprocal  => Reciprocal  -> Module(new ReciprocalPreProcess (spec, bitW, preStage(Reciprocal )))
     case Sin         => Sin         -> Module(new SinCosPreProcess     (spec, bitW, preStage(Sin        ), cfg.sinCos))
     case SinPi       => SinPi       -> Module(new SinCosPreProcess     (spec, bitW, preStage(SinPi      ), cfg.sinCos, scaled = true))
+    case SinPiFixed  => SinPiFixed  -> Module(new SinCosPreProcess     (spec, bitW, preStage(SinPiFixed ), cfg.sinCos, scaled = true))
     case Exp         => Exp         -> Module(new ExpPreProcess        (spec, bitW, preStage(Exp        )))
     case Pow2        => Pow2        -> Module(new ExpPreProcess        (spec, bitW, preStage(Pow2       )))
     case Log         => Log         -> Module(new LogPreProcess        (spec, bitW, preStage(Log        )))
+    case Log2Fixed   => Log2Fixed   -> Module(new Log2FixedPreProcess  (spec, bitW, preStage(Log2Fixed  )))
     case ACosPhase1  => ACosPhase1  -> Module(new ACosPhase1PreProcess (spec, bitW, preStage(ACosPhase1 )))
     case ACosPhase2  => ACosPhase2  -> Module(new ACosPhase2PreProcess (spec, bitW, preStage(ACosPhase2 )))
     case ATan2Phase1 => ATan2Phase1 -> Module(new ATan2Phase1PreProcess(spec, bitW, preStage(ATan2Phase1)))
@@ -850,6 +855,8 @@ class MathFunctions(
       ScaleMixtureGaussian -> Module(new ScaleMixtureGaussianPreProcess(
         sA, sB, spec, bitW, preStage(ScaleMixtureGaussian)))
     }
+    case ATanFixed   => ATanFixed   -> Module(new ATanFixedPreProcess  (spec, bitW, preStage(ATanFixed  )))
+    case ACosFixed   => ACosFixed   -> Module(new ACosFixedPreProcess  (spec, bitW, preStage(ACosFixed  )))
   }.toMap[FuncKind, Module]
 
   val tabs: Map[FuncKind, Module] = cfg.funcs.collect {
@@ -858,7 +865,9 @@ class MathFunctions(
     case Reciprocal  => Reciprocal  -> Module(new ReciprocalTableCoeff (spec, coeffs(Reciprocal ), nTable))
     case Sin         => Sin         -> Module(new SinCosTableCoeff     (spec, coeffs(Sin        ), nTable))
     case SinPi       => SinPi       -> Module(new SinCosTableCoeff     (spec, coeffs(SinPi      ), nTable))
+    case SinPiFixed  => SinPiFixed  -> Module(new SinCosTableCoeff     (spec, coeffs(SinPiFixed ), nTable))
     case Log         => Log         -> Module(new LogTableCoeff        (spec, coeffs(Log        ), nTable))
+    case Log2Fixed   => Log2Fixed   -> Module(new Log2FixedTableCoeff  (spec, coeffs(Log2Fixed  ), nTable))
     case Exp         => Exp         -> Module(new ExpTableCoeff        (spec, coeffs(Exp        ), nTable))
     case Pow2        => Pow2        -> Module(new ExpTableCoeff        (spec, coeffs(Pow2       ), nTable))
     // ACosPhase1 shares Sqrt's TableCoeff
@@ -869,6 +878,8 @@ class MathFunctions(
     case SoftPlus    => SoftPlus    -> Module(new SoftPlusTableCoeff   (spec, coeffs(SoftPlus   ), nTable))
     case ScaleMixtureGaussian => ScaleMixtureGaussian ->
       Module(new ScaleMixtureGaussianTableCoeff(spec, coeffs(ScaleMixtureGaussian), nTable))
+    case ATanFixed   => ATanFixed   -> Module(new ATanFixedTableCoeff  (spec, coeffs(ATanFixed  ), nTable))
+    case ACosFixed   => ACosFixed   -> Module(new ACosFixedTableCoeff  (spec, coeffs(ACosFixed  ), nTable))
   }.toMap
 
   // the non-table modules run beside the table, the coefficient selection and
@@ -883,6 +894,7 @@ class MathFunctions(
     case Exp        => Exp        -> Module(new ExpNonTable       (spec, bitW, nonTableStage))
     case Pow2       => Pow2       -> Module(new ExpNonTable       (spec, bitW, nonTableStage))
     case Log        => Log        -> Module(new LogNonTable       (spec, bitW, nonTableStage))
+    case Log2Fixed  => Log2Fixed  -> Module(new Log2FixedNonTable (spec, bitW, nonTableStage))
     // ACosPhase1 reuses SqrtNonTable
     // ACosPhase2 doesn't need one.
   }.toMap
@@ -893,9 +905,11 @@ class MathFunctions(
     case Reciprocal  => Reciprocal  -> Module(new ReciprocalPostProcess (spec, bitW, postStage(Reciprocal )))
     case Sin         => Sin         -> Module(new SinCosPostProcess     (spec, bitW, postStage(Sin        )))
     case SinPi       => SinPi       -> Module(new SinCosPostProcess     (spec, bitW, postStage(SinPi      )))
+    case SinPiFixed  => SinPiFixed  -> Module(new SinPiFixedPostProcess (spec, bitW, postStage(SinPiFixed )))
     case Exp         => Exp         -> Module(new ExpPostProcess        (spec, bitW, postStage(Exp        )))
     case Pow2        => Pow2        -> Module(new ExpPostProcess        (spec, bitW, postStage(Pow2       )))
     case Log         => Log         -> Module(new LogPostProcess        (spec, bitW, postStage(Log        )))
+    case Log2Fixed   => Log2Fixed   -> Module(new Log2FixedPostProcess  (spec, bitW, postStage(Log2Fixed  )))
     case ACosPhase1  => ACosPhase1  -> Module(new ACosPhase1PostProcess (spec, bitW, postStage(ACosPhase1 )))
     case ACosPhase2  => ACosPhase2  -> Module(new ACosPhase2PostProcess (spec, bitW, postStage(ACosPhase2 )))
     case ATan2Phase1 => ATan2Phase1 -> Module(new ATan2Phase1PostProcess(spec, bitW, postStage(ATan2Phase1)))
@@ -904,6 +918,8 @@ class MathFunctions(
     case SoftPlus    => SoftPlus    -> Module(new SoftPlusPostProcess   (spec, bitW, postStage(SoftPlus   )))
     case ScaleMixtureGaussian => ScaleMixtureGaussian ->
       Module(new ScaleMixtureGaussianPostProcess(spec, bitW, postStage(ScaleMixtureGaussian)))
+    case ATanFixed   => ATanFixed   -> Module(new ATanFixedPostProcess  (spec, bitW, postStage(ATanFixed  )))
+    case ACosFixed   => ACosFixed   -> Module(new ACosFixedPostProcess  (spec, bitW, postStage(ACosFixed  )))
   }.toMap
 
   private def toModule[T <: Module](x: Module)(implicit ct: ClassTag[T]): T = {
@@ -1115,6 +1131,45 @@ class MathFunctions(
 
     zs(SinPi) := sinpiPost.io.z
     zs(CosPi) := sinpiPost.io.z
+  }
+
+  // --------------------------------------------------------------------------
+  // SinPiFixed / CosPiFixed -- the table holds sin(π y) itself, so the result
+  // assembly normalizes it and neither shared multiplier takes part.
+
+  if(cfg.has(SinPiFixed) || cfg.has(CosPiFixed)) {
+    val pre  = toModule[SinCosPreProcess     ](pres (SinPiFixed))
+    val tab  = toModule[SinCosTableCoeff     ](tabs (SinPiFixed))
+    val post = toModule[SinPiFixedPostProcess](posts(SinPiFixed))
+
+    // ----- pre stage: the argument and its product with the constant one -----
+    val isSinAtPre = selPreOf(SinPiFixed) === cfg.signal(SinPiFixed)
+    val selAtPre   = isSinAtPre || (selPreOf(CosPiFixed) === cfg.signal(CosPiFixed))
+
+    pre.io.isSin := isSinAtPre
+    pre.io.x.valid := xPreOf(SinPiFixed).valid && selAtPre
+    pre.io.x.bits  := xPreOf(SinPiFixed).bits
+
+    pre.io.prod.valid := xPreOf(SinPiFixed).valid && selAtPre
+    pre.io.prod.bits  :=
+      SinCosPreMulArgs.prodOfOne(spec, xPreOf(SinPiFixed).bits.man)
+
+    // ----- table -----
+    tab.io.adr := pre.io.adr
+
+    polynomialCoefs(SinPiFixed) := tab.io.cs
+    polynomialCoefs(CosPiFixed) := tab.io.cs
+    if(bitW.nOrder != 0) {
+      polynomialDxs.get(SinPiFixed) := pre.io.dx.get
+      polynomialDxs.get(CosPiFixed) := pre.io.dx.get
+    }
+
+    // ----- post -----
+    post.io.pre  := Pipe(pre.io.info, nTabToPostOf(SinPiFixed))
+    post.io.zres := zresAtPostOf(SinPiFixed)
+
+    zs(SinPiFixed) := post.io.z
+    zs(CosPiFixed) := post.io.z
   }
 
   // --------------------------------------------------------------------------
@@ -1536,6 +1591,95 @@ class MathFunctions(
     post.io.mul  := postMul.get.io.out
     zs(ScaleMixtureGaussian) := post.io.z
   }
+
+  // --------------------------------------------------------------------------
+  // Log2Fixed -- the table holds log2(1 + t) itself, so the result assembly
+  // normalizes it with the exponent of the argument and neither shared
+  // multiplier takes part.
+
+  if(cfg.has(Log2Fixed)) {
+    val pre  = toModule[Log2FixedPreProcess ](pres   (Log2Fixed))
+    val tab  = toModule[Log2FixedTableCoeff ](tabs   (Log2Fixed))
+    val ntab = toModule[Log2FixedNonTable   ](nontabs(Log2Fixed))
+    val post = toModule[Log2FixedPostProcess](posts  (Log2Fixed))
+
+    pre.io.x.valid :=
+      xPreOf(Log2Fixed).valid && selPreOf(Log2Fixed) === cfg.signal(Log2Fixed)
+    pre.io.x.bits  := xPreOf(Log2Fixed).bits
+
+    // ----- table -----
+    tab.io.adr := pre.io.adr
+
+    polynomialCoefs(Log2Fixed) := tab.io.cs
+    if(bitW.nOrder != 0) {
+      polynomialDxs.get(Log2Fixed) := pre.io.dx.get
+    }
+
+    // ----- non-table ------
+    ntab.io.x.valid :=
+      xTabOf(Log2Fixed).valid && selTabOf(Log2Fixed) === cfg.signal(Log2Fixed)
+    ntab.io.x.bits  := xTabOf(Log2Fixed).bits
+
+    // ----- post -----
+    val ntabAtPost = Pipe(ntab.io.z, nMulToPostOf(Log2Fixed))
+
+    post.io.in.valid     := ntabAtPost.valid && zresAtPostOf(Log2Fixed).valid
+    post.io.in.bits.info := ntabAtPost.bits
+    post.io.in.bits.zres := zresAtPostOf(Log2Fixed).bits
+
+    zs(Log2Fixed) := post.io.z
+  }
+
+  // --------------------------------------------------------------------------
+  // ATanFixed -- the table holds atan(t) itself, so the result assembly
+  // normalizes it and neither shared multiplier takes part.
+
+  if(cfg.has(ATanFixed)) {
+    val pre  = toModule[ATanFixedPreProcess ](pres (ATanFixed))
+    val tab  = toModule[ATanFixedTableCoeff ](tabs (ATanFixed))
+    val post = toModule[ATanFixedPostProcess](posts(ATanFixed))
+
+    pre.io.x.valid := xPreOf(ATanFixed).valid && selPreOf(ATanFixed) === cfg.signal(ATanFixed)
+    pre.io.x.bits  := xPreOf(ATanFixed).bits
+
+    tab.io.adr := pre.io.adr
+
+    polynomialCoefs(ATanFixed) := tab.io.cs
+    if (bitW.nOrder != 0) {
+      polynomialDxs.get(ATanFixed) := pre.io.dx.get
+    }
+
+    post.io.pre  := Pipe(pre.io.info, nTabToPostOf(ATanFixed))
+    post.io.zres := zresAtPostOf(ATanFixed)
+
+    zs(ATanFixed) := post.io.z
+  }
+
+  // --------------------------------------------------------------------------
+  // ACosFixed -- one region of the table per binade of 1 - |x|, each holding
+  // the angle itself, so the result assembly normalizes it and neither shared
+  // multiplier takes part.
+
+  if(cfg.has(ACosFixed)) {
+    val pre  = toModule[ACosFixedPreProcess ](pres (ACosFixed))
+    val tab  = toModule[ACosFixedTableCoeff ](tabs (ACosFixed))
+    val post = toModule[ACosFixedPostProcess](posts(ACosFixed))
+
+    pre.io.x.valid := xPreOf(ACosFixed).valid && selPreOf(ACosFixed) === cfg.signal(ACosFixed)
+    pre.io.x.bits  := xPreOf(ACosFixed).bits
+
+    tab.io.adr := pre.io.adr
+
+    polynomialCoefs(ACosFixed) := tab.io.cs
+    if (bitW.nOrder != 0) {
+      polynomialDxs.get(ACosFixed) := pre.io.dx.get
+    }
+
+    post.io.pre  := Pipe(pre.io.info, nTabToPostOf(ACosFixed))
+    post.io.zres := zresAtPostOf(ACosFixed)
+
+    zs(ACosFixed) := post.io.z
+  }
 }
 
 /** Input and output bundles and pipeline stage points of
@@ -1664,7 +1808,7 @@ object MathFunctions {
   /** The argument reduction of each configured function, in `cfg.funcs` order.
    *
    * `Sin` and `Cos` share one pre-process, so they contribute one path, and so
-   * do `SinPi` and `CosPi`.
+   * do `SinPi` and `CosPi`, and `SinPiFixed` and `CosPiFixed`.
    *
    * @param cfg configuration of the module these paths are for
    */
@@ -1676,6 +1820,7 @@ object MathFunctions {
       case Reciprocal  => path(Reciprocal,  ReciprocalPreProcess         .stagePoints)
       case Sin         => path(Sin,         SinCosPreProcess             .stagePoints)
       case SinPi       => path(SinPi,       SinCosPreProcess             .stagePoints)
+      case SinPiFixed  => path(SinPiFixed,  SinCosPreProcess             .stagePoints)
       case ACosPhase1  => path(ACosPhase1,  ACosPhase1PreProcess         .stagePoints)
       case ACosPhase2  => path(ACosPhase2,  ACosPhase2PreProcess         .stagePoints)
       case ATan2Phase1 => path(ATan2Phase1, ATan2Phase1PreProcess        .stagePoints)
@@ -1683,18 +1828,21 @@ object MathFunctions {
       case Exp         => path(Exp,         ExpPreProcess                .stagePoints)
       case Pow2        => path(Pow2,        ExpPreProcess                .stagePoints)
       case Log         => path(Log,         LogPreProcess                .stagePoints)
+      case Log2Fixed   => path(Log2Fixed,   Log2FixedPreProcess          .stagePoints)
       case Sigmoid     => path(Sigmoid,     SigmoidPreProcess            .stagePoints)
       case SoftPlus    => path(SoftPlus,    SoftPlusPreProcess           .stagePoints)
       case ScaleMixtureGaussian =>
                           path(ScaleMixtureGaussian,
                                ScaleMixtureGaussianPreProcess.stagePoints)
+      case ATanFixed   => path(ATanFixed,   ATanFixedPreProcess          .stagePoints)
+      case ACosFixed   => path(ACosFixed,   ACosFixedPreProcess          .stagePoints)
     }
   }
 
   /** The result assembly of each configured function, in `cfg.funcs` order.
    *
    * `Sin` and `Cos` share one post-process, so they contribute one path, and so
-   * do `SinPi` and `CosPi`.
+   * do `SinPi` and `CosPi`, and `SinPiFixed` and `CosPiFixed`.
    *
    * @param cfg configuration of the module these paths are for
    */
@@ -1706,6 +1854,7 @@ object MathFunctions {
       case Reciprocal  => path(Reciprocal,  ReciprocalPostProcess         .stagePoints)
       case Sin         => path(Sin,         SinCosPostProcess             .stagePoints)
       case SinPi       => path(SinPi,       SinCosPostProcess             .stagePoints)
+      case SinPiFixed  => path(SinPiFixed,  SinPiFixedPostProcess         .stagePoints)
       case ACosPhase1  => path(ACosPhase1,  ACosPhase1PostProcess         .stagePoints)
       case ACosPhase2  => path(ACosPhase2,  ACosPhase2PostProcess         .stagePoints)
       case ATan2Phase1 => path(ATan2Phase1, ATan2Phase1PostProcess        .stagePoints)
@@ -1713,11 +1862,14 @@ object MathFunctions {
       case Exp         => path(Exp,         ExpPostProcess                .stagePoints)
       case Pow2        => path(Pow2,        ExpPostProcess                .stagePoints)
       case Log         => path(Log,         LogPostProcess                .stagePoints)
+      case Log2Fixed   => path(Log2Fixed,   Log2FixedPostProcess          .stagePoints)
       case Sigmoid     => path(Sigmoid,     SigmoidPostProcess            .stagePoints)
       case SoftPlus    => path(SoftPlus,    SoftPlusPostProcess           .stagePoints)
       case ScaleMixtureGaussian =>
                           path(ScaleMixtureGaussian,
                                ScaleMixtureGaussianPostProcess.stagePoints)
+      case ATanFixed   => path(ATanFixed,   ATanFixedPostProcess          .stagePoints)
+      case ACosFixed   => path(ACosFixed,   ACosFixedPostProcess          .stagePoints)
     }
   }
 
