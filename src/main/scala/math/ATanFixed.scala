@@ -7,9 +7,17 @@
 // nor a first phase takes part (see ATan2.scala for the pipeline that does
 // them in hardware). What differs from that pipeline's second phase is what
 // the table holds: atan(t) itself, not atan(t)/t, so the polynomial output is
-// already the result as a fixed point value in [0, 1). Turning it into a float
-// takes a leading-zero count and a shift instead of the post-process
-// multiplier, which is what the modules below do.
+// already the result as a fixed point value. Turning it into a float takes a
+// leading-zero count and a shift instead of the post-process multiplier.
+//
+// atan(t) vanishes with t, so the table gives a region of its own to each
+// binade of |t| and stores its values scaled by a power of two (see
+// GradedTable.scala): whatever the binade, the polynomial output fills the
+// same range, and the result keeps its precision down to the smallest
+// argument the table answers. Below that binade atan(t) is t itself, and at
+// or above one, where the caller has left the domain, it is atan(1); neither
+// needs the table. The modules below form the address of that table and
+// assemble the result from what it leaves.
 //
 // Copyright (C) Toru Niina RIKEN BDR 2022
 //
@@ -45,8 +53,10 @@ class ATanFixedPostProcInfo(val spec: RealSpec) extends Bundle {
 // |_|            |_|
 // -------------------------------------------------------------------------
 
-/** Aligns |t| at the binary point, where it addresses the table, and decides
- *  the cases the table does not answer. */
+/** Picks the region of the table that answers |t|: the binade of |t|, halved
+ *  by the top bit of its mantissa over the widest binades. It forms the
+ *  address of that region and the position inside its sub-interval, and
+ *  decides the cases the table does not answer. */
 class ATanFixedPreProcess(
   val spec:  RealSpec,
   val bitW:  PolynomialBitWidth,
@@ -57,9 +67,23 @@ class ATanFixedPreProcess(
   val manW   = spec.manW
   val exBias = spec.exBias
 
-  val adrW  = bitW.addrW
   val dxW   = bitW.inBitW
   val order = bitW.nOrder
+
+  /** The regions of the table and the address that selects one. */
+  val layout = ATanFixedTable.layout(order, bitW.addrW, manW)
+
+  val subW    = layout.subW
+  val regionW = layout.regionW
+  val adrW    = layout.adrW
+
+  /** width of the binade the region is looked up on. */
+  val binadeW = log2Ceil(layout.maxBinade + 1)
+
+  require(manW >= layout.splitMaxW + subW,
+    f"a mantissa of ${manW}%d bits must hold the " +
+    f"${layout.splitMaxW}%d bits that choose a region within a binade and " +
+    f"the ${subW}%d that choose a sub-interval of it")
 
   /** Boundaries at which pipeline registers can be placed. */
   val stagePoints = ATanFixedPreProcess.stagePoints
@@ -73,9 +97,7 @@ class ATanFixedPreProcess(
     val info = Valid(new ATanFixedPostProcInfo(spec))
   })
 
-  private val cutIn = new SharedPipe("in", io.x.valid, stages.at("in"))
-
-  val t = cutIn(io.x.bits)
+  val t = io.x.bits
 
   // atan(t) is t to the working precision below this exponent; the accurate
   // second phase of atan2 shortens the same range the same way.
@@ -94,39 +116,55 @@ class ATanFixedPreProcess(
   infoComb.zzero      := t.zero
   infoComb.isLinear   := !t.zero && (t.ex <= linearThreshold.U(exW.W))
 
-  // ---- |t| as a fixed point value in [0, 1) with manW fraction bits ----
-  // The shift saturates so that a tiny t leaves the address at zero and an
-  // exponent at or above the bias, whose difference wraps, does not reach it.
-  val shiftW    = log2Up(2 + manW)
-  val tShift0   = exBias.U(exW.W) - t.ex
-  val tShiftOut = tShift0(exW - 1, shiftW).orR
-  val tShift    = Mux(tShiftOut, (manW + 1).U(shiftW.W),
-                      Mux(tShift0(shiftW - 1, 0) > (manW + 1).U(shiftW.W),
-                          (manW + 1).U(shiftW.W),
-                          tShift0(shiftW - 1, 0)))
+  // |t| in [2^-e, 2^-(e-1)) has the binade e; a binade the table holds no
+  // region of its own for reads the nearest one it does
+  val binade0    = exBias.U(exW.W) - t.ex
+  val binadeComb = Mux(binade0 > layout.maxBinade.U(exW.W),
+                       layout.maxBinade.U(binadeW.W),
+                   Mux(binade0 < layout.minBinade.U(exW.W),
+                       layout.minBinade.U(binadeW.W),
+                       binade0(binadeW - 1, 0)))
 
-  val tFixedComb = (Cat(1.U(1.W), t.man) >> tShift)(manW, 0)
+  val baseOf = VecInit(layout.baseOf.map(b => b.U(regionW.W)))
+
+  // the region the binade holds, and the fraction the sub-interval index and
+  // the position inside it are taken from
+  val (regionComb, keyComb) = if (layout.splitMaxW == 0) {
+    (baseOf(binadeComb), t.man)
+  } else {
+    // how many top bits of the mantissa choose the region is itself a
+    // lookup on the binade, so it is this wide
+    val splitWW = log2Ceil(layout.splitMaxW + 1)
+    val splitOf = VecInit(layout.splitWOf.map(k => k.U(splitWW.W)))
+    val splitW  = splitOf(binadeComb)
+    val top     = t.man(manW - 1, manW - layout.splitMaxW) >>
+                  (layout.splitMaxW.U(splitWW.W) - splitW)
+    ((baseOf(binadeComb) +& top)(regionW - 1, 0),
+     (t.man << splitW)(manW - 1, 0))
+  }
 
   // --------------------------------------------------------------------------
-  // stage "shift": the argument aligned at the binary point
+  // stage "region": the region of the table and the fraction inside it
 
-  private val cutShift = new SharedPipe("shift", cutIn.valid, stages.at("shift"))
+  private val cutRegion = new SharedPipe("region", io.x.valid,
+    stages.at("region"))
 
-  val tFixed = cutShift(tFixedComb)
-  val info   = cutShift(infoComb)
+  val region = cutRegion(regionComb)
+  val key    = cutRegion(keyComb)
+  val info   = cutRegion(infoComb)
 
   // --------------------------------------------------------------------------
   // stage "out"
 
-  val adr = TableAddress.adr(tFixed(manW - 1, 0), adrW)
-  io.adr := Pipe(cutShift.valid, adr, stages.at("out"))
+  val adr = Cat(region, TableAddress.adr(key, subW))
+  io.adr := Pipe(cutRegion.valid, adr, stages.at("out"))
 
   if (order != 0) {
-    val dx = TableAddress.dx(tFixed(manW - 1, 0), adrW, dxW)
-    io.dx.get := Pipe(cutShift.valid, dx, stages.at("out"))
+    val dx = TableAddress.dx(key, subW, dxW)
+    io.dx.get := Pipe(cutRegion.valid, dx, stages.at("out"))
   }
 
-  io.info := Pipe(cutShift.valid, info, stages.at("out"))
+  io.info := Pipe(cutRegion.valid, info, stages.at("out"))
 }
 
 /** Pipeline stage points of [[rial.math.ATanFixedPreProcess]]. */
@@ -134,12 +172,13 @@ object ATanFixedPreProcess {
 
   /** Boundaries at which pipeline registers can be placed.
    *
-   *  - `"shift"` the argument aligned at the binary point
-   *  - `"out"`   the table address and the info
+   *  - `"region"` the region of the table and the fraction inside it
+   *  - `"out"`    the table address, the position inside its sub-interval and
+   *               the info
    */
   val stagePoints: Seq[StageElem] = Seq(
-    StagePoint("shift", 3.0),
-    StagePoint("out",   1.0))
+    StagePoint("region", 2.0),
+    StagePoint("out",    1.0))
 }
 
 // -------------------------------------------------------------------------
@@ -148,19 +187,28 @@ object ATanFixedPreProcess {
 
 class ATanFixedTableCoeff(
   val spec:  RealSpec,
+  // the regions of ATanFixedTable, concatenated in address order
   val coeff: PolynomialCoefficients,
   val stage: Int,
 ) extends Module {
 
-  val adrW   = coeff.bitW.addrW
   val coefBW = coeff.bitW.coefBits.reduce(_+_)
+
+  // the concatenated table is already in the order the address selects
+  val all = PolynomialGenerator.packTable(coeff)
+
+  val adrW = log2Ceil(all.length)
+
+  require(all.length == (1 << adrW),
+    s"expected a power of two of atan table entries, got ${all.length}")
 
   val io = IO(new Bundle {
     val adr = Flipped(Valid(UInt(adrW.W)))
     val cs  = Valid(UInt(coefBW.W))
   })
 
-  val packed = VecInit(PolynomialGenerator.packTable(coeff).map(c => c.U(coefBW.W)))
+  val packed = VecInit(all.map(c => c.U(coefBW.W)))
+
   io.cs := Pipe(io.adr.valid, packed(io.adr.bits), stage)
 }
 
@@ -173,8 +221,9 @@ class ATanFixedTableCoeff(
 // |_|                 |_|
 // -------------------------------------------------------------------------
 
-/** Turns [[ATanFixedPreProcess]]'s info and the polynomial output, a fixed
- *  point value in [0, 1), into the final atan(t) bit pattern. */
+/** Turns [[ATanFixedPreProcess]]'s info and the polynomial output, atan(t)
+ *  of the argument scaled into [1/4, 1), into the final atan(t) bit
+ *  pattern. */
 class ATanFixedPostProcess(
   val spec:  RealSpec,
   val bitW:  PolynomialBitWidth,
@@ -210,21 +259,26 @@ class ATanFixedPostProcess(
   val info = cutIn(io.pre.bits)
   val zres = cutIn(io.zres.bits)
 
-  val countComb = PriorityEncoder(Reverse(zres))
+  // every region holds at least a quarter, so its value has at most two
+  // leading zeros: a leading-zero detector would be wasted here
+  val leadComb = Mux(zres(fracW - 1), 0.U(2.W),
+                 Mux(zres(fracW - 2), 1.U(2.W),
+                                      2.U(2.W)))
 
   // --------------------------------------------------------------------------
-  // stage "lead": the position of the leading one
+  // stage "lead": the leading zeros of the value
 
   private val cutLead = new SharedPipe("lead", cutIn.valid, stages.at("lead"))
 
-  val count    = cutLead(countComb)
+  val lead     = cutLead(leadComb)
   val zresLead = cutLead(zres)
   val infoLead = cutLead(info)
 
-  // a value in [0, 1) with `count` leading zeros lies in
-  // [2^-(count+1), 2^-count), so its exponent is -(count + 1).
-  val zshiftedComb = (zresLead << count)(fracW - 1, 0)
-  val zex0Comb     = (exBias - 1).U(exW.W) - count
+  // the region of the binade e holds atan(t) scaled up by 2^(e-1), and its
+  // value with `lead` leading zeros is a fraction in [1/2, 1) times 2^-lead,
+  // so the result is that fraction times 2^(1 - e - lead); e is exBias - tex
+  val zshiftedComb = (zresLead << lead)(fracW - 1, 0)
+  val zex0Comb     = infoLead.tex - lead
 
   // --------------------------------------------------------------------------
   // stage "shift": the normalized polynomial output
@@ -300,7 +354,7 @@ object ATanFixedPostProcess {
 
   /** Boundaries at which pipeline registers can be placed.
    *
-   *  - `"lead"`  the position of the leading one of the polynomial output
+   *  - `"lead"`  the leading zeros of the polynomial output
    *  - `"shift"` the normalized polynomial output and its exponent
    *  - `"round"` the rounded mantissa
    *  - `"out"`   the assembled result

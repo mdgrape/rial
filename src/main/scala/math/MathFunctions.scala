@@ -1632,8 +1632,9 @@ class MathFunctions(
   }
 
   // --------------------------------------------------------------------------
-  // ATanFixed -- the table holds atan(t) itself, so the result assembly
-  // normalizes it and neither shared multiplier takes part.
+  // ATanFixed -- one region of the table per binade of |t|, each holding
+  // atan(t) itself, so the result assembly normalizes it and neither shared
+  // multiplier takes part.
 
   if(cfg.has(ATanFixed)) {
     val pre  = toModule[ATanFixedPreProcess ](pres (ATanFixed))

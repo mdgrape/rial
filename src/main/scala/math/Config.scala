@@ -364,7 +364,7 @@ class MathFuncConfig(
     case SinPiFixed  => (SinPiFixed  -> new SinPiFixedTable (nOrder, addrW, inBitW, outBitW, manW))
     case CosPiFixed  => (CosPiFixed  -> new SinPiFixedTable (nOrder, addrW, inBitW, outBitW, manW))
     case Log2Fixed   => (Log2Fixed   -> new Log2FixedTable  (nOrder, addrW, inBitW, outBitW))
-    case ATanFixed   => (ATanFixed   -> new ATanFixedTable  (nOrder, addrW, inBitW, outBitW))
+    case ATanFixed   => (ATanFixed   -> new ATanFixedTable  (nOrder, addrW, inBitW, outBitW, manW))
     case ACosFixed   => (ACosFixed   -> new ACosFixedTable  (nOrder, addrW, inBitW, outBitW))
     case ScaleMixtureGaussian => {
       val (sA, sB) = scaleMixtureGaussianSigma.get
