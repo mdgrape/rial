@@ -13,31 +13,32 @@ import scala.math._
 import scala.util.Random
 
 //
-// The precision of atanFixed is absolute, not relative: its table holds
-// atan(t) itself, so the ulp error of the result grows as the result
-// approaches zero. Below the linear threshold atan(t) is t, which the module
-// returns unchanged, so the error falls back to zero there; the first test
-// below measures the growth over the bands of |t| and prints it. The
-// tolerance of ATan2Phase2SimTest is asserted where the result is of the
-// order of one and in the linear range, twice that where the result is a
-// quarter of one, and the bands in between are only held to a finite result
-// of the right sign.
+// atanFixed keeps its precision relative, not absolute: the table holds
+// atan(t) itself, but one region per binade of |t|, each scaled by a power of
+// two, so the result stays good to a few ulp however close to zero it is.
+// What limits it is the address: a region is divided into 16 sub-intervals
+// and the position inside one carries inBitW bits, which leaves a bit of the
+// mantissa unread over the binades a whole region covers. Below the binade
+// the table ends at, atan(t) is t itself and the module hands the argument
+// back. The tests below measure the error over the binades of |t| and print
+// it; what they assert of every binade is the tolerance below.
 //
 class ATanFixedSimTest extends AnyFunSpec {
 
   val spec = RealSpec.Float32Spec
   val r    = new Random(20260911)
 
-  /** how many arguments each band is measured over. */
+  /** how many arguments each binade is measured over. */
   val n = 20000
 
-  /** the tolerance ATan2Phase2SimTest holds atan2 to, in ulp. */
+  /** the error the dropped position bit and the table leave, in ulp. */
   val tolerance = 4
 
   val cfg = MathFuncConfig.standardFixedFP32
 
-  /** the first band of |t| in which the module returns its argument unchanged. */
-  val firstLinearBand = -ATan2Phase2SimGeneric.calcLinearThreshold(spec.manW)
+  /** the first binade of |t| in which the module returns its argument
+   *  unchanged. */
+  val firstLinearBinade = -ATan2Phase2SimGeneric.calcLinearThreshold(spec.manW)
 
   private def fl32(x: Double): RealGeneric = {
     new RealGeneric(spec, x)
@@ -48,9 +49,9 @@ class ATanFixedSimTest extends AnyFunSpec {
     (z.value - ref.value).abs.toDouble
   }
 
-  /** a random argument with |t| in [2^-k, 2^-k+1), of either sign. */
-  private def inBand(k: Int): RealGeneric = {
-    val mag = pow(2.0, -k) * (1.0 + r.nextDouble())
+  /** a random argument with |t| in [2^-e, 2^(1-e)), of either sign. */
+  private def inBinade(e: Int): RealGeneric = {
+    val mag = pow(2.0, -e) * (1.0 + r.nextDouble())
     fl32(if (r.nextBoolean()) { mag } else { -mag })
   }
 
@@ -60,72 +61,62 @@ class ATanFixedSimTest extends AnyFunSpec {
 
   // --------------------------------------------------------------------------
 
-  it("the error of atanFixed(t) over the bands of |t|") {
-    println(f"atanFixed(t) against atan(t), ${n}%d arguments per band")
-    println("  band            max ulp   mean ulp   max relative error")
-    println("  (the band of 2^0 is |t| >= 1, outside the domain, where the " +
-            "result is atan(1))")
-    for (k <- 24 to 0 by -1) {
+  it("the error of atanFixed(t) over the binades of |t|") {
+    println(f"atanFixed(t) against atan(t), ${n}%d arguments per binade of t")
+    println(f"  (the argument is handed back unchanged from the binade " +
+            f"${firstLinearBinade}%d on)")
+    println(f"  binade   band of |t|            max ulp   mean ulp   " +
+            f"max relative error")
+    for (e <- firstLinearBinade + 1 to 1 by -1) {
       var maxUlp = 0.0
       var sumUlp = 0.0
       var maxRel = 0.0
       for (i <- 1 to n) {
-        val t     = inBand(k)
-        val exact = atan(t.toDouble)
-        val z     = atanFixed(t)
+        val t   = inBinade(e)
+        val ref = atan(t.toDouble)
+        val z   = atanFixed(t)
 
-        assert(!z.isNaN && !z.isInfinite && abs(z.toDouble) <= Pi / 4.0 * (1.0 + 1e-6),
-          f"t = ${t.toDouble}, atanFixed = ${z.toDouble} is not an arc tangent " +
-          f"of an argument in [-1, 1]")
+        assert(!z.isNaN && !z.isInfinite &&
+               abs(z.toDouble) <= Pi / 4.0 * (1.0 + 1e-6),
+          f"t = ${t.toDouble}, z = ${z.toDouble} is not an arc tangent of an " +
+          f"argument in [-1, 1]")
         assert(z.sgn == t.sgn,
-          f"t = ${t.toDouble}, atanFixed = ${z.toDouble} has the wrong sign")
+          f"t = ${t.toDouble}, z = ${z.toDouble} has the wrong sign")
+        assert(ulp(z, fl32(ref)) <= tolerance,
+          f"t = ${t.toDouble}, z = ${z.toDouble}, ref = ${ref}, " +
+          f"error = ${ulp(z, fl32(ref))}%.0f ulp")
 
-        maxUlp = max(maxUlp, ulp(z, fl32(exact)))
-        sumUlp += ulp(z, fl32(exact))
-        maxRel = max(maxRel, abs(z.toDouble - exact) / abs(exact))
+        maxUlp = max(maxUlp, ulp(z, fl32(ref)))
+        sumUlp += ulp(z, fl32(ref))
+        maxRel = max(maxRel, abs(z.toDouble - ref) / abs(ref))
       }
-      println(f"  [2^${-k}%3d, 2^${1 - k}%3d)  ${maxUlp}%10.0f ${sumUlp / n}%10.1f " +
-              f"${maxRel}%20.3e")
+      println(f"  e = ${e}%2d   [2^${-e}%3d, 2^${1 - e}%3d)   ${maxUlp}%10.0f " +
+              f"${sumUlp / n}%10.2f ${maxRel}%20.3e")
     }
   }
 
-  it("the error of atanFixed(t) where the result is of the order of one") {
-    // |t| in [1/2, 1], where atan(t) is in [pi/8, pi/4) and the quantum of the
-    // polynomial output, 2^-outBitW, is half an ulp of the result.
-    for (i <- 1 to n) {
-      val t   = inBand(1)
-      val ref = fl32(atan(t.toDouble))
-      val z   = atanFixed(t)
-      assert(ulp(z, ref) <= tolerance,
-        f"t = ${t.toDouble}, atanFixed = ${z.toDouble}, " +
-        f"ref = ${ref.toDouble}, error = ${ulp(z, ref)}%.0f ulp")
-    }
-    for (i <- 1 to n) {
-      val t   = fl32(if (r.nextBoolean()) { 1.0 } else { -1.0 })
-      val ref = fl32(atan(t.toDouble))
-      val z   = atanFixed(t)
-      assert(ulp(z, ref) <= tolerance,
-        f"t = ${t.toDouble}, atanFixed = ${z.toDouble}, ref = ${ref.toDouble}")
-    }
-  }
-
-  it("the error of atanFixed(t) where the result is a quarter of one") {
-    // |t| in [1/4, 1/2), where atan(t) falls below 1/4 and the same quantum is
-    // a whole ulp of the result, so the same absolute error counts twice.
-    for (i <- 1 to n) {
-      val t   = inBand(2)
-      val ref = fl32(atan(t.toDouble))
-      val z   = atanFixed(t)
-      assert(ulp(z, ref) <= 2 * tolerance,
-        f"t = ${t.toDouble}, atanFixed = ${z.toDouble}, " +
-        f"ref = ${ref.toDouble}, error = ${ulp(z, ref)}%.0f ulp")
+  it("the error of atanFixed(t) at the ends of every binade") {
+    // the largest argument of a binade is where the value its region stores
+    // comes closest to one, which the polynomial output has to stay below
+    val manMax = (SafeLong(1) << spec.manW) - 1
+    for (e <- 1 to firstLinearBinade) {
+      for (k <- 0 to 255) {
+        for (man <- Seq(SafeLong(k), manMax - k)) {
+          val t   = new RealGeneric(spec, 0, spec.exBias - e, man)
+          val ref = fl32(atan(t.toDouble))
+          val z   = atanFixed(t)
+          assert(ulp(z, ref) <= tolerance,
+            f"t = ${t.toDouble}, atanFixed = ${z.toDouble}, " +
+            f"ref = ${ref.toDouble}, error = ${ulp(z, ref)}%.0f ulp")
+        }
+      }
     }
   }
 
   it("atanFixed(t) is its argument below the linear threshold") {
-    for (k <- 126 to firstLinearBand by -1) {
+    for (e <- 126 to firstLinearBinade by -1) {
       for (i <- 1 to 100) {
-        val t   = inBand(k)
+        val t   = inBinade(e)
         val ref = fl32(atan(t.toDouble))
         val z   = atanFixed(t)
         assert(z.value == t.value,
