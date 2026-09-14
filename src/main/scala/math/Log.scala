@@ -202,7 +202,7 @@ class LogNonTable(
   // ---- special values ----
   //   log(nan)  -> nan       log(inf)  -> inf
   //   log(0)    -> -inf      log(neg)  -> nan       log(1) -> 0
-  val znanComb  = x.nan || xsgn === 1.U
+  val znanComb  = x.nan || (xsgn === 1.U && !x.zero)
   val zinfComb  = x.inf || x.zero
   val zzeroComb = !xman.orR && xex === exBias.U
   val zsgnComb  = xex < exBias.U

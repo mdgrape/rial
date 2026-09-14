@@ -35,6 +35,12 @@ class LogTest extends AnyFunSpec
 
   var counter = 0
   val specialValues = Seq(
+      0.0,
+     -0.0,
+     -1.0,
+      Double.PositiveInfinity,
+      Double.NegativeInfinity,
+      Double.NaN,
       1.0,
       math.E / 2.0,
       math.E,
