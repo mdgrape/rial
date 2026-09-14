@@ -894,7 +894,6 @@ class MathFunctions(
     case Exp        => Exp        -> Module(new ExpNonTable       (spec, bitW, nonTableStage))
     case Pow2       => Pow2       -> Module(new ExpNonTable       (spec, bitW, nonTableStage))
     case Log        => Log        -> Module(new LogNonTable       (spec, bitW, nonTableStage))
-    case Log2Fixed  => Log2Fixed  -> Module(new Log2FixedNonTable (spec, bitW, nonTableStage))
     // ACosPhase1 reuses SqrtNonTable
     // ACosPhase2 doesn't need one.
   }.toMap
@@ -1594,15 +1593,15 @@ class MathFunctions(
   }
 
   // --------------------------------------------------------------------------
-  // Log2Fixed -- the table holds log2(1 + t) itself, so the result assembly
-  // normalizes it with the exponent of the argument and neither shared
-  // multiplier takes part.
+  // Log2Fixed -- one region of the table per binade of the distance of the
+  // argument from one, on each side of it, each holding |log2 x| itself, so
+  // the result assembly normalizes it and neither shared multiplier takes
+  // part.
 
   if(cfg.has(Log2Fixed)) {
-    val pre  = toModule[Log2FixedPreProcess ](pres   (Log2Fixed))
-    val tab  = toModule[Log2FixedTableCoeff ](tabs   (Log2Fixed))
-    val ntab = toModule[Log2FixedNonTable   ](nontabs(Log2Fixed))
-    val post = toModule[Log2FixedPostProcess](posts  (Log2Fixed))
+    val pre  = toModule[Log2FixedPreProcess ](pres (Log2Fixed))
+    val tab  = toModule[Log2FixedTableCoeff ](tabs (Log2Fixed))
+    val post = toModule[Log2FixedPostProcess](posts(Log2Fixed))
 
     pre.io.x.valid :=
       xPreOf(Log2Fixed).valid && selPreOf(Log2Fixed) === cfg.signal(Log2Fixed)
@@ -1616,17 +1615,9 @@ class MathFunctions(
       polynomialDxs.get(Log2Fixed) := pre.io.dx.get
     }
 
-    // ----- non-table ------
-    ntab.io.x.valid :=
-      xTabOf(Log2Fixed).valid && selTabOf(Log2Fixed) === cfg.signal(Log2Fixed)
-    ntab.io.x.bits  := xTabOf(Log2Fixed).bits
-
     // ----- post -----
-    val ntabAtPost = Pipe(ntab.io.z, nMulToPostOf(Log2Fixed))
-
-    post.io.in.valid     := ntabAtPost.valid && zresAtPostOf(Log2Fixed).valid
-    post.io.in.bits.info := ntabAtPost.bits
-    post.io.in.bits.zres := zresAtPostOf(Log2Fixed).bits
+    post.io.pre  := Pipe(pre.io.info, nTabToPostOf(Log2Fixed))
+    post.io.zres := zresAtPostOf(Log2Fixed)
 
     zs(Log2Fixed) := post.io.z
   }

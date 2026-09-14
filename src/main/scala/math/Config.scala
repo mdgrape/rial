@@ -92,9 +92,10 @@ object FuncKind extends Enumeration {
   val CosPiFixed  = Value
   /** log2(x), without either shared multiplier.
    *
-   * Its table approximates log2(1 + t) itself, so the precision of the
-   * fraction of the result is absolute: the relative error grows as x
-   * approaches one from either side.
+   * Its table holds |log2(x)| itself, one region per binade of the distance
+   * of x from one on either side of it, each scaled by a power of two, so its
+   * precision is relative: the result stays within a few units of its last
+   * place wherever it is read, the arguments that approach one included.
    */
   val Log2Fixed   = Value
   /** atan(t) for |t| <= 1, without either shared multiplier.
@@ -363,7 +364,7 @@ class MathFuncConfig(
     case CosPi       => (CosPi       -> new SinCosTable     (nOrder, addrW, inBitW, outBitW))
     case SinPiFixed  => (SinPiFixed  -> new SinPiFixedTable (nOrder, addrW, inBitW, outBitW, manW))
     case CosPiFixed  => (CosPiFixed  -> new SinPiFixedTable (nOrder, addrW, inBitW, outBitW, manW))
-    case Log2Fixed   => (Log2Fixed   -> new Log2FixedTable  (nOrder, addrW, inBitW, outBitW))
+    case Log2Fixed   => (Log2Fixed   -> new Log2FixedTable  (nOrder, addrW, inBitW, outBitW, manW))
     case ATanFixed   => (ATanFixed   -> new ATanFixedTable  (nOrder, addrW, inBitW, outBitW))
     case ACosFixed   => (ACosFixed   -> new ACosFixedTable  (nOrder, addrW, inBitW, outBitW))
     case ScaleMixtureGaussian => {
