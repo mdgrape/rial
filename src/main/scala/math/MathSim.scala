@@ -68,6 +68,7 @@ class MathSim(
     addrW   = addrW,
     inBitW  = inBitW,
     outBitW = outBitW,
+    manW    = manW,
     scaleMixtureGaussianSigma = if (funcs.contains(ScaleMixtureGaussian)) {
       Some((
         if (smgSigmaA.isNaN) {MathFuncConfig.defaultSMGSigma._1} else {smgSigmaA},

@@ -75,15 +75,19 @@ object FuncKind extends Enumeration {
   /** sin(π x), for an argument the caller has already scaled, without either
    *  shared multiplier.
    *
-   * Its table approximates sin(π y) itself, so its precision is absolute: the
-   * relative error grows as the result approaches zero.
+   * Its table holds sin(π y) of the reduced argument itself, one region per
+   * binade of y, each scaled by a power of two, so its precision is relative:
+   * the result stays within a few units of its last place wherever it is
+   * read, the arguments at which the sine vanishes included.
    */
   val SinPiFixed  = Value
   /** cos(π x), for an argument the caller has already scaled, without either
    *  shared multiplier.
    *
-   * Its table approximates sin(π y) itself, so its precision is absolute: the
-   * relative error grows as the result approaches zero.
+   * Its table holds sin(π y) of the reduced argument itself, one region per
+   * binade of y, each scaled by a power of two, so its precision is relative:
+   * the result stays within a few units of its last place wherever it is
+   * read, the arguments at which the cosine vanishes included.
    */
   val CosPiFixed  = Value
   /** log2(x), without either shared multiplier.
@@ -246,6 +250,10 @@ object FuncKind extends Enumeration {
 
  *  @constructor create a new MathFuncConfig.
  *  @param funcs the list of functions that should be supported.
+ *  @param manW mantissa width of the floating point format the tables are
+ *              built for. A table that gives a region of its own to each
+ *              binade of its argument places its grid on that mantissa, so
+ *              it has to know how many bits of it there are.
  *  @param ScaleMixtureGaussianSigma sigmaA and sigmaB for ScaleMixtureGaussian.
  *  @param sinCos the range of the argument sin/cos are calculated for; `None`
  *                covers the whole format. Outside the range sin/cos return a
@@ -259,6 +267,7 @@ class MathFuncConfig(
   val addrW:   Int,
   val inBitW:  Int,
   val outBitW: Int,
+  val manW:    Int,
   val scaleMixtureGaussianSigma: Option[(Double, Double)] = None,
   val sinCos:  Option[SinCosDomain] = None,
 ) {
@@ -352,8 +361,8 @@ class MathFuncConfig(
     case Pow2        => (Pow2        -> new ExpTable        (nOrder, addrW, inBitW, outBitW))
     case SinPi       => (SinPi       -> new SinCosTable     (nOrder, addrW, inBitW, outBitW))
     case CosPi       => (CosPi       -> new SinCosTable     (nOrder, addrW, inBitW, outBitW))
-    case SinPiFixed  => (SinPiFixed  -> new SinPiFixedTable (nOrder, addrW, inBitW, outBitW))
-    case CosPiFixed  => (CosPiFixed  -> new SinPiFixedTable (nOrder, addrW, inBitW, outBitW))
+    case SinPiFixed  => (SinPiFixed  -> new SinPiFixedTable (nOrder, addrW, inBitW, outBitW, manW))
+    case CosPiFixed  => (CosPiFixed  -> new SinPiFixedTable (nOrder, addrW, inBitW, outBitW, manW))
     case Log2Fixed   => (Log2Fixed   -> new Log2FixedTable  (nOrder, addrW, inBitW, outBitW))
     case ATanFixed   => (ATanFixed   -> new ATanFixedTable  (nOrder, addrW, inBitW, outBitW))
     case ACosFixed   => (ACosFixed   -> new ACosFixedTable  (nOrder, addrW, inBitW, outBitW))
@@ -374,7 +383,7 @@ class MathFuncConfig(
    *                whole format
    */
   def restrictSinCos(domain: Option[SinCosDomain]): MathFuncConfig = {
-    new MathFuncConfig(funcs, nOrder, addrW, inBitW, outBitW,
+    new MathFuncConfig(funcs, nOrder, addrW, inBitW, outBitW, manW,
       scaleMixtureGaussianSigma, domain)
   }
 
@@ -479,6 +488,7 @@ object MathFuncConfig {
     addrW   = 8,
     inBitW  = RealSpec.Float32Spec.manW - 8,
     outBitW = RealSpec.Float32Spec.manW + 3,
+    manW    = RealSpec.Float32Spec.manW,
   )
   /** Default BF16 config supporting only the [[simple]] function set. */
   val simpleBF16 = new MathFuncConfig(
@@ -487,6 +497,7 @@ object MathFuncConfig {
     addrW   = RealSpec.BFloat16Spec.manW,
     inBitW  = 0,
     outBitW = RealSpec.BFloat16Spec.manW + 1,
+    manW    = RealSpec.BFloat16Spec.manW,
   )
 
   /** Default FP32 config supporting the [[standard]] function set. */
@@ -496,6 +507,7 @@ object MathFuncConfig {
     addrW   = 8,
     inBitW  = RealSpec.Float32Spec.manW - 8,
     outBitW = RealSpec.Float32Spec.manW + 3,
+    manW    = RealSpec.Float32Spec.manW,
   )
   /** Default BF16 config supporting the [[standard]] function set. */
   val standardBF16 = new MathFuncConfig(
@@ -504,6 +516,7 @@ object MathFuncConfig {
     addrW   = RealSpec.BFloat16Spec.manW,
     inBitW  = 0,
     outBitW = RealSpec.BFloat16Spec.manW + 1,
+    manW    = RealSpec.BFloat16Spec.manW,
   )
 
   /** Default FP32 config supporting the [[standardScaled]] function set. */
@@ -513,6 +526,7 @@ object MathFuncConfig {
     addrW   = 8,
     inBitW  = RealSpec.Float32Spec.manW - 8,
     outBitW = RealSpec.Float32Spec.manW + 3,
+    manW    = RealSpec.Float32Spec.manW,
   )
   /** Default BF16 config supporting the [[standardScaled]] function set. */
   val standardScaledBF16 = new MathFuncConfig(
@@ -521,6 +535,7 @@ object MathFuncConfig {
     addrW   = RealSpec.BFloat16Spec.manW,
     inBitW  = 0,
     outBitW = RealSpec.BFloat16Spec.manW + 1,
+    manW    = RealSpec.BFloat16Spec.manW,
   )
 
   /** Default FP32 config supporting the [[standardFixed]] function set.
@@ -539,6 +554,7 @@ object MathFuncConfig {
     addrW   = 8,
     inBitW  = 18,
     outBitW = RealSpec.Float32Spec.manW + 3,
+    manW    = RealSpec.Float32Spec.manW,
   )
   /** Default BF16 config supporting the [[standardFixed]] function set. */
   val standardFixedBF16 = new MathFuncConfig(
@@ -547,6 +563,7 @@ object MathFuncConfig {
     addrW   = RealSpec.BFloat16Spec.manW,
     inBitW  = 0,
     outBitW = RealSpec.BFloat16Spec.manW + 1,
+    manW    = RealSpec.BFloat16Spec.manW,
   )
 
   /** Default FP32 config supporting [[all]] math functions.  Uses
@@ -566,6 +583,7 @@ object MathFuncConfig {
     addrW   = 8,
     inBitW  = RealSpec.Float32Spec.manW - 8,
     outBitW = RealSpec.Float32Spec.manW + 8,
+    manW    = RealSpec.Float32Spec.manW,
     scaleMixtureGaussianSigma = Some(defaultSMGSigma),
   )
   /** Default BF16 config supporting [[all]] math functions.  Uses
@@ -587,6 +605,7 @@ object MathFuncConfig {
     addrW   = RealSpec.BFloat16Spec.manW,
     inBitW  = 0,
     outBitW = RealSpec.BFloat16Spec.manW + 10,
+    manW    = RealSpec.BFloat16Spec.manW,
     scaleMixtureGaussianSigma = Some(defaultSMGSigma),
   )
 }

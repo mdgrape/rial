@@ -89,56 +89,6 @@ object SinCosTable {
   }
 }
 
-// The table approximates  z(y0) = sin(Pi * y0 / 2)         for y0 in [0, 1)
-// z is in [0, 1), so the value is stored as it is.
-// (y0 at runtime corresponds to 2y, where y in [0, 1/2) is the argument-
-//  reduced |x|/pi after quadrant folding.)
-class SinPiFixedTable(
-  val nOrder:  Int,
-  val addrW:   Int,
-  val inBitW:  Int,
-  val outBitW: Int,
-) extends TableBase {
-
-  private val func = (y0: Double) => {
-    sin(Pi * y0 / 2.0)
-  }
-
-  private val nIntervals = 1 << addrW
-  private val ft  = FuncTable(func, nOrder, nIntervals, 0.0, 1.0)
-  private val gen = new PolynomialGenerator(ft, inBitW, outBitW)
-
-  def getBitWidth(): PolynomialBitWidth = {
-    gen.getBitWidth()
-  }
-  def generateTable(bitW: PolynomialBitWidth): PolynomialCoefficients = {
-    gen.generateTable(bitW)
-  }
-}
-
-object SinPiFixedTable {
-  def fp32(): SinPiFixedTable = {
-    val addrW     = 8
-    val extraBits = 3
-    new SinPiFixedTable(
-      nOrder  = 2,
-      addrW   = addrW,
-      inBitW  = (RealSpec.Float32Spec.manW - addrW),
-      outBitW = (RealSpec.Float32Spec.manW + extraBits),
-    )
-  }
-  def bf16(): SinPiFixedTable = {
-    val addrW     = RealSpec.BFloat16Spec.manW
-    val extraBits = 1
-    new SinPiFixedTable(
-      nOrder  = 0,
-      addrW   = addrW,
-      inBitW  = (RealSpec.BFloat16Spec.manW - addrW),
-      outBitW = (RealSpec.BFloat16Spec.manW + extraBits),
-    )
-  }
-}
-
 // The argument reduction sin/cos and sinPi/cosPi share, and the value their
 // table holds for the argument it leaves.
 private[math] object SinCosReduction {
@@ -154,21 +104,27 @@ private[math] object SinCosReduction {
     zres: SafeLong,
   )
 
-  /** Reduce `x`, which must be finite, and read the table at what is left.
+  /** the sign of the result and the reduced argument y in [0, 1/2]. */
+  case class Argument(
+    zsgn: Int,
+    yex:  Int,
+    yman: SafeLong,
+  )
+
+  /** Reduce `x`, which must be finite, to the sign of the result and the
+   *  argument y in [0, 1/2] the table is read at.
    *
    *  @param isSin        true for sin, false for cos
-   *  @param t            polynomial coefficients
    *  @param x            input
    *  @param oneOverPiPad precision pad for the 1/pi constant
    *  @param scaled       whether the argument is already divided by pi
    */
-  def apply(
+  def reduce(
     isSin: Boolean,
-    t:     PolynomialCoefficients,
     x:     RealGeneric,
     oneOverPiPad: Option[Int],
     scaled:       Boolean,
-  ): Reduced = {
+  ): Argument = {
 
     val spec   = x.spec
     val manW   = spec.manW
@@ -305,6 +261,34 @@ private[math] object SinCosReduction {
     assert(yex <= exBias - 1)
     assert(yex != exBias - 1 || yman == SafeLong(0))
     assert(yman < (SafeLong(1) << manW))
+
+    Argument(zSgn, yex, yman)
+  }
+
+  /** Reduce `x`, which must be finite, and read the table at what is left.
+   *
+   *  @param isSin        true for sin, false for cos
+   *  @param t            polynomial coefficients
+   *  @param x            input
+   *  @param oneOverPiPad precision pad for the 1/pi constant
+   *  @param scaled       whether the argument is already divided by pi
+   */
+  def apply(
+    isSin: Boolean,
+    t:     PolynomialCoefficients,
+    x:     RealGeneric,
+    oneOverPiPad: Option[Int],
+    scaled:       Boolean,
+  ): Reduced = {
+
+    val spec   = x.spec
+    val manW   = spec.manW
+    val exBias = spec.exBias
+
+    val y    = reduce(isSin, x, oneOverPiPad, scaled)
+    val zSgn = y.zsgn
+    val yex  = y.yex
+    val yman = y.yman
 
     // y == 0.5 exactly: the result is +-1, and the table is not read.
     if (yex == exBias - 1) {
@@ -459,61 +443,5 @@ object SinPiSimGeneric {
   def apply(isSin: Boolean, t: PolynomialCoefficients, x: RealGeneric):
       RealGeneric = {
     SinCosSimGeneric(isSin, t, x, None, scaled = true)
-  }
-}
-
-/** Software simulator for the hardware that computes sin(pi x) and cos(pi x)
- *  without either shared multiplier.
- *
- *  Its table holds sin(pi y) itself, so the polynomial output is a fixed point
- *  value and the result assembly normalises it instead of multiplying it by
- *  the reduced argument.
- */
-object SinPiFixedSimGeneric {
-
-  /** Compute sin(pi x) or cos(pi x).
-   *
-   *  @param isSin true for sin(pi x), false for cos(pi x)
-   *  @param t     polynomial coefficients (from SinPiFixedTable)
-   *  @param x     input
-   */
-  def apply(isSin: Boolean, t: PolynomialCoefficients, x: RealGeneric):
-      RealGeneric = {
-
-    val spec   = x.spec
-    val manW   = spec.manW
-    val exBias = spec.exBias
-
-    if (x.isNaN)      { return RealGeneric.nan(spec) }
-    if (x.isInfinite) { return RealGeneric.nan(spec) }
-
-    val y = SinCosReduction(isSin, t, x, None, scaled = true)
-
-    // y == 0.5 exactly  ->  result is +-1
-    if (y.yex == exBias - 1) {
-      return new RealGeneric(spec, y.zsgn, exBias, SafeLong(0))
-    }
-    // the table gave zero  ->  result is +-0
-    if (y.zres == SafeLong(0)) {
-      return new RealGeneric(spec, y.zsgn, 0, SafeLong(0))
-    }
-
-    // -----------------------------------------------------------------------
-    // the table holds sin(pi y) in [0, 1) as a fixed point value: its leading
-    // zeros give the exponent, and what is left of it the mantissa.
-
-    val outPrec = t.bitW.outPrec
-
-    val count   = outPrec - binaryWidthSL(y.zres)
-    val shifted = y.zres << count
-
-    val extraBits            = outPrec - 1 - manW
-    val zRounded             = roundBySpec(RoundSpec.roundToEven, extraBits, shifted)
-    val zMoreThan2AfterRound = bit(manW + 1, zRounded)
-
-    val zMan = slice(0, manW, zRounded)
-    val zEx  = exBias - 1 - count + zMoreThan2AfterRound
-
-    new RealGeneric(spec, y.zsgn, zEx, zMan)
   }
 }

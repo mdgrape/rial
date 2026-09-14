@@ -839,7 +839,7 @@ class MathFunctions(
     case Reciprocal  => Reciprocal  -> Module(new ReciprocalPreProcess (spec, bitW, preStage(Reciprocal )))
     case Sin         => Sin         -> Module(new SinCosPreProcess     (spec, bitW, preStage(Sin        ), cfg.sinCos))
     case SinPi       => SinPi       -> Module(new SinCosPreProcess     (spec, bitW, preStage(SinPi      ), cfg.sinCos, scaled = true))
-    case SinPiFixed  => SinPiFixed  -> Module(new SinCosPreProcess     (spec, bitW, preStage(SinPiFixed ), cfg.sinCos, scaled = true))
+    case SinPiFixed  => SinPiFixed  -> Module(new SinPiFixedPreProcess (spec, bitW, preStage(SinPiFixed ), cfg.sinCos))
     case Exp         => Exp         -> Module(new ExpPreProcess        (spec, bitW, preStage(Exp        )))
     case Pow2        => Pow2        -> Module(new ExpPreProcess        (spec, bitW, preStage(Pow2       )))
     case Log         => Log         -> Module(new LogPreProcess        (spec, bitW, preStage(Log        )))
@@ -865,7 +865,7 @@ class MathFunctions(
     case Reciprocal  => Reciprocal  -> Module(new ReciprocalTableCoeff (spec, coeffs(Reciprocal ), nTable))
     case Sin         => Sin         -> Module(new SinCosTableCoeff     (spec, coeffs(Sin        ), nTable))
     case SinPi       => SinPi       -> Module(new SinCosTableCoeff     (spec, coeffs(SinPi      ), nTable))
-    case SinPiFixed  => SinPiFixed  -> Module(new SinCosTableCoeff     (spec, coeffs(SinPiFixed ), nTable))
+    case SinPiFixed  => SinPiFixed  -> Module(new SinPiFixedTableCoeff (spec, coeffs(SinPiFixed ), nTable))
     case Log         => Log         -> Module(new LogTableCoeff        (spec, coeffs(Log        ), nTable))
     case Log2Fixed   => Log2Fixed   -> Module(new Log2FixedTableCoeff  (spec, coeffs(Log2Fixed  ), nTable))
     case Exp         => Exp         -> Module(new ExpTableCoeff        (spec, coeffs(Exp        ), nTable))
@@ -1134,12 +1134,13 @@ class MathFunctions(
   }
 
   // --------------------------------------------------------------------------
-  // SinPiFixed / CosPiFixed -- the table holds sin(π y) itself, so the result
-  // assembly normalizes it and neither shared multiplier takes part.
+  // SinPiFixed / CosPiFixed -- one region of the table per binade of the
+  // reduced argument, each holding sin(π y) itself, so the result assembly
+  // normalizes it and neither shared multiplier takes part.
 
   if(cfg.has(SinPiFixed) || cfg.has(CosPiFixed)) {
-    val pre  = toModule[SinCosPreProcess     ](pres (SinPiFixed))
-    val tab  = toModule[SinCosTableCoeff     ](tabs (SinPiFixed))
+    val pre  = toModule[SinPiFixedPreProcess ](pres (SinPiFixed))
+    val tab  = toModule[SinPiFixedTableCoeff ](tabs (SinPiFixed))
     val post = toModule[SinPiFixedPostProcess](posts(SinPiFixed))
 
     // ----- pre stage: the argument and its product with the constant one -----
@@ -1820,7 +1821,7 @@ object MathFunctions {
       case Reciprocal  => path(Reciprocal,  ReciprocalPreProcess         .stagePoints)
       case Sin         => path(Sin,         SinCosPreProcess             .stagePoints)
       case SinPi       => path(SinPi,       SinCosPreProcess             .stagePoints)
-      case SinPiFixed  => path(SinPiFixed,  SinCosPreProcess             .stagePoints)
+      case SinPiFixed  => path(SinPiFixed,  SinPiFixedPreProcess         .stagePoints)
       case ACosPhase1  => path(ACosPhase1,  ACosPhase1PreProcess         .stagePoints)
       case ACosPhase2  => path(ACosPhase2,  ACosPhase2PreProcess         .stagePoints)
       case ATan2Phase1 => path(ATan2Phase1, ATan2Phase1PreProcess        .stagePoints)
