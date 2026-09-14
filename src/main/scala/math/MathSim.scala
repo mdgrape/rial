@@ -64,11 +64,11 @@ class MathSim(
    *  would be built from. */
   val config = new MathFuncConfig(
     funcs   = funcs,
+    spec    = spec,
     nOrder  = nOrder,
     addrW   = addrW,
     inBitW  = inBitW,
     outBitW = outBitW,
-    manW    = manW,
     scaleMixtureGaussianSigma = if (funcs.contains(ScaleMixtureGaussian)) {
       Some((
         if (smgSigmaA.isNaN) {MathFuncConfig.defaultSMGSigma._1} else {smgSigmaA},

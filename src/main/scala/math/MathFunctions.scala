@@ -158,6 +158,10 @@ class MathFunctions(
 
   assert(!spec.disableSign, "assuming the float type allows negative values")
 
+  require(cfg.spec == spec,
+    f"the tables of this config are generated for ${cfg.spec.toStringShort}, " +
+    f"not for the ${spec.toStringShort} this module is built for")
+
   val exW    = spec.exW
   val manW   = spec.manW
   val exBias = spec.exBias
