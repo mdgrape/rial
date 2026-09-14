@@ -523,12 +523,21 @@ object MathFuncConfig {
     outBitW = RealSpec.BFloat16Spec.manW + 1,
   )
 
-  /** Default FP32 config supporting the [[standardFixed]] function set. */
+  /** Default FP32 config supporting the [[standardFixed]] function set.
+   *
+   *  The position inside a sub-interval is wider here than the mantissa
+   *  leaves below the address: the tables of this set give a region of their
+   *  own to each binade of the argument and divide that region into
+   *  sub-intervals, so a position reaches further down the mantissa than a
+   *  flat table's does. A fraction with fewer bits left is padded, so the
+   *  functions whose table is flat read exactly what a narrower position
+   *  would have given them.
+   */
   val standardFixedFP32 = new MathFuncConfig(
     funcs   = standardFixed,
     nOrder  = 2,
     addrW   = 8,
-    inBitW  = RealSpec.Float32Spec.manW - 8,
+    inBitW  = 18,
     outBitW = RealSpec.Float32Spec.manW + 3,
   )
   /** Default BF16 config supporting the [[standardFixed]] function set. */

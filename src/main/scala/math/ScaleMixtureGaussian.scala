@@ -121,9 +121,9 @@ class ScaleMixtureGaussianPreProcess(
   val useTable    = (xTableMaxDigit + exBias).U(exW.W) > x.ex
 
   val xTableMan = Cat(1.U(1.W), x.man) >> xTableShift
-  val adrComb   = xTableMan(manW - 1, dxW)
+  val adrComb   = TableAddress.adr(xTableMan(manW - 1, 0), adrW)
   val dxComb: Option[UInt] = if (order != 0) {
-    Some(Cat(~xTableMan(manW - adrW - 1), xTableMan(manW - adrW - 2, 0)))
+    Some(TableAddress.dx(xTableMan(manW - 1, 0), adrW, dxW))
   } else {
     None
   }

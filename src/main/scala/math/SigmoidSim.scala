@@ -142,9 +142,8 @@ object SigmoidSimGeneric {
     }
 
     // ---- polynomial table query ----
-    val xW   = manW - addrW
-    val addr = slice(xW, addrW, xScaled).toInt
-    val xiv  = slice(0,  xW,    xScaled).toBigInt
+    val addr = TableAddress.adr(xScaled, manW, addrW)
+    val xiv  = TableAddress.dx(xScaled, manW, addrW, t.bitW.inBitW)
     val zScaled0 = PolynomialEval.eval(addr, xiv, t)
 
     val zScaled = if (zScaled0 < 0) {

@@ -197,9 +197,12 @@ object ExpSimGeneric {
     // -----------------------------------------------------------------------
     // table lookup of 2^t - 1
 
-    val dxbp = inBitW - 1
-    val addr = slice(padding + dxbp + 1, addrW,    xfrac).toInt
-    val xiv  = slice(padding,            inBitW,   xfrac).toBigInt
+    // the bits of the fraction the polynomial reads; the `padding` below
+    // them are a correction the result assembly applies itself
+    val xfracPoly = slice(padding, xFracW - padding, xfrac)
+
+    val addr = TableAddress.adr(xfracPoly, xFracW - padding, addrW)
+    val xiv  = TableAddress.dx(xfracPoly, xFracW - padding, addrW, inBitW)
 
     val zmanRaw = if (spec == RealSpec.Float64Spec && xfrac == SafeLong(0)) {
       // FP64 + x << 1 path: polynomial result can dip slightly negative; pin to 0.

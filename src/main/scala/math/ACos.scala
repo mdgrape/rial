@@ -147,11 +147,11 @@ class ACosPhase1PreProcess(
   // stage "out"
 
   // ---- table address: same encoding as SqrtPreProcess.adr (ex(0) | top mantissa) ----
-  val adr = Cat(xConvertedEx(0), xConvertedMan(manW - 1, dxW))
+  val adr = Cat(xConvertedEx(0), TableAddress.adr(xConvertedMan, adrW))
   io.adr := Pipe(cutRound.valid, adr, stages.at("out"))
 
   if (order != 0) {
-    val dx = Cat(~xConvertedMan(dxW - 1), xConvertedMan(dxW - 2, 0))
+    val dx = TableAddress.dx(xConvertedMan, adrW, dxW)
     io.dx.get := Pipe(cutRound.valid, dx, stages.at("out"))
   }
 
@@ -335,11 +335,11 @@ class ACosPhase2PreProcess(
   // --------------------------------------------------------------------------
   // stage "out"
 
-  val adr = xAligned(manW - 1, dxW)
+  val adr = TableAddress.adr(xAligned(manW - 1, 0), adrW)
   io.adr := Pipe(cutAlign.valid, adr, stages.at("out"))
 
   if (order != 0) {
-    val dx = Cat(~xAligned(dxW - 1), xAligned(dxW - 2, 0))
+    val dx = TableAddress.dx(xAligned(manW - 1, 0), adrW, dxW)
     io.dx.get := Pipe(cutAlign.valid, dx, stages.at("out"))
   }
 

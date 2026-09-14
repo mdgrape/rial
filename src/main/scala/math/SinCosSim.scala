@@ -330,13 +330,11 @@ private[math] object SinCosReduction {
     assert(addrW == manW || nOrder != 0,
       f"addrW(${addrW}) must == manW(${manW}) when nOrder == 0.")
 
-    val xW = manW - addrW
     val (addr, xiv) = if (nOrder == 0) {
       (yAligned.toInt, BigInt(0))
     } else {
-      val a = slice(xW, addrW, yAligned).toInt
-      val v = slice(0, xW, yAligned).toBigInt
-      (a, v)
+      (TableAddress.adr(yAligned, manW, addrW),
+       TableAddress.dx(yAligned, manW, addrW, t.bitW.inBitW))
     }
 
     val res0 = PolynomialEval.eval(addr, xiv, t)

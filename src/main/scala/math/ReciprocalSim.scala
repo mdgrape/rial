@@ -138,9 +138,8 @@ object ReciprocalSimGeneric {
     val zman0 = if (man == SafeLong(0)) {
       SafeLong(0)
     } else {
-      val xW    = manW - addrW
-      val addr  = slice(xW, addrW, man).toInt
-      val xiv   = slice( 0,    xW, man).toBigInt
+      val addr  = TableAddress.adr(man, manW, addrW)
+      val xiv   = TableAddress.dx(man, manW, addrW, t.bitW.inBitW)
       SafeLong(PolynomialEval.eval(addr, xiv, t))
     }
 

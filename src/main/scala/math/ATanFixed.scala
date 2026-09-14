@@ -118,11 +118,11 @@ class ATanFixedPreProcess(
   // --------------------------------------------------------------------------
   // stage "out"
 
-  val adr = tFixed(manW - 1, dxW)
+  val adr = TableAddress.adr(tFixed(manW - 1, 0), adrW)
   io.adr := Pipe(cutShift.valid, adr, stages.at("out"))
 
   if (order != 0) {
-    val dx = Cat(~tFixed(dxW - 1), tFixed(dxW - 2, 0))
+    val dx = TableAddress.dx(tFixed(manW - 1, 0), adrW, dxW)
     io.dx.get := Pipe(cutShift.valid, dx, stages.at("out"))
   }
 

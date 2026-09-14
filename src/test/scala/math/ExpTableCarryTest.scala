@@ -22,18 +22,23 @@ class ExpTableCarryTest extends AnyFunSpec {
     (BigInt(1) << cfg.bitW.outBitW) - (BigInt(1) << (padding - 1))
   }
 
+  // Pow2 reads the same table as Exp, at the argument the caller has scaled.
   val configs = Seq(
-    ("standardFP32", MathFuncConfig.standardFP32, RealSpec.Float32Spec),
-    ("standardBF16", MathFuncConfig.standardBF16, RealSpec.BFloat16Spec),
-    ("allFP32",      MathFuncConfig.allFP32,      RealSpec.Float32Spec),
-    ("allBF16",      MathFuncConfig.allBF16,      RealSpec.BFloat16Spec),
+    ("standardFP32", MathFuncConfig.standardFP32, RealSpec.Float32Spec,  Exp),
+    ("standardBF16", MathFuncConfig.standardBF16, RealSpec.BFloat16Spec, Exp),
+    ("allFP32",      MathFuncConfig.allFP32,      RealSpec.Float32Spec,  Exp),
+    ("allBF16",      MathFuncConfig.allBF16,      RealSpec.BFloat16Spec, Exp),
+    ("standardFixedFP32", MathFuncConfig.standardFixedFP32,
+                          RealSpec.Float32Spec,  Pow2),
+    ("standardFixedBF16", MathFuncConfig.standardFixedBF16,
+                          RealSpec.BFloat16Spec, Pow2),
   )
 
   describe("ExpTableCoeff.maxPolynomial stays below the carry threshold") {
 
-    for ((name, cfg, spec) <- configs) {
+    for ((name, cfg, spec, fn) <- configs) {
       it(f"$name") {
-        val maxPoly = ExpTableCoeff.maxPolynomial(cfg.coeffs(Exp))
+        val maxPoly = ExpTableCoeff.maxPolynomial(cfg.coeffs(fn), spec)
         val limit   = threshold(cfg, spec)
         val outBitW = cfg.bitW.outBitW
 
@@ -49,13 +54,13 @@ class ExpTableCarryTest extends AnyFunSpec {
   describe("ExpTableCoeff.maxPolynomial reproduces the measured maxima") {
 
     it("standardFP32 reaches 2^26 - 12") {
-      assert(ExpTableCoeff.maxPolynomial(MathFuncConfig.standardFP32.coeffs(Exp)) ==
-             (BigInt(1) << 26) - 12)
+      assert(ExpTableCoeff.maxPolynomial(MathFuncConfig.standardFP32.coeffs(Exp),
+             RealSpec.Float32Spec) == (BigInt(1) << 26) - 12)
     }
 
     it("standardBF16 reaches 2^8 - 3") {
-      assert(ExpTableCoeff.maxPolynomial(MathFuncConfig.standardBF16.coeffs(Exp)) ==
-             (BigInt(1) << 8) - 3)
+      assert(ExpTableCoeff.maxPolynomial(MathFuncConfig.standardBF16.coeffs(Exp),
+             RealSpec.BFloat16Spec) == (BigInt(1) << 8) - 3)
     }
   }
 }

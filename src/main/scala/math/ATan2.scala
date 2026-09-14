@@ -219,11 +219,11 @@ class ATan2Phase1PreProcess(
 
   io.flags := Pipe(cutEx.valid, flags, stages.at("out"))
 
-  val adr = maxMan(manW - 1, dxW)
+  val adr = TableAddress.adr(maxMan, adrW)
   io.adr := Pipe(cutEx.valid, adr, stages.at("out"))
 
   if (order != 0) {
-    val dx = Cat(~maxMan(dxW - 1), maxMan(dxW - 2, 0))
+    val dx = TableAddress.dx(maxMan, adrW, dxW)
     io.dx.get := Pipe(cutEx.valid, dx, stages.at("out"))
   }
 
@@ -461,11 +461,11 @@ class ATan2Phase2PreProcess(
 
   io.flags := Pipe(cutShift.valid, flags, stages.at("out"))
 
-  val adr = xFixed(manW - 1, dxW)
+  val adr = TableAddress.adr(xFixed(manW - 1, 0), adrW)
   io.adr := Pipe(cutShift.valid, adr, stages.at("out"))
 
   if (order != 0) {
-    val dx = Cat(~xFixed(dxW - 1), xFixed(dxW - 2, 0))
+    val dx = TableAddress.dx(xFixed(manW - 1, 0), adrW, dxW)
     io.dx.get := Pipe(cutShift.valid, dx, stages.at("out"))
   }
 

@@ -186,11 +186,11 @@ object ACosFixedSimGeneric {
       (lead + 1, slice(0, manW, u << lead))
     }
 
-    val addr = (region << subW) + (key >> (manW - subW)).toInt
+    val addr = (region << subW) + TableAddress.adr(key, manW, subW)
     val dx   = if (nOrder == 0) {
       BigInt(0)
     } else {
-      slice(manW - subW - inBitW, inBitW, key).toBigInt
+      TableAddress.dx(key, manW, subW, inBitW)
     }
 
     val res0 = PolynomialEval.eval(addr, dx, t)

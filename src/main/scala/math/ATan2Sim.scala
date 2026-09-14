@@ -149,9 +149,8 @@ object ATan2Phase1SimGeneric {
     // the max value's mantissa (with the factor of 2 absorbed in the
     // multiplication below).
     val addrW = tReciprocal.bitW.addrW
-    val xW    = manW - addrW
-    val addr  = slice(xW, addrW, maxxy.man).toInt
-    val xiv   = slice(0,  xW,    maxxy.man).toBigInt
+    val addr  = TableAddress.adr(maxxy.man, manW, addrW)
+    val xiv   = TableAddress.dx(maxxy.man, manW, addrW, tReciprocal.bitW.inBitW)
 
     val recMan = if (maxxy.man == SafeLong(0)) {
       SafeLong(0)
@@ -240,9 +239,8 @@ object ATan2Phase2SimGeneric {
       // Very small t: linear region; atan(t)/t ~ 1.
       (SafeLong(1) << fracW, 0)
     } else {
-      val xW   = manW - addrW
-      val addr = slice(xW, addrW, xFixed).toInt
-      val xiv  = slice(0,  xW,    xFixed).toBigInt
+      val addr = TableAddress.adr(xFixed, manW, addrW)
+      val xiv  = TableAddress.dx(xFixed, manW, addrW, tATan2.bitW.inBitW)
       val res0 = PolynomialEval.eval(addr, xiv, tATan2)
       assert(res0 <= (SafeLong(1) << fracW),
         f"xFixed = ${xFixed}, res0 = ${res0} > 2^${fracW}")
@@ -383,11 +381,11 @@ object ATanFixedSimGeneric {
     val xShift = exBias - x.ex
     val xFixed = x.manW1 >> xShift
 
-    val xW = manW - addrW
     val (addr, xiv) = if (t.bitW.nOrder == 0) {
       (xFixed.toInt, BigInt(0))
     } else {
-      (slice(xW, addrW, xFixed).toInt, slice(0, xW, xFixed).toBigInt)
+      (TableAddress.adr(xFixed, manW, addrW),
+       TableAddress.dx(xFixed, manW, addrW, t.bitW.inBitW))
     }
 
     val zres = SafeLong(PolynomialEval.eval(addr, xiv, t))

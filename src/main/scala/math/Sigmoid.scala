@@ -101,11 +101,11 @@ class SigmoidPreProcess(
   // --------------------------------------------------------------------------
   // stage "out"
 
-  val adr = xScaled(manW - 1, dxW)
+  val adr = TableAddress.adr(xScaled(manW - 1, 0), adrW)
   io.adr := Pipe(cutScale.valid, adr, stages.at("out"))
 
   if (order != 0) {
-    val dx = Cat(~xScaled(dxW - 1), xScaled(dxW - 2, 0))
+    val dx = TableAddress.dx(xScaled(manW - 1, 0), adrW, dxW)
     io.dx.get := Pipe(cutScale.valid, dx, stages.at("out"))
   }
 

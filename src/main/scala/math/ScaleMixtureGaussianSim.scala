@@ -146,9 +146,8 @@ object ScaleMixtureGaussianSimGeneric {
     val xTableMan      = x.manW1 >> xTableShift
 
     // ---- polynomial table query ------------------------------------------
-    val xW   = manW - addrW
-    val addr = slice(xW, addrW, xTableMan).toInt
-    val xiv  = slice(0,  xW,    xTableMan).toBigInt
+    val addr = TableAddress.adr(xTableMan, manW, addrW)
+    val xiv  = TableAddress.dx(xTableMan, manW, addrW, t.bitW.inBitW)
     val zTable0 = PolynomialEval.eval(addr, xiv, t)
 
     // if |x| >= domainMax, g(x) -> 0 and the table term vanishes.

@@ -56,12 +56,12 @@ class Log2FixedPreProcess(
   val x = cutIn(io.x.bits)
 
   // the mantissa is the position t in [0, 1) the table is read at
-  val adr = x.man(manW - 1, dxW)
+  val adr = TableAddress.adr(x.man, adrW)
   io.adr := Pipe(cutIn.valid, adr, stages.at("out"))
 
   if (order != 0) {
     // convert UInt 0000~1111 -> SInt 1000,..1111,0000,..0111
-    val dx = Cat(~x.man(dxW - 1), x.man(dxW - 2, 0))
+    val dx = TableAddress.dx(x.man, adrW, dxW)
     io.dx.get := Pipe(cutIn.valid, dx, stages.at("out"))
   }
 }

@@ -110,9 +110,8 @@ object Log2FixedSimGeneric {
     val addrW = t.bitW.addrW
     val fracW = t.bitW.outPrec
 
-    val xW   = manW - addrW
-    val addr = slice(xW, addrW, x.man).toInt
-    val xiv  = slice(0,  xW,    x.man).toBigInt
+    val addr = TableAddress.adr(x.man, manW, addrW)
+    val xiv  = TableAddress.dx(x.man, manW, addrW, t.bitW.inBitW)
 
     val res0 = PolynomialEval.eval(addr, xiv, t)
     val res = if (res0 < 0) {

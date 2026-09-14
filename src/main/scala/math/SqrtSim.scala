@@ -139,9 +139,6 @@ object SqrtSimGeneric {
     val ex    = exRaw - exBias
     val man   = slice(0, manW+1, x.value) // x is even -> x.man, odd -> x.manW1
 
-    // Sqrt uses addrW bits from mantissa + 1 bit from ex(0) for even/odd distinction
-    assert(manW == addrW + t.bitW.inBitW)
-
     val zSgn = 0
     val zEx  = (ex >> 1) + exBias
 
@@ -158,10 +155,10 @@ object SqrtSimGeneric {
     //
     // } else {
 
-    val xW    = manW - addrW
+    val frac  = slice(0, manW, man)
     // addr includes ex(0) in MSB and addrW bits from mantissa
-    val addr  = slice(xW, addrW+1, man).toInt
-    val xiv   = slice( 0,    xW, man).toBigInt
+    val addr  = (bit(manW, man) << addrW) + TableAddress.adr(frac, manW, addrW)
+    val xiv   = TableAddress.dx(frac, manW, addrW, t.bitW.inBitW)
     val zman0 = PolynomialEval.eval(addr, xiv, t)
 
     val zman = if(zman0 < 0) {

@@ -66,12 +66,12 @@ class LogPreProcess(
   val exAddr = Mux(x.ex === exBias.U,       2.U(2.W),
                Mux(x.ex === (exBias - 1).U, 1.U(2.W),
                                             0.U(2.W)))
-  val subAdr = x.man(manW - 1, dxW)
+  val subAdr = TableAddress.adr(x.man, adrW)
   val adr    = Cat(exAddr, subAdr)
   io.adr := Pipe(cutIn.valid, adr, stages.at("out"))
 
   if (order != 0) {
-    val dx = Cat(~x.man(dxW - 1), x.man(dxW - 2, 0))
+    val dx = TableAddress.dx(x.man, adrW, dxW)
     io.dx.get := Pipe(cutIn.valid, dx, stages.at("out"))
   }
 }

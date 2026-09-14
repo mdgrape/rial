@@ -133,14 +133,12 @@ object LogSimGeneric {
     val xexNobias = x.ex - exBias
     val zint0     = if (xexNobias >= 0) SafeLong(xexNobias) else SafeLong(-xexNobias - 1)
 
-    val xW = manW - addrW
-
     val (ymanW1, zex0, cmanW1) = if (x.ex == exBias - 1) {
       // -----------------------------------------------------------------------
       // 0.5 <= x < 1.0  ->  -log(x)/(1-x) * -(1-x)
 
-      val addr = slice(xW, addrW, x.man).toInt
-      val xiv  = slice(0,  xW,    x.man).toBigInt
+      val addr = TableAddress.adr(x.man, manW, addrW)
+      val xiv  = TableAddress.dx(x.man, manW, addrW, inBitW)
 
       val res = PolynomialEval.eval(addr, xiv, tSmallNeg)
       val ymanW1 = if (res < 0) {
@@ -168,8 +166,8 @@ object LogSimGeneric {
       // -----------------------------------------------------------------------
       // 1.0 <= x < 2.0  ->  log(x)/(x-1) * (x-1)
 
-      val addr = slice(xW, addrW, x.man).toInt
-      val xiv  = slice(0,  xW,    x.man).toBigInt
+      val addr = TableAddress.adr(x.man, manW, addrW)
+      val xiv  = TableAddress.dx(x.man, manW, addrW, inBitW)
 
       val res = PolynomialEval.eval(addr, xiv, tSmallPos)
       val ymanW1 = if (res < 0) {
@@ -196,8 +194,8 @@ object LogSimGeneric {
       // -----------------------------------------------------------------------
       // polynomial path (x < 0.5 or x >= 2.0): log(x) = ex*log(2) + log(1.man)
 
-      val addr = slice(xW, addrW, x.man).toInt
-      val xiv  = slice(0,  xW,    x.man).toBigInt
+      val addr = TableAddress.adr(x.man, manW, addrW)
+      val xiv  = TableAddress.dx(x.man, manW, addrW, inBitW)
 
       val zfrac0Pos0 = PolynomialEval.eval(addr, xiv, tNormal)
       val zfrac0Pos = if (zfrac0Pos0 < 0) {

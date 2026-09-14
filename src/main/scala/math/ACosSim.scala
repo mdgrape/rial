@@ -174,9 +174,8 @@ object ACosPhase2SimGeneric {
       x.manW1 >> (exBias - x.ex)
     }
 
-    val xW   = manW - addrW
-    val addr = slice(xW, addrW, xAligned).toInt
-    val xiv  = slice(0,  xW,    xAligned).toBigInt
+    val addr = TableAddress.adr(xAligned, manW, addrW)
+    val xiv  = TableAddress.dx(xAligned, manW, addrW, tACos.bitW.inBitW)
 
     val polynomial = SafeLong(PolynomialEval.eval(addr, xiv, tACos))
 

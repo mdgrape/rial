@@ -79,9 +79,9 @@ class ACosFixedPreProcess(
 
   val adrW = regionW + subW
 
-  require(manW - subW - dxW >= 0,
+  require(manW >= subW,
     f"a mantissa of ${manW}%d bits must hold a sub-interval index of " +
-    f"${subW}%d bits and a position of ${dxW}%d bits inside it")
+    f"${subW}%d bits")
 
   require(ACosFixedTable.nRegion(bitW.outBitW) >= manW + 2,
     f"outBitW(${bitW.outBitW}%d) must leave the table a region for each of " +
@@ -166,11 +166,11 @@ class ACosFixedPreProcess(
   // --------------------------------------------------------------------------
   // stage "out"
 
-  val adr = Cat(region, key(manW - 1, manW - subW))
+  val adr = Cat(region, TableAddress.adr(key, subW))
   io.adr := Pipe(cutShift.valid, adr, stages.at("out"))
 
   if (order != 0) {
-    val dx = Cat(~key(manW - subW - 1), key(manW - subW - 2, manW - subW - dxW))
+    val dx = TableAddress.dx(key, subW, dxW)
     io.dx.get := Pipe(cutShift.valid, dx, stages.at("out"))
   }
 

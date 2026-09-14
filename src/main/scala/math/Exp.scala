@@ -239,7 +239,11 @@ class ExpPreProcess(
   // ------------------------------------------------------------------------
   // outputs
 
-  val adr = xfrac(xFracW - 1, (xFracW - 1) - adrW + 1)
+  // the bits of the fraction the polynomial reads; the `padding` below them
+  // are a correction the result assembly applies itself
+  val xfracPoly = xfrac(xFracW - 1, padding)
+
+  val adr = TableAddress.adr(xfracPoly, adrW)
 
   val infoOut = Wire(new ExpPreProcInfo(spec, padding))
   infoOut.xint := xint
@@ -251,7 +255,7 @@ class ExpPreProcess(
   io.info := Pipe(cutNeg.valid, infoOut, stages.at("out"))
   io.adr  := Pipe(cutNeg.valid, adr,     stages.at("out"))
   if (order != 0) {
-    val dx = Cat(~xfrac(xFracW - 1 - adrW), xfrac(xFracW - 1 - adrW - 1, padding))
+    val dx = TableAddress.dx(xfracPoly, adrW, dxW)
     io.dx.get := Pipe(cutNeg.valid, dx, stages.at("out"))
   }
 }
@@ -297,7 +301,7 @@ class ExpTableCoeff(
   private val padding = coeff.bitW.outBitW - spec.manW
 
   if (padding > 0) {
-    val maxPoly   = ExpTableCoeff.maxPolynomial(coeff)
+    val maxPoly   = ExpTableCoeff.maxPolynomial(coeff, spec)
     val threshold = (BigInt(1) << coeff.bitW.outBitW) - (BigInt(1) << (padding - 1))
 
     require(maxPoly < threshold,
@@ -328,18 +332,22 @@ object ExpTableCoeff {
    *
    *  It evaluates the table with [[rial.table.PolynomialEval.eval]], the
    *  software model of the hardware evaluator, over every `dx` of the last
-   *  interval and the two extreme `dx` of every other interval.  The table
-   *  approximates the increasing 2^t-1, so its maximum lives in the last
-   *  interval; the endpoints of the others guard that assumption.
+   *  interval the pre-process can form and the two extreme `dx` of every
+   *  other interval.  The table approximates the increasing 2^t-1, so its
+   *  maximum lives in the last interval; the endpoints of the others guard
+   *  that assumption.
    *
    *  @param coeff the coefficients of the exp table
+   *  @param spec  floating point spec of the argument
    *  @return the maximum of the integer polynomial result
    */
-  def maxPolynomial(coeff: PolynomialCoefficients): BigInt = {
+  def maxPolynomial(coeff: PolynomialCoefficients, spec: RealSpec): BigInt = {
     val nInterval = coeff.coeffs.length
-    val dxMax     = (BigInt(1) << coeff.bitW.inBitW) - 1
+    val dxStep    = TableAddress.dxStep(spec.manW, coeff.bitW.addrW,
+                                        coeff.bitW.inBitW)
+    val dxMax     = (BigInt(1) << coeff.bitW.inBitW) - dxStep
 
-    val lastMax = (BigInt(0) to dxMax).map(dx => {
+    val lastMax = (BigInt(0) to dxMax by dxStep).map(dx => {
       PolynomialEval.eval(nInterval - 1, dx, coeff)
     }).max
 

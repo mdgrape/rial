@@ -432,7 +432,7 @@ class SinCosPreProcess(
   // address / dx for the polynomial
 
   val yaligned = Cat(1.U(1.W), yman) >> ((exBias - 1).U(exW.W) - yex)
-  val adr      = yaligned(manW - 1, manW - adrW)
+  val adr      = TableAddress.adr(yaligned(manW - 1, 0), adrW)
 
   // --------------------------------------------------------------------------
   // stage "out"
@@ -447,7 +447,7 @@ class SinCosPreProcess(
   io.info := Pipe(cutRound.valid, infoOut, stages.at("out"))
   io.adr  := Pipe(cutRound.valid, adr,     stages.at("out"))
   if (order != 0) {
-    val dx = Cat(~yaligned(manW - adrW - 1), yaligned(manW - adrW - 2, 0))
+    val dx = TableAddress.dx(yaligned(manW - 1, 0), adrW, dxW)
     io.dx.get := Pipe(cutRound.valid, dx, stages.at("out"))
   }
 }
