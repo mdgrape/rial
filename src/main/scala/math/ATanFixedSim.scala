@@ -50,8 +50,10 @@ class ATanFixedTable(
   /** The regions of the table and the address that selects one. */
   val layout = ATanFixedTable.layout(nOrder, addrW, manW)
 
+  // the argument is read as it comes, so every region is reached by a
+  // mantissa of `manW` bits
   private val gen = new PolynomialGenerator(
-    layout.funcTable(nOrder, manW, inBitW)(ATanFixedTable.value),
+    layout.funcTable(nOrder, _ => manW, inBitW)(ATanFixedTable.value),
     inBitW, outBitW)
 
   /** The width of the sub-interval index is the one of a region; the address

@@ -135,17 +135,24 @@ class GradedLayout(val binades: Seq[GradedBinade], val subW: Int) {
     slice(0, manW, man << splitWOf(binadeOf(e)))
   }
 
-  /** Half of the quantum of the grid the address and the position leave of a
-   *  mantissa of `manW` bits, and zero when they leave all of it.
+  /** Half of the span of the mantissas the address and the position read as
+   *  one, and zero when they read every mantissa of `manW` bits as itself.
    *
-   *  A polynomial generated at the argument plus this much is centred on that
-   *  grid, so that dropping the bits below it costs as much either way
-   *  instead of always the same way.
+   *  They keep the top bits of the mantissa and drop the rest, so the
+   *  mantissas they read as one run from the grid point up to one unit of
+   *  their own last place short of the next. A polynomial generated at the
+   *  argument plus this much is centred on them, so that dropping those bits
+   *  costs as much either way instead of always the same way; a mantissa the
+   *  grid keeps whole is read as itself, and asks for no offset at all.
+   *
+   *  @param r      the region the mantissa falls in
+   *  @param manW   bits the mantissa of that region's argument carries
+   *  @param inBitW width of the position inside a sub-interval
    */
   def gridOffset(r: GradedRegion, manW: Int, inBitW: Int): Double = {
     val keptW = r.splitW + subW + inBitW
     if (manW > keptW) {
-      scalb(1.0, -(keptW + 1))
+      (scalb(1.0, -keptW) - scalb(1.0, -manW)) * 0.5
     } else {
       0.0
     }
@@ -158,16 +165,18 @@ class GradedLayout(val binades: Seq[GradedBinade], val subW: Int) {
    *  are the ones the whole table needs.
    *
    *  @param nOrder order of the polynomial of a sub-interval
-   *  @param manW   width of the mantissa of the argument
+   *  @param manWOf bits the mantissa of a region's argument carries, which a
+   *                caller that shifts the leading one of its argument out
+   *                gives one region at a time
    *  @param inBitW width of the position inside a sub-interval
    *  @param f      the value a region stores for a mantissa in `[0, 1)`
    */
-  def funcTable(nOrder: Int, manW: Int, inBitW: Int)(
+  def funcTable(nOrder: Int, manWOf: GradedRegion => Int, inBitW: Int)(
     f: (GradedRegion, Double) => Double): FuncTable = {
     val table = new FuncTable(nOrder)
     regions.foreach(r => {
       val (manMin, manMax) = r.manRange
-      val offset = gridOffset(r, manW, inBitW)
+      val offset = gridOffset(r, manWOf(r), inBitW)
       table.addEqualInterval((m: Double) => { f(r, m + offset) }, 1 << subW,
         manMin, manMax)
     })

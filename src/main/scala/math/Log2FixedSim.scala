@@ -78,10 +78,12 @@ class Log2FixedTable(
 
   private val gens = Seq(
     new PolynomialGenerator(
-      above.funcTable(nOrder, manW, inBitW)(Log2FixedTable.aboveValue),
+      above.funcTable(nOrder, Log2FixedTable.aboveManW(manW), inBitW)(
+        Log2FixedTable.aboveValue),
       inBitW, outBitW),
     new PolynomialGenerator(
-      below.funcTable(nOrder, manW, inBitW)(Log2FixedTable.belowValue),
+      below.funcTable(nOrder, Log2FixedTable.belowManW(manW), inBitW)(
+        Log2FixedTable.belowValue),
       inBitW, outBitW))
 
   /** The width of the sub-interval index is the one of a region; the address
@@ -171,6 +173,26 @@ object Log2FixedTable {
     new GradedLayout(
       (2 to manW + 1).map(e => GradedBinade(e, splitW(e))),
       subW(nOrder, addrW))
+  }
+
+  /** Bits the mantissa of the distance carries in a region above x = 1.
+   *
+   *  The distance is the mantissa of x itself, and a region reads it with the
+   *  leading one of its binade shifted out, so of a mantissa of `manW` bits
+   *  the region of binade `e` is reached by `manW - e` of them.
+   */
+  def aboveManW(manW: Int): GradedRegion => Int = {
+    r => manW - r.binade
+  }
+
+  /** Bits the mantissa of the distance carries in a region below x = 1.
+   *
+   *  Below one the distance is the complement of a mantissa of `manW` bits
+   *  one exponent down, which is one fraction bit longer, so a region there
+   *  is reached by one bit more than the same binade above one is.
+   */
+  def belowManW(manW: Int): GradedRegion => Int = {
+    r => manW - r.binade + 1
   }
 
   /** The value a region above x = 1 stores for the mantissa `m` of its

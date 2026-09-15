@@ -53,8 +53,11 @@ class SinPiFixedTable(
   /** The regions of the table and the address that selects one. */
   val layout = SinPiFixedTable.layout(nOrder, addrW)
 
+  // the reduction leaves a mantissa of `manW` bits, which is what a region
+  // is centred on; an argument the reduction cancelled down to fewer of them
+  // reads the same region
   private val gen = new PolynomialGenerator(
-    layout.funcTable(nOrder, manW, inBitW)(SinPiFixedTable.value),
+    layout.funcTable(nOrder, _ => manW, inBitW)(SinPiFixedTable.value),
     inBitW, outBitW)
 
   /** The width of the sub-interval index is the one of a region; the address

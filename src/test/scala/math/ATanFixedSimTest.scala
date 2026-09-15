@@ -32,7 +32,7 @@ class ATanFixedSimTest extends AnyFunSpec {
   val n = 20000
 
   /** the error the dropped position bit and the table leave, in ulp. */
-  val tolerance = 4
+  val tolerance = 2
 
   val cfg = MathFuncConfig.standardFixedFP32
 

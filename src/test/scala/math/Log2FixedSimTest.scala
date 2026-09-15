@@ -32,7 +32,7 @@ class Log2FixedSimTest extends AnyFunSpec {
   val nBinade = 2000
 
   /** the tolerance the result is held to, in ulp. */
-  val tolerance = 4
+  val tolerance = 2
 
   /** the binades of x the bands are printed for; every one is measured. */
   val printedBinade = 20
