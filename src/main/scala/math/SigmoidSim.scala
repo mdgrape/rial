@@ -120,6 +120,7 @@ object SigmoidSimGeneric {
     val exBias = spec.exBias
 
     val addrW     = t.bitW.addrW
+    val nOrder    = t.bitW.nOrder
     val outPrec   = t.bitW.outPrec
     val calcW     = outPrec
     val extraBits = outPrec - manW
@@ -143,7 +144,11 @@ object SigmoidSimGeneric {
 
     // ---- polynomial table query ----
     val addr = TableAddress.adr(xScaled, manW, addrW)
-    val xiv  = TableAddress.dx(xScaled, manW, addrW, t.bitW.inBitW)
+    val xiv  = if (nOrder == 0) {
+      BigInt(0)
+    } else {
+      TableAddress.dx(xScaled, manW, addrW, t.bitW.inBitW)
+    }
     val zScaled0 = PolynomialEval.eval(addr, xiv, t)
 
     val zScaled = if (zScaled0 < 0) {

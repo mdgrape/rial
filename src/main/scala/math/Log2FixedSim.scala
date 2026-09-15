@@ -309,7 +309,11 @@ object Log2FixedSimGeneric {
 
     val addr = (side << (layout.regionW + subW)) + (region << subW) +
                TableAddress.adr(key, manW, subW)
-    val dx   = TableAddress.dx(key, manW, subW, inBitW)
+    val dx   = if (nOrder == 0) {
+      BigInt(0)
+    } else {
+      TableAddress.dx(key, manW, subW, inBitW)
+    }
 
     val res0 = PolynomialEval.eval(addr, dx, t)
 

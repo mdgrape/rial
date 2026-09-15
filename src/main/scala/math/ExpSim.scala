@@ -125,6 +125,7 @@ object ExpSimGeneric {
     val addrW   = t.bitW.addrW
     val outPrec = t.bitW.outPrec
     val inBitW  = t.bitW.inBitW
+    val nOrder  = t.bitW.nOrder
     val extraBits = outPrec - manW
 
     // -----------------------------------------------------------------------
@@ -202,7 +203,11 @@ object ExpSimGeneric {
     val xfracPoly = slice(padding, xFracW - padding, xfrac)
 
     val addr = TableAddress.adr(xfracPoly, xFracW - padding, addrW)
-    val xiv  = TableAddress.dx(xfracPoly, xFracW - padding, addrW, inBitW)
+    val xiv  = if (nOrder == 0) {
+      BigInt(0)
+    } else {
+      TableAddress.dx(xfracPoly, xFracW - padding, addrW, inBitW)
+    }
 
     val zmanRaw = if (spec == RealSpec.Float64Spec && xfrac == SafeLong(0)) {
       // FP64 + x << 1 path: polynomial result can dip slightly negative; pin to 0.

@@ -343,8 +343,13 @@ object ExpTableCoeff {
    */
   def maxPolynomial(coeff: PolynomialCoefficients, spec: RealSpec): BigInt = {
     val nInterval = coeff.coeffs.length
-    val dxStep    = TableAddress.dxStep(spec.manW, coeff.bitW.addrW,
-                                        coeff.bitW.inBitW)
+    // a table of order zero is a plain lookup: it reads no position at all,
+    // so its one interval-wide step leaves zero as the only position
+    val dxStep    = if (coeff.bitW.nOrder == 0) {
+      BigInt(1)
+    } else {
+      TableAddress.dxStep(spec.manW, coeff.bitW.addrW, coeff.bitW.inBitW)
+    }
     val dxMax     = (BigInt(1) << coeff.bitW.inBitW) - dxStep
 
     val lastMax = (BigInt(0) to dxMax by dxStep).map(dx => {

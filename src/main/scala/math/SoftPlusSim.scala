@@ -143,6 +143,7 @@ object SoftPlusSimGeneric {
     val exBias = spec.exBias
 
     val addrW     = tPos.bitW.addrW
+    val nOrder    = tPos.bitW.nOrder
     val outPrec   = tPos.bitW.outPrec
     val calcW     = outPrec
     val extraBits = outPrec - manW
@@ -164,7 +165,11 @@ object SoftPlusSimGeneric {
     // ---- polynomial table query ----
     val t = if (x.sgn == 0) tPos else tNeg
     val addr = TableAddress.adr(xScaled, manW, addrW)
-    val xiv  = TableAddress.dx(xScaled, manW, addrW, tPos.bitW.inBitW)
+    val xiv  = if (nOrder == 0) {
+      BigInt(0)
+    } else {
+      TableAddress.dx(xScaled, manW, addrW, tPos.bitW.inBitW)
+    }
     val zScaled0 = PolynomialEval.eval(addr, xiv, t)
 
     val zScaled = if (zScaled0 < 0) {

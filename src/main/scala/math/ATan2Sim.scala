@@ -148,9 +148,14 @@ object ATan2Phase1SimGeneric {
     // hidden 1 gives `denomW1 = (2/(1+max_frac)) * 2^fracW`, the inverse of
     // the max value's mantissa (with the factor of 2 absorbed in the
     // multiplication below).
-    val addrW = tReciprocal.bitW.addrW
-    val addr  = TableAddress.adr(maxxy.man, manW, addrW)
-    val xiv   = TableAddress.dx(maxxy.man, manW, addrW, tReciprocal.bitW.inBitW)
+    val addrW  = tReciprocal.bitW.addrW
+    val nOrder = tReciprocal.bitW.nOrder
+    val addr   = TableAddress.adr(maxxy.man, manW, addrW)
+    val xiv    = if (nOrder == 0) {
+      BigInt(0)
+    } else {
+      TableAddress.dx(maxxy.man, manW, addrW, tReciprocal.bitW.inBitW)
+    }
 
     val recMan = if (maxxy.man == SafeLong(0)) {
       SafeLong(0)
@@ -205,6 +210,7 @@ object ATan2Phase2SimGeneric {
     val exBias = spec.exBias
 
     val addrW     = tATan2.bitW.addrW
+    val nOrder    = tATan2.bitW.nOrder
     val outPrec   = tATan2.bitW.outPrec
     val fracW     = outPrec
     val extraBits = outPrec - manW
@@ -240,7 +246,11 @@ object ATan2Phase2SimGeneric {
       (SafeLong(1) << fracW, 0)
     } else {
       val addr = TableAddress.adr(xFixed, manW, addrW)
-      val xiv  = TableAddress.dx(xFixed, manW, addrW, tATan2.bitW.inBitW)
+      val xiv  = if (nOrder == 0) {
+        BigInt(0)
+      } else {
+        TableAddress.dx(xFixed, manW, addrW, tATan2.bitW.inBitW)
+      }
       val res0 = PolynomialEval.eval(addr, xiv, tATan2)
       assert(res0 <= (SafeLong(1) << fracW),
         f"xFixed = ${xFixed}, res0 = ${res0} > 2^${fracW}")

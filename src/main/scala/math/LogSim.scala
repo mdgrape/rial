@@ -125,6 +125,7 @@ object LogSimGeneric {
     // All tables produce a fracW-wide unsigned value scaled by 2^outPrec.
     val addrW   = tNormal.bitW.addrW
     val inBitW  = tNormal.bitW.inBitW
+    val nOrder  = tNormal.bitW.nOrder
     val outPrec = tNormal.bitW.outPrec
     val fracW   = outPrec
     assert(tSmallPos.bitW.addrW == addrW && tSmallNeg.bitW.addrW == addrW)
@@ -138,7 +139,11 @@ object LogSimGeneric {
       // 0.5 <= x < 1.0  ->  -log(x)/(1-x) * -(1-x)
 
       val addr = TableAddress.adr(x.man, manW, addrW)
-      val xiv  = TableAddress.dx(x.man, manW, addrW, inBitW)
+      val xiv  = if (nOrder == 0) {
+        BigInt(0)
+      } else {
+        TableAddress.dx(x.man, manW, addrW, inBitW)
+      }
 
       val res = PolynomialEval.eval(addr, xiv, tSmallNeg)
       val ymanW1 = if (res < 0) {
@@ -167,7 +172,11 @@ object LogSimGeneric {
       // 1.0 <= x < 2.0  ->  log(x)/(x-1) * (x-1)
 
       val addr = TableAddress.adr(x.man, manW, addrW)
-      val xiv  = TableAddress.dx(x.man, manW, addrW, inBitW)
+      val xiv  = if (nOrder == 0) {
+        BigInt(0)
+      } else {
+        TableAddress.dx(x.man, manW, addrW, inBitW)
+      }
 
       val res = PolynomialEval.eval(addr, xiv, tSmallPos)
       val ymanW1 = if (res < 0) {
@@ -195,7 +204,11 @@ object LogSimGeneric {
       // polynomial path (x < 0.5 or x >= 2.0): log(x) = ex*log(2) + log(1.man)
 
       val addr = TableAddress.adr(x.man, manW, addrW)
-      val xiv  = TableAddress.dx(x.man, manW, addrW, inBitW)
+      val xiv  = if (nOrder == 0) {
+        BigInt(0)
+      } else {
+        TableAddress.dx(x.man, manW, addrW, inBitW)
+      }
 
       val zfrac0Pos0 = PolynomialEval.eval(addr, xiv, tNormal)
       val zfrac0Pos = if (zfrac0Pos0 < 0) {

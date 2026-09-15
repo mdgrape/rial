@@ -139,7 +139,11 @@ object ReciprocalSimGeneric {
       SafeLong(0)
     } else {
       val addr  = TableAddress.adr(man, manW, addrW)
-      val xiv   = TableAddress.dx(man, manW, addrW, t.bitW.inBitW)
+      val xiv   = if (nOrder == 0) {
+        BigInt(0)
+      } else {
+        TableAddress.dx(man, manW, addrW, t.bitW.inBitW)
+      }
       SafeLong(PolynomialEval.eval(addr, xiv, t))
     }
 

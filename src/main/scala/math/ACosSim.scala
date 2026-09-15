@@ -152,6 +152,7 @@ object ACosPhase2SimGeneric {
     val exBias = spec.exBias
 
     val addrW     = tACos.bitW.addrW
+    val nOrder    = tACos.bitW.nOrder
     val outPrec   = tACos.bitW.outPrec
     val extraBits = outPrec - manW
     val calcW     = manW + extraBits
@@ -175,7 +176,11 @@ object ACosPhase2SimGeneric {
     }
 
     val addr = TableAddress.adr(xAligned, manW, addrW)
-    val xiv  = TableAddress.dx(xAligned, manW, addrW, tACos.bitW.inBitW)
+    val xiv  = if (nOrder == 0) {
+      BigInt(0)
+    } else {
+      TableAddress.dx(xAligned, manW, addrW, tACos.bitW.inBitW)
+    }
 
     val polynomial = SafeLong(PolynomialEval.eval(addr, xiv, tACos))
 

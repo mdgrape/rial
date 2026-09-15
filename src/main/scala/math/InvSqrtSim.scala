@@ -148,7 +148,11 @@ object InvSqrtSimGeneric {
     val frac  = slice(0, manW, man)
     // addr includes ex(0) in MSB and addrW bits from mantissa
     val addr  = (bit(manW, man) << addrW) + TableAddress.adr(frac, manW, addrW)
-    val xiv   = TableAddress.dx(frac, manW, addrW, t.bitW.inBitW)
+    val xiv   = if (nOrder == 0) {
+      BigInt(0)
+    } else {
+      TableAddress.dx(frac, manW, addrW, t.bitW.inBitW)
+    }
     val zman0 = PolynomialEval.eval(addr, xiv, t)
     // println(f"S: x=(${x.sgn}|${x.ex}|${x.man.toLong.toBinaryString}), addr=${addr}, xiv=${xiv}(${xiv.toLong.toBinaryString})")
 

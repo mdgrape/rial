@@ -182,7 +182,11 @@ object SinPiFixedSimGeneric {
 
     val addr = (region << layout.subW) +
                TableAddress.adr(key, manW, layout.subW)
-    val dx   = TableAddress.dx(key, manW, layout.subW, inBitW)
+    val dx   = if (nOrder == 0) {
+      BigInt(0)
+    } else {
+      TableAddress.dx(key, manW, layout.subW, inBitW)
+    }
 
     val res0 = PolynomialEval.eval(addr, dx, t)
 
