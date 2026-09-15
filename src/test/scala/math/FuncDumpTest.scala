@@ -15,6 +15,7 @@ import rial.util.PipelineStageConfig
 
 import java.io.PrintWriter
 import scala.collection.mutable.ArrayBuffer
+import scala.math._
 
 //
 // Not an assertion test: drives the HW (MathFunctions) over a sweep of inputs
@@ -29,6 +30,21 @@ import scala.collection.mutable.ArrayBuffer
 // (sigmoid / softplus / smg) come from an `all` build.  Point `stdCfg` at
 // `allFP32` if you'd rather dump everything from a single all-functions module.
 //
+// The multiplier-free set (`standardFixed`) gets one file per function, all
+// of them from a single build:
+//
+//   fixed_sqrt.dat  fixed_invsqrt.dat  fixed_reciprocal.dat  fixed_pow2.dat
+//   fixed_log2.dat  fixed_sinpi.dat    fixed_cospi.dat
+//   fixed_atan.dat  fixed_acos.dat
+//
+// Their columns are `x z ref ulp`: the argument, the result of the HW as a
+// double, the double-precision reference, and the signed error of the result
+// in fp32 units of the last place of that reference (0 where the two are the
+// same special value). A file holds one sweep per block of lines, the blocks
+// separated by a blank line: a sweep over the range that matters, then, where
+// it helps, a logarithmic sweep of the distance from the argument the
+// function is hardest at.
+//
 // Run with:  sbt "testOnly rial.tests.FuncDumpTest"
 //
 class FuncDumpTest extends AnyFunSpec
@@ -42,6 +58,7 @@ class FuncDumpTest extends AnyFunSpec
   // HW configs: standard build for the standard funcs, all build for the rest.
   val stdCfg = MathFuncConfig.standardFP32
   val allCfg = MathFuncConfig.allFP32
+  val fixCfg = MathFuncConfig.standardFixedFP32
 
   private def toBits(x: Double): BigInt = new RealGeneric(spec, x).value.toBigInt
   private def toDouble(bits: BigInt): Double = new RealGeneric(spec, spire.math.SafeLong(bits)).toDouble
@@ -153,5 +170,140 @@ class FuncDumpTest extends AnyFunSpec
     for (i <- rs.indices) aw.println(f"${rs(i)}%.8g ${atanPosO(i)}%.8g ${atanNegO(i)}%.8g")
     aw.close()
     println(s"wrote $outDir/atan2_io.dat (${rs.length} rows)")
+  }
+
+  // ==========================================================================
+  // the multiplier-free set
+  // ==========================================================================
+
+  /** `n + 1` points spread evenly over `[lo, hi]`. */
+  private def linSweep(lo: Double, hi: Double, n: Int): Seq[Double] = {
+    (0 to n).map(i => lo + (hi - lo) * i / n)
+  }
+
+  /** `n + 1` points spread evenly in the logarithm over `[lo, hi]`. */
+  private def logSweep(lo: Double, hi: Double, n: Int): Seq[Double] = {
+    (0 to n).map(i => lo * pow(hi / lo, i.toDouble / n))
+  }
+
+  /** The distances `logSweep(lo, hi, n)` laid out on both sides of `centre`,
+   *  from the far end below it to the far end above it. */
+  private def aroundSweep(centre: Double, lo: Double, hi: Double, n: Int)
+    : Seq[Double] = {
+    val d = logSweep(lo, hi, n)
+    d.reverse.map(v => centre - v) ++ d.map(v => centre + v)
+  }
+
+  /** The bit pattern as a monotone integer, so that the distance of two
+   *  results counts the representable values between them across zero too. */
+  private def ordinal(b: BigInt): BigInt = {
+    val sign = BigInt(1) << (spec.W - 1)
+    if (b >= sign) { -(b - sign) } else { b }
+  }
+
+  /** The signed error of the result `z` against `ref`, in units of the last
+   *  place of `ref` in `spec`; 0 where both are the same special value. */
+  private def ulpOf(z: BigInt, ref: Double): Long = {
+    val zd = toDouble(z)
+    if (zd.isNaN && ref.isNaN) {
+      0L
+    } else if (zd.isInfinite && zd == ref) {
+      0L
+    } else {
+      (ordinal(z) - ordinal(toBits(ref))).toLong
+    }
+  }
+
+  // sin(pi x) and cos(pi x) of a double, kept away from the cancellation the
+  // product pi x suffers where the result vanishes: the argument is folded
+  // into [-1/2, 1/2] first, exactly, and the quarter of the period nearest a
+  // zero of the result is read off the other function.
+  private def refSinPi(x: Double): Double = {
+    val r = x - 2.0 * rint(x / 2.0)
+    val t = if (r > 0.5) { 1.0 - r } else if (r < -0.5) { -1.0 - r } else { r }
+    if (x == 0.0) { x } else { sin(Pi * t) }
+  }
+  private def refCosPi(x: Double): Double = {
+    val r = abs(x - 2.0 * rint(x / 2.0))
+    val t = if (r > 0.5) { 1.0 - r } else { r }
+    val s = if (r > 0.5) { -1.0 } else { 1.0 }
+    if (t >= 0.25) { s * sin(Pi * (0.5 - t)) } else { s * cos(Pi * t) }
+  }
+
+  /** Drives `fn` over `xs` and formats one line of `x z ref ulp` per point. */
+  private def sweepOf(c: MathFunctions, fn: FuncKind, xs: Seq[Double],
+                      ref: Double => Double): Seq[String] = {
+    val xBits = xs.map(toBits)
+    val zBits = evalUnary(c, fixCfg, fn, xBits)
+    xBits.zip(zBits).map { case (xi, zi) => {
+      val x0 = toDouble(xi)
+      val r0 = ref(x0)
+      f"${x0}%.9g ${toDouble(zi)}%.9g ${r0}%.9g ${ulpOf(zi, r0)}%d"
+    }}
+  }
+
+  /** Writes the sweeps of one function, a blank line between each two. */
+  private def writeDump(name: String, sweeps: Seq[Seq[String]]): Unit = {
+    val w = new PrintWriter(s"$outDir/$name")
+    w.println("x z ref ulp")
+    for ((lines, i) <- sweeps.zipWithIndex) {
+      if (i != 0) { w.println("") }
+      lines.foreach(w.println)
+    }
+    w.close()
+    println(s"wrote $outDir/$name (${sweeps.map(_.length).sum} rows, " +
+      s"${sweeps.length} sweeps)")
+  }
+
+  it("write the fixed_*.dat of the multiplier-free function set") {
+    simulate(new MathFunctions(fixCfg, spec, stage)) { c =>
+      // the whole range of the argument, in the logarithm
+      val decades = logSweep(pow(2.0, -20), pow(2.0, 20), 3000)
+      writeDump("fixed_sqrt.dat",
+        Seq(sweepOf(c, Sqrt,       decades, x => sqrt(x))))
+      writeDump("fixed_invsqrt.dat",
+        Seq(sweepOf(c, InvSqrt,    decades, x => 1.0 / sqrt(x))))
+      writeDump("fixed_reciprocal.dat",
+        Seq(sweepOf(c, Reciprocal, decades, x => 1.0 / x)))
+
+      // every exponent the result can have, and the two ends where it cannot
+      writeDump("fixed_pow2.dat",
+        Seq(sweepOf(c, Pow2, linSweep(-130.0, 130.0, 3000), x => pow(2.0, x))))
+
+      // the decades of x, the binade around one, and the approach to one
+      val log2Ref = (x: Double) => log(x) / log(2.0)
+      writeDump("fixed_log2.dat", Seq(
+        sweepOf(c, Log2Fixed, logSweep(pow(2.0, -8), pow(2.0, 8), 2000), log2Ref),
+        sweepOf(c, Log2Fixed, linSweep(0.5, 2.0, 2000), log2Ref),
+        sweepOf(c, Log2Fixed,
+          aroundSweep(1.0, pow(2.0, -24), pow(2.0, -1), 1000), log2Ref)))
+
+      // a whole period, the approach to zero, and, for the cosine, the
+      // approach to the half where its own result vanishes
+      val period  = linSweep(-2.0, 2.0, 3000)
+      val small   = aroundSweep(0.0, pow(2.0, -24), 0.5, 1000)
+      writeDump("fixed_sinpi.dat", Seq(
+        sweepOf(c, SinPiFixed, period, refSinPi),
+        sweepOf(c, SinPiFixed, small,  refSinPi)))
+      writeDump("fixed_cospi.dat", Seq(
+        sweepOf(c, CosPiFixed, period, refCosPi),
+        sweepOf(c, CosPiFixed, small,  refCosPi),
+        sweepOf(c, CosPiFixed,
+          aroundSweep(0.5, pow(2.0, -24), 0.5, 1000), refCosPi)))
+
+      // the whole domain, and the approach to the zero of the result
+      writeDump("fixed_atan.dat", Seq(
+        sweepOf(c, ATanFixed, linSweep(-1.0, 1.0, 3000), x => atan(x)),
+        sweepOf(c, ATanFixed,
+          aroundSweep(0.0, pow(2.0, -24), 1.0, 1000), x => atan(x))))
+
+      // the whole domain, and the approach to either end of it
+      val nearEnd = logSweep(pow(2.0, -24), 1.0, 1000)
+      writeDump("fixed_acos.dat", Seq(
+        sweepOf(c, ACosFixed, linSweep(-1.0, 1.0, 3000), x => acos(x)),
+        sweepOf(c, ACosFixed,
+          nearEnd.reverse.map(d => -(1.0 - d)) ++ nearEnd.map(d => 1.0 - d),
+          x => acos(x))))
+    }
   }
 }
