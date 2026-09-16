@@ -71,16 +71,21 @@ class MultiplierTest extends AnyFunSpec with ChiselSim with EmitVcd {
     }
   }
 
-  /** `(x * y + c) >> shift` as the module reads it, `outW` bits wide. */
+  /** `(x * y >> shift) + c` as the module reads it, `outW` bits wide. */
   def mulAddOf(x: BigInt, y: BigInt, cv: BigInt, xW: Int, yW: Int, cW: Int,
     shift: Int, outW: Int, signed: Boolean): BigInt = {
 
-    val full = if (signed) {
-      signedOf(x, xW) * signedOf(y, yW) + signedOf(cv, cW)
+    val prod = if (signed) {
+      signedOf(x, xW) * signedOf(y, yW)
     } else {
-      x * y + cv
+      x * y
     }
-    (full >> shift) & ((BigInt(1) << outW) - 1)
+    val addend = if (signed) {
+      signedOf(cv, cW)
+    } else {
+      cv
+    }
+    ((prod >> shift) + addend) & ((BigInt(1) << outW) - 1)
   }
 
   def mulAddTest(xW: Int, yW: Int, cW: Int, shift: Int, impl: MulImpl,
@@ -178,25 +183,44 @@ class MultiplierTest extends AnyFunSpec with ChiselSim with EmitVcd {
       mulAddTest(12, 12, 26, 0, MulImpl.macc(17), PipelineStageConfig.none,
         true, 3)
     }
+    it("one multiplication and signed, the addend below the product") {
+      mulAddTest(12, 12, 8, 5, MulImpl.macc(17),
+        PipelineStageConfig.specify("pp" -> 1), true, 3)
+    }
+    it("signed, an operand one bit wider than a slice") {
+      // the widths of a step of a fixed point function of the math library,
+      // whose addend is wider than the shifted product
+      mulAddTest(18, 22, 27, 17, MulImpl.macc(17),
+        PipelineStageConfig.specify("pp" -> 1), true, 2)
+    }
     it("unsigned, the addend on the sum") {
       mulAddTest(24, 24, 40, 9, MulImpl.macc(17),
         PipelineStageConfig.specify("pp" -> 1, "out" -> 1), false, 3)
     }
     it("unsigned over three slices") {
       mulAddTest(39, 24, 50, 11, MulImpl.macc(17),
-        PipelineStageConfig.specify("pp" -> 1, "chain1" -> 1), false, 2)
+        PipelineStageConfig.specify("in" -> 1, "pp" -> 1), false, 2)
     }
-    it("signed, the addend on the tiles") {
+    it("unsigned, the addend below the product") {
+      mulAddTest(24, 24, 12, 9, MulImpl.macc(17),
+        PipelineStageConfig.specify("pp" -> 1), false, 3)
+    }
+    it("signed, the addend on the sum") {
       mulAddTest(21, 20, 43, 20, MulImpl.macc(17),
         PipelineStageConfig.specify("pp" -> 1, "out" -> 1), true, 3)
     }
-    it("signed, the shift below the cut") {
+    it("signed, the shift below the slice the operand is cut at") {
       mulAddTest(21, 20, 43, 5, MulImpl.macc(17),
         PipelineStageConfig.specify("pp" -> 1), true, 3)
     }
-    it("signed, no shift, so the tiles meet at full width") {
+    it("signed, no shift, so the sum is the result") {
       mulAddTest(21, 20, 43, 0, MulImpl.macc(17),
         PipelineStageConfig.specify("pp" -> 1, "out" -> 1), true, 3)
+    }
+    it("signed, both operands wider than a slice") {
+      // the widths of the last step of the gaussian table
+      mulAddTest(23, 23, 23, 22, MulImpl.macc(17),
+        PipelineStageConfig.specify("pp" -> 1, "out" -> 1), true, 2)
     }
     it("signed, an operand of two full slices") {
       mulAddTest(19, 33, 52, 18, MulImpl.macc(17),
@@ -210,10 +234,10 @@ class MultiplierTest extends AnyFunSpec with ChiselSim with EmitVcd {
       mulAddTest(14, 13, 26, 13, MulImpl.macc(9),
         PipelineStageConfig.default(2), true, 3)
     }
-    it("refuses an operand wider than two slices") {
-      assertThrows[IllegalArgumentException] {
-        Multiplier.loSliceW(19, 40, MulImpl.macc(17), true, 18)
-      }
+    it("fits an operand of a slice and no more") {
+      assert(Multiplier.fitsSlice(17, MulImpl.macc(17)))
+      assert(!Multiplier.fitsSlice(18, MulImpl.macc(17)))
+      assert(Multiplier.fitsSlice(64, MulImpl.plain))
     }
     it("refuses a multiply-add with no addend") {
       assertThrows[IllegalArgumentException] {
