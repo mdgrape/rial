@@ -189,7 +189,7 @@ class PerFunctionLatencyTest extends AnyFunSpec with ChiselSim {
 
     it(name) {
       val ops = operations(cfg, spec)
-      simulate(new MathFunctions(cfg, spec, stage, mulImpl, mulImpl, mulImpl,
+      simulate(new MathFunctions(cfg, stage, mulImpl, mulImpl, mulImpl,
         perFunctionLatency, tagW)) { c =>
 
         val dTab = cfg.funcs.map(fn => {

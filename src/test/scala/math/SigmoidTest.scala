@@ -73,7 +73,7 @@ class SigmoidTest extends AnyFunSpec
 
     it(f"sigmoid(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr with ${cfg.getString}") {
       val n = getOption[Int]("n").getOrElse(1000)
-      simulate(new MathFunctions(cfg, spec, stage)) { c =>
+      simulate(new MathFunctions(cfg, stage)) { c =>
         counter = 0
         val q = new Queue[(BigInt, BigInt)]
         for (i <- 1 to n + total) {

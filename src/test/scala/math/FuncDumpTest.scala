@@ -119,7 +119,7 @@ class FuncDumpTest extends AnyFunSpec
     // standard build: sqrt / invsqrt / reciprocal / sin / cos / acos /
     //                 exp / log / atan2
     // ====================================================================
-    simulate(new MathFunctions(stdCfg, spec, stage)) { c =>
+    simulate(new MathFunctions(stdCfg, stage)) { c =>
       sqrtO  = evalUnary(c, stdCfg, Sqrt,       xBits).map(toDouble)
       invsqO = evalUnary(c, stdCfg, InvSqrt,    xBits).map(toDouble)
       recO   = evalUnary(c, stdCfg, Reciprocal, xBits).map(toDouble)
@@ -139,7 +139,7 @@ class FuncDumpTest extends AnyFunSpec
     // ====================================================================
     // all build: sigmoid / softplus / smg (not in `standard`)
     // ====================================================================
-    simulate(new MathFunctions(allCfg, spec, stage)) { c =>
+    simulate(new MathFunctions(allCfg, stage)) { c =>
       sigO     = evalUnary(c, allCfg, Sigmoid,              xBits).map(toDouble)
       spO      = evalUnary(c, allCfg, SoftPlus,             xBits).map(toDouble)
       smgO     = evalUnary(c, allCfg, ScaleMixtureGaussian, xBits).map(toDouble)
@@ -256,7 +256,7 @@ class FuncDumpTest extends AnyFunSpec
   }
 
   it("write the fixed_*.dat of the multiplier-free function set") {
-    simulate(new MathFunctions(fixCfg, spec, stage)) { c =>
+    simulate(new MathFunctions(fixCfg, stage)) { c =>
       // the whole range of the argument, in the logarithm
       val decades = logSweep(pow(2.0, -20), pow(2.0, 20), 3000)
       writeDump("fixed_sqrt.dat",

@@ -23,6 +23,9 @@ import scala.reflect.ClassTag
  * [[rial.math.FuncKind.ATan2Phase1]] is configured, its second one. The result
  * of the selected function appears on `io.out`.
  *
+ * The arguments and the result are floating point numbers of the format the
+ * tables of `cfg` are generated for, `cfg.spec`.
+ *
  * Pipeline registers can be enabled at the following points of the datapath
  * (names for `PipelineStageConfig.specify`):
  *
@@ -91,19 +94,19 @@ import scala.reflect.ClassTag
  *
  * {{{
  * // six registers, placed by the module
- * new MathFunctions(cfg, spec, 6)
+ * new MathFunctions(cfg, 6)
  * // hand-picked positions, one of them inside the polynomial
- * new MathFunctions(cfg, spec,
+ * new MathFunctions(cfg,
  *   PipelineStageConfig.specify("pre" -> 1, "poly.prod1" -> 1, "post" -> 1))
  * // one register inside the argument reduction of sin/cos
- * new MathFunctions(cfg, spec, PipelineStageConfig.specify("pre.sinCos.fold" -> 1))
+ * new MathFunctions(cfg, PipelineStageConfig.specify("pre.sinCos.fold" -> 1))
  * // combinational
- * new MathFunctions(cfg, spec, PipelineStageConfig.none)
+ * new MathFunctions(cfg, PipelineStageConfig.none)
  * }}}
  *
  * {{{
  * // one latency per function, with an 8 bit tag
- * val math = Module(new MathFunctions(cfg, spec, 6,
+ * val math = Module(new MathFunctions(cfg, 6,
  *   perFunctionLatency = true, tagW = 8))
  *
  * val sqrtOk = math.io.issueOk.get(cfg.signal(FuncKind.Sqrt))
@@ -122,8 +125,8 @@ import scala.reflect.ClassTag
  *
  * @constructor Constructs a new MathFunctions module.
  * @param cfg         Configuration that determines which functions are
- *                    supported.
- * @param spec        RealSpec for input/output floating point numbers.
+ *                    supported, and the floating point format of the
+ *                    arguments and the result.
  * @param stage       pipeline registers of this module.
  * @param preMulImpl  structure of the product of the pre-process multiplier.
  * @param postMulImpl structure of the product of the post-process multiplier.
@@ -145,7 +148,6 @@ import scala.reflect.ClassTag
  */
 class MathFunctions(
   val cfg:         MathFuncConfig,
-  val spec:        RealSpec,
   val stage:       PipelineStageConfig,
   val preMulImpl:  MulImpl = MulImpl.plain,
   val postMulImpl: MulImpl = MulImpl.plain,
@@ -156,11 +158,10 @@ class MathFunctions(
 
   import FuncKind._
 
-  assert(!spec.disableSign, "assuming the float type allows negative values")
+  /** Floating point format of the arguments and the result, that of `cfg`. */
+  val spec = cfg.spec
 
-  require(cfg.spec == spec,
-    f"the tables of this config are generated for ${cfg.spec.toStringShort}, " +
-    f"not for the ${spec.toStringShort} this module is built for")
+  assert(!spec.disableSign, "assuming the float type allows negative values")
 
   val exW    = spec.exW
   val manW   = spec.manW
@@ -171,7 +172,7 @@ class MathFunctions(
 
   /** Boundaries at which pipeline registers can be placed; see the class doc. */
   val stagePoints = MathFunctions.stagePoints(cfg, preMulImpl, postMulImpl,
-    polyMulImpl, Some(spec), perFunctionLatency)
+    polyMulImpl, perFunctionLatency)
 
   val stages = stage.resolve(stagePoints)
 
@@ -180,7 +181,7 @@ class MathFunctions(
   val nOut = stages.at("out")
 
   val io = IO(new Bundle {
-    val in  = Flipped(Valid(new MathFunctions.Input(cfg, spec, tagW)))
+    val in  = Flipped(Valid(new MathFunctions.Input(cfg, tagW)))
     val out = Valid(new MathFunctions.Output(spec, tagW))
     val issueOk = if (perFunctionLatency) {
       Some(Output(Vec(1 + cfg.funcs.length, Bool())))
@@ -1695,13 +1696,14 @@ object MathFunctions {
    * `tag` only when the module was given a tag width. The tag comes back with
    * the result on [[rial.math.MathFunctions.Output]].
    *
+   * The arguments are in the floating point format of `cfg`.
+   *
    * @param cfg  configuration of the module this input is for
-   * @param spec floating point spec of the arguments
    * @param tagW width of the tag that rides along with the operation; 0 for
    *             no tag
    */
-  class Input(val cfg: MathFuncConfig, val spec: RealSpec, val tagW: Int = 0)
-      extends Bundle {
+  class Input(val cfg: MathFuncConfig, val tagW: Int = 0) extends Bundle {
+    val spec = cfg.spec
     val sel = UInt(cfg.signalW.W)
     val x   = UInt(spec.W.W)
     val y   = if (cfg.has(FuncKind.ATan2Phase1)) {
@@ -1757,15 +1759,14 @@ object MathFunctions {
    * and `"postMul"`.
    *
    * `"preMul"`, `"mulArgs"` and `"postMul"` are declared only when one of the
-   * functions of `cfg` needs the corresponding multiplier.
+   * functions of `cfg` needs the corresponding multiplier. The boundaries
+   * inside the pre-process multiplier follow the widths of the floating point
+   * format of `cfg`.
    *
    * @param cfg         configuration of the module these boundaries are for
    * @param preMulImpl  structure of the pre-process multiplier's product
    * @param postMulImpl structure of the post-process multiplier's product
    * @param polyMulImpl structure of the polynomial's products
-   * @param spec        floating point spec of the module, which the widths of
-   *                    the pre-process multiplier follow; without it that
-   *                    multiplier offers no boundary inside its own sum
    * @param perFunctionLatency whether each function keeps the latency of its
    *                    own path, in which case the paths of `"pre"` and
    *                    `"post"` are not padded to a common latency
@@ -1774,10 +1775,10 @@ object MathFunctions {
     preMulImpl:  MulImpl = MulImpl.plain,
     postMulImpl: MulImpl = MulImpl.plain,
     polyMulImpl: MulImpl = MulImpl.plain,
-    spec:        Option[RealSpec] = None,
     perFunctionLatency: Boolean = false): Seq[StageElem] = {
-    val preMulChain = spec.map(sp => Multiplier.chainPoints(preMulImpl,
-      PreProcMultiplier.lhsW(cfg.funcs, sp), 1 + sp.manW)).getOrElse(0)
+    val spec = cfg.spec
+    val preMulChain = Multiplier.chainPoints(preMulImpl,
+      PreProcMultiplier.lhsW(cfg.funcs, spec), 1 + spec.manW)
     val preMul: Seq[StageElem] = if (PreProcMultiplier.isNeeded(cfg.funcs)) {
       Seq(StageGroup("preMul",
         Multiplier.stagePoints(preMulImpl, preMulChain)))

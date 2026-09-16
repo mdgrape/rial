@@ -73,7 +73,7 @@ class ReciprocalTest extends AnyFunSpec
 
     it(f"reciprocal(x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr with ${cfg.getString}") {
       val n = getOption[Int]("n").getOrElse(1000)
-      simulate(new MathFunctions(cfg, spec, stage)) { c =>
+      simulate(new MathFunctions(cfg, stage)) { c =>
         {
           counter = 0
 

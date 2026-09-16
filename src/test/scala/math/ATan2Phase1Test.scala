@@ -47,7 +47,7 @@ class ATan2Phase1Test extends AnyFunSpec
 
     it(f"atan2Phase1(y, x) pipereg $pipeconfig spec ${spec.toStringShort} $generatorStr with ${cfg.getString}") {
       val n = getOption[Int]("n").getOrElse(1000)
-      simulate(new MathFunctions(cfg, spec, stage)) { c =>
+      simulate(new MathFunctions(cfg, stage)) { c =>
         val q = new Queue[(BigInt, BigInt, BigInt)]
         for (i <- 1 to n + total) {
           val yOverX = generatorYoverX(spec, r)
