@@ -24,10 +24,10 @@ import chisel3.util._
  *  - `"stepK"`   after the k-th multiply-add, `K` = 1 ... `bitW.nOrder`
  *  - `"out"`     the module output
  *
- * With `MulImpl.macc` the coefficient of a step is the addend of that step's
- * [[rial.arith.Multiplier]] rather than an adder behind it, so a register at
- * `"prodK.pp"` and none at `"prodK"` leaves the multiply and the addend of a
- * step inside one hard multiplier.
+ * With `MulImpl.macc` the coefficient of a step is handed to that step's
+ * [[rial.arith.Multiplier]] as its addend, rather than to an adder behind it,
+ * so a register at `"prodK.pp"` and none at `"prodK"` leaves the multiply and
+ * the addend of a step inside one hard multiplier.
  *
  * [[getStage]] gives the resulting latency, and `io.out.valid` is
  * `io.in.valid` delayed by that many cycles.
@@ -139,12 +139,13 @@ class PolynomialEval(
     for(k <- (order-1) to 0 by -1) {
       val idx     = order - k // position of the multiply-add in evaluation order
       val xminW   = min(accCur.getWidth, xPrec) // min(calcBits, xPrec)
-      // a multiply-add carries the coefficient of the step as its addend and
-      // takes the shift of the step with it; the other structures give the
-      // product alone, and the coefficient is added behind them
+      // a multiply-add takes the coefficient of the step as its addend and
+      // the shift of the step with it, and both are at the weight the
+      // coefficient already has; the other structures give the product alone,
+      // and the coefficient is added behind them
       val isMacc  = mulImpl.isMacc
       val cBits   = if (isMacc) {
-        Some(coefCur(k).getWidth + xminW)
+        Some(coefCur(k).getWidth)
       } else {
         None
       }
@@ -156,7 +157,7 @@ class PolynomialEval(
       mult.io.in.bits.x := xCur(xPrec, xPrec - xminW)
       mult.io.in.bits.y := accCur.asUInt
       if (isMacc) {
-        mult.io.in.bits.c.get := (coefCur(k) << xminW).asUInt
+        mult.io.in.bits.c.get := coefCur(k).asUInt
       }
 
       // what crosses the multiplier alongside it: the position and the
