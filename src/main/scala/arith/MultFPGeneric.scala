@@ -26,9 +26,10 @@ import rial.util.PipelineStageConfig._
  *
  *  - `"in"`     the module input
  *  - `"unpack"` after the operand unpacking
- *  - `"mul.*"`  the boundaries of the [[rial.arith.Multiplier]] that forms the
- *               mantissa product, see its doc for the names; the group name
- *               `"mul"` stands for `"mul.out"`
+ *  - `"mul.*"`  the boundaries of the mantissa product: with `MulImpl.split`
+ *               those of [[rial.arith.SplitMultiplier]], and `"mul.out"`
+ *               alone for a plain product; the group name `"mul"` stands for
+ *               `"mul.out"`
  *  - `"norm"`   after the normalisation
  *  - `"round"`  after the rounding
  *  - `"out"`    the module output
@@ -132,24 +133,32 @@ class MultFPGeneric(
 
   //----------------------------------------------------------------------
   // S2 : Mantissa product ("mul.*")
-  // the product of the mantissas has no addend of its own, so a multiply-add
-  // gets zero for one
-  val mult = Module(new Multiplier(
-    xmanUnpack.getWidth, ymanUnpack.getWidth, mulImpl, stages.sub("mul"),
-    cW = Multiplier.zeroAddendW(mulImpl)))
+  require(!mulImpl.isMacc,
+    "the mantissa product has no addend to fold into a multiply-add; ask " +
+    "for MulImpl.split to slice it")
 
-  mult.io.in.valid  := cutUnpack.valid
-  mult.io.in.bits.x := xmanUnpack
-  mult.io.in.bits.y := ymanUnpack
-  mult.io.in.bits.c.foreach(c => c := 0.U)
+  val prodMul = if (mulImpl.isSplit) {
+    val mult = Module(new SplitMultiplier(
+      xmanUnpack.getWidth, ymanUnpack.getWidth, mulImpl.sliceW.get,
+      stages.sub("mul")))
+
+    mult.io.in.valid  := cutUnpack.valid
+    mult.io.in.bits.x := xmanUnpack
+    mult.io.in.bits.y := ymanUnpack
+    mult.io.out.bits
+  } else {
+    // the product as it is written by hand: `MulImpl.plain` asks nothing of
+    // the operands, so there is nothing to shape
+    val cutMulIn  = new SharedPipe("mulIn", cutUnpack.valid, stages.at("mul.in"))
+    val cutMulOut = new SharedPipe("mulOut", cutMulIn.valid, stages.at("mul.out"))
+    cutMulOut(cutMulIn(xmanUnpack) * cutMulIn(ymanUnpack))
+  }
 
   //---------------------------- stage "mul" -----------------------------
   // latency of the product; the signals that bypass it are delayed by the
-  // same number of cycles, so they stay aligned with mult.io.out
+  // same number of cycles, so they stay aligned with it
   private val cutMul = new SharedPipe("mul", cutUnpack.valid, stages.latency("mul"))
 
-  val prodMul  = mult.io.out.bits(
-    xmanUnpack.getWidth + ymanUnpack.getWidth - 1, 0)
   val xexMul   = cutMul(xexUnpack)
   val yexMul   = cutMul(yexUnpack)
   val zsgn0Mul = cutMul(zsgn0Unpack)
@@ -328,7 +337,11 @@ object MultFPGeneric {
    */
   def stagePoints(mulImpl: MulImpl): Seq[StageElem] = Seq(
     StagePoint("unpack", 2),
-    StageGroup("mul", Multiplier.stagePoints(mulImpl)),
+    StageGroup("mul", if (mulImpl.isSplit) {
+      SplitMultiplier.stagePoints()
+    } else {
+      Seq(StagePoint("out", 4.0))
+    }),
     StagePoint("norm", 3), StagePoint("round", 2), StagePoint("out", 1))
 }
 

@@ -2,7 +2,7 @@ package rial.table
 
 import scala.math._
 
-import rial.arith.{MulImpl, Multiplier}
+import rial.arith.{MulImpl, MultiplyAdd, SplitMultiplier}
 import rial.util._
 
 import chisel3._
@@ -18,14 +18,16 @@ import chisel3.util._
  * (names for `PipelineStageConfig.specify`):
  *
  *  - `"in"`      the module input
- *  - `"prodK.*"` the boundaries of the [[rial.arith.Multiplier]] that is the
- *                k-th multiply-add, see its doc for the names; the group name
+ *  - `"prodK.*"` the boundaries of the product of the k-th multiply-add, see
+ *                [[rial.arith.SplitMultiplier]] or [[rial.arith.MultiplyAdd]]
+ *                for the names of the structure that was asked for; a plain
+ *                product offers `"prodK.out"` alone, and the group name
  *                `"prodK"` stands for `"prodK.out"`, after that multiply-add
  *  - `"stepK"`   after the k-th multiply-add, `K` = 1 ... `bitW.nOrder`
  *  - `"out"`     the module output
  *
  * With `MulImpl.macc` the coefficient of a step is handed to that step's
- * [[rial.arith.Multiplier]] as its addend, rather than to an adder behind it,
+ * [[rial.arith.MultiplyAdd]] as its addend, rather than to an adder behind it,
  * so a register at `"prodK.pp"` and none at `"prodK"` leaves the multiply and
  * the addend of a step inside one hard multiplier.
  *
@@ -139,27 +141,7 @@ class PolynomialEval(
     for(k <- (order-1) to 0 by -1) {
       val idx     = order - k // position of the multiply-add in evaluation order
       val xminW   = min(accCur.getWidth, xPrec) // min(calcBits, xPrec)
-      // a multiply-add takes the coefficient of the step as its addend and
-      // the shift of the step with it, and both are at the weight the
-      // coefficient already has; the other structures give the product alone,
-      // and the coefficient is added behind them
-      val isMacc  = mulImpl.isMacc
-      val cBits   = if (isMacc) {
-        Some(coefCur(k).getWidth)
-      } else {
-        None
-      }
-      val mult    = Module(new Multiplier(xminW + 1, accCur.getWidth, mulImpl,
-        stages.sub(s"prod${idx}"), signed = true, cW = cBits,
-        shift = cBits.map(_ => xminW)))
-
-      mult.io.in.valid  := validCur
-      mult.io.in.bits.x := xCur(xPrec, xPrec - xminW)
-      mult.io.in.bits.y := accCur.asUInt
-      if (isMacc) {
-        mult.io.in.bits.c.get := coefCur(k).asUInt
-      }
-
+      val xStep   = xCur(xPrec, xPrec - xminW)
       // what crosses the multiplier alongside it: the position and the
       // coefficients the later steps still need
       val cutProd   = new SharedPipe(s"prod${idx}", validCur, stages.latency(s"prod${idx}"))
@@ -167,10 +149,38 @@ class PolynomialEval(
       val coefProd  = cutProd(coefCur)
       val validProd = cutProd.valid
 
-      val sumFull = if (isMacc) {
+      // a multiply-add takes the coefficient of the step as its addend and
+      // the shift of the step with it, and both are at the weight the
+      // coefficient already has, so the sum of the step is what it gives; the
+      // other structures give the product alone, and the shift and the
+      // coefficient are written behind them
+      val sumFull = if (mulImpl.isMacc) {
+        val mult = Module(new MultiplyAdd(xminW + 1, accCur.getWidth,
+          coefCur(k).getWidth, xminW, mulImpl.sliceW.get,
+          stages.sub(s"prod${idx}"), signed = true))
+
+        mult.io.in.valid  := validCur
+        mult.io.in.bits.x := xStep
+        mult.io.in.bits.y := accCur.asUInt
+        mult.io.in.bits.c := coefCur(k).asUInt
         mult.io.out.bits.asSInt
-      } else {
+      } else if (mulImpl.isSplit) {
+        val mult = Module(new SplitMultiplier(xminW + 1, accCur.getWidth,
+          mulImpl.sliceW.get, stages.sub(s"prod${idx}"), signed = true))
+
+        mult.io.in.valid  := validCur
+        mult.io.in.bits.x := xStep
+        mult.io.in.bits.y := accCur.asUInt
         (mult.io.out.bits.asSInt >> xminW).asSInt +& coefProd(k)
+      } else {
+        // the product as it is written by hand: `MulImpl.plain` asks nothing
+        // of the operands, so there is nothing to shape
+        val cutStepIn  = new SharedPipe(s"prod${idx}In", validCur,
+          stages.at(s"prod${idx}.in"))
+        val cutStepOut = new SharedPipe(s"prod${idx}Out", cutStepIn.valid,
+          stages.at(s"prod${idx}.out"))
+        val prod = cutStepOut((cutStepIn(xStep).asSInt * cutStepIn(accCur)).asUInt)
+        (prod.asSInt >> xminW).asSInt +& coefProd(k)
       }
       accVec(k) := sumFull // drop the MSB (carry)
 
@@ -205,16 +215,22 @@ object PolynomialEval {
 
   /** Boundaries at which pipeline registers can be placed for a polynomial of
    * order `nOrder`; see [[rial.table.PolynomialEval]]. The boundaries of the
-   * multiplier of each multiply-add appear as the group `"prodK"`.
+   * product of each multiply-add appear as the group `"prodK"`.
    *
    * @param nOrder  order of the polynomial
    * @param mulImpl structure of the product of a multiply-add
    */
   def stagePoints(nOrder: Int,
     mulImpl: MulImpl = MulImpl.plain): Seq[StageElem] = {
+    val prod: Seq[StageElem] = if (mulImpl.isMacc) {
+      MultiplyAdd.stagePoints
+    } else if (mulImpl.isSplit) {
+      SplitMultiplier.stagePoints()
+    } else {
+      Seq(StagePoint("out", 4.0))
+    }
     (1 to nOrder).flatMap(k => {
-      Seq(StageGroup(s"prod$k", Multiplier.stagePoints(mulImpl)),
-          StagePoint(s"step$k", 1.0))
+      Seq(StageGroup(s"prod$k", prod), StagePoint(s"step$k", 1.0))
     }) :+ StagePoint("out", 1.0)
   }
 

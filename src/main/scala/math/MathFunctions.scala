@@ -9,7 +9,7 @@ import chisel3._
 import chisel3.util._
 
 import rial.table._
-import rial.arith.{MulImpl, Multiplier, RealSpec, RoundSpec}
+import rial.arith.{MulImpl, RealSpec, RoundSpec, SplitMultiplier}
 import rial.util._
 
 import scala.collection.mutable.ArrayBuffer
@@ -30,8 +30,9 @@ import scala.reflect.ClassTag
  * (names for `PipelineStageConfig.specify`):
  *
  *  - `"in"`        the module input
- *  - `"preMul.*"`  the boundaries of the shared pre-process multiplier, see
- *                  [[rial.arith.Multiplier]] for the names
+ *  - `"preMul.*"`  the boundaries of the shared pre-process multiplier: with
+ *                  `MulImpl.split` those of [[rial.arith.SplitMultiplier]],
+ *                  and `"preMul.out"` alone for a plain product
  *  - `"pre.*"`     the argument reduction of each function, one path per
  *                  function, see below
  *  - `"table"`     after the coefficient table lookup
@@ -255,19 +256,49 @@ class MathFunctions(
   /** width of the left hand operand of the pre-process multiplier. */
   val preMulLhsW = PreProcMultiplier.lhsW(cfg.funcs, spec)
 
-  val preMul: Option[Multiplier] = if (needPreMul) { Some(
-    Module(new Multiplier(preMulLhsW, 1 + manW, preMulImpl,
-      stages.sub("preMul"), cW = Multiplier.zeroAddendW(preMulImpl)))
-  )} else { None }
-
-  /** the product of the pre-process multiplier, without the room a
-   *  multiply-add keeps for an addend this module does not have.
-   */
-  val preMulProd: Option[UInt] =
-    preMul.map(m => m.io.out.bits(preMulLhsW + manW, 0))
-
   /** the operand set one function offers to the pre-process multiplier. */
   private def preMulOperands = new MathFunctions.MulOperands(preMulLhsW, 1 + manW)
+
+  require(!needPreMul || !preMulImpl.isMacc,
+    "the pre-process multiplier has no addend to fold into a multiply-add; " +
+    "ask for MulImpl.split to slice its product")
+
+  /** the operands the pre-process multiplier is given, those of the selected
+   *  function; driven below, once every function has offered its own set.
+   */
+  val preMulIn: Option[Valid[MathFunctions.MulOperands]] = if (needPreMul) {
+    Some(Wire(Valid(preMulOperands)))
+  } else {
+    None
+  }
+
+  /** the product of the pre-process multiplier and the valid that leaves it. */
+  private val preMulOut: Option[(Bool, UInt)] = preMulIn.map(in => {
+    if (preMulImpl.isSplit) {
+      val mult = Module(new SplitMultiplier(preMulLhsW, 1 + manW,
+        preMulImpl.sliceW.get, stages.sub("preMul")))
+
+      mult.io.in.valid  := in.valid
+      mult.io.in.bits.x := in.bits.lhs
+      mult.io.in.bits.y := in.bits.rhs
+      (mult.io.out.valid, mult.io.out.bits)
+    } else {
+      // the product as it is written by hand: `MulImpl.plain` asks nothing of
+      // the operands, so there is nothing to shape
+      val cutMulIn  = new SharedPipe("preMulIn", in.valid,
+        stages.at("preMul.in"))
+      val cutMulOut = new SharedPipe("preMulOut", cutMulIn.valid,
+        stages.at("preMul.out"))
+      (cutMulOut.valid,
+        cutMulOut(cutMulIn(in.bits.lhs) * cutMulIn(in.bits.rhs)))
+    }
+  })
+
+  /** the product of the pre-process multiplier. */
+  val preMulProd: Option[UInt] = preMulOut.map({ case (_, prod) => prod })
+
+  /** the valid that leaves the pre-process multiplier. */
+  val preMulValid: Option[Bool] = preMulOut.map({ case (valid, _) => valid })
 
   // Pre-mult operands, one set per function: each function that wants the
   // multiplier drives its own set in its block below and offers 0 otherwise.
@@ -282,13 +313,9 @@ class MathFunctions(
       None
     }
 
-  if (preMul.isDefined) {
-    val args = MuxLookup(selIn, 0.U.asTypeOf(Valid(preMulOperands)))(
+  if (preMulIn.isDefined) {
+    preMulIn.get := MuxLookup(selIn, 0.U.asTypeOf(Valid(preMulOperands)))(
       cfg.funcs.map(fn => cfg.signal(fn) -> preMulArgs.get(fn)))
-    preMul.get.io.in.valid  := args.valid
-    preMul.get.io.in.bits.x := args.bits.lhs
-    preMul.get.io.in.bits.y := args.bits.rhs
-    preMul.get.io.in.bits.c.foreach(c => c := 0.U)
   }
 
   // ==========================================================================
@@ -1033,7 +1060,7 @@ class MathFunctions(
   // Sin / Cos
 
   if(cfg.has(Sin) || cfg.has(Cos)) {
-    assert(preMul .isDefined, "Sin/Cos requires the pre-process multiplier")
+    assert(preMulProd.isDefined, "Sin/Cos requires the pre-process multiplier")
     assert(postMul.isDefined, "Sin/Cos requires the post-process multiplier")
 
     val sincosPre  = toModule[SinCosPreProcess ](pres (Sin))
@@ -1055,7 +1082,7 @@ class MathFunctions(
     sincosPre.io.x.valid := xPreOf(Sin).valid && sincosSelAtPre
     sincosPre.io.x.bits  := xPreOf(Sin).bits
 
-    sincosPre.io.prod.valid := preMul.get.io.out.valid && sincosSelAtPre
+    sincosPre.io.prod.valid := preMulValid.get && sincosSelAtPre
     sincosPre.io.prod.bits  := SinCosPreMulArgs.prod(spec, preMulProd.get)
 
     // ----- table -----
@@ -1181,7 +1208,7 @@ class MathFunctions(
   // Exp
 
   if(cfg.has(Exp)) {
-    assert(preMul.isDefined, "Exp requires the pre-process multiplier")
+    assert(preMulProd.isDefined, "Exp requires the pre-process multiplier")
 
     val pre  = toModule[ExpPreProcess ](pres   (Exp))
     val tab  = toModule[ExpTableCoeff ](tabs   (Exp))
@@ -1198,7 +1225,7 @@ class MathFunctions(
 
     pre.io.x.valid := xPreOf(Exp).valid && expSelAtPre
     pre.io.x.bits  := xPreOf(Exp).bits
-    pre.io.prod.valid := preMul.get.io.out.valid && expSelAtPre
+    pre.io.prod.valid := preMulValid.get && expSelAtPre
     pre.io.prod.bits  := ExpPreMulArgs.prod(spec, preMulProd.get)
 
     // ----- table -----
@@ -1546,7 +1573,7 @@ class MathFunctions(
   //   post-mult: z0.manW1 * xsgmA2.manW1    (where z0 = polynomial*2^maxBitDigit + 1)
 
   if(cfg.has(ScaleMixtureGaussian)) {
-    assert(preMul .isDefined, "ScaleMixtureGaussian requires the pre-process multiplier")
+    assert(preMulProd.isDefined, "ScaleMixtureGaussian requires the pre-process multiplier")
     assert(postMul.isDefined, "ScaleMixtureGaussian requires the post-process multiplier")
     val (sgmA, sgmB) = cfg.scaleMixtureGaussianSigma.get
 
@@ -1564,7 +1591,7 @@ class MathFunctions(
     val smgSelAtPre = selPreOf(ScaleMixtureGaussian) === cfg.signal(ScaleMixtureGaussian)
     pre.io.x.valid := xPreOf(ScaleMixtureGaussian).valid && smgSelAtPre
     pre.io.x.bits  := xPreOf(ScaleMixtureGaussian).bits
-    pre.io.prod.valid := preMul.get.io.out.valid && smgSelAtPre
+    pre.io.prod.valid := preMulValid.get && smgSelAtPre
     pre.io.prod.bits  := ScaleMixtureGaussianPreMulArgs.prod(spec, preMulProd.get)
 
     // ----- table -----
@@ -1777,11 +1804,14 @@ object MathFunctions {
     polyMulImpl: MulImpl = MulImpl.plain,
     perFunctionLatency: Boolean = false): Seq[StageElem] = {
     val spec = cfg.spec
-    val preMulChain = Multiplier.chainPoints(preMulImpl,
-      PreProcMultiplier.lhsW(cfg.funcs, spec), 1 + spec.manW)
     val preMul: Seq[StageElem] = if (PreProcMultiplier.isNeeded(cfg.funcs)) {
-      Seq(StageGroup("preMul",
-        Multiplier.stagePoints(preMulImpl, preMulChain)))
+      Seq(StageGroup("preMul", if (preMulImpl.isSplit) {
+        SplitMultiplier.stagePoints(SplitMultiplier.chainPoints(
+          PreProcMultiplier.lhsW(cfg.funcs, spec), 1 + spec.manW,
+          preMulImpl.sliceW.get))
+      } else {
+        Seq(StagePoint("out", 4.0))
+      }))
     } else {
       Seq.empty[StageElem]
     }

@@ -120,9 +120,10 @@ private[rial] class ProbitTable(
  *               that evaluates the polynomial of the interval, see its doc for
  *               the names; the group name `"poly"` stands for `"poly.out"`
  *  - `"scale"`  after the scale lookup
- *  - `"mul.*"`  the boundaries of the [[rial.arith.Multiplier]] that forms the
- *               mantissa product, see its doc for the names; the group name
- *               `"mul"` stands for `"mul.out"`
+ *  - `"mul.*"`  the boundaries of the mantissa product: with `MulImpl.split`
+ *               those of [[rial.arith.SplitMultiplier]], and `"mul.out"`
+ *               alone for a plain product; the group name `"mul"` stands for
+ *               `"mul.out"`
  *  - `"out"`    the module output
  *
  * [[getStage]] gives the resulting latency, and `z.valid` is `rnd.valid`
@@ -361,23 +362,35 @@ class GenRandomGaussian(
 
   val prodW = (1+spec.manW)*2
 
-  // the product of the mantissas has no addend of its own, so a multiply-add
-  // gets zero for one
-  val mult = Module(new Multiplier(
-    yManW1Scale.getWidth, mulManW1Scale.getWidth, scaleMulImpl,
-    stages.sub("mul"), cW = Multiplier.zeroAddendW(scaleMulImpl)))
+  require(!scaleMulImpl.isMacc,
+    "the product of the mantissas has no addend to fold into a multiply-add; " +
+    "ask for MulImpl.split to slice it")
 
-  mult.io.in.valid  := validScale
-  mult.io.in.bits.x := yManW1Scale
-  mult.io.in.bits.y := mulManW1Scale
-  mult.io.in.bits.c.foreach(c => c := 0.U)
+  val prodMul = if (scaleMulImpl.isSplit) {
+    val mult = Module(new SplitMultiplier(
+      yManW1Scale.getWidth, mulManW1Scale.getWidth, scaleMulImpl.sliceW.get,
+      stages.sub("mul")))
+
+    mult.io.in.valid  := validScale
+    mult.io.in.bits.x := yManW1Scale
+    mult.io.in.bits.y := mulManW1Scale
+    mult.io.out.bits
+  } else {
+    // the product as it is written by hand: `MulImpl.plain` asks nothing of
+    // the operands, so there is nothing to shape
+    val cutMulIn  = new SharedPipe("mulIn", validScale, stages.at("mul.in"))
+    val cutMulOut = new SharedPipe("mulOut", cutMulIn.valid, stages.at("mul.out"))
+    cutMulOut(cutMulIn(yManW1Scale) * cutMulIn(mulManW1Scale))
+  }
+
+  require(prodMul.getWidth == prodW,
+    s"the product of the mantissas is ${prodMul.getWidth} bits, expected $prodW")
 
   // ---------------------------- stage "mul" ----------------------------
   // latency of the product; the signals that bypass it are delayed by the
-  // same number of cycles, so they stay aligned with mult.io.out
+  // same number of cycles, so they stay aligned with it
   private val cutMul = new SharedPipe("mul", validScale, stages.latency("mul"))
 
-  val prodMul    = mult.io.out.bits(prodW-1, 0)
   val mulExMul   = cutMul(mulExScale)
   val mulExUpMul = cutMul(mulExUpScale)
   val sgnMul     = cutMul(sgnScale)
@@ -468,7 +481,11 @@ object GenRandomGaussian {
       StagePoint("table", 3),
       StageGroup("poly", PolynomialEval.stagePoints(nOrder, polyMulImpl)),
       StagePoint("scale", 2),
-      StageGroup("mul", Multiplier.stagePoints(scaleMulImpl)),
+      StageGroup("mul", if (scaleMulImpl.isSplit) {
+        SplitMultiplier.stagePoints()
+      } else {
+        Seq(StagePoint("out", 4.0))
+      }),
       StagePoint("out", 1)
     )
   }

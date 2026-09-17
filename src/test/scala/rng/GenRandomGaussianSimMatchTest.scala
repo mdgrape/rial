@@ -100,7 +100,8 @@ class GenRandomGaussianSimMatchTest extends AnyFunSpec with ChiselSim with EmitV
   }
 
   it("... and with the polynomial's multiply-adds at 17") {
-    matchTest(MulImpl.macc(17), MulImpl.macc(17))
+    // the product of the mantissas has no addend to fold, so it stays plain
+    matchTest(MulImpl.macc(17))
   }
 
   it("... and with a multiply-add polynomial over a split mantissa product") {
