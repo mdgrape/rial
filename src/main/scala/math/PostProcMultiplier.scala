@@ -75,9 +75,8 @@ private[rial] class PostProcMultiplier(
   } else {
     // the product as it is written by hand: `MulImpl.plain` asks nothing of
     // the operands, so there is nothing to shape
-    val cutProdIn  = new SharedPipe("prodIn", cutIn.valid, stages.at("prod.in"))
-    val cutProdOut = new SharedPipe("prodOut", cutProdIn.valid,
-      stages.at("prod.out"))
+    val cutProdIn  = new SharedPipe("prodIn",  cutIn.valid,     stages.at("prod.in"))
+    val cutProdOut = new SharedPipe("prodOut", cutProdIn.valid, stages.at("prod.out"))
     cutProdOut(cutProdIn(lhsIn) * cutProdIn(rhsIn))
   }
 

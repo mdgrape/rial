@@ -378,7 +378,7 @@ class GenRandomGaussian(
   } else {
     // the product as it is written by hand: `MulImpl.plain` asks nothing of
     // the operands, so there is nothing to shape
-    val cutMulIn  = new SharedPipe("mulIn", validScale, stages.at("mul.in"))
+    val cutMulIn  = new SharedPipe("mulIn",  validScale,     stages.at("mul.in"))
     val cutMulOut = new SharedPipe("mulOut", cutMulIn.valid, stages.at("mul.out"))
     cutMulOut(cutMulIn(yManW1Scale) * cutMulIn(mulManW1Scale))
   }

@@ -142,6 +142,7 @@ class PolynomialEval(
       val idx     = order - k // position of the multiply-add in evaluation order
       val xminW   = min(accCur.getWidth, xPrec) // min(calcBits, xPrec)
       val xStep   = xCur(xPrec, xPrec - xminW)
+
       // what crosses the multiplier alongside it: the position and the
       // coefficients the later steps still need
       val cutProd   = new SharedPipe(s"prod${idx}", validCur, stages.latency(s"prod${idx}"))
@@ -155,6 +156,7 @@ class PolynomialEval(
       // other structures give the product alone, and the shift and the
       // coefficient are written behind them
       val sumFull = if (mulImpl.isMacc) {
+
         val mult = Module(new MultiplyAdd(xminW + 1, accCur.getWidth,
           coefCur(k).getWidth, xminW, mulImpl.sliceW.get,
           stages.sub(s"prod${idx}"), signed = true))
@@ -164,7 +166,9 @@ class PolynomialEval(
         mult.io.in.bits.y := accCur.asUInt
         mult.io.in.bits.c := coefCur(k).asUInt
         mult.io.out.bits.asSInt
+
       } else if (mulImpl.isSplit) {
+
         val mult = Module(new SplitMultiplier(xminW + 1, accCur.getWidth,
           mulImpl.sliceW.get, stages.sub(s"prod${idx}"), signed = true))
 
@@ -172,14 +176,15 @@ class PolynomialEval(
         mult.io.in.bits.x := xStep
         mult.io.in.bits.y := accCur.asUInt
         (mult.io.out.bits.asSInt >> xminW).asSInt +& coefProd(k)
+
       } else {
+
         // the product as it is written by hand: `MulImpl.plain` asks nothing
         // of the operands, so there is nothing to shape
-        val cutStepIn  = new SharedPipe(s"prod${idx}In", validCur,
-          stages.at(s"prod${idx}.in"))
-        val cutStepOut = new SharedPipe(s"prod${idx}Out", cutStepIn.valid,
-          stages.at(s"prod${idx}.out"))
+        val cutStepIn  = new SharedPipe(s"prod${idx}In",  validCur,        stages.at(s"prod${idx}.in"))
+        val cutStepOut = new SharedPipe(s"prod${idx}Out", cutStepIn.valid, stages.at(s"prod${idx}.out"))
         val prod = cutStepOut((cutStepIn(xStep).asSInt * cutStepIn(accCur)).asUInt)
+
         (prod.asSInt >> xminW).asSInt +& coefProd(k)
       }
       accVec(k) := sumFull // drop the MSB (carry)
