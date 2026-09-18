@@ -14,28 +14,42 @@ import rial.util._
 
 import scala.collection.mutable.ArrayBuffer
 
-// All the modes share one array multiplier over the whole input width. Its
-// partial product at weight 2^(i+j) is `a(i) & b(j)`, gated by whether bit i
-// and bit j belong to the same element: a pair that crosses an element
-// boundary contributes nothing, so what is left of the array is one
-// independent multiplier per element. Whether two lanes belong to the same
-// element is a comparison of the mode against a constant, as `heads` is.
+// All the modes share one bit heap over the whole input width, whatever the
+// rows of that heap are. A row may only see the bits of one element, so every
+// bit of it is gated by whether the lanes it comes from belong to the same
+// element, and a pair that crosses an element boundary contributes nothing:
+// what is left of the heap is one independent multiplier per element. Whether
+// two lanes belong to the same element is a comparison of the mode against a
+// constant, as `heads` is.
 //
-// The array is summed in two steps. The bit heap is first reduced to two rows
-// by full adders, then the two rows are added by one carry chain. Both steps
-// are cut at the lanes that start an element: the reduction drops a carry that
-// would leave an element and the carry chain forces its carry-in there, so
-// every element's product stays inside its own window, i.e. it is taken modulo
-// 2^(2*elemW), which is exactly the two's complement product.
+// The heap is summed in two steps. It is first reduced to two rows by full
+// adders, then the two rows are added by one carry chain. Both steps are cut at
+// the lanes that start an element: the reduction drops a carry that would leave
+// an element and the carry chain forces its carry-in there, so every element's
+// product stays inside its own window, i.e. it is taken modulo 2^(2*elemW),
+// which is exactly the two's complement product.
 //
-// Signed elements are handled the Baugh-Wooley way. A partial product with
-// exactly one sign bit among its two bits is negatively weighted; it is
-// replaced by its inverse, which costs `-2^(i+j)` per such weight, and all
-// that is owed is added back as one constant row. Which bit of an operand is a
-// sign bit depends on the mode - it is the topmost bit of a lane that ends an
-// element - so the inversions are driven by the lane flags and the constant is
-// selected by the mode. Only the topmost row and column of a lane block can
-// hold a negative partial product, hence 2*laneW-1 inversions per block.
+// A bit of negative weight is never subtracted. It is replaced by its inverse,
+// which costs `-2^c` at that weight, and all that is owed is added back as one
+// constant row selected by the mode. Which bit is negatively weighted depends
+// on the mode - the sign bit of an operand is the topmost bit of a lane that
+// ends an element - so the inversions are driven by the lane flags.
+//
+// Two ways of building the heap are available.
+//
+// The plain array has one row per bit of the multiplier: the partial product at
+// weight 2^(i+j) is `a(i) & b(j)`. Signed elements are handled the
+// Baugh-Wooley way, where a partial product with exactly one sign bit among its
+// two bits is the negatively weighted one. Only the topmost row and column of a
+// lane block can hold such a pair, hence 2*laneW-1 inversions per block.
+//
+// The radix-4 Booth recoding has one row per two bits of the multiplier: the
+// three bits (b(p+1), b(p), b(p-1)) at every even position p give a digit in
+// -2..2, and the row of that digit is the digit times the multiplicand, at
+// weight 2^p. Half the rows cost, per row, the multiplexing of the digit, a
+// `+1` where the digit is negative, and the sign bits of a row that is now
+// signed whether the elements are or not. Since a digit reads the bit below its
+// position, laneW must be even for a digit to stay inside one lane.
 //
 // The product of an element is twice as wide as the element, so the output is
 // twice as wide as the input and every lane of the input owns two lanes of the
@@ -77,11 +91,15 @@ import scala.collection.mutable.ArrayBuffer
  * mode=2 one 64 bit product. A full product never overflows, so the result is
  * exact in every mode.
  *
+ * `booth` selects the radix-4 recoding of the multiplier, which takes two bits
+ * of it per partial product instead of one and so halves the number of them; it
+ * requires an even `laneW`. The result is the same either way.
+ *
  * Pipeline registers can be enabled at the following points of the datapath
  * (names for `PipelineStageConfig.specify`):
  *
  *  - `"in"`     the module input
- *  - `"reduce"` after the array has been reduced to two rows
+ *  - `"reduce"` after the heap has been reduced to two rows
  *  - `"out"`    the module output
  *
  * [[getStage]] gives the resulting latency, and `out.valid` is `in.valid`
@@ -94,6 +112,8 @@ import scala.collection.mutable.ArrayBuffer
  * new DynMul(8, 4, true, PipelineStageConfig.specify("reduce" -> 1, "out" -> 1))
  * // combinational
  * new DynMul(8, 4, true, PipelineStageConfig.none)
+ * // one partial product per bit of the multiplier
+ * new DynMul(8, 4, true, PipelineStageConfig.none, false)
  * }}}
  *
  * @constructor construct DynMul module
@@ -101,6 +121,7 @@ import scala.collection.mutable.ArrayBuffer
  * @param nLanes number of lanes. must be a power of 2
  * @param signed if true, elements are multiplied as signed integers
  * @param stage  pipeline registers of this module
+ * @param booth  if true, the multiplier is recoded radix-4. needs an even laneW
  *
  * @see [[rial.util.PipelineStageConfig]]
  * @see [[rial.util.StagePoint]]
@@ -109,12 +130,16 @@ class DynMul(
   val laneW  : Int = 8,
   val nLanes : Int = 4,
   val signed : Boolean = true,
-  val stage  : PipelineStageConfig = PipelineStageConfig.none
+  val stage  : PipelineStageConfig = PipelineStageConfig.none,
+  val booth  : Boolean = true
 ) extends Module {
 
   require(laneW   >= 1,   s"laneW must be positive, but got ${laneW}")
   require(nLanes  >= 1,   s"nLanes must be positive, but got ${nLanes}")
   require(isPow2(nLanes), s"nLanes must be a power of 2, but got ${nLanes}")
+  require(!booth || laneW % 2 == 0,
+    s"booth needs an even laneW so that a radix-4 digit stays inside a lane, " +
+    s"but got ${laneW}")
 
   /** Boundaries at which pipeline registers can be placed; see the class doc. */
   val stagePoints = DynMul.stagePoints
@@ -127,6 +152,7 @@ class DynMul(
 
   val width = laneW * nLanes
   val modeW = DynLane.modeW(nLanes)
+  val nCol  = 2 * width
 
   val io = IO(new Bundle {
     val in  = Flipped(Valid(new DynMul.Input(laneW, nLanes)))
@@ -142,7 +168,7 @@ class DynMul(
   val modeIn = cutIn(io.in.bits.mode)
 
   //----------------------------------------------------------------------
-  // S1 : the array of partial products, reduced to two rows
+  // S1 : the heap of partial products, reduced to two rows
 
   val heads = DynLane.heads(modeIn, nLanes)
   val tails = DynLane.tails(heads)
@@ -156,6 +182,21 @@ class DynMul(
     } else {
       modeIn > (31 - Integer.numberOfLeadingZeros(li ^ lj)).U
     })
+
+  // bit i-1 of an operand, the one below bit i: nothing below the lowest bit
+  // and, at a lane boundary, what the lane below holds only if that lane
+  // belongs to the same element as lane i does
+  private def below(x: UInt, i: Int): Option[Bool] = {
+    if (i == 0) {
+      None
+    } else if (i % laneW == 0) {
+      Some(x(i-1) && !heads(i / laneW))
+    } else {
+      Some(x(i-1))
+    }
+  }
+
+  //---------------------------- the plain array -------------------------
 
   // bit i of an operand can be the sign bit of its element only if it is the
   // topmost bit of its lane; it is one iff that lane also ends the element
@@ -201,7 +242,7 @@ class DynMul(
   // the -2^(i+j) they cost, taken modulo 2^(2*elemW) and placed at the
   // element's own window of the output. For nLanes = 1 this is the usual
   // 2^laneW + 2^(2*laneW-1).
-  private def owed(m: Int): BigInt = {
+  private def owedByArray(m: Int): BigInt = {
     if (!signed) {
       BigInt(0)
     } else {
@@ -211,35 +252,160 @@ class DynMul(
         .filter{ case(i, j) => (i == elemW-1) != (j == elemW-1) }
         .map   { case(i, j) => -(BigInt(1) << (i + j)) }
         .sum
-      val wrapped = ((perElem % wrap) + wrap) % wrap
-      (0 until (nLanes >> m)).map(e => wrapped << (2 * elemW * e)).sum
+      wrapModes(perElem, m)
     }
   }
 
-  val nCol = 2 * width
-
-  val columns = Seq.fill(nCol)(new ArrayBuffer[Bool])
-  for(i <- 0 until width; j <- 0 until width) {
-    columns(i+j) += partial(i, j)
+  private def arrayHeap: (Seq[Seq[Bool]], Seq[BigInt]) = {
+    val columns = Seq.fill(nCol)(new ArrayBuffer[Bool])
+    for(i <- 0 until width; j <- 0 until width) {
+      columns(i+j) += partial(i, j)
+    }
+    (columns.map(_.toSeq), owedOfEveryMode(owedByArray))
   }
 
-  val owedOfMode = Seq.tabulate(DynLane.modeMax(nLanes)+1)(m => owed(m))
-  if (owedOfMode.exists(_ != 0)) {
-    val constant = if (owedOfMode.length == 1) {
+  //------------------------- the radix-4 recoding -----------------------
+
+  // what the inverted top bits of a recoded mode m owe: per element the
+  // -2^(p + elemW) of each of its digits, one weight higher where the elements
+  // are unsigned because a row then carries one more bit
+  private def owedByBooth(m: Int): BigInt = {
+    val elemW = laneW << m
+    val top   = if (signed) { elemW } else { elemW + 1 }
+    wrapModes((0 until elemW by 2).map(p => -(BigInt(1) << (p + top))).sum, m)
+  }
+
+  private def boothHeap: (Seq[Seq[Bool]], Seq[BigInt]) = {
+    val columns = Seq.fill(nCol)(new ArrayBuffer[Bool])
+
+    // first(lh)(lp) is true iff lane lh is the lane that starts the element
+    // containing lane lp, i.e. it is a head and no lane between the two is.
+    // Exactly one lane of an element satisfies it, lane 0 being a head always.
+    val first = Seq.tabulate(nLanes, nLanes)((lh, lp) =>
+      if (lh > lp) {
+        false.B
+      } else {
+        ((lh+1) to lp).foldLeft(heads(lh))((acc, l) => acc && !heads(l))
+      })
+
+    for(p <- 0 until width by 2) {
+      val lp = p / laneW
+      val b0 = bIn(p)
+      val b1 = bIn(p+1)
+
+      // the digit of the three bits (b(p+1), b(p), b(p-1)) is -2*b1 + b0 +
+      // b(p-1): `one` and `two` select its magnitude, a or 2a, and `neg` asks
+      // for the opposite sign. The digit 111 is a zero, which never negates.
+      val (neg, one, two) = below(bIn, p) match {
+        case Some(bm) => {
+          (b1 && !(b0 && bm), b0 ^ bm,
+            (b1 && !b0 && !bm) || (!b1 && b0 && bm))
+        }
+        case None => { (b1, b0, b1 && !b0) }
+      }
+
+      // the row is the digit times the multiplicand of the same element, so a
+      // bit of a that belongs to another element contributes nothing. A
+      // negative digit takes the inverse of the magnitude, whose `+1` is added
+      // at the lowest bit of the element the row belongs to.
+      for(i <- 0 until width) {
+        val la  = i / laneW
+        val src = below(aIn, i) match {
+          case Some(ap) => { (one && aIn(i)) || (two && ap) }
+          case None     => { one && aIn(i) }
+        }
+        val bit = src ^ neg
+        columns(i + p) += (if (la == lp) { bit } else { bit && same(la)(lp) })
+      }
+      for(lh <- 0 to lp) {
+        columns(laneW * lh + p) += (neg && first(lh)(lp))
+      }
+
+      // the topmost bits of the row sit above the element, so which weight
+      // they take depends on where the element ends
+      for(lt <- lp until nLanes) {
+        val hi = laneW * (lt + 1) - 1
+        val ends = if (lt == lp) {
+          tails(lt)
+        } else {
+          tails(lt) && same(lt)(lp)
+        }
+        if (signed) {
+          // the row of a signed multiplicand reaches bit hi+2 and its two
+          // topmost bits are both the sign, so the weights they carry add up
+          // to the single negative weight -2^(p+hi+1)
+          val sign = ((one || two) && aIn(hi)) ^ neg
+          columns(p + hi + 1) += (!sign && ends)
+        } else {
+          // an unsigned multiplicand has no sign bit, so 2a reaches bit hi+1
+          // and the row is negative only where the digit asks for it
+          columns(p + hi + 1) += (((two && aIn(hi)) ^ neg) && ends)
+          columns(p + hi + 2) += (!neg && ends)
+        }
+      }
+    }
+
+    // the recoding reads the multiplier as a signed number, so an unsigned one
+    // needs one more digit, of value b(hi) at the weight just above the
+    // element. Its row is never negative.
+    if (!signed) {
+      for(lt <- 0 until nLanes) {
+        val hi = laneW * (lt + 1) - 1
+        for(i <- 0 to hi) {
+          val la = i / laneW
+          val ends = if (la == lt) {
+            tails(lt)
+          } else {
+            tails(lt) && same(la)(lt)
+          }
+          columns(i + hi + 1) += (bIn(hi) && aIn(i) && ends)
+        }
+      }
+    }
+
+    (columns.map(_.toSeq), owedOfEveryMode(owedByBooth))
+  }
+
+  //--------------------------- the shared part --------------------------
+
+  // one element's worth of what is owed, taken modulo the element's own width
+  // and repeated at the window of every element of mode m
+  private def wrapModes(perElem: BigInt, m: Int): BigInt = {
+    val elemW   = laneW << m
+    val wrap    = BigInt(1) << (2 * elemW)
+    val wrapped = ((perElem % wrap) + wrap) % wrap
+    (0 until (nLanes >> m)).map(e => wrapped << (2 * elemW * e)).sum
+  }
+
+  private def owedOfEveryMode(owed: Int => BigInt): Seq[BigInt] = {
+    Seq.tabulate(DynLane.modeMax(nLanes)+1)(m => owed(m))
+  }
+
+  private val (heap, owedOfMode) = if (booth) { boothHeap } else { arrayHeap }
+
+  // what is owed is negative at every weight it covers, so it is added back as
+  // one more row of the heap, selected by the mode
+  val columns = if (owedOfMode.forall(_ == 0)) {
+    heap
+  } else {
+    val owedRow = if (owedOfMode.length == 1) {
       owedOfMode.head.U(nCol.W)
     } else {
       MuxLookup(modeIn, 0.U(nCol.W))(
         owedOfMode.zipWithIndex.map{ case(v, m) => (m.U, v.U(nCol.W)) })
     }
-    for(c <- 0 until nCol) {
-      if (owedOfMode.exists(_.testBit(c))) { columns(c) += constant(c) }
-    }
+    Seq.tabulate(nCol)(c => {
+      if (owedOfMode.exists(_.testBit(c))) {
+        heap(c) :+ owedRow(c)
+      } else {
+        heap(c)
+      }
+    })
   }
 
   // the heap is as wide as the output, so its lanes are twice as wide as the
   // operand lanes while the lanes that start an element are the same ones
-  val (row0Comb, row1Comb) = DynLane.compress(
-    columns.map(_.toSeq), 2 * laneW, heads)
+  val (row0Comb, row1Comb) = DynLane.compress(columns, 2 * laneW, heads)
 
   //--------------------------- stage "reduce" ---------------------------
   private val cutReduce = new SharedPipe("reduce", cutIn.valid, stages.at("reduce"))
