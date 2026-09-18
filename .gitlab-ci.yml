@@ -37,7 +37,6 @@ test-dyn:
 test-rng:
   stage: test
   script:
-    - make
     - sbt "testOnly rial.tests.ThreefryTest"
     - sbt "testOnly rial.tests.ThreefryGeneratorTest"
     - sbt "testOnly rial.tests.ThreefryKatTest"
