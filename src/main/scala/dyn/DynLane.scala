@@ -144,6 +144,107 @@ object DynLane {
     })
   }
 
+  /** lane-wise `a + b` as one carry chain over guard interleaved operands
+   *
+   * The carry-in of a lane that starts a new element is forced to 0 and
+   * otherwise comes from the lane below, so the chain is cut at each element
+   * boundary. As in [[subtract]], a guard bit below every lane but the lowest
+   * does the cutting inside the chain: it holds 0 on the `a` side against the
+   * negated head flag of that lane on the `b` side, so its carry-out is
+   * `maj(0, !head, carry from below) = !head && carry`, which is exactly the
+   * carry-in the element width asks for. The sum bits at the lane positions
+   * are unchanged by the guards.
+   *
+   * @return per-lane result of laneW+1 bits. bit laneW is the carry-out of the
+   *         lane, i.e. the bit the sum of the element would have at the weight
+   *         above that lane. bits laneW-1 to 0 are the sum.
+   */
+  def add(a: Seq[UInt], b: Seq[UInt], heads: Seq[Bool]): Seq[UInt] = {
+    require(a.nonEmpty)
+    require(a.length == b.length)
+    require(a.length == heads.length)
+
+    val laneW = a.head.getWidth
+    require(a.forall(_.getWidth == laneW) && b.forall(_.getWidth == laneW))
+
+    val n  = a.length
+    val ag = Cat(((n-1) to 1 by -1).flatMap(i => Seq(a(i), 0.U(1.W))) :+ a(0))
+    val bg = Cat(((n-1) to 1 by -1).flatMap(i => Seq(b(i), (!heads(i)).asUInt)) :+ b(0))
+    val sum = ag +& bg // n*(laneW+1) bits, never overflows
+
+    // the guard above lane i holds 0 ^ !head(i+1) ^ cout(i), so the carry-out
+    // of every lane but the topmost is read back off the chain
+    Seq.tabulate(n)(i => {
+      val lo   = i * (laneW + 1)
+      val cout = if (i == n-1) {
+        sum(n * (laneW + 1) - 1)
+      } else {
+        sum(lo + laneW) ^ (!heads(i+1)).asUInt
+      }
+      Cat(cout, sum(lo + laneW - 1, lo))
+    })
+  }
+
+  /** reduce a heap of bits to two rows, element by element
+   *
+   * `columns(c)` holds the bits of weight 2^c, in any number; the heap is as
+   * wide as the lanes it is described with, i.e. `laneW * heads.length`
+   * columns. A carry that would leave an element is dropped, so within each
+   * element the sum of the two rows returned is the sum of that element's bits
+   * of the heap modulo the element's own width.
+   *
+   * Note that `laneW` and `heads` describe the heap, not the operands the heap
+   * was built from: the columns of a product, for instance, are twice as wide
+   * as its operand lanes, while the lane that starts an element is the same
+   * one.
+   *
+   * @param columns the bits of each weight, `columns(0)` being weight 1
+   * @param laneW   number of columns per lane of the heap
+   * @param heads   `heads(i)` is true iff lane i starts a new element
+   * @return the two rows, of `laneW * heads.length` bits each
+   */
+  def compress(columns: Seq[Seq[Bool]], laneW: Int, heads: Seq[Bool]): (UInt, UInt) = {
+    val nLanes = heads.length
+    val nCol   = laneW * nLanes
+    require(columns.length == nCol,
+      s"columns.length(${columns.length}) must be laneW*nLanes(${nCol})")
+
+    // A full adder takes three bits of one column into one bit of that column
+    // and one carry into the next; the bits a column has left over are handed
+    // to the next round unchanged. Every full adder removes at least one bit
+    // from the heap, so the rounds end with no column holding more than two.
+    var rows = columns.map(c => ArrayBuffer(c: _*))
+    while (rows.exists(_.length > 2)) {
+      val next = Seq.fill(nCol)(new ArrayBuffer[Bool])
+      for(c <- 0 until nCol) {
+        val bits = rows(c)
+        for(k <- 0 until bits.length / 3) {
+          val x = bits(3*k)
+          val y = bits(3*k + 1)
+          val z = bits(3*k + 2)
+          next(c) += x ^ y ^ z
+          // the carry of the topmost column, and the one that would enter an
+          // element from below, have nowhere to go. column 0 takes no carry,
+          // so heads(0) is never asked for.
+          if (c + 1 < nCol) {
+            val carry = (x && y) || (y && z) || (z && x)
+            if ((c + 1) % laneW == 0) {
+              next(c+1) += carry && !heads((c+1) / laneW)
+            } else {
+              next(c+1) += carry
+            }
+          }
+        }
+        next(c) ++= bits.drop(bits.length / 3 * 3)
+      }
+      rows = next
+    }
+
+    val row = Seq.tabulate(2)(r => Cat((nCol-1 to 0 by -1).map(c =>
+      if (r < rows(c).length) { rows(c)(r) } else { false.B })))
+    (row(0), row(1))
+  }
+
   /** AND-accumulate x from the head of each element up to each lane */
   def accumulate(x: Seq[Bool], heads: Seq[Bool]): Seq[Bool] = {
     require(x.length == heads.length)
