@@ -64,14 +64,14 @@ class DynMulTest extends AnyFunSpec with ChiselSim with EmitVcd {
   }
 
   def runtest(laneW: Int, nLanes: Int, signed: Boolean,
-    stage: PipelineStageConfig, booth: Boolean, seed: Int) = {
+    stage: PipelineStageConfig, seed: Int) = {
     it(f"DynMul(laneW=${laneW}, nLanes=${nLanes}, signed=${signed}, " +
-       f"stage=[${stage.getString}], booth=${booth})") {
+       f"stage=[${stage.getString}])") {
       val n = getOption[Int]("n").getOrElse(1000)
       val width = laneW * nLanes
       val elemWs = Seq.tabulate(log2Ceil(nLanes)+1)(m => laneW << m)
 
-      simulate(new DynMul(laneW, nLanes, signed, stage, booth)) {
+      simulate(new DynMul(laneW, nLanes, signed, stage)) {
         c => {
           val rng = new Random(seed)
           // the pipeline registers advance while in.valid is high, which it is
@@ -120,27 +120,18 @@ class DynMulTest extends AnyFunSpec with ChiselSim with EmitVcd {
     }
   }
 
-  describe("DynMul with the recoded multiplier") {
+  describe("DynMul") {
     // int8x4 / int16x2 / int32
-    runtest(8, 4, true,  PipelineStageConfig.none, true, 123456789)
-    runtest(8, 4, false, PipelineStageConfig.none, true, 123456789)
+    runtest(8, 4, true,  PipelineStageConfig.none, 123456789)
+    runtest(8, 4, false, PipelineStageConfig.none, 123456789)
 
     // other configurations
-    runtest( 4, 8, true,  PipelineStageConfig.none, true, 123456789)
-    runtest(16, 2, true,  PipelineStageConfig.none, true, 123456789)
-    runtest( 8, 1, true,  PipelineStageConfig.none, true, 123456789)
-    runtest( 8, 1, false, PipelineStageConfig.none, true, 123456789)
-    runtest( 2, 4, true,  PipelineStageConfig.none, true, 123456789)
-    runtest( 2, 4, false, PipelineStageConfig.none, true, 123456789)
-  }
-
-  // The plain array, one partial product per bit of the multiplier. A
-  // representative subset only: one verilator build per configuration.
-  describe("DynMul with one partial product per bit") {
-    runtest(8, 4, true,  PipelineStageConfig.none, false, 123456789)
-    runtest(8, 4, false, PipelineStageConfig.none, false, 123456789)
-    runtest(1, 4, true,  PipelineStageConfig.none, false, 123456789)
-    runtest(8, 1, true,  PipelineStageConfig.none, false, 123456789)
+    runtest( 4, 8, true,  PipelineStageConfig.none, 123456789)
+    runtest(16, 2, true,  PipelineStageConfig.none, 123456789)
+    runtest( 8, 1, true,  PipelineStageConfig.none, 123456789)
+    runtest( 8, 1, false, PipelineStageConfig.none, 123456789)
+    runtest( 2, 4, true,  PipelineStageConfig.none, 123456789)
+    runtest( 2, 4, false, PipelineStageConfig.none, 123456789)
   }
 
   // Pipelined configurations. A representative subset only: one verilator
@@ -153,7 +144,7 @@ class DynMulTest extends AnyFunSpec with ChiselSim with EmitVcd {
       PipelineStageConfig.default(1),
       PipelineStageConfig.default(2),
       PipelineStageConfig.specify("in" -> 1, "reduce" -> 1, "out" -> 1))) {
-      runtest(8, 4, true, stage, true, 123456789)
+      runtest(8, 4, true, stage, 123456789)
     }
   }
 }
