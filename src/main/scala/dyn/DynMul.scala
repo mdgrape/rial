@@ -31,9 +31,9 @@ import scala.collection.mutable.ArrayBuffer
 //
 // A row is the multiplicand with its magnitude selected, a or 2a, and inverted
 // where the digit is negative. The `+1` that completes such a negation is added
-// at the first bit of the element the row belongs to, and the topmost bit of the
-// row sits just above the bit at which that element ends, so both of them land
-// at a weight the mode picks.
+// at the lowest bit of the element the row belongs to, and the topmost bit of
+// the row sits just above the bit at which that element ends, so both of them
+// land at a weight the mode picks.
 //
 // A bit of negative weight is never subtracted. It is replaced by its inverse,
 // which costs `-2^c` at that weight, and all that the inverted top bits owe is
@@ -170,44 +170,32 @@ class DynMul(
       modeIn > (31 - Integer.numberOfLeadingZeros(li ^ lj)).U
     })
 
-  // first(lh)(lp) is true iff lane lh is the lane that starts the element
-  // containing lane lp, i.e. it is a head and no lane between the two is.
-  // Exactly one lane of an element satisfies it, lane 0 being a head always.
-  val first = Seq.tabulate(nLanes, nLanes)((lh, lp) =>
-    if (lh > lp) {
-      false.B
-    } else {
-      ((lh+1) to lp).foldLeft(heads(lh))((acc, l) => acc && !heads(l))
-    })
-
-  // bit i-1 of an operand, the one below bit i: nothing below the lowest bit
-  // and, at a lane boundary, what the lane below holds only if that lane
-  // belongs to the same element as lane i does
-  private def below(x: UInt, i: Int): Option[Bool] = {
+  // the bit below bit i of an operand: zero below the lowest bit, and cut at a
+  // lane that starts an element, where the lane below belongs to another one
+  private def below(x: UInt, i: Int): Bool = {
     if (i == 0) {
-      None
+      false.B
     } else if (i % laneW == 0) {
-      Some(x(i-1) && !heads(i / laneW))
+      x(i-1) && !heads(i / laneW)
     } else {
-      Some(x(i-1))
+      x(i-1)
     }
   }
 
-  // what the inverted top bits owe in mode m: per element the -2^(p + top) of
-  // each of its digits, where `top` is one weight higher for unsigned elements
-  // because a row then carries one more bit. Taken modulo the element's own
-  // width and repeated at the window of every element of the mode.
-  private def owedOfMode(m: Int): BigInt = {
-    val elemW   = laneW << m
-    val top     = if (signed) { elemW } else { elemW + 1 }
-    val perElem = (0 until elemW by 2).map(p => -(BigInt(1) << (p + top))).sum
-    val wrap    = BigInt(1) << (2 * elemW)
-    val wrapped = ((perElem % wrap) + wrap) % wrap
-    (0 until (nLanes >> m)).map(e => wrapped << (2 * elemW * e)).sum
-  }
-
-  private val owedOfEveryMode =
-    Seq.tabulate(DynLane.modeMax(nLanes)+1)(m => owedOfMode(m))
+  // what the inverted top bits owe: the inverted top bit of a digit's row sits
+  // at p + elemW for signed elements (the sign of the (W+1)-bit row) and at
+  // p + elemW + 1 for unsigned ones (the row has one more bit, see the top bits
+  // below); each owes -2^(that weight), taken modulo the element's own width
+  // and repeated at the window of every element of mode m
+  private val owedOfMode: Seq[BigInt] =
+    Seq.tabulate(DynLane.modeMax(nLanes)+1)(m => {
+      val elemW   = laneW << m
+      val top     = if (signed) { elemW } else { elemW + 1 }
+      val perElem = (0 until elemW by 2).map(p => -(BigInt(1) << (p + top))).sum
+      val wrap    = BigInt(1) << (2 * elemW)
+      val wrapped = ((perElem % wrap) + wrap) % wrap
+      (0 until (nLanes >> m)).map(e => wrapped << (2 * elemW * e)).sum
+    })
 
   // the heap of the recoded rows, one column of bits per weight of the output
   private val heap: Seq[Seq[Bool]] = {
@@ -221,40 +209,33 @@ class DynMul(
       // the digit of the three bits (b(p+1), b(p), b(p-1)) is -2*b1 + b0 +
       // b(p-1): `one` and `two` select its magnitude, a or 2a, and `neg` asks
       // for the opposite sign. The digit 111 is a zero, which never negates.
-      val (neg, one, two) = below(bIn, p) match {
-        case Some(bm) => {
-          (b1 && !(b0 && bm), b0 ^ bm,
-            (b1 && !b0 && !bm) || (!b1 && b0 && bm))
-        }
-        case None => { (b1, b0, b1 && !b0) }
-      }
+      val bm  = below(bIn, p)
+      val neg = b1 && !(b0 && bm)
+      val one = b0 ^ bm
+      val two = (b1 && !b0 && !bm) || (!b1 && b0 && bm)
 
       // the row is the digit times the multiplicand of the same element, so a
-      // bit of a that belongs to another element contributes nothing. A
-      // negative digit takes the inverse of the magnitude, whose `+1` is added
-      // at the lowest bit of the element the row belongs to.
+      // bit of a that belongs to another element contributes nothing
       for(i <- 0 until width) {
         val la  = i / laneW
-        val src = below(aIn, i) match {
-          case Some(ap) => { (one && aIn(i)) || (two && ap) }
-          case None     => { one && aIn(i) }
-        }
+        val src = (one && aIn(i)) || (two && below(aIn, i))
         val bit = src ^ neg
-        columns(i + p) += (if (la == lp) { bit } else { bit && same(la)(lp) })
-      }
-      for(lh <- 0 to lp) {
-        columns(laneW * lh + p) += (neg && first(lh)(lp))
+        columns(i + p) += (bit && same(la)(lp))
       }
 
-      // the topmost bits of the row sit above the element, so which weight
-      // they take depends on where the element ends
+      // a negative digit takes the inverse of the magnitude, whose `+1` lands
+      // at the lane that starts the element the row belongs to: that lane is a
+      // head that shares the element, which exactly one lane of it is
+      for(lh <- 0 to lp) {
+        val starts = heads(lh) && same(lh)(lp)
+        columns(laneW * lh + p) += (neg && starts)
+      }
+
+      // the topmost bits of the row sit above the element, so they land at the
+      // lane that ends it, symmetrically to the `+1` above
       for(lt <- lp until nLanes) {
-        val hi = laneW * (lt + 1) - 1
-        val ends = if (lt == lp) {
-          tails(lt)
-        } else {
-          tails(lt) && same(lt)(lp)
-        }
+        val hi   = laneW * (lt + 1) - 1
+        val ends = tails(lt) && same(lt)(lp)
         if (signed) {
           // the row of a signed multiplicand reaches bit hi+2 and its two
           // topmost bits are both the sign, so the weights they carry add up
@@ -277,12 +258,8 @@ class DynMul(
       for(lt <- 0 until nLanes) {
         val hi = laneW * (lt + 1) - 1
         for(i <- 0 to hi) {
-          val la = i / laneW
-          val ends = if (la == lt) {
-            tails(lt)
-          } else {
-            tails(lt) && same(la)(lt)
-          }
+          val la   = i / laneW
+          val ends = tails(lt) && same(la)(lt)
           columns(i + hi + 1) += (bIn(hi) && aIn(i) && ends)
         }
       }
@@ -293,15 +270,15 @@ class DynMul(
 
   // what is owed is negative at every weight it covers, so it is added back as
   // one more row of the heap, selected by the mode
-  private val owedRow = if (owedOfEveryMode.length == 1) {
-    owedOfEveryMode.head.U(nCol.W)
+  private val owedRow = if (owedOfMode.length == 1) {
+    owedOfMode.head.U(nCol.W)
   } else {
     MuxLookup(modeIn, 0.U(nCol.W))(
-      owedOfEveryMode.zipWithIndex.map{ case(v, m) => (m.U, v.U(nCol.W)) })
+      owedOfMode.zipWithIndex.map{ case(v, m) => (m.U, v.U(nCol.W)) })
   }
 
   val columns = Seq.tabulate(nCol)(c => {
-    if (owedOfEveryMode.exists(_.testBit(c))) {
+    if (owedOfMode.exists(_.testBit(c))) {
       heap(c) :+ owedRow(c)
     } else {
       heap(c)
