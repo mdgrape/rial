@@ -20,14 +20,18 @@ case class PolynomialBitWidth(
   val inPrec  = inBitW-1 // input is [-1.0, 1.0). (1 << inPrec ) == 1.0
   val outPrec = outBitW  // output is [0.0, 1.0). (1 << outPrec) == 1.0
 
+  /** The widths that cover both: the wider coefficient and accumulator of the
+   *  two at every order, and the wider of the two addresses. The two have to
+   *  agree on the order, the input and the output, which a shared polynomial
+   *  evaluator cannot vary.
+   */
   def merge(other: PolynomialBitWidth): PolynomialBitWidth = {
     require(nOrder == other.nOrder)
-    require(addrW == other.addrW)
     require(inBitW == other.inBitW)
     require(outBitW == other.outBitW)
     PolynomialBitWidth(
       nOrder,
-      addrW,
+      max(addrW, other.addrW),
       inBitW,
       outBitW,
       coefBits.zip(other.coefBits).map { case (lhs, rhs) => max(lhs, rhs) },

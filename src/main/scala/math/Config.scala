@@ -4,6 +4,7 @@ import chisel3._
 import chisel3.util._
 
 import rial.arith.RealSpec
+import rial.table.PolynomialBitWidth
 
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.math.exp
@@ -247,6 +248,108 @@ object FuncKind extends Enumeration {
 
 // ============================================================================
 
+/** The width of the table address of each function of a [[MathFuncConfig]].
+ *
+ * A table whose address is `n` bits wide holds `2^n` sub-intervals, so the
+ * address width is what one function costs in ROM. The functions of a
+ * configuration rarely need the same one, so a configuration takes a width
+ * per function rather than a single number.
+ *
+ * A function that reads the table of another one reads it as it is, so a
+ * width belongs to the function that owns the table; [[TableAddrWidth.owner]]
+ * says which function that is.
+ *
+ * An `Int` converts to [[UniformAddrWidth]], so one width for every table is
+ * written as that number alone.
+ *
+ * {{{
+ * import rial.math.FuncKind._
+ *
+ * new MathFuncConfig(
+ *   funcs   = MathFuncConfig.standard,
+ *   spec    = RealSpec.Float32Spec,
+ *   nOrder  = 2,
+ *   addrW   = PerFuncAddrWidth(8, Map(Sqrt -> 5, InvSqrt -> 6, Exp -> 6)),
+ *   inBitW  = RealSpec.Float32Spec.manW - 8,
+ *   outBitW = RealSpec.Float32Spec.manW + 3,
+ * )
+ * }}}
+ */
+sealed trait TableAddrWidth {
+  /** The width of the address of the table `fn` reads, in bits.
+   *
+   *  @param fn An enumerator of the function.
+   */
+  def of(fn: FuncKind.FuncKind): Int
+}
+
+/** One address width for every table of a configuration.
+ *
+ *  @param addrW the width of every table address, in bits
+ */
+case class UniformAddrWidth(addrW: Int) extends TableAddrWidth {
+  def of(fn: FuncKind.FuncKind): Int = { addrW }
+}
+
+/** An address width of its own for the tables that ask for one.
+ *
+ * A function `widths` does not name reads its table at `default`. Every key
+ * has to own its table, as [[TableAddrWidth.owner]] says: a function that
+ * reads another one's table cannot be given a width of its own.
+ *
+ *  @param default the width of the address of every table `widths` leaves out
+ *  @param widths  the width of the address of the table of each function named
+ */
+case class PerFuncAddrWidth(
+  default: Int,
+  widths:  Map[FuncKind.FuncKind, Int],
+) extends TableAddrWidth {
+
+  widths.keys.foreach(fn => {
+    val own = TableAddrWidth.owner(fn)
+    require(own == fn,
+      f"${FuncKind.getString(fn)} reads the table of " +
+      f"${FuncKind.getString(own)}, so it has no address width of its own: " +
+      f"give the width to ${FuncKind.getString(own)} instead")
+  })
+
+  def of(fn: FuncKind.FuncKind): Int = {
+    widths.getOrElse(TableAddrWidth.owner(fn), default)
+  }
+}
+
+/** Factory for [[TableAddrWidth]].
+ */
+object TableAddrWidth {
+  import FuncKind._
+  import scala.language.implicitConversions
+
+  /** Returns the function that owns the table `fn` reads.
+   *
+   * `Cos` reads the table of `Sin`, `CosPi` that of `SinPi`, `CosPiFixed`
+   * that of `SinPiFixed`, the first phase of `acos` that of `Sqrt` and the
+   * first phase of `atan2` that of `Reciprocal`. Every other function owns
+   * its table and is its own owner.
+   *
+   * @param fn An enumerator of the function.
+   */
+  def owner(fn: FuncKind): FuncKind = {
+    fn match {
+      case Cos         => Sin
+      case CosPi       => SinPi
+      case CosPiFixed  => SinPiFixed
+      case ACosPhase1  => Sqrt
+      case ATan2Phase1 => Reciprocal
+      case other       => other
+    }
+  }
+
+  /** One width, for every table of the configuration alike. */
+  implicit def uniform(addrW: Int): TableAddrWidth = { UniformAddrWidth(addrW) }
+}
+
+// ============================================================================
+
 /** A Config class for [[rial.math.MathFunctions]] Module.
 
  *  @constructor create a new MathFuncConfig.
@@ -255,6 +358,16 @@ object FuncKind extends Enumeration {
  *              table that gives a region of its own to each binade of its
  *              argument places its grid on the mantissa of that format, so it
  *              has to know how many bits of it there are.
+ *  @param addrW the width of the address of each table; a plain number gives
+ *               every table the same one. A function that reads the table of
+ *               another one reads it at the width of that function, so only
+ *               the function that owns a table can be given a width; see
+ *               [[TableAddrWidth]].
+ *  @param inBitW the width of the position inside a sub-interval, shared by
+ *                every table. A table whose address is narrower leaves more
+ *                bits of the fraction below it than that width holds, and the
+ *                ones it does not hold are dropped, so `inBitW` is what sets
+ *                the precision of the position of every table alike.
  *  @param ScaleMixtureGaussianSigma sigmaA and sigmaB for ScaleMixtureGaussian.
  *  @param sinCos the range of the argument sin/cos are calculated for; `None`
  *                covers the whole format. Outside the range sin/cos return a
@@ -266,7 +379,7 @@ class MathFuncConfig(
   val funcs:   Seq[FuncKind.FuncKind],
   val spec:    RealSpec,
   val nOrder:  Int,
-  val addrW:   Int,
+  val addrW:   TableAddrWidth,
   val inBitW:  Int,
   val outBitW: Int,
   val scaleMixtureGaussianSigma: Option[(Double, Double)] = None,
@@ -349,35 +462,58 @@ class MathFuncConfig(
   // ---------------------------------------------------------------------------
 
   val tables: Map[FuncKind, TableBase] = funcs.map {
-    case Sqrt        => (Sqrt        -> new SqrtTable       (nOrder, addrW, inBitW, outBitW))
-    case InvSqrt     => (InvSqrt     -> new InvSqrtTable    (nOrder, addrW, inBitW, outBitW))
-    case Reciprocal  => (Reciprocal  -> new ReciprocalTable (nOrder, addrW, inBitW, outBitW))
-    case Sin         => (Sin         -> new SinCosTable     (nOrder, addrW, inBitW, outBitW))
-    case Cos         => (Cos         -> new SinCosTable     (nOrder, addrW, inBitW, outBitW))
-    case Exp         => (Exp         -> new ExpTable        (nOrder, addrW, inBitW, outBitW))
-    case Log         => (Log         -> new LogTable        (nOrder, addrW, inBitW, outBitW))
-    case ACosPhase1  => (ACosPhase1  -> new SqrtTable       (nOrder, addrW, inBitW, outBitW))
-    case ACosPhase2  => (ACosPhase2  -> new ACosPhase2Table (nOrder, addrW, inBitW, outBitW))
-    case ATan2Phase1 => (ATan2Phase1 -> new ReciprocalTable (nOrder, addrW, inBitW, outBitW))
-    case ATan2Phase2 => (ATan2Phase2 -> new ATan2Phase2Table(nOrder, addrW, inBitW, outBitW))
-    case Sigmoid     => (Sigmoid     -> new SigmoidTable    (nOrder, addrW, inBitW, outBitW))
-    case SoftPlus    => (SoftPlus    -> new SoftPlusTable   (nOrder, addrW, inBitW, outBitW))
-    case Pow2        => (Pow2        -> new ExpTable        (nOrder, addrW, inBitW, outBitW))
-    case SinPi       => (SinPi       -> new SinCosTable     (nOrder, addrW, inBitW, outBitW))
-    case CosPi       => (CosPi       -> new SinCosTable     (nOrder, addrW, inBitW, outBitW))
-    case SinPiFixed  => (SinPiFixed  -> new SinPiFixedTable (nOrder, addrW, inBitW, outBitW, manW))
-    case CosPiFixed  => (CosPiFixed  -> new SinPiFixedTable (nOrder, addrW, inBitW, outBitW, manW))
-    case Log2Fixed   => (Log2Fixed   -> new Log2FixedTable  (nOrder, addrW, inBitW, outBitW, manW))
-    case ATanFixed   => (ATanFixed   -> new ATanFixedTable  (nOrder, addrW, inBitW, outBitW, manW))
-    case ACosFixed   => (ACosFixed   -> new ACosFixedTable  (nOrder, addrW, inBitW, outBitW))
+    case Sqrt        => (Sqrt        -> new SqrtTable       (nOrder, addrW.of(Sqrt),        inBitW, outBitW))
+    case InvSqrt     => (InvSqrt     -> new InvSqrtTable    (nOrder, addrW.of(InvSqrt),     inBitW, outBitW))
+    case Reciprocal  => (Reciprocal  -> new ReciprocalTable (nOrder, addrW.of(Reciprocal),  inBitW, outBitW))
+    case Sin         => (Sin         -> new SinCosTable     (nOrder, addrW.of(Sin),         inBitW, outBitW))
+    case Cos         => (Cos         -> new SinCosTable     (nOrder, addrW.of(Cos),         inBitW, outBitW))
+    case Exp         => (Exp         -> new ExpTable        (nOrder, addrW.of(Exp),         inBitW, outBitW))
+    case Log         => (Log         -> new LogTable        (nOrder, addrW.of(Log),         inBitW, outBitW))
+    case ACosPhase1  => (ACosPhase1  -> new SqrtTable       (nOrder, addrW.of(ACosPhase1),  inBitW, outBitW))
+    case ACosPhase2  => (ACosPhase2  -> new ACosPhase2Table (nOrder, addrW.of(ACosPhase2),  inBitW, outBitW))
+    case ATan2Phase1 => (ATan2Phase1 -> new ReciprocalTable (nOrder, addrW.of(ATan2Phase1), inBitW, outBitW))
+    case ATan2Phase2 => (ATan2Phase2 -> new ATan2Phase2Table(nOrder, addrW.of(ATan2Phase2), inBitW, outBitW))
+    case Sigmoid     => (Sigmoid     -> new SigmoidTable    (nOrder, addrW.of(Sigmoid),     inBitW, outBitW))
+    case SoftPlus    => (SoftPlus    -> new SoftPlusTable   (nOrder, addrW.of(SoftPlus),    inBitW, outBitW))
+    case Pow2        => (Pow2        -> new ExpTable        (nOrder, addrW.of(Pow2),        inBitW, outBitW))
+    case SinPi       => (SinPi       -> new SinCosTable     (nOrder, addrW.of(SinPi),       inBitW, outBitW))
+    case CosPi       => (CosPi       -> new SinCosTable     (nOrder, addrW.of(CosPi),       inBitW, outBitW))
+    case SinPiFixed  => (SinPiFixed  -> new SinPiFixedTable (nOrder, addrW.of(SinPiFixed),  inBitW, outBitW, manW))
+    case CosPiFixed  => (CosPiFixed  -> new SinPiFixedTable (nOrder, addrW.of(CosPiFixed),  inBitW, outBitW, manW))
+    case Log2Fixed   => (Log2Fixed   -> new Log2FixedTable  (nOrder, addrW.of(Log2Fixed),   inBitW, outBitW, manW))
+    case ATanFixed   => (ATanFixed   -> new ATanFixedTable  (nOrder, addrW.of(ATanFixed),   inBitW, outBitW, manW))
+    case ACosFixed   => (ACosFixed   -> new ACosFixedTable  (nOrder, addrW.of(ACosFixed),   inBitW, outBitW))
     case ScaleMixtureGaussian => {
       val (sA, sB) = scaleMixtureGaussianSigma.get
-      (ScaleMixtureGaussian -> new ScaleMixtureGaussianTable(sA, sB, nOrder, addrW, inBitW, outBitW))
+      (ScaleMixtureGaussian -> new ScaleMixtureGaussianTable(
+        sA, sB, nOrder, addrW.of(ScaleMixtureGaussian), inBitW, outBitW))
     }
   }.toMap
 
-  val bitW   = tables.map(_._2.getBitWidth()).reduce((l, r) => { l.merge(r) } )
-  val coeffs = tables.map{ case (k,v) => (k -> v.generateTable(bitW)) }.toMap
+  /** the widths the table of each function asks for, before they are merged. */
+  private val tableBitWs = tables.map{ case (k,v) => (k -> v.getBitWidth()) }.toMap
+
+  /** The widths the shared polynomial evaluator is built for: the widest
+   *  coefficient and accumulator of any table of this configuration. Its
+   *  `addrW` is the widest table address; the address of one table is
+   *  [[bitWOf]]. */
+  val bitW = tableBitWs.values.reduce((l, r) => { l.merge(r) } )
+
+  /** The coefficients of the table of each function, at the widths the shared
+   *  polynomial evaluator reads them at and at the address width of that
+   *  table. */
+  val coeffs = tables.map{ case (k,v) =>
+    (k -> v.generateTable(bitW.copy(addrW = tableBitWs(k).addrW)))
+  }.toMap
+
+  /** Returns the widths the table of `fn` is read at: those of [[bitW]], with
+   *  the address width of that table.
+   *
+   *  @param fn An enumerator of the function.
+   */
+  def bitWOf(fn: FuncKind): PolynomialBitWidth = {
+    coeffs(fn).bitW
+  }
 
   // --------------------------------------------------------------------------
 
