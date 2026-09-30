@@ -35,7 +35,10 @@ import scala.reflect.ClassTag
  *                  and `"preMul.out"` alone for a plain product
  *  - `"pre.*"`     the argument reduction of each function, one path per
  *                  function, see below
- *  - `"table"`     after the coefficient table lookup
+ *  - `"table"`     after the coefficient table lookup: the tables of every
+ *                  configured function sit in one ROM, which the selected
+ *                  function addresses where [[rial.math.RomLayout]] placed
+ *                  its own
  *  - `"coef"`      after the coefficient selection
  *  - `"poly.*"`    the boundaries of the [[rial.table.PolynomialEval]]
  *                  submodule that evaluates the polynomial of the interval,
@@ -613,9 +616,13 @@ class MathFunctions(
   val polynomialEval = Module(new PolynomialEval(bitW, stages.sub("poly"),
     mulImpl = polyMulImpl))
 
-  val polynomialCoefW = bitW.coefBits.reduce(_+_)
-  val polynomialCoefs = cfg.funcs.map(fn => {
-    fn -> WireDefault(0.U.asTypeOf(Valid(UInt(polynomialCoefW.W))))
+  /** where the table of each function sits in the ROM they share. */
+  val romLayout = cfg.romLayout
+
+  /** the address of its own table each function offers, driven by its
+   *  argument reduction. */
+  val tableAdrs = cfg.funcs.map(fn => {
+    fn -> WireDefault(0.U.asTypeOf(Valid(UInt(romLayout.adrW(fn).W))))
   }).toMap
 
   val polynomialDxs = if (bitW.nOrder == 0) { None } else { Some(
@@ -624,11 +631,31 @@ class MathFunctions(
     }).toMap
   )}
 
-  // one flat selection on the function signal, at the two boundaries the
-  // coefficients and the interval offset reach it
-  val polynomialCoef =
-    MuxLookup(selCalc, 0.U.asTypeOf(Valid(UInt(polynomialCoefW.W))))(
-      cfg.funcs.map(fn => cfg.signal(fn) -> polynomialCoefs(fn)))
+  /** the address `fn` reads the merged ROM at: the address of its own table,
+   *  under the constant rows that table starts at. */
+  private def romAdrOf(fn: FuncKind): Valid[UInt] = {
+    val local = tableAdrs(fn)
+    val hiW   = romLayout.addrW - romLayout.adrW(fn)
+    val adr   = Wire(Valid(UInt(romLayout.addrW.W)))
+    adr.valid := local.valid
+    if (hiW == 0) {
+      adr.bits := local.bits
+    } else {
+      adr.bits := Cat((romLayout.offset(fn) >> romLayout.adrW(fn)).U(hiW.W),
+        local.bits)
+    }
+    adr
+  }
+
+  // one flat selection on the function signal, where the table address and
+  // the interval offset reach the table input
+  val tableRom = Module(new TableCoeffRom(romLayout, nTable))
+
+  tableRom.io.adr := MuxLookup(selTab,
+    0.U.asTypeOf(Valid(UInt(romLayout.addrW.W))))(
+      cfg.funcs.map(fn => cfg.signal(fn) -> romAdrOf(fn)))
+
+  val polynomialCoef = tableRom.io.cs
 
   val polynomialDx = if (bitW.nOrder == 0) { None } else { Some(
     Pipe(MuxLookup(selTab, 0.U.asTypeOf(Valid(UInt(bitW.inBitW.W))))(
@@ -896,29 +923,6 @@ class MathFunctions(
     case ACosFixed   => ACosFixed   -> Module(new ACosFixedPreProcess  (spec, bitWOf(ACosFixed),   preStage(ACosFixed  )))
   }.toMap[FuncKind, Module]
 
-  val tabs: Map[FuncKind, Module] = cfg.funcs.collect {
-    case Sqrt        => Sqrt        -> Module(new SqrtTableCoeff       (spec, coeffs(Sqrt       ), nTable))
-    case InvSqrt     => InvSqrt     -> Module(new InvSqrtTableCoeff    (spec, coeffs(InvSqrt    ), nTable))
-    case Reciprocal  => Reciprocal  -> Module(new ReciprocalTableCoeff (spec, coeffs(Reciprocal ), nTable))
-    case Sin         => Sin         -> Module(new SinCosTableCoeff     (spec, coeffs(Sin        ), nTable))
-    case SinPi       => SinPi       -> Module(new SinCosTableCoeff     (spec, coeffs(SinPi      ), nTable))
-    case SinPiFixed  => SinPiFixed  -> Module(new SinPiFixedTableCoeff (spec, coeffs(SinPiFixed ), nTable))
-    case Log         => Log         -> Module(new LogTableCoeff        (spec, coeffs(Log        ), nTable))
-    case Log2Fixed   => Log2Fixed   -> Module(new Log2FixedTableCoeff  (spec, coeffs(Log2Fixed  ), nTable))
-    case Exp         => Exp         -> Module(new ExpTableCoeff        (spec, coeffs(Exp        ), nTable))
-    case Pow2        => Pow2        -> Module(new ExpTableCoeff        (spec, coeffs(Pow2       ), nTable))
-    // ACosPhase1 shares Sqrt's TableCoeff
-    case ACosPhase2  => ACosPhase2  -> Module(new ACosPhase2TableCoeff (spec, coeffs(ACosPhase2 ), nTable))
-    // ATan2Phase1 shares Reciprocal's TableCoeff
-    case ATan2Phase2 => ATan2Phase2 -> Module(new ATan2Phase2TableCoeff(spec, coeffs(ATan2Phase2), nTable))
-    case Sigmoid     => Sigmoid     -> Module(new SigmoidTableCoeff    (spec, coeffs(Sigmoid    ), nTable))
-    case SoftPlus    => SoftPlus    -> Module(new SoftPlusTableCoeff   (spec, coeffs(SoftPlus   ), nTable))
-    case ScaleMixtureGaussian => ScaleMixtureGaussian ->
-      Module(new ScaleMixtureGaussianTableCoeff(spec, coeffs(ScaleMixtureGaussian), nTable))
-    case ATanFixed   => ATanFixed   -> Module(new ATanFixedTableCoeff  (spec, coeffs(ATanFixed  ), nTable))
-    case ACosFixed   => ACosFixed   -> Module(new ACosFixedTableCoeff  (spec, coeffs(ACosFixed  ), nTable))
-  }.toMap
-
   // the non-table modules run beside the table, the coefficient selection and
   // the polynomial, and place their registers themselves
   private val nonTableStage = PipelineStageConfig.default(nTabToPoly)
@@ -982,14 +986,12 @@ class MathFunctions(
 
   if(cfg.has(Sqrt)) {
     val pre  = toModule[SqrtPreProcess ](pres   (Sqrt))
-    val tab  = toModule[SqrtTableCoeff ](tabs   (Sqrt))
     val ntab = toModule[SqrtNonTable   ](nontabs(Sqrt))
     val post = toModule[SqrtPostProcess](posts  (Sqrt))
     pre.io.x.valid := xPreOf(Sqrt).valid && selPreOf(Sqrt) === cfg.signal(Sqrt)
     pre.io.x.bits  := xPreOf(Sqrt).bits
-    tab.io.adr := pre.io.adr
+    tableAdrs(Sqrt) := pre.io.adr
 
-    polynomialCoefs(Sqrt) := tab.io.cs
     if(bitW.nOrder != 0) {
       polynomialDxs.get(Sqrt) := pre.io.dx.get
     }
@@ -1010,14 +1012,12 @@ class MathFunctions(
 
   if(cfg.has(InvSqrt)) {
     val pre  = toModule[InvSqrtPreProcess ](pres   (InvSqrt))
-    val tab  = toModule[InvSqrtTableCoeff ](tabs   (InvSqrt))
     val ntab = toModule[InvSqrtNonTable   ](nontabs(InvSqrt))
     val post = toModule[InvSqrtPostProcess](posts  (InvSqrt))
     pre.io.x.valid := xPreOf(InvSqrt).valid && selPreOf(InvSqrt) === cfg.signal(InvSqrt)
     pre.io.x.bits  := xPreOf(InvSqrt).bits
-    tab.io.adr := pre.io.adr
+    tableAdrs(InvSqrt) := pre.io.adr
 
-    polynomialCoefs(InvSqrt) := tab.io.cs
     if(bitW.nOrder != 0) {
       polynomialDxs.get(InvSqrt) := pre.io.dx.get
     }
@@ -1038,14 +1038,12 @@ class MathFunctions(
 
   if(cfg.has(Reciprocal)) {
     val pre  = toModule[ReciprocalPreProcess ](pres   (Reciprocal))
-    val tab  = toModule[ReciprocalTableCoeff ](tabs   (Reciprocal))
     val ntab = toModule[ReciprocalNonTable   ](nontabs(Reciprocal))
     val post = toModule[ReciprocalPostProcess](posts  (Reciprocal))
     pre.io.x.valid := xPreOf(Reciprocal).valid && selPreOf(Reciprocal) === cfg.signal(Reciprocal)
     pre.io.x.bits  := xPreOf(Reciprocal).bits
-    tab.io.adr := pre.io.adr
+    tableAdrs(Reciprocal) := pre.io.adr
 
-    polynomialCoefs(Reciprocal) := tab.io.cs
     if(bitW.nOrder != 0) {
       polynomialDxs.get(Reciprocal) := pre.io.dx.get
     }
@@ -1070,7 +1068,6 @@ class MathFunctions(
     assert(postMul.isDefined, "Sin/Cos requires the post-process multiplier")
 
     val sincosPre  = toModule[SinCosPreProcess ](pres (Sin))
-    val sincosTab  = toModule[SinCosTableCoeff ](tabs (Sin))
     val sincosPost = toModule[SinCosPostProcess](posts(Sin))
 
     // ----- pre-mult operands: 1/π * (1 + x.man), the same set for both -----
@@ -1092,10 +1089,9 @@ class MathFunctions(
     sincosPre.io.prod.bits  := SinCosPreMulArgs.prod(spec, preMulProd.get)
 
     // ----- table -----
-    sincosTab.io.adr := sincosPre.io.adr
+    tableAdrs(Sin) := sincosPre.io.adr
+    tableAdrs(Cos) := sincosPre.io.adr
 
-    polynomialCoefs(Sin) := sincosTab.io.cs
-    polynomialCoefs(Cos) := sincosTab.io.cs
     if(bitW.nOrder != 0) {
       polynomialDxs.get(Sin) := sincosPre.io.dx.get
       polynomialDxs.get(Cos) := sincosPre.io.dx.get
@@ -1127,7 +1123,6 @@ class MathFunctions(
     assert(postMul.isDefined, "SinPi/CosPi requires the post-process multiplier")
 
     val sinpiPre  = toModule[SinCosPreProcess ](pres (SinPi))
-    val sinpiTab  = toModule[SinCosTableCoeff ](tabs (SinPi))
     val sinpiPost = toModule[SinCosPostProcess](posts(SinPi))
 
     // ----- pre stage: the argument and its product with the constant one -----
@@ -1143,10 +1138,9 @@ class MathFunctions(
       SinCosPreMulArgs.prodOfOne(spec, xPreOf(SinPi).bits.man)
 
     // ----- table -----
-    sinpiTab.io.adr := sinpiPre.io.adr
+    tableAdrs(SinPi) := sinpiPre.io.adr
+    tableAdrs(CosPi) := sinpiPre.io.adr
 
-    polynomialCoefs(SinPi) := sinpiTab.io.cs
-    polynomialCoefs(CosPi) := sinpiTab.io.cs
     if(bitW.nOrder != 0) {
       polynomialDxs.get(SinPi) := sinpiPre.io.dx.get
       polynomialDxs.get(CosPi) := sinpiPre.io.dx.get
@@ -1177,7 +1171,6 @@ class MathFunctions(
 
   if(cfg.has(SinPiFixed) || cfg.has(CosPiFixed)) {
     val pre  = toModule[SinPiFixedPreProcess ](pres (SinPiFixed))
-    val tab  = toModule[SinPiFixedTableCoeff ](tabs (SinPiFixed))
     val post = toModule[SinPiFixedPostProcess](posts(SinPiFixed))
 
     // ----- pre stage: the argument and its product with the constant one -----
@@ -1193,10 +1186,9 @@ class MathFunctions(
       SinCosPreMulArgs.prodOfOne(spec, xPreOf(SinPiFixed).bits.man)
 
     // ----- table -----
-    tab.io.adr := pre.io.adr
+    tableAdrs(SinPiFixed) := pre.io.adr
+    tableAdrs(CosPiFixed) := pre.io.adr
 
-    polynomialCoefs(SinPiFixed) := tab.io.cs
-    polynomialCoefs(CosPiFixed) := tab.io.cs
     if(bitW.nOrder != 0) {
       polynomialDxs.get(SinPiFixed) := pre.io.dx.get
       polynomialDxs.get(CosPiFixed) := pre.io.dx.get
@@ -1217,7 +1209,6 @@ class MathFunctions(
     assert(preMulProd.isDefined, "Exp requires the pre-process multiplier")
 
     val pre  = toModule[ExpPreProcess ](pres   (Exp))
-    val tab  = toModule[ExpTableCoeff ](tabs   (Exp))
     val ntab = toModule[ExpNonTable   ](nontabs(Exp))
     val post = toModule[ExpPostProcess](posts  (Exp))
 
@@ -1235,9 +1226,8 @@ class MathFunctions(
     pre.io.prod.bits  := ExpPreMulArgs.prod(spec, preMulProd.get)
 
     // ----- table -----
-    tab.io.adr := pre.io.adr
+    tableAdrs(Exp) := pre.io.adr
 
-    polynomialCoefs(Exp) := tab.io.cs
     if(bitW.nOrder != 0) {
       polynomialDxs.get(Exp) := pre.io.dx.get
     }
@@ -1263,7 +1253,6 @@ class MathFunctions(
 
   if(cfg.has(Pow2)) {
     val pre  = toModule[ExpPreProcess ](pres   (Pow2))
-    val tab  = toModule[ExpTableCoeff ](tabs   (Pow2))
     val ntab = toModule[ExpNonTable   ](nontabs(Pow2))
     val post = toModule[ExpPostProcess](posts  (Pow2))
 
@@ -1276,9 +1265,8 @@ class MathFunctions(
     pre.io.prod.bits  := ExpPreMulArgs.prodOfOne(spec, xPreOf(Pow2).bits.man)
 
     // ----- table -----
-    tab.io.adr := pre.io.adr
+    tableAdrs(Pow2) := pre.io.adr
 
-    polynomialCoefs(Pow2) := tab.io.cs
     if(bitW.nOrder != 0) {
       polynomialDxs.get(Pow2) := pre.io.dx.get
     }
@@ -1305,15 +1293,13 @@ class MathFunctions(
     assert(postMul.isDefined, "Log requires the post-process multiplier")
 
     val pre  = toModule[LogPreProcess ](pres   (Log))
-    val tab  = toModule[LogTableCoeff ](tabs   (Log))
     val ntab = toModule[LogNonTable   ](nontabs(Log))
     val post = toModule[LogPostProcess](posts  (Log))
 
     pre.io.x.valid := xPreOf(Log).valid && selPreOf(Log) === cfg.signal(Log)
     pre.io.x.bits  := xPreOf(Log).bits
-    tab.io.adr := pre.io.adr
+    tableAdrs(Log) := pre.io.adr
 
-    polynomialCoefs(Log) := tab.io.cs
     if(bitW.nOrder != 0) {
       polynomialDxs.get(Log) := pre.io.dx.get
     }
@@ -1339,7 +1325,7 @@ class MathFunctions(
   }
 
   // --------------------------------------------------------------------------
-  // ACosPhase1 -- reuses Sqrt's TableCoeff and NonTable.
+  // ACosPhase1 -- reads the table of Sqrt, and reuses its NonTable.
 
   if(cfg.has(ACosPhase1)) {
     assert(cfg.has(Sqrt),
@@ -1347,18 +1333,17 @@ class MathFunctions(
 
     val pre  = toModule[ACosPhase1PreProcess ](pres   (ACosPhase1))
     val post = toModule[ACosPhase1PostProcess](posts  (ACosPhase1))
-    val sqrtTab  = toModule[SqrtTableCoeff](tabs   (Sqrt))
     val sqrtNtab = toModule[SqrtNonTable  ](nontabs(Sqrt))
 
     pre.io.x.valid := xPreOf(ACosPhase1).valid && selPreOf(ACosPhase1) === cfg.signal(ACosPhase1)
     pre.io.x.bits  := xPreOf(ACosPhase1).bits
 
+    tableAdrs(ACosPhase1) := pre.io.adr
+
     when (arrivesTabOf(ACosPhase1)) {
-      sqrtTab.io.adr := pre.io.adr
-      sqrtNtab.io.x  := pre.io.y
+      sqrtNtab.io.x := pre.io.y
     }
 
-    polynomialCoefs(ACosPhase1) := sqrtTab.io.cs
     if (bitW.nOrder != 0) {
       polynomialDxs.get(ACosPhase1) := pre.io.dx.get
     }
@@ -1383,14 +1368,12 @@ class MathFunctions(
     assert(postMul.isDefined, "ACosPhase2 requires the post-process multiplier")
 
     val pre  = toModule[ACosPhase2PreProcess ](pres (ACosPhase2))
-    val tab  = toModule[ACosPhase2TableCoeff ](tabs (ACosPhase2))
     val post = toModule[ACosPhase2PostProcess](posts(ACosPhase2))
 
     pre.io.x.valid := xPreOf(ACosPhase2).valid && selPreOf(ACosPhase2) === cfg.signal(ACosPhase2)
     pre.io.x.bits  := xPreOf(ACosPhase2).bits
-    tab.io.adr := pre.io.adr
+    tableAdrs(ACosPhase2) := pre.io.adr
 
-    polynomialCoefs(ACosPhase2) := tab.io.cs
     if (bitW.nOrder != 0) {
       polynomialDxs.get(ACosPhase2) := pre.io.dx.get
     }
@@ -1419,7 +1402,7 @@ class MathFunctions(
   }
 
   // --------------------------------------------------------------------------
-  // ATan2Phase1 -- reuses Reciprocal's TableCoeff.
+  // ATan2Phase1 -- reads the table of Reciprocal.
   //
   // Uses the post-process multiplier to assemble (1+min) * (2/(1+max)).
 
@@ -1431,18 +1414,14 @@ class MathFunctions(
 
     val pre    = toModule[ATan2Phase1PreProcess ](pres (ATan2Phase1))
     val post   = toModule[ATan2Phase1PostProcess](posts(ATan2Phase1))
-    val recTab = toModule[ReciprocalTableCoeff  ](tabs (Reciprocal))
 
     pre.io.x.valid := xPreOf(ATan2Phase1).valid && selPreOf(ATan2Phase1) === cfg.signal(ATan2Phase1)
     pre.io.x.bits  := xPreOf(ATan2Phase1).bits
     pre.io.y.valid := yPreOf(ATan2Phase1).valid && selPreOf(ATan2Phase1) === cfg.signal(ATan2Phase1)
     pre.io.y.bits  := yPreOf(ATan2Phase1).bits
 
-    when (arrivesTabOf(ATan2Phase1)) {
-      recTab.io.adr := pre.io.adr
-    }
+    tableAdrs(ATan2Phase1) := pre.io.adr
 
-    polynomialCoefs(ATan2Phase1) := recTab.io.cs
     if (bitW.nOrder != 0) {
       polynomialDxs.get(ATan2Phase1) := pre.io.dx.get
     }
@@ -1483,14 +1462,12 @@ class MathFunctions(
     assert(postMul.isDefined, "ATan2Phase2 requires the post-process multiplier")
 
     val pre  = toModule[ATan2Phase2PreProcess ](pres (ATan2Phase2))
-    val tab  = toModule[ATan2Phase2TableCoeff ](tabs (ATan2Phase2))
     val post = toModule[ATan2Phase2PostProcess](posts(ATan2Phase2))
 
     pre.io.x.valid := xPreOf(ATan2Phase2).valid && selPreOf(ATan2Phase2) === cfg.signal(ATan2Phase2)
     pre.io.x.bits  := xPreOf(ATan2Phase2).bits
-    tab.io.adr := pre.io.adr
+    tableAdrs(ATan2Phase2) := pre.io.adr
 
-    polynomialCoefs(ATan2Phase2) := tab.io.cs
     if (bitW.nOrder != 0) {
       polynomialDxs.get(ATan2Phase2) := pre.io.dx.get
     }
@@ -1526,14 +1503,12 @@ class MathFunctions(
 
   if(cfg.has(Sigmoid)) {
     val pre  = toModule[SigmoidPreProcess ](pres (Sigmoid))
-    val tab  = toModule[SigmoidTableCoeff ](tabs (Sigmoid))
     val post = toModule[SigmoidPostProcess](posts(Sigmoid))
 
     pre.io.x.valid := xPreOf(Sigmoid).valid && selPreOf(Sigmoid) === cfg.signal(Sigmoid)
     pre.io.x.bits  := xPreOf(Sigmoid).bits
-    tab.io.adr := pre.io.adr
+    tableAdrs(Sigmoid) := pre.io.adr
 
-    polynomialCoefs(Sigmoid) := tab.io.cs
     if (bitW.nOrder != 0) {
       polynomialDxs.get(Sigmoid) := pre.io.dx.get
     }
@@ -1552,14 +1527,12 @@ class MathFunctions(
 
   if(cfg.has(SoftPlus)) {
     val pre  = toModule[SoftPlusPreProcess ](pres (SoftPlus))
-    val tab  = toModule[SoftPlusTableCoeff ](tabs (SoftPlus))
     val post = toModule[SoftPlusPostProcess](posts(SoftPlus))
 
     pre.io.x.valid := xPreOf(SoftPlus).valid && selPreOf(SoftPlus) === cfg.signal(SoftPlus)
     pre.io.x.bits  := xPreOf(SoftPlus).bits
-    tab.io.adr := pre.io.adr
+    tableAdrs(SoftPlus) := pre.io.adr
 
-    polynomialCoefs(SoftPlus) := tab.io.cs
     if (bitW.nOrder != 0) {
       polynomialDxs.get(SoftPlus) := pre.io.dx.get
     }
@@ -1584,7 +1557,6 @@ class MathFunctions(
     val (sgmA, sgmB) = cfg.scaleMixtureGaussianSigma.get
 
     val pre  = toModule[ScaleMixtureGaussianPreProcess ](pres (ScaleMixtureGaussian))
-    val tab  = toModule[ScaleMixtureGaussianTableCoeff ](tabs (ScaleMixtureGaussian))
     val post = toModule[ScaleMixtureGaussianPostProcess](posts(ScaleMixtureGaussian))
 
     // ----- pre-mult operands: (1/sgmA^2) * (1 + x.man) -----
@@ -1601,8 +1573,7 @@ class MathFunctions(
     pre.io.prod.bits  := ScaleMixtureGaussianPreMulArgs.prod(spec, preMulProd.get)
 
     // ----- table -----
-    tab.io.adr := pre.io.adr
-    polynomialCoefs(ScaleMixtureGaussian) := tab.io.cs
+    tableAdrs(ScaleMixtureGaussian) := pre.io.adr
     if (bitW.nOrder != 0) {
       polynomialDxs.get(ScaleMixtureGaussian) := pre.io.dx.get
     }
@@ -1638,7 +1609,6 @@ class MathFunctions(
 
   if(cfg.has(Log2Fixed)) {
     val pre  = toModule[Log2FixedPreProcess ](pres (Log2Fixed))
-    val tab  = toModule[Log2FixedTableCoeff ](tabs (Log2Fixed))
     val post = toModule[Log2FixedPostProcess](posts(Log2Fixed))
 
     pre.io.x.valid :=
@@ -1646,9 +1616,8 @@ class MathFunctions(
     pre.io.x.bits  := xPreOf(Log2Fixed).bits
 
     // ----- table -----
-    tab.io.adr := pre.io.adr
+    tableAdrs(Log2Fixed) := pre.io.adr
 
-    polynomialCoefs(Log2Fixed) := tab.io.cs
     if(bitW.nOrder != 0) {
       polynomialDxs.get(Log2Fixed) := pre.io.dx.get
     }
@@ -1667,15 +1636,13 @@ class MathFunctions(
 
   if(cfg.has(ATanFixed)) {
     val pre  = toModule[ATanFixedPreProcess ](pres (ATanFixed))
-    val tab  = toModule[ATanFixedTableCoeff ](tabs (ATanFixed))
     val post = toModule[ATanFixedPostProcess](posts(ATanFixed))
 
     pre.io.x.valid := xPreOf(ATanFixed).valid && selPreOf(ATanFixed) === cfg.signal(ATanFixed)
     pre.io.x.bits  := xPreOf(ATanFixed).bits
 
-    tab.io.adr := pre.io.adr
+    tableAdrs(ATanFixed) := pre.io.adr
 
-    polynomialCoefs(ATanFixed) := tab.io.cs
     if (bitW.nOrder != 0) {
       polynomialDxs.get(ATanFixed) := pre.io.dx.get
     }
@@ -1693,15 +1660,13 @@ class MathFunctions(
 
   if(cfg.has(ACosFixed)) {
     val pre  = toModule[ACosFixedPreProcess ](pres (ACosFixed))
-    val tab  = toModule[ACosFixedTableCoeff ](tabs (ACosFixed))
     val post = toModule[ACosFixedPostProcess](posts(ACosFixed))
 
     pre.io.x.valid := xPreOf(ACosFixed).valid && selPreOf(ACosFixed) === cfg.signal(ACosFixed)
     pre.io.x.bits  := xPreOf(ACosFixed).bits
 
-    tab.io.adr := pre.io.adr
+    tableAdrs(ACosFixed) := pre.io.adr
 
-    polynomialCoefs(ACosFixed) := tab.io.cs
     if (bitW.nOrder != 0) {
       polynomialDxs.get(ACosFixed) := pre.io.dx.get
     }
