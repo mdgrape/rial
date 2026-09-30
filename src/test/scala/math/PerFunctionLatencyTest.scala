@@ -54,8 +54,8 @@ class PerFunctionLatencyTest extends AnyFunSpec with ChiselSim {
       Map[FuncKind, () => Op] = {
     val logCoeffs = if (cfg.has(Log)) {
       val t = cfg.tables(Log).asInstanceOf[LogTable]
-      Some((t.genNormalCoeffs(cfg.bitW), t.genSmallPosCoeffs(cfg.bitW),
-            t.genSmallNegCoeffs(cfg.bitW)))
+      Some((t.genNormalCoeffs(cfg.bitWOf(Log)), t.genSmallPosCoeffs(cfg.bitWOf(Log)),
+            t.genSmallNegCoeffs(cfg.bitWOf(Log))))
     } else {
       None
     }

@@ -117,13 +117,13 @@ class MathSim(
   // log and softplus split their domain over several sub-tables, which the
   // shared `coeffs` map only carries in concatenated form; go via the table.
   private lazy val logTable = table[LogTable](Log, "log")
-  private lazy val cLogNormal   = logTable.genNormalCoeffs  (config.bitW)
-  private lazy val cLogSmallPos = logTable.genSmallPosCoeffs(config.bitW)
-  private lazy val cLogSmallNeg = logTable.genSmallNegCoeffs(config.bitW)
+  private lazy val cLogNormal   = logTable.genNormalCoeffs  (config.bitWOf(Log))
+  private lazy val cLogSmallPos = logTable.genSmallPosCoeffs(config.bitWOf(Log))
+  private lazy val cLogSmallNeg = logTable.genSmallNegCoeffs(config.bitWOf(Log))
 
   private lazy val softPlusTable = table[SoftPlusTable](SoftPlus, "softplus")
-  private lazy val cSoftPlusPos  = softPlusTable.genPosCoeffs(config.bitW)
-  private lazy val cSoftPlusNeg  = softPlusTable.genNegCoeffs(config.bitW)
+  private lazy val cSoftPlusPos  = softPlusTable.genPosCoeffs(config.bitWOf(SoftPlus))
+  private lazy val cSoftPlusNeg  = softPlusTable.genNegCoeffs(config.bitWOf(SoftPlus))
 
   // --------------------------------------------------------------------------
 

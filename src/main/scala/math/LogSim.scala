@@ -272,9 +272,9 @@ object LogSim {
 
   private lazy val cfg = MathFuncConfig.standardFP32
   private lazy val lt  = cfg.tables(Log).asInstanceOf[LogTable]
-  private lazy val cN  = lt.genNormalCoeffs  (cfg.bitW)
-  private lazy val cP  = lt.genSmallPosCoeffs(cfg.bitW)
-  private lazy val cG  = lt.genSmallNegCoeffs(cfg.bitW)
+  private lazy val cN  = lt.genNormalCoeffs  (cfg.bitWOf(Log))
+  private lazy val cP  = lt.genSmallPosCoeffs(cfg.bitWOf(Log))
+  private lazy val cG  = lt.genSmallNegCoeffs(cfg.bitWOf(Log))
 
   def logDefaultFP32(x: Float): Float =
     LogSimGeneric(cN, cP, cG, RealGeneric.fromFloat(RealSpec.Float32Spec, x)).toFloat

@@ -58,9 +58,9 @@ class LogTest extends AnyFunSpec
 
   private def logRef(cfg: MathFuncConfig): RealGeneric => RealGeneric = {
     val lt = cfg.tables(Log).asInstanceOf[LogTable]
-    val cN = lt.genNormalCoeffs  (cfg.bitW)
-    val cP = lt.genSmallPosCoeffs(cfg.bitW)
-    val cG = lt.genSmallNegCoeffs(cfg.bitW)
+    val cN = lt.genNormalCoeffs  (cfg.bitWOf(Log))
+    val cP = lt.genSmallPosCoeffs(cfg.bitWOf(Log))
+    val cG = lt.genSmallNegCoeffs(cfg.bitWOf(Log))
     (x: RealGeneric) => LogSimGeneric(cN, cP, cG, x)
   }
 

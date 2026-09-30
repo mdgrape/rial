@@ -171,6 +171,10 @@ class MathFunctions(
   val bitW   = cfg.bitW
   val coeffs = cfg.coeffs
 
+  /** the widths the table of `fn` is read at; the shared parts of them are
+   *  those of `bitW`, the address width is that of the table itself. */
+  private def bitWOf(fn: FuncKind): PolynomialBitWidth = { cfg.bitWOf(fn) }
+
   /** Boundaries at which pipeline registers can be placed; see the class doc. */
   val stagePoints = MathFunctions.stagePoints(cfg, preMulImpl, postMulImpl,
     polyMulImpl, perFunctionLatency)
@@ -866,29 +870,30 @@ class MathFunctions(
   }
 
   val pres: Map[FuncKind, Module] = cfg.funcs.collect {
-    case Sqrt        => Sqrt        -> Module(new SqrtPreProcess       (spec, bitW, preStage(Sqrt       )))
-    case InvSqrt     => InvSqrt     -> Module(new InvSqrtPreProcess    (spec, bitW, preStage(InvSqrt    )))
-    case Reciprocal  => Reciprocal  -> Module(new ReciprocalPreProcess (spec, bitW, preStage(Reciprocal )))
-    case Sin         => Sin         -> Module(new SinCosPreProcess     (spec, bitW, preStage(Sin        ), cfg.sinCos))
-    case SinPi       => SinPi       -> Module(new SinCosPreProcess     (spec, bitW, preStage(SinPi      ), cfg.sinCos, scaled = true))
-    case SinPiFixed  => SinPiFixed  -> Module(new SinPiFixedPreProcess (spec, bitW, preStage(SinPiFixed ), cfg.sinCos))
-    case Exp         => Exp         -> Module(new ExpPreProcess        (spec, bitW, preStage(Exp        )))
-    case Pow2        => Pow2        -> Module(new ExpPreProcess        (spec, bitW, preStage(Pow2       )))
-    case Log         => Log         -> Module(new LogPreProcess        (spec, bitW, preStage(Log        )))
-    case Log2Fixed   => Log2Fixed   -> Module(new Log2FixedPreProcess  (spec, bitW, preStage(Log2Fixed  )))
-    case ACosPhase1  => ACosPhase1  -> Module(new ACosPhase1PreProcess (spec, bitW, preStage(ACosPhase1 )))
-    case ACosPhase2  => ACosPhase2  -> Module(new ACosPhase2PreProcess (spec, bitW, preStage(ACosPhase2 )))
-    case ATan2Phase1 => ATan2Phase1 -> Module(new ATan2Phase1PreProcess(spec, bitW, preStage(ATan2Phase1)))
-    case ATan2Phase2 => ATan2Phase2 -> Module(new ATan2Phase2PreProcess(spec, bitW, preStage(ATan2Phase2)))
-    case Sigmoid     => Sigmoid     -> Module(new SigmoidPreProcess    (spec, bitW, preStage(Sigmoid    )))
-    case SoftPlus    => SoftPlus    -> Module(new SoftPlusPreProcess   (spec, bitW, preStage(SoftPlus   )))
+    case Sqrt        => Sqrt        -> Module(new SqrtPreProcess       (spec, bitWOf(Sqrt),        preStage(Sqrt       )))
+    case InvSqrt     => InvSqrt     -> Module(new InvSqrtPreProcess    (spec, bitWOf(InvSqrt),     preStage(InvSqrt    )))
+    case Reciprocal  => Reciprocal  -> Module(new ReciprocalPreProcess (spec, bitWOf(Reciprocal),  preStage(Reciprocal )))
+    case Sin         => Sin         -> Module(new SinCosPreProcess     (spec, bitWOf(Sin),         preStage(Sin        ), cfg.sinCos))
+    case SinPi       => SinPi       -> Module(new SinCosPreProcess     (spec, bitWOf(SinPi),       preStage(SinPi      ), cfg.sinCos, scaled = true))
+    case SinPiFixed  => SinPiFixed  -> Module(new SinPiFixedPreProcess (spec, bitWOf(SinPiFixed),  preStage(SinPiFixed ), cfg.sinCos))
+    case Exp         => Exp         -> Module(new ExpPreProcess        (spec, bitWOf(Exp),         preStage(Exp        )))
+    case Pow2        => Pow2        -> Module(new ExpPreProcess        (spec, bitWOf(Pow2),        preStage(Pow2       )))
+    case Log         => Log         -> Module(new LogPreProcess        (spec, bitWOf(Log),         preStage(Log        )))
+    case Log2Fixed   => Log2Fixed   -> Module(new Log2FixedPreProcess  (spec, bitWOf(Log2Fixed),   preStage(Log2Fixed  )))
+    case ACosPhase1  => ACosPhase1  -> Module(new ACosPhase1PreProcess (spec, bitWOf(ACosPhase1),  preStage(ACosPhase1 )))
+    case ACosPhase2  => ACosPhase2  -> Module(new ACosPhase2PreProcess (spec, bitWOf(ACosPhase2),  preStage(ACosPhase2 )))
+    case ATan2Phase1 => ATan2Phase1 -> Module(new ATan2Phase1PreProcess(spec, bitWOf(ATan2Phase1), preStage(ATan2Phase1)))
+    case ATan2Phase2 => ATan2Phase2 -> Module(new ATan2Phase2PreProcess(spec, bitWOf(ATan2Phase2), preStage(ATan2Phase2)))
+    case Sigmoid     => Sigmoid     -> Module(new SigmoidPreProcess    (spec, bitWOf(Sigmoid),     preStage(Sigmoid    )))
+    case SoftPlus    => SoftPlus    -> Module(new SoftPlusPreProcess   (spec, bitWOf(SoftPlus),    preStage(SoftPlus   )))
     case ScaleMixtureGaussian => {
       val (sA, sB) = cfg.scaleMixtureGaussianSigma.get
       ScaleMixtureGaussian -> Module(new ScaleMixtureGaussianPreProcess(
-        sA, sB, spec, bitW, preStage(ScaleMixtureGaussian)))
+        sA, sB, spec, bitWOf(ScaleMixtureGaussian),
+        preStage(ScaleMixtureGaussian)))
     }
-    case ATanFixed   => ATanFixed   -> Module(new ATanFixedPreProcess  (spec, bitW, preStage(ATanFixed  )))
-    case ACosFixed   => ACosFixed   -> Module(new ACosFixedPreProcess  (spec, bitW, preStage(ACosFixed  )))
+    case ATanFixed   => ATanFixed   -> Module(new ATanFixedPreProcess  (spec, bitWOf(ATanFixed),   preStage(ATanFixed  )))
+    case ACosFixed   => ACosFixed   -> Module(new ACosFixedPreProcess  (spec, bitWOf(ACosFixed),   preStage(ACosFixed  )))
   }.toMap[FuncKind, Module]
 
   val tabs: Map[FuncKind, Module] = cfg.funcs.collect {
@@ -919,38 +924,39 @@ class MathFunctions(
   private val nonTableStage = PipelineStageConfig.default(nTabToPoly)
 
   val nontabs: Map[FuncKind, Module] = cfg.funcs.collect {
-    case Sqrt       => Sqrt       -> Module(new SqrtNonTable      (spec, bitW, nonTableStage))
-    case InvSqrt    => InvSqrt    -> Module(new InvSqrtNonTable   (spec, bitW, nonTableStage))
-    case Reciprocal => Reciprocal -> Module(new ReciprocalNonTable(spec, bitW, nonTableStage))
+    case Sqrt       => Sqrt       -> Module(new SqrtNonTable      (spec, bitWOf(Sqrt),        nonTableStage))
+    case InvSqrt    => InvSqrt    -> Module(new InvSqrtNonTable   (spec, bitWOf(InvSqrt),     nonTableStage))
+    case Reciprocal => Reciprocal -> Module(new ReciprocalNonTable(spec, bitWOf(Reciprocal),  nonTableStage))
     // sincos / acos do not have a dedicated non-table path
-    case Exp        => Exp        -> Module(new ExpNonTable       (spec, bitW, nonTableStage))
-    case Pow2       => Pow2       -> Module(new ExpNonTable       (spec, bitW, nonTableStage))
-    case Log        => Log        -> Module(new LogNonTable       (spec, bitW, nonTableStage))
+    case Exp        => Exp        -> Module(new ExpNonTable       (spec, bitWOf(Exp),         nonTableStage))
+    case Pow2       => Pow2       -> Module(new ExpNonTable       (spec, bitWOf(Pow2),        nonTableStage))
+    case Log        => Log        -> Module(new LogNonTable       (spec, bitWOf(Log),         nonTableStage))
     // ACosPhase1 reuses SqrtNonTable
     // ACosPhase2 doesn't need one.
   }.toMap
 
   val posts: Map[FuncKind, Module] = cfg.funcs.collect {
-    case Sqrt        => Sqrt        -> Module(new SqrtPostProcess       (spec, bitW, postStage(Sqrt       )))
-    case InvSqrt     => InvSqrt     -> Module(new InvSqrtPostProcess    (spec, bitW, postStage(InvSqrt    )))
-    case Reciprocal  => Reciprocal  -> Module(new ReciprocalPostProcess (spec, bitW, postStage(Reciprocal )))
-    case Sin         => Sin         -> Module(new SinCosPostProcess     (spec, bitW, postStage(Sin        )))
-    case SinPi       => SinPi       -> Module(new SinCosPostProcess     (spec, bitW, postStage(SinPi      )))
-    case SinPiFixed  => SinPiFixed  -> Module(new SinPiFixedPostProcess (spec, bitW, postStage(SinPiFixed )))
-    case Exp         => Exp         -> Module(new ExpPostProcess        (spec, bitW, postStage(Exp        )))
-    case Pow2        => Pow2        -> Module(new ExpPostProcess        (spec, bitW, postStage(Pow2       )))
-    case Log         => Log         -> Module(new LogPostProcess        (spec, bitW, postStage(Log        )))
-    case Log2Fixed   => Log2Fixed   -> Module(new Log2FixedPostProcess  (spec, bitW, postStage(Log2Fixed  )))
-    case ACosPhase1  => ACosPhase1  -> Module(new ACosPhase1PostProcess (spec, bitW, postStage(ACosPhase1 )))
-    case ACosPhase2  => ACosPhase2  -> Module(new ACosPhase2PostProcess (spec, bitW, postStage(ACosPhase2 )))
-    case ATan2Phase1 => ATan2Phase1 -> Module(new ATan2Phase1PostProcess(spec, bitW, postStage(ATan2Phase1)))
-    case ATan2Phase2 => ATan2Phase2 -> Module(new ATan2Phase2PostProcess(spec, bitW, postStage(ATan2Phase2)))
-    case Sigmoid     => Sigmoid     -> Module(new SigmoidPostProcess    (spec, bitW, postStage(Sigmoid    )))
-    case SoftPlus    => SoftPlus    -> Module(new SoftPlusPostProcess   (spec, bitW, postStage(SoftPlus   )))
+    case Sqrt        => Sqrt        -> Module(new SqrtPostProcess       (spec, bitWOf(Sqrt),        postStage(Sqrt       )))
+    case InvSqrt     => InvSqrt     -> Module(new InvSqrtPostProcess    (spec, bitWOf(InvSqrt),     postStage(InvSqrt    )))
+    case Reciprocal  => Reciprocal  -> Module(new ReciprocalPostProcess (spec, bitWOf(Reciprocal),  postStage(Reciprocal )))
+    case Sin         => Sin         -> Module(new SinCosPostProcess     (spec, bitWOf(Sin),         postStage(Sin        )))
+    case SinPi       => SinPi       -> Module(new SinCosPostProcess     (spec, bitWOf(SinPi),       postStage(SinPi      )))
+    case SinPiFixed  => SinPiFixed  -> Module(new SinPiFixedPostProcess (spec, bitWOf(SinPiFixed),  postStage(SinPiFixed )))
+    case Exp         => Exp         -> Module(new ExpPostProcess        (spec, bitWOf(Exp),         postStage(Exp        )))
+    case Pow2        => Pow2        -> Module(new ExpPostProcess        (spec, bitWOf(Pow2),        postStage(Pow2       )))
+    case Log         => Log         -> Module(new LogPostProcess        (spec, bitWOf(Log),         postStage(Log        )))
+    case Log2Fixed   => Log2Fixed   -> Module(new Log2FixedPostProcess  (spec, bitWOf(Log2Fixed),   postStage(Log2Fixed  )))
+    case ACosPhase1  => ACosPhase1  -> Module(new ACosPhase1PostProcess (spec, bitWOf(ACosPhase1),  postStage(ACosPhase1 )))
+    case ACosPhase2  => ACosPhase2  -> Module(new ACosPhase2PostProcess (spec, bitWOf(ACosPhase2),  postStage(ACosPhase2 )))
+    case ATan2Phase1 => ATan2Phase1 -> Module(new ATan2Phase1PostProcess(spec, bitWOf(ATan2Phase1), postStage(ATan2Phase1)))
+    case ATan2Phase2 => ATan2Phase2 -> Module(new ATan2Phase2PostProcess(spec, bitWOf(ATan2Phase2), postStage(ATan2Phase2)))
+    case Sigmoid     => Sigmoid     -> Module(new SigmoidPostProcess    (spec, bitWOf(Sigmoid),     postStage(Sigmoid    )))
+    case SoftPlus    => SoftPlus    -> Module(new SoftPlusPostProcess   (spec, bitWOf(SoftPlus),    postStage(SoftPlus   )))
     case ScaleMixtureGaussian => ScaleMixtureGaussian ->
-      Module(new ScaleMixtureGaussianPostProcess(spec, bitW, postStage(ScaleMixtureGaussian)))
-    case ATanFixed   => ATanFixed   -> Module(new ATanFixedPostProcess  (spec, bitW, postStage(ATanFixed  )))
-    case ACosFixed   => ACosFixed   -> Module(new ACosFixedPostProcess  (spec, bitW, postStage(ACosFixed  )))
+      Module(new ScaleMixtureGaussianPostProcess(spec,
+        bitWOf(ScaleMixtureGaussian), postStage(ScaleMixtureGaussian)))
+    case ATanFixed   => ATanFixed   -> Module(new ATanFixedPostProcess  (spec, bitWOf(ATanFixed),   postStage(ATanFixed  )))
+    case ACosFixed   => ACosFixed   -> Module(new ACosFixedPostProcess  (spec, bitWOf(ACosFixed),   postStage(ACosFixed  )))
   }.toMap
 
   private def toModule[T <: Module](x: Module)(implicit ct: ClassTag[T]): T = {
