@@ -4,7 +4,7 @@ import chisel3._
 import chisel3.util._
 
 import rial.arith.RealSpec
-import rial.table.PolynomialBitWidth
+import rial.table.{PolynomialBitWidth, PolynomialCoefficients, PolynomialGenerator}
 
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.math.exp
@@ -350,6 +350,97 @@ object TableAddrWidth {
 
 // ============================================================================
 
+/** Where the table of each function of a [[MathFuncConfig]] sits in the ROM
+ *  they share.
+ *
+ * [[rial.math.MathFunctions]] holds the coefficients of every function it is
+ * configured for in one ROM, one table after another. The address a function
+ * reads it at is the address of its own table under the row that table starts
+ * at, which [[offset]] gives; [[depth]] is the rows of that table, [[rows]]
+ * the rows of the whole ROM and [[packed]] what it holds, row by row, each
+ * packed as [[rial.table.PolynomialGenerator.packTable]] packs it.
+ *
+ * A function that reads the table of another one, as [[TableAddrWidth.owner]]
+ * says, reads it where its owner put it, so the two give the same offset.
+ *
+ * {{{
+ * import rial.math.FuncKind._
+ *
+ * val layout = MathFuncConfig.standardFP32.romLayout
+ *
+ * layout.rows          // the rows of the merged ROM
+ * layout.offset(Sqrt)  // the row the table of sqrt(x) starts at
+ * layout.depth(Sqrt)   // the rows of that table
+ * }}}
+ *
+ *  @param funcs  the functions whose tables the ROM holds
+ *  @param coeffs the coefficients of the table of each of them
+ */
+class RomLayout(
+  val funcs:  Seq[FuncKind.FuncKind],
+  val coeffs: Map[FuncKind.FuncKind, PolynomialCoefficients],
+) {
+  import FuncKind.FuncKind
+
+  /** The functions that own a table, in the order their tables are placed:
+   *  the deepest table first, so that every table starts at a multiple of its
+   *  own depth and an address is the offset with the address of the table
+   *  itself below it. */
+  val owners: Seq[FuncKind] = funcs.map(fn => TableAddrWidth.owner(fn))
+    .distinct.sortBy(fn => (-coeffs(fn).coeffs.length, fn.id))
+
+  private val offsets: Map[FuncKind, Int] = owners.zip(
+    owners.scanLeft(0)((row, fn) => row + coeffs(fn).coeffs.length)).toMap
+
+  /** the rows of the merged ROM. */
+  val rows: Int = owners.map(fn => coeffs(fn).coeffs.length).sum
+
+  /** the width of the address of the merged ROM, in bits. */
+  val addrW: Int = log2Ceil(rows)
+
+  /** the width of one row of the merged ROM, in bits. */
+  val rowW: Int = coeffs(owners.head).bitW.coefBits.reduce(_+_)
+
+  /** the rows of the merged ROM, in the order the tables are placed. */
+  val packed: Seq[BigInt] = owners.flatMap(fn =>
+    PolynomialGenerator.packTable(coeffs(fn)))
+
+  /** Returns the row of the merged ROM the table `fn` reads starts at.
+   *
+   *  @param fn An enumerator of the function.
+   */
+  def offset(fn: FuncKind): Int = { offsets(TableAddrWidth.owner(fn)) }
+
+  /** Returns the rows of the table `fn` reads.
+   *
+   *  @param fn An enumerator of the function.
+   */
+  def depth(fn: FuncKind): Int = {
+    coeffs(TableAddrWidth.owner(fn)).coeffs.length
+  }
+
+  /** Returns the width of the address of the table `fn` reads, in bits: what
+   *  the argument reduction of `fn` emits, below the offset of that table.
+   *
+   *  @param fn An enumerator of the function.
+   */
+  def adrW(fn: FuncKind): Int = { log2Ceil(depth(fn)) }
+
+  owners.foreach(fn => {
+    require(isPow2(depth(fn)),
+      f"the table of ${FuncKind.getString(fn)} holds ${depth(fn)}%d rows, " +
+      f"which is not a power of two")
+    require(offset(fn) % depth(fn) == 0,
+      f"the table of ${FuncKind.getString(fn)} starts at row " +
+      f"${offset(fn)}%d, which its ${depth(fn)}%d rows do not divide")
+    require(coeffs(fn).bitW.coefBits == coeffs(owners.head).bitW.coefBits,
+      f"the table of ${FuncKind.getString(fn)} does not hold the rows of the " +
+      f"same width as the others")
+  })
+}
+
+// ============================================================================
+
 /** A Config class for [[rial.math.MathFunctions]] Module.
 
  *  @constructor create a new MathFuncConfig.
@@ -409,6 +500,15 @@ class MathFuncConfig(
   if(has(ScaleMixtureGaussian)) {
     assert(scaleMixtureGaussianSigma.isDefined)
   }
+
+  // Two functions of one of these pairs read the same table, which the
+  // configuration would then hold twice.
+  Seq((Exp, Pow2), (Sin, SinPi), (Cos, CosPi)).foreach(pair => {
+    val (lhs, rhs) = pair
+    require(!(has(lhs) && has(rhs)),
+      f"${FuncKind.getString(lhs)} and ${FuncKind.getString(rhs)} read the " +
+      f"same table: configure one of them")
+  })
 
   /** The width of UInt to represent function select signal.
    *
@@ -514,6 +614,10 @@ class MathFuncConfig(
   def bitWOf(fn: FuncKind): PolynomialBitWidth = {
     coeffs(fn).bitW
   }
+
+  /** Where the table of each function sits in the ROM they share; see
+   *  [[RomLayout]]. */
+  val romLayout = new RomLayout(funcs, coeffs)
 
   // --------------------------------------------------------------------------
 
