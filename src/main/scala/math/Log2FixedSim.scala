@@ -94,7 +94,7 @@ class Log2FixedTable(
 
   /** Concatenated form: the regions above x = 1 in address order, zero-filled
    *  to the rows the region index reaches, then the ones below it. Consumed
-   *  by the HW (Log2FixedTableCoeff) and by
+   *  by the coefficient ROM of the HW and by
    *  [[rial.math.Log2FixedSimGeneric]]. */
   def generateTable(bitW: PolynomialBitWidth): PolynomialCoefficients = {
     val cs = Seq(above, below).zip(gens).map({ case (layout, gen) => {

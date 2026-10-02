@@ -66,8 +66,8 @@ class SoftPlusTable(
   def genPosCoeffs(bitW: PolynomialBitWidth): PolynomialCoefficients = { genPos.generateTable(bitW) }
   def genNegCoeffs(bitW: PolynomialBitWidth): PolynomialCoefficients = { genNeg.generateTable(bitW) }
 
-  /** Concatenated form: [pos] ++ [neg].  Consumed by the HW (SoftPlusTableCoeff)
-   *  which slices it back into two independent ROMs and selects with x.sgn. */
+  /** Concatenated form: [pos] ++ [neg].  Consumed by the coefficient ROM of
+   *  the HW, which the top bit of the address (x.sgn) picks the part of. */
   def generateTable(bitW: PolynomialBitWidth): PolynomialCoefficients = {
     val cPos = genPosCoeffs(bitW)
     val cNeg = genNegCoeffs(bitW)

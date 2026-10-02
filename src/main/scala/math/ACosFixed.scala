@@ -209,37 +209,6 @@ object ACosFixedPreProcess {
 }
 
 // -------------------------------------------------------------------------
-//   table coefficient ROM
-// -------------------------------------------------------------------------
-
-class ACosFixedTableCoeff(
-  val spec:  RealSpec,
-  // the regions of ACosFixedTable, concatenated in address order
-  val coeff: PolynomialCoefficients,
-  val stage: Int,
-) extends Module {
-
-  val adrW = ACosFixedTable.regionW(coeff.bitW.outBitW) +
-             ACosFixedTable.subW(coeff.bitW.nOrder, coeff.bitW.addrW)
-
-  val coefBW = coeff.bitW.coefBits.reduce(_+_)
-
-  val io = IO(new Bundle {
-    val adr = Flipped(Valid(UInt(adrW.W)))
-    val cs  = Valid(UInt(coefBW.W))
-  })
-
-  // the concatenated table is already in the order the address selects
-  val all = PolynomialGenerator.packTable(coeff)
-  require(all.length == (1 << adrW),
-    s"expected 2^${adrW} acos table entries, got ${all.length}")
-
-  val packed = VecInit(all.map(c => c.U(coefBW.W)))
-
-  io.cs := Pipe(io.adr.valid, packed(io.adr.bits), stage)
-}
-
-// -------------------------------------------------------------------------
 //                  _
 //  _ __   ___  ___| |_ _ __  _ __ ___   ___ ___  ___ ___
 // | '_ \ / _ \/ __| __| '_ \| '__/ _ \ / __/ _ \/ __/ __|

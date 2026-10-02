@@ -87,39 +87,6 @@ object LogPreProcess {
 }
 
 // -------------------------------------------------------------------------
-//  _        _     _                        __  __
-// | |_ __ _| |__ | | ___    ___ ___   ___ / _|/ _|
-// | __/ _` | '_ \| |/ _ \  / __/ _ \ / _ \ |_| |_
-// | || (_| | |_) | |  __/ | (_| (_) |  __/  _|  _|
-//  \__\__,_|_.__/|_|\___|  \___\___/ \___|_| |_|
-// -------------------------------------------------------------------------
-
-class LogTableCoeff(
-  val spec:  RealSpec,
-  // concat [N coeffs] ++ [G coeffs] ++ [P coeffs] ++ [zeros]
-  val coeff: PolynomialCoefficients,
-  val stage: Int,
-) extends Module {
-
-  val adrW   = coeff.bitW.addrW
-  val coefBW = coeff.bitW.coefBits.reduce(_+_)
-
-  val io = IO(new Bundle {
-    val adr = Flipped(Valid(UInt((2 + adrW).W)))
-    val cs  = Valid(UInt(coefBW.W))
-  })
-
-  // The concatenated table is already in the order the address selects.
-  val all = PolynomialGenerator.packTable(coeff)
-  require(all.length == 4 * (1 << adrW),
-    s"expected 4 * 2^${adrW} log table entries, got ${all.length}")
-
-  val packed = VecInit(all.map(c => c.U(coefBW.W)))
-
-  io.cs := Pipe(io.adr.valid, packed(io.adr.bits), stage)
-}
-
-// -------------------------------------------------------------------------
 //                        _        _     _                    _   _
 //  _ __   ___  _ __     | |_ __ _| |__ | | ___   _ __   __ _| |_| |__
 // | '_ \ / _ \| '_ \ ___| __/ _` | '_ \| |/ _ \ | '_ \ / _` | __| '_ \

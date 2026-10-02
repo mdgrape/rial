@@ -606,6 +606,30 @@ class MathFuncConfig(
     (k -> v.generateTable(bitW.copy(addrW = tableBitWs(k).addrW)))
   }.toMap
 
+  // The exp table approximates 2^t-1 on [0, 1) with `padding` bits below the
+  // mantissa LSB, and ExpPostProcess rounds that result to manW bits.  Should
+  // the rounding carry into the hidden bit, the correction term in
+  // ExpPostProcess would be built from the wrong mantissa, so require that the
+  // table cannot reach the value at which the rounding carries.
+  funcs.filter(fn => fn == Exp || fn == Pow2).foreach(fn => {
+    val coeff   = coeffs(fn)
+    val padding = coeff.bitW.outBitW - manW
+    if (padding > 0) {
+      val maxPoly   = ExpTable.maxPolynomial(coeff, spec)
+      val threshold = (BigInt(1) << coeff.bitW.outBitW) -
+                      (BigInt(1) << (padding - 1))
+
+      require(maxPoly < threshold,
+        f"ExpTable: the polynomial reaches $maxPoly, at or above the " +
+        f"$threshold at which rounding to ${manW} bits carries into the " +
+        f"hidden bit (nOrder=${coeff.bitW.nOrder}, " +
+        f"addrW=${coeff.bitW.addrW}, inBitW=${coeff.bitW.inBitW}, " +
+        f"outBitW=${coeff.bitW.outBitW}, manW=${manW}, padding=$padding). " +
+        "Widen outBitW or refine the table so that the approximation of " +
+        "2^t-1 stays below the threshold.")
+    }
+  })
+
   /** Returns the widths the table of `fn` is read at: those of [[bitW]], with
    *  the address width of that table.
    *

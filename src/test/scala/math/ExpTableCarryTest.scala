@@ -10,9 +10,9 @@ import rial.arith.RealSpec
  *
  *  ExpPostProcess rounds the polynomial result to `manW` bits and builds the
  *  correction term from `2^manW + zman`; a rounding that carries would take
- *  the hidden bit from the wrong place.  ExpTableCoeff forbids it at
- *  elaboration, and these checks run the same computation without a
- *  simulation.
+ *  the hidden bit from the wrong place.  MathFuncConfig forbids it when it
+ *  generates the coefficients, and these checks report the margin a
+ *  configuration keeps.
  */
 class ExpTableCarryTest extends AnyFunSpec {
 
@@ -34,11 +34,11 @@ class ExpTableCarryTest extends AnyFunSpec {
                           RealSpec.BFloat16Spec, Pow2),
   )
 
-  describe("ExpTableCoeff.maxPolynomial stays below the carry threshold") {
+  describe("ExpTable.maxPolynomial stays below the carry threshold") {
 
     for ((name, cfg, spec, fn) <- configs) {
       it(f"$name") {
-        val maxPoly = ExpTableCoeff.maxPolynomial(cfg.coeffs(fn), spec)
+        val maxPoly = ExpTable.maxPolynomial(cfg.coeffs(fn), spec)
         val limit   = threshold(cfg, spec)
         val outBitW = cfg.bitW.outBitW
 
@@ -51,15 +51,15 @@ class ExpTableCarryTest extends AnyFunSpec {
     }
   }
 
-  describe("ExpTableCoeff.maxPolynomial reproduces the measured maxima") {
+  describe("ExpTable.maxPolynomial reproduces the measured maxima") {
 
     it("standardFP32 reaches 2^26 - 12") {
-      assert(ExpTableCoeff.maxPolynomial(MathFuncConfig.standardFP32.coeffs(Exp),
+      assert(ExpTable.maxPolynomial(MathFuncConfig.standardFP32.coeffs(Exp),
              RealSpec.Float32Spec) == (BigInt(1) << 26) - 12)
     }
 
     it("standardBF16 reaches 2^8 - 3") {
-      assert(ExpTableCoeff.maxPolynomial(MathFuncConfig.standardBF16.coeffs(Exp),
+      assert(ExpTable.maxPolynomial(MathFuncConfig.standardBF16.coeffs(Exp),
              RealSpec.BFloat16Spec) == (BigInt(1) << 8) - 3)
     }
   }

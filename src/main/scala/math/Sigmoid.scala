@@ -126,28 +126,6 @@ object SigmoidPreProcess {
 }
 
 // -------------------------------------------------------------------------
-//   table coefficient ROM
-// -------------------------------------------------------------------------
-
-class SigmoidTableCoeff(
-  val spec:  RealSpec,
-  val coeff: PolynomialCoefficients,
-  val stage: Int,
-) extends Module {
-
-  val adrW   = coeff.bitW.addrW
-  val coefBW = coeff.bitW.coefBits.reduce(_+_)
-
-  val io = IO(new Bundle {
-    val adr = Flipped(Valid(UInt(adrW.W)))
-    val cs  = Valid(UInt(coefBW.W))
-  })
-
-  val packed = VecInit(PolynomialGenerator.packTable(coeff).map(c => c.U(coefBW.W)))
-  io.cs := Pipe(io.adr.valid, packed(io.adr.bits), stage)
-}
-
-// -------------------------------------------------------------------------
 //   post-process
 // -------------------------------------------------------------------------
 

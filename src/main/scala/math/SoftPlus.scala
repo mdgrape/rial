@@ -4,7 +4,7 @@
 //
 //   pre  : xIn  .. xTab    -- decode |x| into xScaled; compute flags & table addr
 //                             (adr includes a 1-bit selector = xsgn that the
-//                             TableCoeff uses to pick the pos/neg sub-table)
+//                             coefficient ROM reads as the pos/neg sub-table)
 //   tab  : xTab .. xCalc   -- concat'd pos+neg coefficient ROM, Mux'd by xsgn
 //   poly : xCalc .. xPost  -- shared PolynomialEval evaluates the chosen sub-table
 //   post : xPost .. xOut   -- normalize zres, apply xsgn-dependent exponent
@@ -106,7 +106,7 @@ class SoftPlusPreProcess(
   // --------------------------------------------------------------------------
   // stage "out"
 
-  // pos/neg selector goes in the MSB of the adr; TableCoeff uses it to mux.
+  // pos/neg selector goes in the MSB of the adr; it picks the sub-table.
   val adr = Cat(info.xsgn, TableAddress.adr(xScaled(manW - 1, 0), adrW))
   io.adr := Pipe(cutScale.valid, adr, stages.at("out"))
 
@@ -129,34 +129,6 @@ object SoftPlusPreProcess {
   val stagePoints: Seq[StageElem] = Seq(
     StagePoint("scale", 3.0),
     StagePoint("out",   1.0))
-}
-
-// -------------------------------------------------------------------------
-//   table coefficient ROM (concat'd pos+neg, Mux'd by adr's MSB)
-// -------------------------------------------------------------------------
-
-class SoftPlusTableCoeff(
-  val spec:  RealSpec,
-  // concat [pos coeffs] ++ [neg coeffs]
-  val coeff: PolynomialCoefficients,
-  val stage: Int,
-) extends Module {
-
-  val adrW   = coeff.bitW.addrW
-  val coefBW = coeff.bitW.coefBits.reduce(_+_)
-
-  val io = IO(new Bundle {
-    val adr = Flipped(Valid(UInt((1 + adrW).W)))
-    val cs  = Valid(UInt(coefBW.W))
-  })
-
-  val all = PolynomialGenerator.packTable(coeff)
-  require(all.length == 2 * (1 << adrW),
-    s"expected 2 * 2^${adrW} softplus table entries, got ${all.length}")
-
-  val packed = VecInit(all.map(c => c.U(coefBW.W)))
-
-  io.cs := Pipe(io.adr.valid, packed(io.adr.bits), stage)
 }
 
 // -------------------------------------------------------------------------

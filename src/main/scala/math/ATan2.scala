@@ -5,7 +5,7 @@
 //   phase 1: (y, x) -> t = min(|x|,|y|) / max(|x|,|y|)
 //   phase 2:   t    -> atan2(y, x)
 //
-// Phase 1 shares the ReciprocalTableCoeff
+// Phase 1 shares the Reciprocal table
 // Both phases need the PostProcMultiplier:
 //   Phase 1 multiplies 2/(1+max) * (1+min.man) to get the ratio (1+t.man).
 //   Phase 2 multiplies atan(t)/t * t to get atan(t).
@@ -116,7 +116,7 @@ class ATan2Phase1PreProcess(
     val x = Flipped(Valid(new DecomposedReal(spec)))
     val y = Flipped(Valid(new DecomposedReal(spec)))
 
-    // shared ReciprocalTableCoeff address / interpolation residual:
+    // shared Reciprocal table address / interpolation residual:
     val adr = Valid(UInt(adrW.W))
     val dx  = if (order != 0) { Some(Valid(UInt(dxW.W))) } else { None }
 
@@ -486,24 +486,6 @@ object ATan2Phase2PreProcess {
   val stagePoints: Seq[StageElem] = Seq(
     StagePoint("shift", 3.0),
     StagePoint("out",   1.0))
-}
-
-class ATan2Phase2TableCoeff(
-  val spec:  RealSpec,
-  val coeff: PolynomialCoefficients,
-  val stage: Int,
-) extends Module {
-
-  val adrW   = coeff.bitW.addrW
-  val coefBW = coeff.bitW.coefBits.reduce(_+_)
-
-  val io = IO(new Bundle {
-    val adr = Flipped(Valid(UInt(adrW.W)))
-    val cs  = Valid(UInt(coefBW.W))
-  })
-
-  val packed = VecInit(PolynomialGenerator.packTable(coeff).map(c => c.U(coefBW.W)))
-  io.cs := Pipe(io.adr.valid, packed(io.adr.bits), stage)
 }
 
 // Combinational driver of the post-process multiplier inputs for phase 2.

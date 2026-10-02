@@ -120,6 +120,16 @@ class RomLayoutTest extends AnyFunSpec {
           assert(layout.adrW(fn) <= layout.addrW)
         }
       }
+
+      it(f"holds one table of ${name}%s alone at the width of that table") {
+        for (fn <- layout.owners) {
+          val one = new RomLayout(Seq(fn), cfg.coeffs)
+          assert(one.addrW == layout.adrW(fn))
+          assert(one.rows  == layout.depth(fn))
+          assert(one.rowW  == layout.rowW)
+          assert(one.offset(fn) == 0)
+        }
+      }
     }
 
     it("sends a function that reads another one's table to the same rows") {

@@ -5,7 +5,7 @@
 //   phase 1:  x -> y = sqrt(1 - |x|)   -- reuses the Sqrt sub-table & non-table
 //   phase 2:  y -> acos(1 - y^2)       -- own table; uses the PostProcMultiplier
 //
-// Phase-1 shares the SqrtTableCoeff (its `adr` is Mux'd with Sqrt's) and the
+// Phase-1 shares the Sqrt table (its `adr` is Mux'd with Sqrt's) and the
 // SqrtNonTable (its input is Mux'd with xTab). Phase-2 has its own table.
 //
 // Copyright (C) Toru Niina RIKEN BDR 2022
@@ -371,24 +371,6 @@ object ACosPhase2PreProcess {
   val stagePoints: Seq[StageElem] = Seq(
     StagePoint("align", 3.0),
     StagePoint("out",   1.0))
-}
-
-class ACosPhase2TableCoeff(
-  val spec:  RealSpec,
-  val coeff: PolynomialCoefficients,
-  val stage: Int,
-) extends Module {
-
-  val adrW   = coeff.bitW.addrW
-  val coefBW = coeff.bitW.coefBits.reduce(_+_)
-
-  val io = IO(new Bundle {
-    val adr = Flipped(Valid(UInt(adrW.W)))
-    val cs  = Valid(UInt(coefBW.W))
-  })
-
-  val packed = VecInit(PolynomialGenerator.packTable(coeff).map(c => c.U(coefBW.W)))
-  io.cs := Pipe(io.adr.valid, packed(io.adr.bits), stage)
 }
 
 class ACosPhase2PostProcess(

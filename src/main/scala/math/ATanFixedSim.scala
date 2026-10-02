@@ -63,8 +63,8 @@ class ATanFixedTable(
   }
 
   /** Concatenated form: the regions in address order, zero-filled to the
-   *  power of two the address is. Consumed by the HW (ATanFixedTableCoeff)
-   *  and by [[rial.math.ATanFixedSimGeneric]]. */
+   *  power of two the address is. Consumed by the coefficient ROM of the
+   *  HW and by [[rial.math.ATanFixedSimGeneric]]. */
   def generateTable(bitW: PolynomialBitWidth): PolynomialCoefficients = {
     layout.generateTable(gen, bitW)
   }

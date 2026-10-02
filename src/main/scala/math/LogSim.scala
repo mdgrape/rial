@@ -75,8 +75,8 @@ class LogTable(
   def genSmallPosCoeffs(bitW: PolynomialBitWidth): PolynomialCoefficients = {genP.generateTable(bitW)}
 
   /** Concatenated form: [normal] ++ [smallNeg] ++ [smallPos] ++ [zeros].
-   *  Consumed by the HW (LogTableCoeff) which slices it back into three
-   *  independent ROMs. */
+   *  Consumed by the coefficient ROM of the HW, which the two top bits of
+   *  the address pick the part of. */
   def generateTable(bitW: PolynomialBitWidth): PolynomialCoefficients = {
     val cN = genNormalCoeffs(bitW)
     val cG = genSmallNegCoeffs(bitW)

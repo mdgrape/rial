@@ -80,8 +80,8 @@ class ACosFixedTable(
   }
 
   /** Concatenated form: the regions in address order, zero-filled to the
-   *  power of two the address is. Consumed by the HW (ACosFixedTableCoeff)
-   *  and by [[rial.math.ACosFixedSimGeneric]]. */
+   *  power of two the address is. Consumed by the coefficient ROM of the
+   *  HW and by [[rial.math.ACosFixedSimGeneric]]. */
   def generateTable(bitW: PolynomialBitWidth): PolynomialCoefficients = {
     val cs    = gens.map(_.generateTable(bitW).coeffs).reduce(_ ++ _)
     val zeros = Seq.fill(nOrder + 1)(0L)

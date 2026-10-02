@@ -79,6 +79,40 @@ object ExpTable {
     )
   }
 
+  /** The largest value the polynomial of `coeff` can evaluate to.
+   *
+   *  It evaluates the table with [[rial.table.PolynomialEval.eval]], the
+   *  software model of the hardware evaluator, over every `dx` of the last
+   *  interval the pre-process can form and the two extreme `dx` of every
+   *  other interval.  The table approximates the increasing 2^t-1, so its
+   *  maximum lives in the last interval; the endpoints of the others guard
+   *  that assumption.
+   *
+   *  @param coeff the coefficients of the exp table
+   *  @param spec  floating point spec of the argument
+   *  @return the maximum of the integer polynomial result
+   */
+  def maxPolynomial(coeff: PolynomialCoefficients, spec: RealSpec): BigInt = {
+    val nInterval = coeff.coeffs.length
+    // a table of order zero is a plain lookup: it reads no position at all,
+    // so its one interval-wide step leaves zero as the only position
+    val dxStep    = if (coeff.bitW.nOrder == 0) {
+      BigInt(1)
+    } else {
+      TableAddress.dxStep(spec.manW, coeff.bitW.addrW, coeff.bitW.inBitW)
+    }
+    val dxMax     = (BigInt(1) << coeff.bitW.inBitW) - dxStep
+
+    val lastMax = (BigInt(0) to dxMax by dxStep).map(dx => {
+      PolynomialEval.eval(nInterval - 1, dx, coeff)
+    }).max
+
+    (0 until (nInterval - 1)).foldLeft(lastMax)( (acc, addr) => {
+      acc.max(PolynomialEval.eval(addr, BigInt(0), coeff))
+         .max(PolynomialEval.eval(addr, dxMax,     coeff))
+    })
+  }
+
   private lazy val fp32Table = fp32().generateTable(fp32().getBitWidth())
   def expDefaultFP32(x: Float): Float = {
     ExpSimGeneric(fp32Table,

@@ -81,36 +81,6 @@ object SqrtPreProcess {
 }
 
 // -------------------------------------------------------------------------
-//  _        _     _                        __  __
-// | |_ __ _| |__ | | ___    ___ ___   ___ / _|/ _|
-// | __/ _` | '_ \| |/ _ \  / __/ _ \ / _ \ |_| |_
-// | || (_| | |_) | |  __/ | (_| (_) |  __/  _|  _|
-//  \__\__,_|_.__/|_|\___|  \___\___/ \___|_| |_|
-// -------------------------------------------------------------------------
-
-class SqrtTableCoeff(
-  val spec:  RealSpec,
-  val coeff: PolynomialCoefficients,
-  val stage: Int,
-) extends Module {
-
-  val manW   = spec.manW
-  val adrW   = coeff.bitW.addrW
-  val fracW  = coeff.bitW.outBitW
-  val order  = coeff.bitW.nOrder
-
-  val io = IO(new Bundle {
-    val adr = Flipped(Valid(UInt((1+adrW).W)))
-    val cs  = Valid(UInt(coeff.bitW.coefBits.reduce(_+_).W))
-  })
-
-  val packed = VecInit(PolynomialGenerator.packTable(coeff).map(c => {
-    c.U(coeff.bitW.coefBits.reduce(_+_).W)
-  }))
-  io.cs := Pipe(io.adr.valid, packed(io.adr.bits), stage)
-}
-
-// -------------------------------------------------------------------------
 //                        _        _     _                    _   _
 //  _ __   ___  _ __     | |_ __ _| |__ | | ___   _ __   __ _| |_| |__
 // | '_ \ / _ \| '_ \ ___| __/ _` | '_ \| |/ _ \ | '_ \ / _` | __| '_ \
