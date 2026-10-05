@@ -91,15 +91,13 @@ import scala.reflect.ClassTag
  *
  * {{{
  * // one latency per function, with an 8 bit tag
- * val math = Module(new MathFunctions(cfg, 6,
- *   perFunctionLatency = true, tagW = 8))
+ * val math = Module(new MathFunctions(cfg, 6, perFunctionLatency=true, tagW=8))
  *
  * val sqrtOk = math.io.issueOk.get(cfg.signal(FuncKind.Sqrt))
  * val issue  = wantSqrt && sqrtOk
  *
  * math.io.in.valid        := issue
- * math.io.in.bits.sel     := Mux(issue, cfg.signal(FuncKind.Sqrt),
- *                                cfg.signalNone())
+ * math.io.in.bits.sel     := Mux(issue, cfg.signal(FuncKind.Sqrt), cfg.signalNone())
  * math.io.in.bits.x       := x
  * math.io.in.bits.tag.get := tag
  *
@@ -115,10 +113,8 @@ import scala.reflect.ClassTag
  * @param postMulImpl structure of the product of the post-process multiplier.
  * @param polyMulImpl structure of the products of the polynomial.
  * @param perFunctionLatency whether each function keeps the latency of its own
- *                    path, see above; the caller then has to honour
- *                    `io.issueOk`.
- * @param tagW        width of the tag that rides along with an operation; 0
- *                    for no tag.
+ *                    path, see above; the caller then has to honour `io.issueOk`.
+ * @param tagW        width of the tag that rides along with an operation; 0 for no tag.
  *
  * @see [[rial.arith.MulImpl]]
  * @see [[rial.util.PipelineStageConfig]]
@@ -154,8 +150,7 @@ class MathFunctions(
 
   val stages = stage.resolve(stagePoints)
 
-  val nIn = stages.at("in")
-
+  val nIn  = stages.at("in")
   val nOut = stages.at("out")
 
   val io = IO(new Bundle {
@@ -205,16 +200,14 @@ class MathFunctions(
   val xIn: Valid[DecomposedReal] = xdecomp.io.decomp
 
   // ATan2 also needs the y operand decomposed.
-  val ydecomp: Option[DecomposeReal] = if (cfg.has(ATan2Phase1)) {
+  val yIn: Option[Valid[DecomposeReal]] = if (cfg.has(ATan2Phase1)) {
     val m = Module(new DecomposeReal(spec))
     m.io.real.valid := cutIn.valid
     m.io.real.bits  := cutIn(io.in.bits.y.get)
-    Some(m)
+    Some(m.io.decomp)
   } else {
     None
   }
-
-  val yIn: Option[Valid[DecomposedReal]] = ydecomp.map(m => m.io.decomp)
 
   // ==========================================================================
   // Shared pre/post-process multipliers (only built if some configured
@@ -224,11 +217,7 @@ class MathFunctions(
 
   val needPreMul = PreProcMultiplier.isNeeded(cfg.funcs)
 
-  val nPreMul = if (needPreMul) {
-    stages.latency("preMul")
-  } else {
-    0
-  }
+  val nPreMul = if (needPreMul) { stages.latency("preMul") } else { 0 }
 
   val preMulLhsW = PreProcMultiplier.lhsW(cfg.funcs, spec)
 
@@ -259,17 +248,13 @@ class MathFunctions(
     } else {
       // the product as it is written by hand: `MulImpl.plain` asks nothing of
       // the operands, so there is nothing to shape
-      val cutMulIn  = new SharedPipe("preMulIn", in.valid,
-        stages.at("preMul.in"))
-      val cutMulOut = new SharedPipe("preMulOut", cutMulIn.valid,
-        stages.at("preMul.out"))
-      (cutMulOut.valid,
-        cutMulOut(cutMulIn(in.bits.lhs) * cutMulIn(in.bits.rhs)))
+      val cutMulIn  = new SharedPipe("preMulIn",  in.valid,       stages.at("preMul.in" ))
+      val cutMulOut = new SharedPipe("preMulOut", cutMulIn.valid, stages.at("preMul.out"))
+      (cutMulOut.valid, cutMulOut(cutMulIn(in.bits.lhs) * cutMulIn(in.bits.rhs)))
     }
   })
 
-  val preMulProd: Option[UInt] = preMulOut.map({ case (_, prod) => prod })
-
+  val preMulProd:  Option[UInt] = preMulOut.map({ case (_,  prod) => prod  })
   val preMulValid: Option[Bool] = preMulOut.map({ case (valid, _) => valid })
 
   // Pre-mult operands, one set per function: each function that wants the
@@ -307,17 +292,8 @@ class MathFunctions(
 
   val needPostMul = PostProcMultiplier.isNeeded(cfg.funcs)
 
-  val nPostMul = if (needPostMul) {
-    stages.latency("postMul")
-  } else {
-    0
-  }
-
-  val nMulArgs = if (needPostMul) {
-    stages.latency("mulArgs")
-  } else {
-    0
-  }
+  val nPostMul = if (needPostMul) { stages.latency("postMul") } else { 0 }
+  val nMulArgs = if (needPostMul) { stages.latency("mulArgs") } else { 0 }
 
   /** registers between the operands a function forms and their selection; the
    *  `"in"` of the group sits where the polynomial output already is, so its
@@ -329,11 +305,7 @@ class MathFunctions(
   }
 
   /** registers after the selection of the operands. */
-  val nMulArgsOut = if (needPostMul) {
-    stages.at("mulArgs.out")
-  } else {
-    0
-  }
+  val nMulArgsOut = if (needPostMul) { stages.at("mulArgs.out") } else { 0 }
 
   /** latency from the polynomial output to the post-process input. */
   val nMulToPost = nMulArgs + nPostMul
@@ -348,8 +320,8 @@ class MathFunctions(
     ))
   )} else { None }
 
-  private def postMulOperands = new MathFunctions.MulOperands(
-    1 + bitW.outBitW, 1 + manW)
+  private def postMulOperands =
+    new MathFunctions.MulOperands(1 + bitW.outBitW, 1 + manW)
 
   // Post-mult operands, one set per function, driven the same way as the
   // pre-mult ones; the selection itself sits at the "mulArgs.out" boundary
@@ -387,21 +359,13 @@ class MathFunctions(
 
   /** registers `fn` crosses between the `"in"` cut and its argument reduction. */
   private def nPreMulOf(fn: FuncKind): Int = {
-    if (skipsPreMul(fn)) {
-      0
-    } else {
-      nPreMul
-    }
+    if (skipsPreMul(fn)) { 0 } else { nPreMul }
   }
 
   /** registers `fn` crosses between the polynomial output and its result
    *  assembly. */
   private def nMulToPostOf(fn: FuncKind): Int = {
-    if (skipsPostMul(fn)) {
-      0
-    } else {
-      nMulToPost
-    }
+    if (skipsPostMul(fn)) { 0 } else { nMulToPost }
   }
 
   /** latency of the argument reduction of `fn`. */
@@ -441,8 +405,7 @@ class MathFunctions(
   // ==========================================================================
 
   /** the largest latency from `io.in` to the table input. */
-  private val nTabMax = cfg.funcs.map(fn => nInToTab(fn)).max
-
+  private val nTabMax   = cfg.funcs.map(fn => nInToTab(fn)).max
   private val nPreChain = nTabMax - nIn - nPreMul
 
   require(nPreChain >= 0)
@@ -559,8 +522,8 @@ class MathFunctions(
   // Polynomial Evaluator (shared), stages "poly.*"
   // ==========================================================================
 
-  val polynomialEval = Module(new PolynomialEval(bitW, stages.sub("poly"),
-    mulImpl = polyMulImpl))
+  val polynomialEval = Module(
+    new PolynomialEval(bitW, stages.sub("poly"), mulImpl = polyMulImpl))
 
   val romLayout = cfg.romLayout
 
