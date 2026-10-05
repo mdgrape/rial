@@ -33,47 +33,34 @@ import scala.reflect.ClassTag
  *  - `"preMul.*"`  the boundaries of the shared pre-process multiplier: with
  *                  `MulImpl.split` those of [[rial.arith.SplitMultiplier]],
  *                  and `"preMul.out"` alone for a plain product
- *  - `"pre.*"`     the argument reduction of each function, one path per
- *                  function, see below
- *  - `"table"`     after the coefficient table lookup: the tables of every
- *                  configured function sit in one ROM, which the selected
- *                  function addresses where [[rial.math.RomLayout]] placed
- *                  its own
+ *  - `"pre.*"`     the argument reduction of each function
+ *  - `"table"`     after the coefficient table lookup
  *  - `"coef"`      after the coefficient selection
  *  - `"poly.*"`    the boundaries of the [[rial.table.PolynomialEval]]
- *                  submodule that evaluates the polynomial of the interval,
- *                  see its doc for the names; the group name `"poly"` stands
- *                  for `"poly.out"`
+ *                  submodule, see its doc for the names; `"poly"` stands for
+ *                  `"poly.out"`
  *  - `"mulArgs.*"` the operands of the post-process multiplier: `"form"`
  *                  after each function has formed the operands it offers and
- *                  `"out"` after the selected ones; the group name
- *                  `"mulArgs"` stands for `"mulArgs.out"`
- *  - `"postMul.*"` the boundaries of the shared post-process multiplier,
- *                  see [[rial.math.PostProcMultiplier]] for the names
- *  - `"post.*"`    the result assembly of each function, one path per
- *                  function, see below
+ *                  `"out"` after the selected ones; `"mulArgs"` stands for
+ *                  `"mulArgs.out"`
+ *  - `"postMul.*"` the boundaries of the shared post-process multiplier, see
+ *                  [[rial.math.PostProcMultiplier]] for the names
+ *  - `"post.*"`    the result assembly of each function
  *  - `"out"`       the module output
  *
  * `"pre"` and `"post"` are sets of parallel paths, one per configured
- * function, named after it with [[rial.math.FuncKind.pointName]]: the
- * boundaries of the argument reduction of `Sqrt` are `"pre.sqrt.*"` and those
- * of its result assembly `"post.sqrt.*"`, see the doc of the corresponding
- * submodule for the names. `Sin` and `Cos` share the path `"sinCos"`,
- * `SinPi` and `CosPi` the path `"sinPi"` and `SinPiFixed` and `CosPiFixed`
- * the path `"sinPiFixed"`; the path of `Pow2` is `"pow2"`, that of
- * `Log2Fixed` `"log2Fixed"`, that of `ATanFixed` `"atanFixed"` and that of
- * `ACosFixed` `"acosFixed"`.
- * `"pre" -> n` (or `"post" -> n`) adds `n` registers to every path of the set;
- * unless each function keeps its own latency (see below), the paths of a set
- * are padded to the longest of them.
+ * function, named with [[rial.math.FuncKind.pointName]]: the boundaries of
+ * the argument reduction of `Sqrt` are `"pre.sqrt.*"` and those of its result
+ * assembly `"post.sqrt.*"`, with the names below them in the doc of the
+ * corresponding submodule. `"pre" -> n` (or `"post" -> n`) adds `n` registers
+ * to every path of the set; unless each function keeps its own latency (see
+ * below), the paths of a set are padded to the longest of them.
  *
  * `"preMul.*"`, `"mulArgs.*"` and `"postMul.*"` exist only when one of the
  * configured functions needs the corresponding multiplier;
  * [[MathFunctions.stagePoints]] gives the points of a given configuration.
- *
  * The modules that compute the exponent and the special values of a function
- * beside the table and the polynomial place their own registers, so they have
- * no user-visible point.
+ * place their own registers, so they have no point of their own.
  *
  * [[getStage]] gives the resulting latency, and `io.out.valid` is
  * `io.in.valid` with a `sel` that names a configured function, delayed by that
@@ -83,18 +70,14 @@ import scala.reflect.ClassTag
  * instead of waiting for the longest one, and skips a shared multiplier it
  * does not use: `getStage(fn)` is the latency of `fn` and `getStage` the
  * largest of them. The coefficient table and the output port stay shared, so
- * two operations must not reach them in the same cycle; `io.issueOk` says
- * which functions may be issued this cycle and has to be honoured. It is
- * indexed by the `sel` value itself, so `io.issueOk.get(cfg.signal(fn))`
- * answers for `fn` and `io.issueOk.get(0)`
- * ([[rial.math.MathFuncConfig.signalNone]]) is always high. The results of one
- * function come out in the order it was issued in; the results of different
- * functions come out in the order their latencies give them.
+ * two operations must not reach them in the same cycle; `io.issueOk`, indexed
+ * by the `sel` value itself, says which functions may be issued this cycle
+ * and has to be honoured. The results of one function come out in the order
+ * it was issued in; the results of different functions come out in the order
+ * their latencies give them.
  *
- * With `tagW` an opaque tag -- a thread number, the register the result
- * belongs to, whatever the caller needs to recognise the result by -- rides
- * along: `io.in.bits.tag` enters with the operation and `io.out.bits.tag`
- * comes back with its result.
+ * With `tagW` an opaque tag rides along: `io.in.bits.tag` enters with the
+ * operation and `io.out.bits.tag` comes back with its result.
  *
  * {{{
  * // six registers, placed by the module
@@ -102,8 +85,6 @@ import scala.reflect.ClassTag
  * // hand-picked positions, one of them inside the polynomial
  * new MathFunctions(cfg,
  *   PipelineStageConfig.specify("pre" -> 1, "poly.prod1" -> 1, "post" -> 1))
- * // one register inside the argument reduction of sin/cos
- * new MathFunctions(cfg, PipelineStageConfig.specify("pre.sinCos.fold" -> 1))
  * // combinational
  * new MathFunctions(cfg, PipelineStageConfig.none)
  * }}}
@@ -127,19 +108,12 @@ import scala.reflect.ClassTag
  * }
  * }}}
  *
- * @constructor Constructs a new MathFunctions module.
- * @param cfg         Configuration that determines which functions are
- *                    supported, and the floating point format of the
- *                    arguments and the result.
+ * @param cfg         the functions to support and the floating point format
+ *                    of the arguments and the result.
  * @param stage       pipeline registers of this module.
  * @param preMulImpl  structure of the product of the pre-process multiplier.
  * @param postMulImpl structure of the product of the post-process multiplier.
  * @param polyMulImpl structure of the products of the polynomial.
- *                    The three are chosen separately because they are not the
- *                    same shape: the pre-process multiplier is a wide operand
- *                    times a mantissa, the post-process one two mantissas
- *                    followed by the rounding, and the polynomial a position
- *                    times an accumulator, in a chain.
  * @param perFunctionLatency whether each function keeps the latency of its own
  *                    path, see above; the caller then has to honour
  *                    `io.issueOk`.
@@ -148,7 +122,6 @@ import scala.reflect.ClassTag
  *
  * @see [[rial.arith.MulImpl]]
  * @see [[rial.util.PipelineStageConfig]]
- * @see [[rial.util.StagePoint]]
  */
 class MathFunctions(
   val cfg:         MathFuncConfig,
@@ -162,7 +135,6 @@ class MathFunctions(
 
   import FuncKind._
 
-  /** Floating point format of the arguments and the result, that of `cfg`. */
   val spec = cfg.spec
 
   assert(!spec.disableSign, "assuming the float type allows negative values")
@@ -174,8 +146,6 @@ class MathFunctions(
   val bitW   = cfg.bitW
   val coeffs = cfg.coeffs
 
-  /** the widths the table of `fn` is read at; the shared parts of them are
-   *  those of `bitW`, the address width is that of the table itself. */
   private def bitWOf(fn: FuncKind): PolynomialBitWidth = { cfg.bitWOf(fn) }
 
   /** Boundaries at which pipeline registers can be placed; see the class doc. */
@@ -260,19 +230,16 @@ class MathFunctions(
     0
   }
 
-  /** width of the left hand operand of the pre-process multiplier. */
   val preMulLhsW = PreProcMultiplier.lhsW(cfg.funcs, spec)
 
-  /** the operand set one function offers to the pre-process multiplier. */
   private def preMulOperands = new MathFunctions.MulOperands(preMulLhsW, 1 + manW)
 
   require(!needPreMul || !preMulImpl.isMacc,
     "the pre-process multiplier has no addend to fold into a multiply-add; " +
     "ask for MulImpl.split to slice its product")
 
-  /** the operands the pre-process multiplier is given, those of the selected
-   *  function; driven below, once every function has offered its own set.
-   */
+  /** the operands of the selected function, driven below once every function
+   *  has offered its own set. */
   val preMulIn: Option[Valid[MathFunctions.MulOperands]] = if (needPreMul) {
     Some(Wire(Valid(preMulOperands)))
   } else {
@@ -301,16 +268,12 @@ class MathFunctions(
     }
   })
 
-  /** the product of the pre-process multiplier. */
   val preMulProd: Option[UInt] = preMulOut.map({ case (_, prod) => prod })
 
-  /** the valid that leaves the pre-process multiplier. */
   val preMulValid: Option[Bool] = preMulOut.map({ case (valid, _) => valid })
 
   // Pre-mult operands, one set per function: each function that wants the
   // multiplier drives its own set in its block below and offers 0 otherwise.
-  // Only the selected function's set is ever asked for, so the multiplier
-  // input is one flat selection on `selIn`.
   val preMulArgs: Option[Map[FuncKind, Valid[MathFunctions.MulOperands]]] =
     if (needPreMul) {
       Some(cfg.funcs.map(fn => {
@@ -356,11 +319,9 @@ class MathFunctions(
     0
   }
 
-  /** registers between the operands a function forms and their selection.
-   *
-   * The `"in"` of the group sits where the polynomial output already is, so
-   * its registers stand before the operands are formed as well.
-   */
+  /** registers between the operands a function forms and their selection; the
+   *  `"in"` of the group sits where the polynomial output already is, so its
+   *  registers stand before the operands are formed as well. */
   val nMulArgsForm = if (needPostMul) {
     stages.at("mulArgs.in") + stages.at("mulArgs.form")
   } else {
@@ -387,7 +348,6 @@ class MathFunctions(
     ))
   )} else { None }
 
-  /** the operand set one function offers to the post-process multiplier. */
   private def postMulOperands = new MathFunctions.MulOperands(
     1 + bitW.outBitW, 1 + manW)
 
@@ -408,16 +368,13 @@ class MathFunctions(
   //
   // The table input and the output selection are shared by every function;
   // between them runs one chain. On either side each function has its own
-  // path, of its own length when `perFunctionLatency`: a function that does
-  // not need a shared multiplier walks past it, and its argument reduction
-  // and result assembly keep the length their own registers give them.
+  // path, of its own length when `perFunctionLatency`.
   // ==========================================================================
 
   val nTable = stages.at("table")
   val nCoef  = stages.at("coef")
   val nPoly  = stages.latency("poly")
 
-  /** latency from the table input to the polynomial output. */
   val nTabToPoly = nTable + nCoef + nPoly
 
   private def skipsPreMul(fn: FuncKind): Boolean = {
@@ -438,8 +395,7 @@ class MathFunctions(
   }
 
   /** registers `fn` crosses between the polynomial output and its result
-   *  assembly.
-   */
+   *  assembly. */
   private def nMulToPostOf(fn: FuncKind): Int = {
     if (skipsPostMul(fn)) {
       0
@@ -458,26 +414,19 @@ class MathFunctions(
     stages.latency("post." + FuncKind.pointName(fn))
   }
 
-  /** latency from `io.in` to the table input, for `fn`. */
   private def nInToTab(fn: FuncKind): Int = {
     nIn + nPreMulOf(fn) + nPreOf(fn)
   }
 
-  /** latency from the table input to the result assembly of `fn`. */
   private def nTabToPostOf(fn: FuncKind): Int = {
     nTabToPoly + nMulToPostOf(fn)
   }
 
-  /** latency from the polynomial output to the output selection, for `fn`. */
   private def nPolyToOut(fn: FuncKind): Int = {
     nMulToPostOf(fn) + nPostOf(fn)
   }
 
-  /** Latency of `fn`, i.e. the cycles between `io.in` and its result on
-   *  `io.out`.
-   *
-   * @param fn An enumerator of the function.
-   */
+  /** Latency of `fn`: the cycles between `io.in` and its result on `io.out`. */
   def getStage(fn: FuncKind): Int = {
     nInToTab(fn) + nTabToPoly + nPolyToOut(fn) + nOut
   }
@@ -520,8 +469,7 @@ class MathFunctions(
   })
 
   /** the argument at every age between the `"in"` cut and the table input:
-   *  `xToTab(k)` is `xIn` delayed by `k` registers.
-   */
+   *  `xToTab(k)` is `xIn` delayed by `k` registers. */
   private val xToTab: Seq[Valid[DecomposedReal]] = xPreTaps ++ xTabTaps.tail
 
   /** the argument of `fn` where its argument reduction reads it. */
@@ -614,7 +562,6 @@ class MathFunctions(
   val polynomialEval = Module(new PolynomialEval(bitW, stages.sub("poly"),
     mulImpl = polyMulImpl))
 
-  /** where the table of each function sits in the ROM they share. */
   val romLayout = cfg.romLayout
 
   /** the address of its own table each function offers, driven by its
@@ -645,8 +592,6 @@ class MathFunctions(
     adr
   }
 
-  // one flat selection on the function signal, where the table address and
-  // the interval offset reach the table input
   val tableRom = Module(new TableCoeffRom(romLayout, nTable))
 
   tableRom.io.adr := MuxLookup(selTab, 0.U.asTypeOf(tableRom.io.adr))(
@@ -723,8 +668,6 @@ class MathFunctions(
       }
     }).toMap)
 
-  // the operand set of the function `selMulArgsForm` names, on its way to the
-  // post-process multiplier
   private val postMulIn = mulArgsForm.map(args => {
     MuxLookup(selMulArgsForm, 0.U.asTypeOf(Valid(postMulOperands)))(
       cfg.funcs.map(fn => cfg.signal(fn) -> args(fn)))
@@ -781,20 +724,17 @@ class MathFunctions(
   private val tagOutTaps = tagPostMulTaps.map(t => cutPost.taps(t.last))
 
   /** the valid flag at every age between the polynomial output and the output
-   *  selection.
-   */
+   *  selection. */
   private val validToOut: Seq[Bool] =
     cutMulArgs.valids ++ cutPostMul.valids.tail ++ cutPost.valids.tail
 
   /** the function signal at every age between the polynomial output and the
-   *  output selection.
-   */
+   *  output selection. */
   private val selToOut: Seq[UInt] =
     selMulTaps ++ selPostMulTaps.tail ++ selOutTaps.tail
 
   /** the tag at every age between the polynomial output and the output
-   *  selection.
-   */
+   *  selection. */
   private val tagToOut: Option[Seq[UInt]] = tagMulTaps.map(t => {
     t ++ tagPostMulTaps.get.tail ++ tagOutTaps.get.tail
   })
@@ -869,7 +809,6 @@ class MathFunctions(
     val table = Module(new ReservationTable(cfg.signalW,
       1 + cfg.funcs.length, Seq(tableInput, output)))
 
-    // the operation entering the module this cycle, as the `"in"` cut takes it
     table.io.in.valid := io.in.valid && cfg.isValid(io.in.bits.sel)
     table.io.in.bits  := io.in.bits.sel
 
@@ -1344,8 +1283,6 @@ class MathFunctions(
       polynomialDxs.get(ACosPhase1) := pre.io.dx.get
     }
 
-    // pre.io.flags leaves the pre-process at the table input; pipeline it to
-    // the input of the post-process
     val flagsAtPost = Pipe(pre.io.flags, nTabToPostOf(ACosPhase1))
     val ntabAtPost  = sqrtNtabAtPost.get
 
@@ -1386,7 +1323,6 @@ class MathFunctions(
     postMulArgs.get(ACosPhase2).bits.lhs := mulArgs.io.mul.bits.lhs
     postMulArgs.get(ACosPhase2).bits.rhs := mulArgs.io.mul.bits.rhs
 
-    // flags & x.ex pipelined to the input of the post-process
     val flagsAtAfterMul = Pipe(pre.io.flags, nTabToPostOf(ACosPhase2))
     val xexAtAfterMul   = Pipe(pre.io.xex,   nTabToPostOf(ACosPhase2))
 
@@ -1434,8 +1370,7 @@ class MathFunctions(
     postMulArgs.get(ATan2Phase1).bits.lhs := mulArgs.io.mul.bits.lhs
     postMulArgs.get(ATan2Phase1).bits.rhs := mulArgs.io.mul.bits.rhs
 
-    // info & flags pipelined to the input of the post-process; the
-    // post-process reads only zex and xySameMan
+    // the post-process reads only zex and xySameMan
     val postInfo = Wire(Valid(new ATan2Phase1PostInfo(spec)))
     postInfo.valid          := infoAtPost.valid
     postInfo.bits.zex       := infoAtPost.bits.zex
@@ -1481,7 +1416,6 @@ class MathFunctions(
     postMulArgs.get(ATan2Phase2).bits.lhs := mulArgs.io.mul.bits.lhs
     postMulArgs.get(ATan2Phase2).bits.rhs := mulArgs.io.mul.bits.rhs
 
-    // flags, xex, isLinear pipelined to the input of the post-process
     val flagsAtAfterMul    = Pipe(pre.io.flags,    nTabToPostOf(ATan2Phase2))
     val xexAtAfterMul      = Pipe(pre.io.xex,      nTabToPostOf(ATan2Phase2))
     val isLinearAtAfterMul = Pipe(isLinearAtPost,  nMulToPostOf(ATan2Phase2))
@@ -1509,7 +1443,6 @@ class MathFunctions(
       polynomialDxs.get(Sigmoid) := pre.io.dx.get
     }
 
-    // info pipelined from the table input to the input of the post-process
     val infoAtPost = Pipe(pre.io.info, nTabToPostOf(Sigmoid))
     post.io.in.valid     := infoAtPost.valid && zresAtPostOf(Sigmoid).valid
     post.io.in.bits.info := infoAtPost.bits
@@ -1692,7 +1625,6 @@ object MathFunctions {
    *
    * The arguments are in the floating point format of `cfg`.
    *
-   * @param cfg  configuration of the module this input is for
    * @param tagW width of the tag that rides along with the operation; 0 for
    *             no tag
    */
@@ -1731,33 +1663,18 @@ object MathFunctions {
     }
   }
 
-  /** The operands one function offers to a shared multiplier.
-   *
-   * Every configured function drives its own set and the set of the selected
-   * function reaches the multiplier, so the operands are picked by one flat
-   * mux on the function signal.
-   *
-   * @param lhsW width of the left operand
-   * @param rhsW width of the right operand
-   */
+  /** The operands one function offers to a shared multiplier. */
   class MulOperands(val lhsW: Int, val rhsW: Int) extends Bundle {
     val lhs = UInt(lhsW.W)
     val rhs = UInt(rhsW.W)
   }
 
   /** Boundaries at which pipeline registers can be placed; see
-   * [[rial.math.MathFunctions]]. The argument reduction and the result
-   * assembly of the configured functions appear as the parallels `"pre"` and
-   * `"post"`, the polynomial, the multipliers and the operands of the
-   * post-process multiplier as the groups `"poly"`, `"preMul"`, `"mulArgs"`
-   * and `"postMul"`.
+   * [[rial.math.MathFunctions]] for the points and their names.
    *
    * `"preMul"`, `"mulArgs"` and `"postMul"` are declared only when one of the
-   * functions of `cfg` needs the corresponding multiplier. The boundaries
-   * inside the pre-process multiplier follow the widths of the floating point
-   * format of `cfg`.
+   * functions of `cfg` needs the corresponding multiplier.
    *
-   * @param cfg         configuration of the module these boundaries are for
    * @param preMulImpl  structure of the pre-process multiplier's product
    * @param postMulImpl structure of the post-process multiplier's product
    * @param polyMulImpl structure of the polynomial's products
@@ -1800,13 +1717,9 @@ object MathFunctions {
         StagePoint("out",  1.0))
   }
 
-  /** The argument reduction of each configured function, in `cfg.funcs` order.
-   *
-   * `Sin` and `Cos` share one pre-process, so they contribute one path, and so
-   * do `SinPi` and `CosPi`, and `SinPiFixed` and `CosPiFixed`.
-   *
-   * @param cfg configuration of the module these paths are for
-   */
+  /** The argument reduction of each configured function, in `cfg.funcs` order,
+   *  named with [[rial.math.FuncKind.pointName]]: the functions that share a
+   *  name contribute one path. */
   def prePaths(cfg: MathFuncConfig): Seq[StageGroup] = {
     import FuncKind._
     cfg.funcs.collect {
@@ -1834,13 +1747,9 @@ object MathFunctions {
     }
   }
 
-  /** The result assembly of each configured function, in `cfg.funcs` order.
-   *
-   * `Sin` and `Cos` share one post-process, so they contribute one path, and so
-   * do `SinPi` and `CosPi`, and `SinPiFixed` and `CosPiFixed`.
-   *
-   * @param cfg configuration of the module these paths are for
-   */
+  /** The result assembly of each configured function, in `cfg.funcs` order,
+   *  named with [[rial.math.FuncKind.pointName]]: the functions that share a
+   *  name contribute one path. */
   def postPaths(cfg: MathFuncConfig): Seq[StageGroup] = {
     import FuncKind._
     cfg.funcs.collect {

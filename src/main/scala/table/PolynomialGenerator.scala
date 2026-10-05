@@ -22,8 +22,7 @@ case class PolynomialBitWidth(
 
   /** The widths that cover both: the wider coefficient and accumulator of the
    *  two at every order, and the wider of the two addresses. The two have to
-   *  agree on the order, the input and the output, which a shared polynomial
-   *  evaluator cannot vary.
+   *  agree on the order, the input and the output.
    */
   def merge(other: PolynomialBitWidth): PolynomialBitWidth = {
     require(nOrder == other.nOrder)

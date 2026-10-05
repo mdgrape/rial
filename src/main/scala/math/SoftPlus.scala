@@ -106,7 +106,7 @@ class SoftPlusPreProcess(
   // --------------------------------------------------------------------------
   // stage "out"
 
-  // pos/neg selector goes in the MSB of the adr; it picks the sub-table.
+  // the pos/neg selector goes in the MSB of the adr.
   val adr = Cat(info.xsgn, TableAddress.adr(xScaled(manW - 1, 0), adrW))
   io.adr := Pipe(cutScale.valid, adr, stages.at("out"))
 

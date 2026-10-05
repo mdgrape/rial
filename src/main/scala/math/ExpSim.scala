@@ -81,16 +81,9 @@ object ExpTable {
 
   /** The largest value the polynomial of `coeff` can evaluate to.
    *
-   *  It evaluates the table with [[rial.table.PolynomialEval.eval]], the
-   *  software model of the hardware evaluator, over every `dx` of the last
-   *  interval the pre-process can form and the two extreme `dx` of every
-   *  other interval.  The table approximates the increasing 2^t-1, so its
-   *  maximum lives in the last interval; the endpoints of the others guard
-   *  that assumption.
-   *
-   *  @param coeff the coefficients of the exp table
-   *  @param spec  floating point spec of the argument
-   *  @return the maximum of the integer polynomial result
+   *  The table approximates the increasing 2^t-1, so its maximum lives in the
+   *  last interval: it sweeps every `dx` of that one and the two extreme `dx`
+   *  of every other interval, which guard that assumption.
    */
   def maxPolynomial(coeff: PolynomialCoefficients, spec: RealSpec): BigInt = {
     val nInterval = coeff.coeffs.length

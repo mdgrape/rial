@@ -23,29 +23,13 @@ object FuncKind extends Enumeration {
   val Sin         = Value
   /** cos(x) */
   val Cos         = Value
-  /** the 1st phase of acos(x).
-   *
-   * `acos` is calculated in 2 phases.
-   * the second phase takes the result of the first phase.
-   */
+  /** the 1st phase of acos(x), whose result the 2nd phase takes. */
   val ACosPhase1  = Value
-  /** the 2nd phase of acos(x).
-   *
-   * `acos` is calculated in 2 phases.
-   * the second phase takes the result of the first phase.
-   */
+  /** the 2nd phase of acos(x), which takes the result of the 1st. */
   val ACosPhase2  = Value
-  /** the 1st phase of atan2(y,x).
-   *
-   * `atan2` is calculated in 2 phases.
-   * the second phase takes the result of the first phase.
-   */
+  /** the 1st phase of atan2(y,x), whose result the 2nd phase takes. */
   val ATan2Phase1 = Value
-  /** the 2nd phase of atan2(y,x).
-   *
-   * `atan2` is calculated in 2 phases.
-   * the second phase takes the result of the first phase.
-   */
+  /** the 2nd phase of atan2(y,x), which takes the result of the 1st. */
   val ATan2Phase2 = Value
   /** exp(x) e^x */
   val Exp         = Value
@@ -83,12 +67,7 @@ object FuncKind extends Enumeration {
    */
   val SinPiFixed  = Value
   /** cos(π x), for an argument the caller has already scaled, without either
-   *  shared multiplier.
-   *
-   * Its table holds sin(π y) of the reduced argument itself, one region per
-   * binade of y, each scaled by a power of two, so its precision is relative:
-   * the result stays within a few units of its last place wherever it is
-   * read, the arguments at which the cosine vanishes included.
+   *  shared multiplier; it reads the table of [[SinPiFixed]].
    */
   val CosPiFixed  = Value
   /** log2(x), without either shared multiplier.
@@ -119,8 +98,7 @@ object FuncKind extends Enumeration {
    */
   val ACosFixed   = Value
 
-  /** Returns enum name (e.g. FuncKind.Sqrt -> "Sqrt").
-   */
+  /** Returns enum name (e.g. FuncKind.Sqrt -> "Sqrt"). */
   def getString(fn: FuncKind): String = {
     fn match {
       case Sqrt        => "Sqrt"
@@ -153,12 +131,8 @@ object FuncKind extends Enumeration {
    *
    * The pre- and post-process of a function are one path of the parallels
    * `"pre"` and `"post"`, named after the function: the boundaries of the
-   * pre-process of `fn` are `"pre.<pointName(fn)>.*"`. `Sin` and `Cos` share
-   * one pre-process and one post-process, so both give `"sinCos"`, and
-   * `SinPi` and `CosPi` likewise both give `"sinPi"`, `SinPiFixed` and
-   * `CosPiFixed` both `"sinPiFixed"`.
-   *
-   * @param fn An enumerator of the function.
+   * pre-process of `fn` are `"pre.<pointName(fn)>.*"`. Functions that share a
+   * pre- and post-process, such as `Sin` and `Cos`, share a name.
    */
   def pointName(fn: FuncKind): String = {
     fn match {
@@ -233,13 +207,8 @@ object FuncKind extends Enumeration {
     }
   }
 
-  /** Returns list of funcs that are required by specified functions.
-   *
-   * Some functions requires others. For example, sin and cos shares polynomial
-   * table, so Sin requires Cos and Cos requires Sin. Also, the first phase of
-   * acos and atan2 requires other math functions, so they requires others.
-   * this function lists all the functions required to support the given list
-   * of functions.
+  /** Returns `funcs` and every function they require, see [[requiredFuncs]],
+   *  in enumeration order.
    */
   def normalize(funcs: Seq[FuncKind]): Seq[FuncKind] = {
     funcs.map(f => requiredFuncs(f)).reduce(_++_).distinct.sorted
@@ -251,9 +220,7 @@ object FuncKind extends Enumeration {
 /** The width of the table address of each function of a [[MathFuncConfig]].
  *
  * A table whose address is `n` bits wide holds `2^n` sub-intervals, so the
- * address width is what one function costs in ROM. The functions of a
- * configuration rarely need the same one, so a configuration takes a width
- * per function rather than a single number.
+ * address width is what one function costs in ROM.
  *
  * A function that reads the table of another one reads it as it is, so a
  * width belongs to the function that owns the table; [[TableAddrWidth.owner]]
@@ -276,10 +243,7 @@ object FuncKind extends Enumeration {
  * }}}
  */
 sealed trait TableAddrWidth {
-  /** The width of the address of the table `fn` reads, in bits.
-   *
-   *  @param fn An enumerator of the function.
-   */
+  /** The width of the address of the table `fn` reads, in bits. */
   def of(fn: FuncKind.FuncKind): Int
 }
 
@@ -324,14 +288,8 @@ object TableAddrWidth {
   import FuncKind._
   import scala.language.implicitConversions
 
-  /** Returns the function that owns the table `fn` reads.
-   *
-   * `Cos` reads the table of `Sin`, `CosPi` that of `SinPi`, `CosPiFixed`
-   * that of `SinPiFixed`, the first phase of `acos` that of `Sqrt` and the
-   * first phase of `atan2` that of `Reciprocal`. Every other function owns
-   * its table and is its own owner.
-   *
-   * @param fn An enumerator of the function.
+  /** Returns the function that owns the table `fn` reads; a function that
+   *  owns its table is its own owner.
    */
   def owner(fn: FuncKind): FuncKind = {
     fn match {
@@ -356,9 +314,7 @@ object TableAddrWidth {
  * [[rial.math.MathFunctions]] holds the coefficients of every function it is
  * configured for in one ROM, one table after another. The address a function
  * reads it at is the address of its own table under the row that table starts
- * at, which [[offset]] gives; [[depth]] is the rows of that table, [[rows]]
- * the rows of the whole ROM and [[packed]] what it holds, row by row, each
- * packed as [[rial.table.PolynomialGenerator.packTable]] packs it.
+ * at, which [[offset]] gives.
  *
  * A function that reads the table of another one, as [[TableAddrWidth.owner]]
  * says, reads it where its owner put it, so the two give the same offset.
@@ -392,7 +348,6 @@ class RomLayout(
   private val offsets: Map[FuncKind, Int] = owners.zip(
     owners.scanLeft(0)((row, fn) => row + coeffs(fn).coeffs.length)).toMap
 
-  /** the rows of the merged ROM. */
   val rows: Int = owners.map(fn => coeffs(fn).coeffs.length).sum
 
   /** the width of the address of the merged ROM, in bits. */
@@ -401,28 +356,21 @@ class RomLayout(
   /** the width of one row of the merged ROM, in bits. */
   val rowW: Int = coeffs(owners.head).bitW.coefBits.reduce(_+_)
 
-  /** the rows of the merged ROM, in the order the tables are placed. */
+  /** the rows of the merged ROM, in the order the tables are placed, each
+   *  packed as [[rial.table.PolynomialGenerator.packTable]] packs it. */
   val packed: Seq[BigInt] = owners.flatMap(fn =>
     PolynomialGenerator.packTable(coeffs(fn)))
 
-  /** Returns the row of the merged ROM the table `fn` reads starts at.
-   *
-   *  @param fn An enumerator of the function.
-   */
+  /** Returns the row of the merged ROM the table `fn` reads starts at. */
   def offset(fn: FuncKind): Int = { offsets(TableAddrWidth.owner(fn)) }
 
-  /** Returns the rows of the table `fn` reads.
-   *
-   *  @param fn An enumerator of the function.
-   */
+  /** Returns the rows of the table `fn` reads. */
   def depth(fn: FuncKind): Int = {
     coeffs(TableAddrWidth.owner(fn)).coeffs.length
   }
 
   /** Returns the width of the address of the table `fn` reads, in bits: what
    *  the argument reduction of `fn` emits, below the offset of that table.
-   *
-   *  @param fn An enumerator of the function.
    */
   def adrW(fn: FuncKind): Int = { log2Ceil(depth(fn)) }
 
@@ -443,22 +391,17 @@ class RomLayout(
 
 /** A Config class for [[rial.math.MathFunctions]] Module.
 
- *  @constructor create a new MathFuncConfig.
  *  @param funcs the list of functions that should be supported.
- *  @param spec the floating point format the tables are generated for. A
- *              table that gives a region of its own to each binade of its
- *              argument places its grid on the mantissa of that format, so it
- *              has to know how many bits of it there are.
+ *  @param spec the floating point format the tables are generated for.
  *  @param addrW the width of the address of each table; a plain number gives
  *               every table the same one. A function that reads the table of
  *               another one reads it at the width of that function, so only
  *               the function that owns a table can be given a width; see
  *               [[TableAddrWidth]].
  *  @param inBitW the width of the position inside a sub-interval, shared by
- *                every table. A table whose address is narrower leaves more
- *                bits of the fraction below it than that width holds, and the
- *                ones it does not hold are dropped, so `inBitW` is what sets
- *                the precision of the position of every table alike.
+ *                every table, in bits. Bits of the fraction below it that it
+ *                does not hold are dropped, so it sets the precision of the
+ *                position of every table alike.
  *  @param ScaleMixtureGaussianSigma sigmaA and sigmaB for ScaleMixtureGaussian.
  *  @param sinCos the range of the argument sin/cos are calculated for; `None`
  *                covers the whole format. Outside the range sin/cos return a
@@ -477,7 +420,6 @@ class MathFuncConfig(
   val sinCos:  Option[SinCosDomain] = None,
 ) {
 
-  /** mantissa width of the format the tables are generated for. */
   val manW = spec.manW
 
   assert(funcs.length > 0, "At least one function should be supported")
@@ -488,11 +430,7 @@ class MathFuncConfig(
 
   import FuncKind._
 
-  /** Checks if a function is supported.
-   *
-   *  @param fn An enumerator of the function.
-   *  @return true if the function is supported. false if not.
-   */
+  /** Checks if a function is supported. */
   def has(fn: FuncKind): Boolean = {
     funcs.exists(_==fn)
   }
@@ -516,9 +454,6 @@ class MathFuncConfig(
    *  `io.in.bits.sel` of each functions corresponds to non-zero index in `funcs`.
    *  If `None` is given, it calculates nothing.
    *  If `Invalid` is given, it calculates something invalid.
-   *
-   *  `Invalid` is introduced to make implementation easy. There is no sense in
-   *  sending `Invalid` as `sel` signal.
    */
   val signalW = log2Ceil(2 + funcs.length)
 
@@ -535,9 +470,6 @@ class MathFuncConfig(
    * }}}
    *
    * If the passed function is not supported, it returns invalid value (`max+1`).
-   *
-   * @param fn An enumerator of the function
-   * @return the signal that corresponds to the function
    */
   def signal(fn: FuncKind): UInt = {
     if (has(fn)) {
@@ -551,10 +483,7 @@ class MathFuncConfig(
     s =/= 0.U && s < (funcs.length + 1).U
   }
 
-  /** Returns function select signal that runs no function.
-   *
-   *  @return the signal that corresponds to "no function".
-   */
+  /** Returns function select signal that runs no function. */
   def signalNone(): UInt = {
     0.U(signalW.W)
   }
@@ -632,8 +561,6 @@ class MathFuncConfig(
 
   /** Returns the widths the table of `fn` is read at: those of [[bitW]], with
    *  the address width of that table.
-   *
-   *  @param fn An enumerator of the function.
    */
   def bitWOf(fn: FuncKind): PolynomialBitWidth = {
     coeffs(fn).bitW
@@ -675,50 +602,15 @@ class MathFuncConfig(
 object MathFuncConfig {
   import FuncKind._
 
-  /** Defines simple functions that does not require multiplier in preprocess / postprocess.
-   *
-   * includes:
-   * <ul>
-   *   <li> sqrt       </li>
-   *   <li> invsqrt    </li>
-   *   <li> reciprocal </li>
-   * </ul>
-   */
+  /** Defines simple functions that does not require multiplier in preprocess / postprocess. */
   val simple = Seq(Sqrt, InvSqrt, Reciprocal)
 
-  /** Defines standard math functions that are frequently used.
-   *
-   * includes:
-   * <ul>
-   *   <li> sqrt       </li>
-   *   <li> invsqrt    </li>
-   *   <li> reciprocal </li>
-   *   <li> sin        </li>
-   *   <li> cos        </li>
-   *   <li> acos       </li>
-   *   <li> atan2      </li>
-   *   <li> exp        </li>
-   *   <li> log        </li>
-   * </ul>
-   */
+  /** Defines standard math functions that are frequently used. */
   val standard = Seq(Sqrt, InvSqrt, Reciprocal, Sin, Cos,
     ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Exp, Log)
 
   /** The [[standard]] set with the functions that need the pre-process
    * multiplier replaced by the ones that take a scaled argument.
-   *
-   * includes:
-   * <ul>
-   *   <li> sqrt       </li>
-   *   <li> invsqrt    </li>
-   *   <li> reciprocal </li>
-   *   <li> acos       </li>
-   *   <li> atan2      </li>
-   *   <li> log        </li>
-   *   <li> pow2       </li>
-   *   <li> sinpi      </li>
-   *   <li> cospi      </li>
-   * </ul>
    */
   val standardScaled = Seq(Sqrt, InvSqrt, Reciprocal,
     ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Log, Pow2, SinPi, CosPi)
@@ -730,13 +622,7 @@ object MathFuncConfig {
   val standardFixed = normalize(Seq(Sqrt, InvSqrt, Reciprocal, Pow2,
     Log2Fixed, SinPiFixed, CosPiFixed, ACosFixed, ATanFixed))
 
-  /** Defines all the supported math functions including too task-specific ones.
-   *
-   * includes:
-   * <ul>
-   *   <li> everything. </li>
-   * </ul>
-   */
+  /** Defines all the supported math functions including too task-specific ones. */
   val all = Seq(Sqrt, InvSqrt, Reciprocal, Sin, Cos,
     ACosPhase1, ACosPhase2, ATan2Phase1, ATan2Phase2, Exp, Log,
     Sigmoid, SoftPlus, ScaleMixtureGaussian)
@@ -808,13 +694,10 @@ object MathFuncConfig {
 
   /** Default FP32 config supporting the [[standardFixed]] function set.
    *
-   *  The position inside a sub-interval is wider here than the mantissa
-   *  leaves below the address: the tables of this set give a region of their
-   *  own to each binade of the argument and divide that region into
+   *  Its `inBitW` is wider than the mantissa leaves below the address: the
+   *  tables of this set divide a region of their own per binade into
    *  sub-intervals, so a position reaches further down the mantissa than a
-   *  flat table's does. A fraction with fewer bits left is padded, so the
-   *  functions whose table is flat read exactly what a narrower position
-   *  would have given them.
+   *  flat table's does.
    */
   val standardFixedFP32 = new MathFuncConfig(
     funcs   = standardFixed,
@@ -837,13 +720,10 @@ object MathFuncConfig {
   /** Default FP32 config supporting [[all]] math functions.  Uses
    *  `defaultSMGSigma` for ScaleMixtureGaussian.
    *
-   *  `outBitW = manW + 8` is driven by [[FuncKind.ScaleMixtureGaussian]]:
-   *  with the default sigmas SMG reconstructs the result by multiplying the
-   *  polynomial by ~`2^15`, so fewer extra bits noticeably degrade the SMG
-   *  output (at +3 the SMG result already carries ~8000 ULP of error).  The
-   *  simpler functions (Sqrt / Sin / ...) work at this larger size but their
-   *  ROMs become wider than strictly necessary -- use [[standardFP32]] (or a
-   *  hand-rolled `MathFuncConfig`) when SMG is not needed.
+   *  Its `outBitW` is driven by [[FuncKind.ScaleMixtureGaussian]], which
+   *  reconstructs its result by multiplying the polynomial by ~`2^15`; the
+   *  other functions work at that size but their ROMs become wider than they
+   *  need, so prefer [[standardFP32]] when SMG is not needed.
    */
   val allFP32 = new MathFuncConfig(
     funcs   = all,
@@ -857,15 +737,11 @@ object MathFuncConfig {
   /** Default BF16 config supporting [[all]] math functions.  Uses
    *  `defaultSMGSigma` for ScaleMixtureGaussian.
    *
-   *  `outBitW = manW + 10` is driven by [[FuncKind.SoftPlus]] and
-   *  [[FuncKind.ScaleMixtureGaussian]]: with the default sigmas SMG
-   *  reconstructs the result by multiplying the polynomial by ~`2^15`, so
-   *  fewer than ~10 extra bits collapses the SMG output entirely.  SoftPlus
-   *  similarly needs ~1 BF16 ULP of headroom because its output range reaches
-   *  the table's `rangeMax`.  The simpler functions (Sqrt / Sin / ...) still
-   *  work at this larger size but their ROMs become wider than strictly
-   *  necessary -- use [[standardBF16]] (or a hand-rolled `MathFuncConfig`)
-   *  when SMG/SoftPlus are not needed and the extra precision is wasted area.
+   *  Its `outBitW` is driven by [[FuncKind.ScaleMixtureGaussian]], which
+   *  reconstructs its result by multiplying the polynomial by ~`2^15`, and by
+   *  [[FuncKind.SoftPlus]], whose output range reaches the table's
+   *  `rangeMax`; the other functions work at that size but their ROMs become
+   *  wider than they need, so prefer [[standardBF16]] when neither is needed.
    */
   val allBF16 = new MathFuncConfig(
     funcs   = all,
