@@ -61,11 +61,12 @@ class GenRandomGaussianSimMatchTest extends AnyFunSpec with ChiselSim with EmitV
     pack(signPage(1), BigInt(0), BigInt(rng.nextInt(1 << lump)))
 
   def matchTest(polyMulImpl: MulImpl,
-    scaleMulImpl: MulImpl = MulImpl.plain): Unit = {
+    scaleMulImpl: MulImpl = MulImpl.plain,
+    splitW: Int = 0, guardBits: Int = 0): Unit = {
 
     val n = getOption[Int]("n").getOrElse(16)
     simulate(new GenRandomGaussian(rndW, spec, nOrder, PipelineStageConfig.none,
-      lump, polyMulImpl, scaleMulImpl)) { c =>
+      lump, splitW, guardBits, polyMulImpl, scaleMulImpl)) { c =>
       c.io.rnd.valid.poke(true.B)
       var checked = 0
       val fails = scala.collection.mutable.ArrayBuffer.empty[String]
@@ -74,7 +75,8 @@ class GenRandomGaussianSimMatchTest extends AnyFunSpec with ChiselSim with EmitV
         c.io.rnd.bits.poke(rnd.U(rndW.W))
         c.clock.step(1 + c.getStage) // hold the input and flush the pipeline
         val hw  = c.io.z.bits.peek().litValue
-        val sim = GenRandomGaussianSim.genGaussian(rnd, rndW, spec, nOrder, lump).value.toBigInt
+        val sim = GenRandomGaussianSim.genGaussian(rnd, rndW, spec, nOrder,
+          lump, splitW, guardBits).value.toBigInt
         checked += 1
         if (hw != sim && fails.length < 20)
           fails += f"$window: rnd=0x$rnd%016x hw=0x$hw%08x sim=0x$sim%08x"

@@ -33,6 +33,7 @@ private[rial] class ProbitTable(
   val inBitW:      Int,
   val outBitW:     Int,
   val lumpOctaves: Int = 2, // deepest octaves merged into one (capped) interval
+  val splitW:      Int = 0, // every interval split into 2^splitW sub-intervals
 ) {
   private val sqrt2 = scala.math.sqrt(2)
   private val log2 = (a: Double) => log(a) / log(2.0)
@@ -41,7 +42,19 @@ private[rial] class ProbitTable(
 
   val ft = new FuncTable(nOrder)
 
-  ft.addInterval((x: Double) => { sqrt2 * Erf.erfInv(x) / x - 1.0 }, 0.0, 0.5)
+  val nSub = 1 << splitW
+
+  // Every interval is divided into `nSub` equal sub-intervals of x, each with
+  // its own polynomial, in the order of the position inside the interval: the
+  // sub-interval 0 holds the xMin end, the one the position 0 reads.
+  private def addSplit(f: Double => Double, xMin: Double, xMax: Double): Unit = {
+    for(s <- 0 until nSub) {
+      ft.addInterval(f, xMin + (xMax - xMin) * s / nSub,
+                        xMin + (xMax - xMin) * (s+1) / nSub)
+    }
+  }
+
+  addSplit((x: Double) => { sqrt2 * Erf.erfInv(x) / x - 1.0 }, 0.0, 0.5)
   scaleTable += 0.toBigInt
 
   require(nIntervals > 2)
@@ -69,7 +82,7 @@ private[rial] class ProbitTable(
     assert(fMax / fMin < 2.0)
 
     val f = (x: Double) => { probitHalf(x) / fMin - 1.0 }
-    ft.addInterval(f, xMin, xMax)
+    addSplit(f, xMin, xMax)
     scaleTable += (new RealGeneric(spec, fMin)).value.toBigInt
   }
 
@@ -85,12 +98,12 @@ private[rial] class ProbitTable(
   assert(fMax / fMin < 2.0, f"lump xMin=${xMin}, xMax=${xMax}, fMin=${fMin}, fMax=${fMax}, fMax/fMin=${fMax/fMin}")
 
   val f = (x: Double) => { min(probitHalf(x), fMax) / fMin - 1.0 }
-  ft.addInterval(f, xMin, xMax)
+  addSplit(f, xMin, xMax)
   scaleTable += (new RealGeneric(spec, fMin)).value.toBigInt
 
   val maxValue = new RealGeneric(spec, fMax)
 
-  assert(ft.intervals.length == nIntervals)
+  assert(ft.intervals.length == nIntervals * nSub)
 
   // ------------------------------------------------------------------------
 
@@ -145,6 +158,10 @@ private[rial] class ProbitTable(
  * @param nOrder       order of the polynomial of an interval.
  * @param stage        pipeline registers of this module.
  * @param lumpOctaves  deepest tail octaves merged into one interval.
+ * @param splitW       every interval of the table is divided into `2^splitW`
+ *                     sub-intervals, each with its own polynomial.
+ * @param guardBits    bits below the mantissa that the polynomial is computed
+ *                     with, rounded away before the scale multiply.
  * @param polyMulImpl  structure of the products of the polynomial. Only this
  *                     one has an addend to give a multiply-add, the
  *                     coefficient of a Horner step.
@@ -160,6 +177,8 @@ class GenRandomGaussian(
   nOrder:      Int,
   stage:       PipelineStageConfig,
   lumpOctaves: Int = 2, // deepest tail octaves merged into one interval
+  splitW:      Int = 0, // every interval split into 2^splitW sub-intervals
+  guardBits:   Int = 0, // bits of the polynomial below the mantissa
   polyMulImpl:  MulImpl = MulImpl.plain,
   scaleMulImpl: MulImpl = MulImpl.plain,
 ) extends Module {
@@ -197,8 +216,11 @@ class GenRandomGaussian(
   val xex0 = rndIn(rndW-3, spec.manW)
   val xman = rndIn(spec.manW-1, 0)
 
-  val inBitW  = spec.manW
-  val outBitW = spec.manW
+  // the normalised position inside an interval is manW bits wide: its top
+  // splitW bits choose the sub-interval, the rest is the polynomial input
+  val posW    = spec.manW
+  val inBitW  = posW - splitW
+  val outBitW = spec.manW + guardBits
 
   // Intervals: page-0 (idx 0) + nOctaves individual octaves (idx 1..nOctaves) +
   // 1 lumped deep interval (idx nOctaves+1). The main range provides
@@ -212,7 +234,8 @@ class GenRandomGaussian(
   val addrW       = log2Ceil(nIntervals)                   // e.g. 6
   val lumpAddr    = (nIntervals - 1).U(addrW.W)
 
-  val table  = new ProbitTable(spec, nOrder, nIntervals, inBitW, outBitW, lumpOctaves)
+  val table  = new ProbitTable(spec, nOrder, nIntervals, inBitW, outBitW,
+    lumpOctaves, splitW)
   val bitW   = table.getBitWidth()
   val coeffs = table.generateTable(bitW)
 
@@ -250,17 +273,17 @@ class GenRandomGaussian(
   })
 
   // Shift of the position inside the interval. `dxBits` is 1.xman followed by
-  // inBitW zeros, and every interval takes its position as the inBitW-bit
-  // window of it that starts at `dxShift`:
-  //   page 0            : 1.xman >> 1 >> xex, i.e. the window at inBitW+1+xex
-  //   page 1, main      : xman itself, the window at inBitW
+  // posW zeros, and every interval takes its position as the posW-bit window
+  // of it that starts at `dxShift`:
+  //   page 0            : 1.xman >> 1 >> xex, i.e. the window at posW+1+xex
+  //   page 1, main      : xman itself, the window at posW
   //   page 1, deep      : xman without its leading zeros and leading one, the
-  //                       window at inBitW-1-clz
+  //                       window at posW-1-clz
   //   page 1, lumped    : the lowest lumpOctaves bits of xman, spanning the
-  //                       interval linearly, the window at inBitW-deepIndiv
-  val dxShiftW  = log2Ceil(inBitW + 2 + mainOctaves)
-  val centralShift = (i: Int) => inBitW + 1 + min(i, mainOctaves)
-  val octaveShift  = (i: Int) => inBitW - min(deepIndiv, max(0, i - mainOctaves + 1))
+  //                       interval linearly, the window at posW-deepIndiv
+  val dxShiftW  = log2Ceil(posW + 2 + mainOctaves)
+  val centralShift = (i: Int) => posW + 1 + min(i, mainOctaves)
+  val octaveShift  = (i: Int) => posW - min(deepIndiv, max(0, i - mainOctaves + 1))
   val dxShiftOf = (i: Int) => {
     Mux(page === 0.U, centralShift(i).U(dxShiftW.W), octaveShift(i).U(dxShiftW.W))
   }
@@ -276,12 +299,22 @@ class GenRandomGaussian(
   val sgnDecode   = cutDecode(sgn)
   val validDecode = cutDecode.valid
 
-  val coef = packed(addrDecode).asTypeOf( MixedVec(bitW.coefBits.map(w => SInt(w.W))) )
+  // the normalised position inside the interval
+  val dxBits = Cat(1.U(1.W), xmanDecode, 0.U(posW.W))
+  val dxFull = (dxBits >> shiftDecode)(posW-1, 0)
 
-  // position inside the interval, as a signed value in [-1, 1)
+  // the sub-interval the position falls in sits below the interval index
+  val romAddr = if(splitW != 0) {
+    Cat(addrDecode, dxFull(posW-1, posW-splitW))
+  } else {
+    addrDecode
+  }
+
+  val coef = packed(romAddr).asTypeOf( MixedVec(bitW.coefBits.map(w => SInt(w.W))) )
+
+  // position inside the sub-interval, as a signed value in [-1, 1)
   val sdx = if(nOrder != 0) {
-    val dxBits = Cat(1.U(1.W), xmanDecode, 0.U(inBitW.W))
-    val dx = (dxBits >> shiftDecode)(inBitW-1, 0)
+    val dx = dxFull(inBitW-1, 0)
     Some(Cat(~dx(inBitW-1), dx(inBitW-2, 0)).asSInt)
   } else {
     None
@@ -329,8 +362,18 @@ class GenRandomGaussian(
   // -----------------------------------------------------------------
   // S3 : scale table and the operands of the mantissa product
 
+  // the guard bits of the polynomial are rounded away (half up), with the
+  // carry into 1.0 clamped, as the math functions round theirs
+  val polyMan = if(guardBits == 0) {
+    polynomial.io.out.bits
+  } else {
+    val res   = polynomial.io.out.bits
+    val zman0 = (res >> guardBits) +& res(guardBits-1)
+    Mux(zman0(spec.manW) === 1.U, Fill(spec.manW, 1.U(1.W)), zman0(spec.manW-1, 0))
+  }
+
   // 1.0~2.0
-  val yManW1 = Cat(1.U(1.W), polynomial.io.out.bits)
+  val yManW1 = Cat(1.U(1.W), polyMan)
 
   // page=1
   val scaleTable = VecInit(table.scaleTable.map(_.U(spec.W.W)).toSeq)
@@ -339,9 +382,9 @@ class GenRandomGaussian(
   val scaleMan   = scale(spec.manW-1, 0)
 
   // page=0; the shift of the position carries the octave, so the exponent
-  // (exBias-2) - xex is the one of the window at inBitW+1+xex
+  // (exBias-2) - xex is the one of the window at posW+1+xex
   val mulEx    = Mux(postPage === 0.U,
-    (spec.exBias - 1 + inBitW).U(spec.exW.W) - postShift, scaleEx)
+    (spec.exBias - 1 + posW).U(spec.exW.W) - postShift, scaleEx)
   val mulMan   = Mux(postPage === 0.U, postMan, scaleMan)
   val mulManW1 = Cat(1.U(1.W), mulMan)
 

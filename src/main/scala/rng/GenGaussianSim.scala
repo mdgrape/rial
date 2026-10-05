@@ -12,6 +12,10 @@
 //     count (clz); the deepest `lumpOctaves` octaves merge into one capped
 //     interval. dx is the normalized (leading-zeros + leading-1 removed) xman.
 //   - the polynomial output clamps a negative result to 0 (clampNegToZero).
+//   - every interval holds 2^splitW polynomials, one per sub-interval of x,
+//     picked by the top splitW bits of the position.
+//   - the polynomial is computed with `guardBits` bits below the mantissa,
+//     rounded away before the scale multiply.
 //
 package rial.rng
 
@@ -22,15 +26,17 @@ import spire.math.SafeLong
 object GenRandomGaussianSim {
 
   // Building a ProbitTable runs erfc inversion over every interval, so cache it
-  // per (spec, nOrder, rndW, lumpOctaves).
+  // per (spec, nOrder, rndW, lumpOctaves, splitW, guardBits).
   private val cache =
-    scala.collection.mutable.Map.empty[(RealSpec, Int, Int, Int),
+    scala.collection.mutable.Map.empty[(RealSpec, Int, Int, Int, Int, Int),
       (ProbitTable, PolynomialBitWidth, PolynomialCoefficients)]
 
-  private def tableFor(spec: RealSpec, nOrder: Int, rndW: Int, lumpOctaves: Int) =
-    cache.getOrElseUpdate((spec, nOrder, rndW, lumpOctaves), {
+  private def tableFor(spec: RealSpec, nOrder: Int, rndW: Int, lumpOctaves: Int,
+                       splitW: Int, guardBits: Int) =
+    cache.getOrElseUpdate((spec, nOrder, rndW, lumpOctaves, splitW, guardBits), {
       val table  = new ProbitTable(spec, nOrder, nIntervalsOf(rndW, spec, lumpOctaves),
-                                   spec.manW, spec.manW, lumpOctaves)
+                                   spec.manW - splitW, spec.manW + guardBits,
+                                   lumpOctaves, splitW)
       val bitW   = table.getBitWidth()
       val coeffs = table.generateTable(bitW)
       (table, bitW, coeffs)
@@ -41,12 +47,14 @@ object GenRandomGaussianSim {
     1 + (mainOctavesOf(rndW, spec) + (spec.manW - lumpOctaves)) + 1
 
   def genGaussian(rnd: BigInt, rndW: Int, spec: RealSpec, nOrder: Int,
-                  lumpOctaves: Int = 2): RealGeneric = {
+                  lumpOctaves: Int = 2, splitW: Int = 0,
+                  guardBits: Int = 0): RealGeneric = {
     val manW   = spec.manW
     val exW    = spec.exW
     val exBias = spec.exBias
 
-    val (table, _, coeffs) = tableFor(spec, nOrder, rndW, lumpOctaves)
+    val (table, _, coeffs) =
+      tableFor(spec, nOrder, rndW, lumpOctaves, splitW, guardBits)
 
     val mainOctaves = mainOctavesOf(rndW, spec)        // e.g. 39
     val deepIndiv   = manW - lumpOctaves               // e.g. 21
@@ -69,21 +77,33 @@ object GenRandomGaussianSim {
       else if (clz < deepIndiv) mainOctaves + 1 + clz
       else                      nIntervals - 1 // lumped deep interval
 
-    // polynomial input dx (unsigned; PolynomialEval.eval flips the MSB to signed)
-    val dx =
-      if (nOrder == 0)          BigInt(0)
-      else if (page == 0)       ((BigInt(1) << (manW - 1)) | (xman >> 1)) >> xex
+    // the normalised position inside the interval: its top splitW bits choose
+    // the sub-interval, the rest is the polynomial input (unsigned;
+    // PolynomialEval.eval flips the MSB to signed)
+    val inBitW = manW - splitW
+    val dxFull =
+      if (page == 0)            ((BigInt(1) << (manW - 1)) | (xman >> 1)) >> xex
       else if (xex0 != 0)       xman
       else if (clz < deepIndiv) (xman << (clz + 1)) & manMask
       else                      (xman << (manW - lumpOctaves)) & manMask
 
+    val row = (addr << splitW) | (dxFull >> inBitW).toInt
+    val dx  = dxFull & ((BigInt(1) << inBitW) - 1)
+
     // polynomial output, clamped like PolynomialEval with clampNegToZero = true:
     // a negative undershoot saturates to 0, an overshoot to resMax.
-    val resMax  = manMask
-    val polyRaw = PolynomialEval.eval(addr, dx, coeffs)
+    val resMax  = (BigInt(1) << (manW + guardBits)) - 1
+    val polyRaw = PolynomialEval.eval(row, dx, coeffs)
     val polyOut = if (polyRaw < 0) BigInt(0) else if (polyRaw > resMax) resMax else polyRaw
 
-    val yManW1 = (BigInt(1) << manW) | polyOut
+    // the guard bits are rounded away (half up), with the carry into 1.0
+    // clamped, as the math functions round theirs
+    val polyMan = if (guardBits == 0) { polyOut } else {
+      val rounded = (polyOut >> guardBits) + ((polyOut >> (guardBits - 1)) & 1)
+      if (rounded >= (BigInt(1) << manW)) { manMask } else { rounded }
+    }
+
+    val yManW1 = (BigInt(1) << manW) | polyMan
 
     val (mulEx, mulMan) =
       if (page == 0) {
