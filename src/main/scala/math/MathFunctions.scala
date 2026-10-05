@@ -414,10 +414,8 @@ class MathFunctions(
   // ==========================================================================
 
   val nTable = stages.at("table")
-
-  val nCoef = stages.at("coef")
-
-  val nPoly = stages.latency("poly")
+  val nCoef  = stages.at("coef")
+  val nPoly  = stages.latency("poly")
 
   /** latency from the table input to the polynomial output. */
   val nTabToPoly = nTable + nCoef + nPoly
@@ -651,13 +649,11 @@ class MathFunctions(
   // the interval offset reach the table input
   val tableRom = Module(new TableCoeffRom(romLayout, nTable))
 
-  tableRom.io.adr := MuxLookup(selTab,
-    0.U.asTypeOf(Valid(UInt(romLayout.addrW.W))))(
-      cfg.funcs.map(fn => cfg.signal(fn) -> romAdrOf(fn)))
-
+  tableRom.io.adr := MuxLookup(selTab, 0.U.asTypeOf(tableRom.io.adr))(
+    cfg.funcs.map(fn => cfg.signal(fn) -> romAdrOf(fn))
+  )
   val polynomialCoef = tableRom.io.cs
-
-  val polynomialDx = if (bitW.nOrder == 0) { None } else { Some(
+  val polynomialDx   = if (bitW.nOrder == 0) { None } else { Some(
     Pipe(MuxLookup(selTab, 0.U.asTypeOf(Valid(UInt(bitW.inBitW.W))))(
       cfg.funcs.map(fn => cfg.signal(fn) -> polynomialDxs.get(fn))
     ), nTable)
