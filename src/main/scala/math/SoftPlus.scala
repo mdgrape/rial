@@ -5,7 +5,7 @@
 //   pre  : xIn  .. xTab    -- decode |x| into xScaled; compute flags & table addr
 //                             (adr includes a 1-bit selector = xsgn that the
 //                             coefficient ROM reads as the pos/neg sub-table)
-//   tab  : xTab .. xCalc   -- concat'd pos+neg coefficient ROM, Mux'd by xsgn
+//   tab  : xTab .. xCalc   -- the coefficient ROM, read at that address
 //   poly : xCalc .. xPost  -- shared PolynomialEval evaluates the chosen sub-table
 //   post : xPost .. xOut   -- normalize zres, apply xsgn-dependent exponent
 //                             shift, fold in special-value overrides
