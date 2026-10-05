@@ -200,7 +200,7 @@ class MathFunctions(
   val xIn: Valid[DecomposedReal] = xdecomp.io.decomp
 
   // ATan2 also needs the y operand decomposed.
-  val yIn: Option[Valid[DecomposeReal]] = if (cfg.has(ATan2Phase1)) {
+  val yIn: Option[Valid[DecomposedReal]] = if (cfg.has(ATan2Phase1)) {
     val m = Module(new DecomposeReal(spec))
     m.io.real.valid := cutIn.valid
     m.io.real.bits  := cutIn(io.in.bits.y.get)
