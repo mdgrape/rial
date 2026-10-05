@@ -46,9 +46,9 @@ object GenRandomGaussianSim {
   private def nIntervalsOf(rndW: Int, spec: RealSpec, lumpOctaves: Int): Int =
     1 + (mainOctavesOf(rndW, spec) + (spec.manW - lumpOctaves)) + 1
 
-  def genGaussian(rnd: BigInt, rndW: Int, spec: RealSpec, nOrder: Int,
-                  lumpOctaves: Int = 2, splitW: Int = 0,
-                  guardBits: Int = 0): RealGeneric = {
+  def genGaussian(rnd: BigInt, rndW: Int, spec: RealSpec, nOrder: Int = 3,
+                  lumpOctaves: Int = 2, splitW: Int = 3,
+                  guardBits: Int = 3): RealGeneric = {
     val manW   = spec.manW
     val exW    = spec.exW
     val exBias = spec.exBias

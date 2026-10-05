@@ -33,7 +33,7 @@ private[rial] class ProbitTable(
   val inBitW:      Int,
   val outBitW:     Int,
   val lumpOctaves: Int = 2, // deepest octaves merged into one (capped) interval
-  val splitW:      Int = 0, // every interval split into 2^splitW sub-intervals
+  val splitW:      Int = 3, // every interval split into 2^splitW sub-intervals
 ) {
   private val sqrt2 = scala.math.sqrt(2)
   private val log2 = (a: Double) => log(a) / log(2.0)
@@ -174,11 +174,11 @@ private[rial] class ProbitTable(
 class GenRandomGaussian(
   rndW: Int,
   spec: RealSpec,
-  nOrder:      Int,
+  nOrder:      Int = 3,
   stage:       PipelineStageConfig,
   lumpOctaves: Int = 2, // deepest tail octaves merged into one interval
-  splitW:      Int = 0, // every interval split into 2^splitW sub-intervals
-  guardBits:   Int = 0, // bits of the polynomial below the mantissa
+  splitW:      Int = 3, // every interval split into 2^splitW sub-intervals
+  guardBits:   Int = 3, // bits of the polynomial below the mantissa
   polyMulImpl:  MulImpl = MulImpl.plain,
   scaleMulImpl: MulImpl = MulImpl.plain,
 ) extends Module {

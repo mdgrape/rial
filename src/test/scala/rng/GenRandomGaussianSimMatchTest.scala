@@ -62,7 +62,7 @@ class GenRandomGaussianSimMatchTest extends AnyFunSpec with ChiselSim with EmitV
 
   def matchTest(polyMulImpl: MulImpl,
     scaleMulImpl: MulImpl = MulImpl.plain,
-    splitW: Int = 0, guardBits: Int = 0): Unit = {
+    splitW: Int = 3, guardBits: Int = 3): Unit = {
 
     val n = getOption[Int]("n").getOrElse(16)
     simulate(new GenRandomGaussian(rndW, spec, nOrder, PipelineStageConfig.none,
@@ -108,5 +108,9 @@ class GenRandomGaussianSimMatchTest extends AnyFunSpec with ChiselSim with EmitV
 
   it("... and with a multiply-add polynomial over a split mantissa product") {
     matchTest(MulImpl.macc(17), MulImpl.split(17))
+  }
+
+  it("... and with one polynomial per interval and no guard bits") {
+    matchTest(MulImpl.plain, MulImpl.plain, splitW = 0, guardBits = 0)
   }
 }
