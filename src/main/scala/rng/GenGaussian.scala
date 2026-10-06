@@ -218,9 +218,9 @@ class GenRandomGaussian(
 
   // the normalised position inside an interval is manW bits wide: its top
   // splitW bits choose the sub-interval, the rest is the polynomial input
-  val posW    = spec.manW
-  val inBitW  = posW - splitW
-  val outBitW = spec.manW + guardBits
+  val manW    = spec.manW
+  val inBitW  = manW - splitW
+  val outBitW = manW + guardBits
 
   // Intervals: page-0 (idx 0) + nOctaves individual octaves (idx 1..nOctaves) +
   // 1 lumped deep interval (idx nOctaves+1). The main range provides
@@ -273,17 +273,17 @@ class GenRandomGaussian(
   })
 
   // Shift of the position inside the interval. `dxBits` is 1.xman followed by
-  // posW zeros, and every interval takes its position as the posW-bit window
+  // manW zeros, and every interval takes its position as the manW-bit window
   // of it that starts at `dxShift`:
-  //   page 0            : 1.xman >> 1 >> xex, i.e. the window at posW+1+xex
-  //   page 1, main      : xman itself, the window at posW
+  //   page 0            : 1.xman >> 1 >> xex, i.e. the window at manW+1+xex
+  //   page 1, main      : xman itself, the window at manW
   //   page 1, deep      : xman without its leading zeros and leading one, the
-  //                       window at posW-1-clz
+  //                       window at manW-1-clz
   //   page 1, lumped    : the lowest lumpOctaves bits of xman, spanning the
-  //                       interval linearly, the window at posW-deepIndiv
-  val dxShiftW  = log2Ceil(posW + 2 + mainOctaves)
-  val centralShift = (i: Int) => posW + 1 + min(i, mainOctaves)
-  val octaveShift  = (i: Int) => posW - min(deepIndiv, max(0, i - mainOctaves + 1))
+  //                       interval linearly, the window at manW-deepIndiv
+  val dxShiftW  = log2Ceil(manW + 2 + mainOctaves)
+  val centralShift = (i: Int) => manW + 1 + min(i, mainOctaves)
+  val octaveShift  = (i: Int) => manW - min(deepIndiv, max(0, i - mainOctaves + 1))
   val dxShiftOf = (i: Int) => {
     Mux(page === 0.U, centralShift(i).U(dxShiftW.W), octaveShift(i).U(dxShiftW.W))
   }
@@ -300,12 +300,12 @@ class GenRandomGaussian(
   val validDecode = cutDecode.valid
 
   // the normalised position inside the interval
-  val dxBits = Cat(1.U(1.W), xmanDecode, 0.U(posW.W))
-  val dxFull = (dxBits >> shiftDecode)(posW-1, 0)
+  val dxBits = Cat(1.U(1.W), xmanDecode, 0.U(manW.W))
+  val dxFull = (dxBits >> shiftDecode)(manW-1, 0)
 
   // the sub-interval the position falls in sits below the interval index
   val romAddr = if(splitW != 0) {
-    Cat(addrDecode, dxFull(posW-1, posW-splitW))
+    Cat(addrDecode, dxFull(manW-1, manW-splitW))
   } else {
     addrDecode
   }
@@ -382,9 +382,9 @@ class GenRandomGaussian(
   val scaleMan   = scale(spec.manW-1, 0)
 
   // page=0; the shift of the position carries the octave, so the exponent
-  // (exBias-2) - xex is the one of the window at posW+1+xex
+  // (exBias-2) - xex is the one of the window at manW+1+xex
   val mulEx    = Mux(postPage === 0.U,
-    (spec.exBias - 1 + posW).U(spec.exW.W) - postShift, scaleEx)
+    (spec.exBias - 1 + manW).U(spec.exW.W) - postShift, scaleEx)
   val mulMan   = Mux(postPage === 0.U, postMan, scaleMan)
   val mulManW1 = Cat(1.U(1.W), mulMan)
 
