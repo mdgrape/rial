@@ -4,118 +4,174 @@ default:
 stages:
   - test
 
+# Every ScalaTest suite of src/test runs in exactly one of the jobs below,
+# grouped by what it tests so that a red job names the area at a glance. A job
+# runs its suites one sbt invocation each, one after another, so that no two
+# Verilator builds ever share a JVM (they collide); the jobs run concurrently
+# on separate runners. A category whose suites take long is split into jobs
+# of a few minutes each.
+
 test-arith:
   stage: test
   script:
-    - sbt "testOnly rial.tests.RealSimTest"
-    - sbt "testOnly rial.tests.AddFPTest"
-    - sbt "testOnly rial.tests.MultFPTest"
-    - sbt "testOnly rial.tests.MultFPIntTest"
-    - sbt "testOnly rial.tests.FMAFPTest"
-    - sbt "testOnly rial.tests.FusedMulAddRoundingSpec"
-    - sbt "testOnly rial.tests.FusedMulAddCancellationSpec"
+    - sbt -J-Xmx4G "testOnly rial.tests.RealSimTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.AddFPTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.MultFPTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.MultFPIntTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.FMAFPTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.FusedMulAddRoundingSpec"
+    - sbt -J-Xmx4G "testOnly rial.tests.FusedMulAddCancellationSpec"
+    - sbt -J-Xmx4G "testOnly rial.tests.SplitMultiplierTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.MultiplyAddTest"
 
 test-fixed:
   stage: test
   script:
-    - sbt "testOnly rial.tests.FixedToFloatTest"
-    - sbt "testOnly rial.tests.FloatToFixedTest"
-    - sbt "testOnly rial.tests.ScaledFixedToFloatTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.FixedToFloatTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.FloatToFixedTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.ScaledFixedToFloatTest"
 
-test-ecc:
+test-ecc-util:
   stage: test
   script:
-    - sbt "testOnly rial.tests.CRC16Test"
-    - sbt "testOnly rial.tests.FletchersChecksumTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.CRC16Test"
+    - sbt -J-Xmx4G "testOnly rial.tests.FletchersChecksumTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.PipelineStageConfigTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.ReservationTableTest"
 
 test-dyn:
   stage: test
   script:
-    - sbt "testOnly rial.tests.DynCompareTest"
-    - sbt "testOnly rial.tests.DynMinMaxTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.DynCompareTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.DynMinMaxTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.DynAddTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.DynMulTest"
 
 test-rng:
   stage: test
   script:
-    - sbt "testOnly rial.tests.ThreefryTest"
-    - sbt "testOnly rial.tests.ThreefryGeneratorTest"
-    - sbt "testOnly rial.tests.ThreefryKatTest"
-    - sbt "testOnly rial.tests.SquaresTest"
-    - sbt "testOnly rial.tests.Squares32GeneratorTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.ThreefryTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.ThreefryGeneratorTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.ThreefryKatTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.SquaresTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.Squares32GeneratorTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.Uniform01Test"
+    - sbt -J-Xmx4G "testOnly rial.tests.Uniform01CloseTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.Uniform12Test"
+    - sbt -J-Xmx4G "testOnly rial.tests.GenRandomFloatSimMatchTest"
     - sbt -J-Xmx4G "testOnly rial.tests.IrwinHallTest"
     - sbt -J-Xmx4G "testOnly rial.tests.IrwinHallGeneratorTest"
     - sbt -J-Xmx4G "testOnly rial.tests.IrwinHallSimMatchTest"
-    - sbt "testOnly rial.tests.Uniform01Test"
-    - sbt "testOnly rial.tests.Uniform01CloseTest"
-    - sbt "testOnly rial.tests.Uniform12Test"
-    - sbt "testOnly rial.tests.GenRandomFloatSimMatchTest"
-    - sbt "testOnly rial.tests.GenGaussianTest"
-    - sbt "testOnly rial.tests.GenGaussianTailTest"
-    - sbt "testOnly rial.tests.GenRandomGaussianSimMatchTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.GenGaussianTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.GenGaussianTailTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.GenRandomGaussianSimMatchTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.GenGaussianPrecisionTest"
+
+test-table-config:
+  stage: test
+  script:
+    - sbt -J-Xmx4G "testOnly rial.tests.PolynomialEvalTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.RomLayoutTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.TableAddrWidthTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.ScaledArgumentErrorTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.FuncDumpTest"
+
+test-math-latency:
+  stage: test
+  script:
+    - sbt -J-Xmx4G "testOnly rial.tests.PerFunctionLatencyTest"
 
 test-math-simple:
   stage: test
   script:
-    - sbt "testOnly rial.tests.InvSqrtSimTest"
-    - sbt "testOnly rial.tests.InvSqrtTest"
-    - sbt "testOnly rial.tests.SqrtSimTest"
-    - sbt "testOnly rial.tests.SqrtTest"
-    - sbt "testOnly rial.tests.ReciprocalSimTest"
-    - sbt "testOnly rial.tests.ReciprocalTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.SqrtSimTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.SqrtTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.InvSqrtSimTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.InvSqrtTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.ReciprocalSimTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.ReciprocalTest"
 
 test-math-sincos:
   stage: test
   script:
-    - sbt "testOnly rial.tests.SinSimTest"
-    - sbt "testOnly rial.tests.SinTest"
-    - sbt "testOnly rial.tests.CosSimTest"
-    - sbt "testOnly rial.tests.CosTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.SinSimTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.SinTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.CosSimTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.CosTest"
 
-test-math-acos:
+test-math-sinpi:
   stage: test
   script:
-    - sbt "testOnly rial.tests.ACosPhase1SimTest"
-    - sbt "testOnly rial.tests.ACosPhase1Test"
-    - sbt "testOnly rial.tests.ACosPhase2SimTest"
-    - sbt "testOnly rial.tests.ACosPhase2Test"
+    - sbt -J-Xmx4G "testOnly rial.tests.SinPiSimTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.SinPiTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.CosPiTest"
 
-test-math-atan2-1-sim:
+test-math-acos-atan2:
   stage: test
   script:
-    - sbt "testOnly rial.tests.ATan2Phase1SimTest"
-
-test-math-atan2-1:
-  stage: test
-  script:
-    - sbt "testOnly rial.tests.ATan2Phase1Test"
-
-test-math-atan2-2-sim:
-  stage: test
-  script:
-    - sbt "testOnly rial.tests.ATan2Phase2SimTest"
-
-test-math-atan2-2:
-  stage: test
-  script:
-    - sbt "testOnly rial.tests.ATan2Phase2Test"
+    - sbt -J-Xmx4G "testOnly rial.tests.ACosPhase1SimTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.ACosPhase1Test"
+    - sbt -J-Xmx4G "testOnly rial.tests.ACosPhase2SimTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.ACosPhase2Test"
+    - sbt -J-Xmx4G "testOnly rial.tests.ATan2Phase1SimTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.ATan2Phase1Test"
+    - sbt -J-Xmx4G "testOnly rial.tests.ATan2Phase2SimTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.ATan2Phase2Test"
 
 test-math-exponential:
   stage: test
   script:
-    - sbt "testOnly rial.tests.ExpSimTest"
-    - sbt "testOnly rial.tests.ExpTest"
-    - sbt "testOnly rial.tests.LogSimTest"
-    - sbt "testOnly rial.tests.LogTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.ExpSimTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.ExpTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.ExpTableCarryTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.LogSimTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.LogTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.Pow2SimTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.Pow2Test"
 
-test-task-specific-funcs:
+test-math-sigmoid:
   stage: test
   script:
-    - sbt "testOnly rial.tests.ScaleMixtureGaussianSimTest"
-    - sbt "testOnly rial.tests.ScaleMixtureGaussianTest"
-    - sbt "testOnly rial.tests.SigmoidSimTest"
-    - sbt "testOnly rial.tests.SigmoidTest"
-    - sbt "testOnly rial.tests.SoftPlusSimTest"
-    - sbt "testOnly rial.tests.SoftPlusTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.SigmoidSimTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.SigmoidTest"
+
+test-math-task-specific:
+  stage: test
+  script:
+    - sbt -J-Xmx4G "testOnly rial.tests.SoftPlusSimTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.SoftPlusTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.ScaleMixtureGaussianSimTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.ScaleMixtureGaussianTest"
+
+test-math-fixed-acos-atan:
+  stage: test
+  script:
+    - sbt -J-Xmx4G "testOnly rial.tests.ACosFixedSimTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.ACosFixedTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.ATanFixedSimTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.ATanFixedTest"
+
+test-math-fixed-log2:
+  stage: test
+  script:
+    - sbt -J-Xmx4G "testOnly rial.tests.Log2FixedSimTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.Log2FixedTest"
+
+test-math-fixed-sinpi:
+  stage: test
+  script:
+    - sbt -J-Xmx4G "testOnly rial.tests.SinPiFixedSimTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.SinPiFixedTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.CosPiFixedTest"
+
+# Fails when a suite exists that no job above runs, or a job names a suite
+# that no longer exists.
+test-every-suite-is-scheduled:
+  stage: test
+  script:
+    - sbt -batch "show Test/definedTestNames" | grep -o 'rial\.tests\.[A-Za-z0-9]*' | sort -u > defined.txt
+    - grep -o 'rial\.tests\.[A-Za-z0-9]*' .gitlab-ci.yml | sort -u > scheduled.txt
+    - diff defined.txt scheduled.txt
 
 test-rialcpp:
   stage: test
