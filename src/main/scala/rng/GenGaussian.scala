@@ -310,7 +310,8 @@ class GenRandomGaussian(
     addrDecode
   }
 
-  val coef = packed(romAddr).asTypeOf( MixedVec(bitW.coefBits.map(w => SInt(w.W))) )
+  // the row is cut as one word, the shape a block RAM can register
+  val coefWord = packed(romAddr)
 
   // position inside the sub-interval, as a signed value in [-1, 1)
   val sdx = if(nOrder != 0) {
@@ -323,7 +324,7 @@ class GenRandomGaussian(
   // --------------------------- stage "table" ---------------------------
   private val cutTable = new SharedPipe("table", validDecode, stages.at("table"))
 
-  val coefTable  = cutTable(coef)
+  val coefTable  = cutTable(coefWord).asTypeOf(MixedVec(bitW.coefBits.map(w => SInt(w.W))))
   val sdxTable   = sdx.map(x => cutTable(x))
   val pageTable  = cutTable(pageDecode)
   val addrTable  = cutTable(addrDecode)
