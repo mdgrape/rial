@@ -1,7 +1,7 @@
 // See README.md for license details.
 
-ThisBuild / scalaVersion     := "2.13.18"
-val chiselVersion = "7.11.0"
+ThisBuild / scalaVersion := "2.13.18"
+val chiselVersion = "7.16.0"
 
 // Settings of the library.
 lazy val commonSettings = Seq(
