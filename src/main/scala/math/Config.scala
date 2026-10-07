@@ -229,6 +229,10 @@ object FuncKind extends Enumeration {
  * An `Int` converts to [[UniformAddrWidth]], so one width for every table is
  * written as that number alone.
  *
+ * `inBitW` is shared, so the narrowest address of them all decides it: a
+ * position that reaches the end of the fraction of every table is `manW` less
+ * that width.
+ *
  * {{{
  * import rial.math.FuncKind._
  *
@@ -237,7 +241,7 @@ object FuncKind extends Enumeration {
  *   spec    = RealSpec.Float32Spec,
  *   nOrder  = 2,
  *   addrW   = PerFuncAddrWidth(8, Map(Sqrt -> 5, InvSqrt -> 6, Exp -> 6)),
- *   inBitW  = RealSpec.Float32Spec.manW - 8,
+ *   inBitW  = RealSpec.Float32Spec.manW - 5,
  *   outBitW = RealSpec.Float32Spec.manW + 3,
  * )
  * }}}
@@ -635,13 +639,18 @@ object MathFuncConfig {
   // outBitW) match the typical per-function setups used elsewhere; users
   // wanting tighter precision should construct a custom MathFuncConfig.
 
-  /** Default FP32 config supporting only the [[simple]] function set. */
+  /** Default FP32 config supporting only the [[simple]] function set.
+   *
+   *  Each table is read at the narrowest address that keeps its maximum
+   *  error -- sqrt 5 bits, 1/sqrt(x) 6, 1/x 7; a wider one would only round
+   *  more results correctly.
+   */
   val simpleFP32 = new MathFuncConfig(
     funcs   = simple,
     spec    = RealSpec.Float32Spec,
     nOrder  = 2,
-    addrW   = 8,
-    inBitW  = RealSpec.Float32Spec.manW - 8,
+    addrW   = PerFuncAddrWidth(8, Map(Sqrt -> 5, InvSqrt -> 6, Reciprocal -> 7)),
+    inBitW  = 18,
     outBitW = RealSpec.Float32Spec.manW + 3,
   )
   /** Default BF16 config supporting only the [[simple]] function set. */
@@ -654,13 +663,19 @@ object MathFuncConfig {
     outBitW = RealSpec.BFloat16Spec.manW + 1,
   )
 
-  /** Default FP32 config supporting the [[standard]] function set. */
+  /** Default FP32 config supporting the [[standard]] function set.
+   *
+   *  Each table is read at the narrowest address that keeps its maximum
+   *  error -- sqrt 5 bits, 1/x and acos 7, the rest 6; a wider one would only
+   *  round more results correctly.
+   */
   val standardFP32 = new MathFuncConfig(
     funcs   = standard,
     spec    = RealSpec.Float32Spec,
     nOrder  = 2,
-    addrW   = 8,
-    inBitW  = RealSpec.Float32Spec.manW - 8,
+    addrW   = PerFuncAddrWidth(8, Map(Sqrt -> 5, InvSqrt -> 6, Reciprocal -> 7,
+      Sin -> 6, Exp -> 6, Log -> 6, ACosPhase2 -> 7, ATan2Phase2 -> 6)),
+    inBitW  = 18,
     outBitW = RealSpec.Float32Spec.manW + 3,
   )
   /** Default BF16 config supporting the [[standard]] function set. */
@@ -673,13 +688,19 @@ object MathFuncConfig {
     outBitW = RealSpec.BFloat16Spec.manW + 1,
   )
 
-  /** Default FP32 config supporting the [[standardScaled]] function set. */
+  /** Default FP32 config supporting the [[standardScaled]] function set.
+   *
+   *  Each table is read at the narrowest address that keeps its maximum
+   *  error -- sqrt 5 bits, 1/x and acos 7, the rest 6; a wider one would only
+   *  round more results correctly.
+   */
   val standardScaledFP32 = new MathFuncConfig(
     funcs   = standardScaled,
     spec    = RealSpec.Float32Spec,
     nOrder  = 2,
-    addrW   = 8,
-    inBitW  = RealSpec.Float32Spec.manW - 8,
+    addrW   = PerFuncAddrWidth(8, Map(Sqrt -> 5, InvSqrt -> 6, Reciprocal -> 7,
+      SinPi -> 6, Pow2 -> 6, Log -> 6, ACosPhase2 -> 7, ATan2Phase2 -> 6)),
+    inBitW  = 18,
     outBitW = RealSpec.Float32Spec.manW + 3,
   )
   /** Default BF16 config supporting the [[standardScaled]] function set. */
@@ -698,12 +719,18 @@ object MathFuncConfig {
    *  tables of this set divide a region of their own per binade into
    *  sub-intervals, so a position reaches further down the mantissa than a
    *  flat table's does.
+   *
+   *  Each table is read at the narrowest address that keeps its maximum
+   *  error -- sqrt 5 bits, 1/sqrt(x) and pow2 6, 1/x 7, the tables of this
+   *  set's own functions 8; a wider one would only round more results
+   *  correctly.
    */
   val standardFixedFP32 = new MathFuncConfig(
     funcs   = standardFixed,
     spec    = RealSpec.Float32Spec,
     nOrder  = 2,
-    addrW   = 8,
+    addrW   = PerFuncAddrWidth(8, Map(Sqrt -> 5, InvSqrt -> 6, Reciprocal -> 7,
+      Pow2 -> 6)),
     inBitW  = 18,
     outBitW = RealSpec.Float32Spec.manW + 3,
   )
@@ -724,13 +751,18 @@ object MathFuncConfig {
    *  reconstructs its result by multiplying the polynomial by ~`2^15`; the
    *  other functions work at that size but their ROMs become wider than they
    *  need, so prefer [[standardFP32]] when SMG is not needed.
+   *
+   *  Each table is read at the narrowest address that keeps its maximum
+   *  error -- sqrt 5 bits, 1/x and acos 7, sigmoid, softplus and SMG 8, the
+   *  rest 6; a wider one would only round more results correctly.
    */
   val allFP32 = new MathFuncConfig(
     funcs   = all,
     spec    = RealSpec.Float32Spec,
     nOrder  = 2,
-    addrW   = 8,
-    inBitW  = RealSpec.Float32Spec.manW - 8,
+    addrW   = PerFuncAddrWidth(8, Map(Sqrt -> 5, InvSqrt -> 6, Reciprocal -> 7,
+      Sin -> 6, Exp -> 6, Log -> 6, ACosPhase2 -> 7, ATan2Phase2 -> 6)),
+    inBitW  = 18,
     outBitW = RealSpec.Float32Spec.manW + 8,
     scaleMixtureGaussianSigma = Some(defaultSMGSigma),
   )

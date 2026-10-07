@@ -53,9 +53,9 @@ class ExpTableCarryTest extends AnyFunSpec {
 
   describe("ExpTable.maxPolynomial reproduces the measured maxima") {
 
-    it("standardFP32 reaches 2^26 - 12") {
+    it("standardFP32 reaches 2^26 - 14") {
       assert(ExpTable.maxPolynomial(MathFuncConfig.standardFP32.coeffs(Exp),
-             RealSpec.Float32Spec) == (BigInt(1) << 26) - 12)
+             RealSpec.Float32Spec) == (BigInt(1) << 26) - 14)
     }
 
     it("standardBF16 reaches 2^8 - 3") {
