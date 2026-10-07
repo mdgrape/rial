@@ -172,15 +172,7 @@ object SoftPlusSimGeneric {
     }
     val zScaled0 = PolynomialEval.eval(addr, xiv, t)
 
-    val zScaled = if (zScaled0 < 0) {
-      println(f"WARNING (${this.getClass.getName}) : polynomial value negative at x=${x.toDouble}")
-      SafeLong(0)
-    } else if (zScaled0 >= (SafeLong(1) << calcW)) {
-      println(f"WARNING (${this.getClass.getName}) : polynomial range overflow at x=${x.toDouble}")
-      maskSL(calcW)
-    } else {
-      SafeLong(zScaled0)
-    }
+    val zScaled = SafeLong(PolynomialEval.clamp(zScaled0, t.bitW))
 
     // ---- normalize and round ----
     val zShift = (calcW + 1) - binaryWidthSL(zScaled)

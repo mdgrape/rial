@@ -135,7 +135,7 @@ object ReciprocalSimGeneric {
       f" must be == mantissa width(${manW}), for polynomial order is zero.")
 
     // If man == 0, that means x = 2^N, then z = 2^-N, so zman = 0
-    val zman0 = if (man == SafeLong(0)) {
+    val zman = if (man == SafeLong(0)) {
       SafeLong(0)
     } else {
       val addr  = TableAddress.adr(man, manW, addrW)
@@ -144,17 +144,7 @@ object ReciprocalSimGeneric {
       } else {
         TableAddress.dx(man, manW, addrW, t.bitW.inBitW)
       }
-      SafeLong(PolynomialEval.eval(addr, xiv, t))
-    }
-
-    val zman = if(zman0 < SafeLong(0)) {
-      println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=$x%h")
-      SafeLong(0)
-    } else if (zman0 >= (SafeLong(1)<<outPrec)) {
-      println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=$x%h")
-      maskSL(outPrec)
-    } else {
-      zman0
+      SafeLong(PolynomialEval.clamp(PolynomialEval.eval(addr, xiv, t), t.bitW))
     }
 
     // Simple rounding

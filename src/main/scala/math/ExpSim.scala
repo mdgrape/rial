@@ -240,10 +240,8 @@ object ExpSimGeneric {
       // FP64 + x << 1 path: polynomial result can dip slightly negative; pin to 0.
       SafeLong(0)
     } else {
-      PolynomialEval.eval(addr, xiv, t).toSafeLong
+      PolynomialEval.clamp(PolynomialEval.eval(addr, xiv, t), t.bitW).toSafeLong
     }
-    assert(0 <= zmanRaw && zmanRaw < (SafeLong(1) << outPrec),
-      f"x = ${x.toDouble}, zmanRaw = ${zmanRaw.toLong.toBinaryString} not in [0, 2^${outPrec})")
 
     val zmanRound = if (extraBits > 0) {
       (zmanRaw >> extraBits) + bit(extraBits - 1, zmanRaw)

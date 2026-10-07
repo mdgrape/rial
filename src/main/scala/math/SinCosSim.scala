@@ -323,15 +323,7 @@ private[math] object SinCosReduction {
 
     val res0 = PolynomialEval.eval(addr, xiv, t)
 
-    val res = if (res0 < 0) {
-      println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x = ${x.toDouble}, sin(x) = ${sin(x.toDouble)}")
-      SafeLong(0)
-    } else if (res0 >= (SafeLong(1) << outPrec)) {
-      println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x = ${x.toDouble}, sin(x) = ${sin(x.toDouble)}")
-      maskSL(outPrec)
-    } else {
-      SafeLong(res0)
-    }
+    val res = SafeLong(PolynomialEval.clamp(res0, t.bitW))
 
     Reduced(zSgn, yex, yman, res)
   }

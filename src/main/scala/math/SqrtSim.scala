@@ -164,16 +164,7 @@ object SqrtSimGeneric {
       TableAddress.dx(frac, manW, addrW, t.bitW.inBitW)
     }
     val zman0 = PolynomialEval.eval(addr, xiv, t)
-
-    val zman = if(zman0 < 0) {
-      println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=$x%h")
-      SafeLong(0)
-    } else if (zman0 >= (SafeLong(1)<<outPrec)) {
-      println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=$x%h")
-      maskSL(outPrec)
-    } else {
-      SafeLong(zman0)
-    }
+    val zman  = SafeLong(PolynomialEval.clamp(zman0, t.bitW))
 
     // Simple rounding
     val zmanRounded = if (extraBits > 0) {

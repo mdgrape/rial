@@ -152,7 +152,8 @@ object ScaleMixtureGaussianSimGeneric {
     } else {
       TableAddress.dx(xTableMan, manW, addrW, t.bitW.inBitW)
     }
-    val zTable0 = PolynomialEval.eval(addr, xiv, t)
+    val zTable0 = PolynomialEval.clamp(
+      PolynomialEval.eval(addr, xiv, t), t.bitW)
 
     // if |x| >= domainMax, g(x) -> 0 and the table term vanishes.
     val zTable: Long = if (xTableShift0 > 0) zTable0.toLong else 0L

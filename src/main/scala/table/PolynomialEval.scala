@@ -284,4 +284,33 @@ object PolynomialEval {
       PolynomialEval.evalInterval(sx, coeffs.bitW, coeffs.coeffs(addr))
     }
   }
+
+  /** What the hardware returns for a result of [[eval]] outside `[0.0, 1.0)`.
+   *
+   * The accumulator keeps the low `calcBits(0)` bits of the result, and the
+   * output saturates to all ones above the range. A negative result reaches
+   * the output as those bits, so it saturates as well, unless
+   * `clampNegToZero` turns it into zero.
+   *
+   * @param res            result of [[eval]]
+   * @param bitW           the widths the coefficients were generated with
+   * @param clampNegToZero the flag of the [[rial.table.PolynomialEval]] that
+   *                       evaluates this polynomial
+   */
+  def clamp(res: BigInt, bitW: PolynomialBitWidth,
+    clampNegToZero: Boolean = false): BigInt = {
+
+    val calcW  = bitW.calcBits(0)
+    val resMax = (BigInt(1) << bitW.outBitW) - 1
+    val resU   = res & ((BigInt(1) << calcW) - 1)
+    val isNeg  = resU >= (BigInt(1) << (calcW - 1))
+
+    if (clampNegToZero && isNeg) {
+      BigInt(0)
+    } else if (resU > resMax) {
+      resMax
+    } else {
+      resU
+    }
+  }
 }

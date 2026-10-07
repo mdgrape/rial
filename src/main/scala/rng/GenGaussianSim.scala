@@ -90,11 +90,10 @@ object GenRandomGaussianSim {
     val row = (addr << splitW) | (dxFull >> inBitW).toInt
     val dx  = dxFull & ((BigInt(1) << inBitW) - 1)
 
-    // polynomial output, clamped like PolynomialEval with clampNegToZero = true:
-    // a negative undershoot saturates to 0, an overshoot to resMax.
-    val resMax  = (BigInt(1) << (manW + guardBits)) - 1
-    val polyRaw = PolynomialEval.eval(row, dx, coeffs)
-    val polyOut = if (polyRaw < 0) BigInt(0) else if (polyRaw > resMax) resMax else polyRaw
+    // the polynomial output, clamped as its evaluator clamps it: a negative
+    // undershoot saturates to 0, an overshoot to all ones
+    val polyOut = PolynomialEval.clamp(PolynomialEval.eval(row, dx, coeffs),
+      coeffs.bitW, clampNegToZero = true)
 
     // the guard bits are rounded away (half up), with the carry into 1.0
     // clamped, as the math functions round theirs

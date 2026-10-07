@@ -182,7 +182,8 @@ object ACosPhase2SimGeneric {
       TableAddress.dx(xAligned, manW, addrW, tACos.bitW.inBitW)
     }
 
-    val polynomial = SafeLong(PolynomialEval.eval(addr, xiv, tACos))
+    val polynomial = SafeLong(PolynomialEval.clamp(
+      PolynomialEval.eval(addr, xiv, tACos), tACos.bitW))
 
     // -- multiply (acos(1-t^2)/t) * t to get acos(1-t^2) --
     val lhsManW1 = polynomial + (SafeLong(1) << calcW) // value in [1, 2), hidden 1 at calcW

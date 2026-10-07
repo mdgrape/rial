@@ -191,13 +191,7 @@ object SinPiFixedSimGeneric {
     val res0 = PolynomialEval.eval(addr, dx, t)
 
     // the hardware clamps whatever leaves the polynomial to [0, 1)
-    val zres = if (res0 < 0 || res0 >= (BigInt(1) << fracW)) {
-      println(f"WARNING (${this.getClass.getName}) : Polynomial out of range " +
-              f"at x = ${x.toDouble}, region = ${region}, res = ${res0}")
-      maskSL(fracW)
-    } else {
-      SafeLong(res0)
-    }
+    val zres = SafeLong(PolynomialEval.clamp(res0, t.bitW))
 
     // -----------------------------------------------------------------------
     // every region holds at least a quarter, so the value has at most two

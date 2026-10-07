@@ -156,17 +156,7 @@ object InvSqrtSimGeneric {
     val zman0 = PolynomialEval.eval(addr, xiv, t)
     // println(f"S: x=(${x.sgn}|${x.ex}|${x.man.toLong.toBinaryString}), addr=${addr}, xiv=${xiv}(${xiv.toLong.toBinaryString})")
 
-    val zman = if(zman0 < 0) {
-      println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=$x%h")
-      SafeLong(0)
-    } else if (zman0 >= (SafeLong(1)<<outPrec)) {
-      if(zman0 > (SafeLong(1)<<outPrec)) {
-        println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=$x%h")
-      }
-      maskSL(outPrec)
-    } else {
-      SafeLong(zman0)
-    }
+    val zman = SafeLong(PolynomialEval.clamp(zman0, t.bitW))
     // println(f"S: x=(${x.sgn}|${x.ex}|${x.man.toLong.toBinaryString}), polynomial=${zman0}")
 
     // Simple rounding

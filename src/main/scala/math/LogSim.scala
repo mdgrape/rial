@@ -145,16 +145,9 @@ object LogSimGeneric {
         TableAddress.dx(x.man, manW, addrW, inBitW)
       }
 
-      val res = PolynomialEval.eval(addr, xiv, tSmallNeg)
-      val ymanW1 = if (res < 0) {
-        println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=${x.value.toLong.toBinaryString}(${x.toDouble})")
-        SafeLong(1) << fracW
-      } else if (res >= (SafeLong(1) << fracW)) {
-        println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=${x.value.toLong.toBinaryString}(${x.toDouble})")
-        maskSL(fracW + 1)
-      } else {
-        (SafeLong(1) << fracW) + SafeLong(res)
-      }
+      val res = PolynomialEval.clamp(
+        PolynomialEval.eval(addr, xiv, tSmallNeg), tSmallNeg.bitW)
+      val ymanW1 = (SafeLong(1) << fracW) + SafeLong(res)
       // result will be in [ln(2), 1.0).  ln(2) > 0.5  =>  yex == -1.
       val yex0 = -1
       assert(bit(fracW, ymanW1) == 1, f"ymanW1 = ${ymanW1.toLong.toBinaryString}")
@@ -178,16 +171,9 @@ object LogSimGeneric {
         TableAddress.dx(x.man, manW, addrW, inBitW)
       }
 
-      val res = PolynomialEval.eval(addr, xiv, tSmallPos)
-      val ymanW1 = if (res < 0) {
-        println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=${x.value.toLong.toBinaryString}(${x.toDouble})")
-        SafeLong(0)
-      } else if (res >= (SafeLong(1) << fracW)) {
-        println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=${x.value.toLong.toBinaryString}(${x.toDouble})")
-        maskSL(fracW + 1)
-      } else {
-        SafeLong(res) << 1 // normalize: bring fracW-th bit to 1
-      }
+      val res = PolynomialEval.clamp(
+        PolynomialEval.eval(addr, xiv, tSmallPos), tSmallPos.bitW)
+      val ymanW1 = SafeLong(res) << 1 // normalize: bring fracW-th bit to 1
       val yex0 = 0
       assert(bit(fracW, ymanW1) == 1, f"ymanW1 = ${ymanW1.toLong.toBinaryString}")
 
@@ -211,15 +197,7 @@ object LogSimGeneric {
       }
 
       val zfrac0Pos0 = PolynomialEval.eval(addr, xiv, tNormal)
-      val zfrac0Pos = if (zfrac0Pos0 < 0) {
-        println(f"WARNING (${this.getClass.getName}) : Polynomial value negative at x=${x.value.toLong.toBinaryString}(${x.toDouble})")
-        SafeLong(0)
-      } else if (zfrac0Pos0 >= (SafeLong(1) << fracW)) {
-        println(f"WARNING (${this.getClass.getName}) : Polynomial range overflow at x=${x.value.toLong.toBinaryString}(${x.toDouble})")
-        maskSL(fracW)
-      } else {
-        SafeLong(zfrac0Pos0)
-      }
+      val zfrac0Pos  = SafeLong(PolynomialEval.clamp(zfrac0Pos0, tNormal.bitW))
 
       val zfrac0 = if (xexNobias >= 0) {
         zfrac0Pos

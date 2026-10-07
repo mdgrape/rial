@@ -160,7 +160,8 @@ object ATan2Phase1SimGeneric {
     val recMan = if (maxxy.man == SafeLong(0)) {
       SafeLong(0)
     } else {
-      SafeLong(PolynomialEval.eval(addr, xiv, tReciprocal))
+      SafeLong(PolynomialEval.clamp(
+        PolynomialEval.eval(addr, xiv, tReciprocal), tReciprocal.bitW))
     }
 
     // ---- z = min/max ratio ----
@@ -251,9 +252,8 @@ object ATan2Phase2SimGeneric {
       } else {
         TableAddress.dx(xFixed, manW, addrW, tATan2.bitW.inBitW)
       }
-      val res0 = PolynomialEval.eval(addr, xiv, tATan2)
-      assert(res0 <= (SafeLong(1) << fracW),
-        f"xFixed = ${xFixed}, res0 = ${res0} > 2^${fracW}")
+      val res0 = PolynomialEval.clamp(
+        PolynomialEval.eval(addr, xiv, tATan2), tATan2.bitW)
       (SafeLong(res0) << 1, -1)
     }
 
