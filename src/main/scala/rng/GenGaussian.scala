@@ -14,10 +14,6 @@ import rial.arith._
 import rial.table._
 import rial.util._
 
-import spire.math.SafeLong
-import spire.math.Numeric
-import spire.implicits._
-
 import org.apache.commons.math3.special.Erf
 
 import org.hipparchus.analysis.UnivariateFunction
@@ -36,7 +32,6 @@ private[rial] class ProbitTable(
   val splitW:      Int = 3, // every interval split into 2^splitW sub-intervals
 ) {
   private val sqrt2 = scala.math.sqrt(2)
-  private val log2 = (a: Double) => log(a) / log(2.0)
 
   val scaleTable = ArrayBuffer.empty[BigInt]
 
@@ -55,13 +50,11 @@ private[rial] class ProbitTable(
   }
 
   addSplit((x: Double) => { sqrt2 * Erf.erfInv(x) / x - 1.0 }, 0.0, 0.5)
-  scaleTable += 0.toBigInt
+  scaleTable += BigInt(0)
 
   require(nIntervals > 2)
-  // 0: center part
-  // 1~nOctaves-1: normal polynomial
-  // nOctaves: the last subnormal
-
+  // interval 0 is the central page, 1..nOctaves the octaves, the last one the
+  // lumped deep tail
   val nOctaves = nIntervals - 2
 
   // erfcInv(x) is calculated as erfInv(1-x), and it becomes Inf if x is small
@@ -100,8 +93,6 @@ private[rial] class ProbitTable(
   val f = (x: Double) => { min(probitHalf(x), fMax) / fMin - 1.0 }
   addSplit(f, xMin, xMax)
   scaleTable += (new RealGeneric(spec, fMin)).value.toBigInt
-
-  val maxValue = new RealGeneric(spec, fMax)
 
   assert(ft.intervals.length == nIntervals * nSub)
 
@@ -152,7 +143,6 @@ private[rial] class ProbitTable(
  * new GenRandomGaussian(rndW, spec, nOrder, PipelineStageConfig.none)
  * }}}
  *
- * @constructor        create a chisel Module.
  * @param rndW         input random number bit width.
  * @param spec         output floating-point spec.
  * @param nOrder       order of the polynomial of an interval.
@@ -169,16 +159,15 @@ private[rial] class ProbitTable(
  *
  * @see [[rial.arith.MulImpl]]
  * @see [[rial.util.PipelineStageConfig]]
- * @see [[rial.util.StagePoint]]
  */
 class GenRandomGaussian(
   rndW: Int,
   spec: RealSpec,
   nOrder:      Int = 3,
   stage:       PipelineStageConfig,
-  lumpOctaves: Int = 2, // deepest tail octaves merged into one interval
-  splitW:      Int = 3, // every interval split into 2^splitW sub-intervals
-  guardBits:   Int = 3, // bits of the polynomial below the mantissa
+  lumpOctaves: Int = 2,
+  splitW:      Int = 3,
+  guardBits:   Int = 3,
   polyMulImpl:  MulImpl = MulImpl.plain,
   scaleMulImpl: MulImpl = MulImpl.plain,
 ) extends Module {
@@ -211,24 +200,27 @@ class GenRandomGaussian(
   // ---------------------------------------------------------------
   // S1 : interval decode, coefficient table and position in the interval
 
+  val manW = spec.manW
+
   val sgn  = rndIn(rndW-1)
   val page = rndIn(rndW-2)
-  val xex0 = rndIn(rndW-3, spec.manW)
-  val xman = rndIn(spec.manW-1, 0)
+  val xex0 = rndIn(rndW-3, manW)
+  val xman = rndIn(manW-1, 0)
 
   // the normalised position inside an interval is manW bits wide: its top
   // splitW bits choose the sub-interval, the rest is the polynomial input
-  val manW    = spec.manW
   val inBitW  = manW - splitW
   val outBitW = manW + guardBits
+  require(splitW >= 0 && inBitW >= 2, "the position inside a sub-interval needs at least two bits")
+  require(guardBits >= 0)
 
   // Intervals: page-0 (idx 0) + nOctaves individual octaves (idx 1..nOctaves) +
   // 1 lumped deep interval (idx nOctaves+1). The main range provides
-  // xex0.getWidth octaves; the deep tail provides spec.manW octaves, of which
+  // xex0.getWidth octaves; the deep tail provides manW octaves, of which
   // the deepest `lumpOctaves` are merged, leaving (manW - lumpOctaves)
   // individual deep octaves.
   val mainOctaves = xex0.getWidth                          // e.g. 39
-  val deepIndiv   = spec.manW - lumpOctaves                // e.g. 21
+  val deepIndiv   = manW - lumpOctaves                     // e.g. 21
   val nOctaves    = mainOctaves + deepIndiv                // e.g. 60
   val nIntervals  = 1 + nOctaves + 1                       // e.g. 62
   val addrW       = log2Ceil(nIntervals)                   // e.g. 6
@@ -370,7 +362,7 @@ class GenRandomGaussian(
   } else {
     val res   = polynomial.io.out.bits
     val zman0 = (res >> guardBits) +& res(guardBits-1)
-    Mux(zman0(spec.manW) === 1.U, Fill(spec.manW, 1.U(1.W)), zman0(spec.manW-1, 0))
+    Mux(zman0(manW) === 1.U, Fill(manW, 1.U(1.W)), zman0(manW-1, 0))
   }
 
   // 1.0~2.0
@@ -379,8 +371,8 @@ class GenRandomGaussian(
   // page=1
   val scaleTable = VecInit(table.scaleTable.map(_.U(spec.W.W)).toSeq)
   val scale      = scaleTable(postAddr)
-  val scaleEx    = scale(spec.manW+spec.exW-1, spec.manW)
-  val scaleMan   = scale(spec.manW-1, 0)
+  val scaleEx    = scale(manW+spec.exW-1, manW)
+  val scaleMan   = scale(manW-1, 0)
 
   // page=0; the shift of the position carries the octave, so the exponent
   // (exBias-2) - xex is the one of the window at manW+1+xex
@@ -404,7 +396,7 @@ class GenRandomGaussian(
   // -----------------------------------------------------------------
   // S4 : mantissa product ("mul.*")
 
-  val prodW = (1+spec.manW)*2
+  val prodW = (1+manW)*2
 
   require(!scaleMulImpl.isMacc,
     "the product of the mantissas has no addend to fold into a multiply-add; " +
@@ -445,13 +437,13 @@ class GenRandomGaussian(
 
   val prodMoreThan2 = prodMul.head(1) === 1.U
   val prodManW1     = Mux(prodMoreThan2,
-    prodMul(prodW-1, prodW-1-spec.manW),
-    prodMul(prodW-2, prodW-2-spec.manW)
+    prodMul(prodW-1, prodW-1-manW),
+    prodMul(prodW-2, prodW-2-manW)
   )
 
   val zsgn = sgnMul
   val zex  = Mux(prodMoreThan2, mulExUpMul, mulExMul)
-  val zman = prodManW1(spec.manW-1, 0)
+  val zman = prodManW1(manW-1, 0)
 
   val z = Cat(zsgn, zex, zman)
   require(z.getWidth == spec.W)
