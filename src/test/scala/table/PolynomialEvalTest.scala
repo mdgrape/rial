@@ -105,21 +105,8 @@ class PolynomialEvalTest extends AnyFunSpec with ChiselSim {
     }
   }
 
-  /** `v` reinterpreted as the `w` bit two's complement pattern the hardware
-   * keeps, as an unsigned bit pattern.
-   */
-  def wrapU(v: BigInt, w: Int): BigInt = {
-    val m = BigInt(1) << w
-    ((v % m) + m) % m
-  }
-
   /** The result the module must produce, from the software model of the
-   * polynomial in [[PolynomialEval.eval]].
-   *
-   * `eval` keeps the Horner accumulator exact; the module keeps it in
-   * `calcBits(k)` bits.  The vectors are drawn so that no intermediate
-   * overflows (the module asserts it), so only the last accumulator has to be
-   * wrapped here, followed by the clamp of the output stage.
+   * polynomial in [[PolynomialEval.eval]] and the clamp of its output stage.
    */
   def swEval(bitW: PolynomialBitWidth, clamp: Boolean,
     cs: Seq[BigInt], x: BigInt): BigInt = {
@@ -130,19 +117,7 @@ class PolynomialEvalTest extends AnyFunSpec with ChiselSim {
       x + (BigInt(1) << bitW.inPrec)
     }
     val coeffs = PolynomialCoefficients(bitW, Seq(cs.map(_.toLong)))
-    val sum    = PolynomialEval.eval(0, xu, coeffs)
-    val resU   = wrapU(sum, bitW.calcBits(0))
-    val resMax = (BigInt(1) << bitW.outBitW) - 1
-    if (clamp) {
-      val resS = if (resU >= (BigInt(1) << (bitW.calcBits(0) - 1))) {
-        resU - (BigInt(1) << bitW.calcBits(0))
-      } else {
-        resU
-      }
-      if (resS < 0) { BigInt(0) } else if (resS > resMax) { resMax } else { resS }
-    } else {
-      if (resU > resMax) { resMax } else { resU }
-    }
+    PolynomialEval.clamp(PolynomialEval.eval(0, xu, coeffs), bitW, clamp)
   }
 
   describe("PolynomialEval.stagePoints") {
@@ -213,6 +188,61 @@ class PolynomialEvalTest extends AnyFunSpec with ChiselSim {
             f"$nm$mn vector $i: ${got(i)} != $want " +
             f"(coeffs ${cs.mkString(",")}, x $x)")
         }
+      }
+    }
+  }
+
+  describe("PolynomialEval: a result outside [0, 1)") {
+
+    /** The same shape with room above and below `[0.0, 1.0)` in the last
+     * accumulator, so that a coefficient alone can leave the range. */
+    val bitWWide: PolynomialBitWidth = PolynomialBitWidth(
+      nOrder   = 2,
+      addrW    = bitW2.addrW,
+      inBitW   = bitW2.inBitW,
+      outBitW  = 16,
+      coefBits = Seq(20, 14, 10),
+      calcBits = Seq(20, 14, 10))
+
+    val resMax = (BigInt(1) << bitWWide.outBitW) - 1
+    val xMax   = (BigInt(1) << bitWWide.inPrec) - 1
+    val xMin   = -(BigInt(1) << bitWWide.inPrec)
+    val c1Max  = (BigInt(1) << 13) - 1
+
+    /** coefficients and position whose result lands below zero */
+    val below = Seq(
+      (Seq(BigInt(-1), BigInt(0), BigInt(0)), BigInt(0)),
+      (Seq(-(BigInt(1) << 17), BigInt(0), BigInt(0)), BigInt(0)),
+      (Seq(BigInt(-8000), c1Max, BigInt(0)), xMin)) // the last step takes it down
+
+    /** ... and above the range */
+    val above = Seq(
+      (Seq(resMax + 1, BigInt(0), BigInt(0)), BigInt(0)),
+      (Seq((BigInt(1) << 19) - 1, BigInt(0), BigInt(0)), BigInt(0)),
+      (Seq(resMax - 100, c1Max, BigInt(0)), xMax)) // the last step takes it up
+
+    /** ... and inside it, where nothing is clamped */
+    val inside = Seq(
+      (Seq(BigInt(0), BigInt(0), BigInt(0)), BigInt(0)),
+      (Seq(resMax - 1, BigInt(0), BigInt(0)), BigInt(0)),
+      (Seq(resMax, BigInt(0), BigInt(0)), BigInt(0)))
+
+    for (cl <- Seq(false, true)) {
+      it(f"saturates where PolynomialEval.clamp does (clampNegToZero = $cl)") {
+        val vectors = below ++ above ++ inside
+        val got = run(bitWWide, PipelineStageConfig.none, cl, vectors)
+        for (i <- vectors.indices) {
+          val (cs, x) = vectors(i)
+          assert(got(i) == swEval(bitWWide, cl, cs, x),
+            f"vector $i: ${got(i)} != ${swEval(bitWWide, cl, cs, x)} " +
+            f"(coeffs ${cs.mkString(",")}, x $x)")
+        }
+        // a negative result reaches the output as its two's complement bits,
+        // which are above the range unless the module clamps them to zero
+        val want = below.map(_ => if (cl) { BigInt(0) } else { resMax }) ++
+                   above.map(_ => resMax) ++
+                   inside.map { case (cs, _) => cs(0) }
+        assert(got == want, f"$got != $want")
       }
     }
   }
