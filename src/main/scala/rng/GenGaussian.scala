@@ -98,7 +98,11 @@ private[rial] class ProbitTable(
 
   // ------------------------------------------------------------------------
 
-  private val gen = new PolynomialGenerator(ft, inBitW, outBitW)
+  // the probit is shallow at the top end, where a row of its table reaches
+  // slightly below zero; GenRandomGaussian reads it with an evaluator that
+  // clamps a negative result to zero
+  private val gen = new PolynomialGenerator(ft, inBitW, outBitW,
+    negativeIsClamped = true)
 
   def getBitWidth(): PolynomialBitWidth = {
     gen.getBitWidth()

@@ -536,7 +536,12 @@ class MathFuncConfig(
    *  polynomial evaluator reads them at and at the address width of that
    *  table. */
   val coeffs = tables.map{ case (k,v) =>
-    (k -> v.generateTable(bitW.copy(addrW = tableBitWs(k).addrW)))
+    (k -> (try {
+      v.generateTable(bitW.copy(addrW = tableBitWs(k).addrW))
+    } catch {
+      case e: IllegalArgumentException =>
+        throw new IllegalArgumentException(f"the table of ${k}: ${e.getMessage}", e)
+    }))
   }.toMap
 
   // The exp table approximates 2^t-1 on [0, 1) with `padding` bits below the
