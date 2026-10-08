@@ -27,6 +27,16 @@ constexpr std::pair<Func, const char*> func_names[] = {
     {Func::scale_mixture_gaussian, "scaleMixtureGaussian"},
 };
 
+// `funcs` and the tables they read, the way `rial.math.FuncKind.normalize`
+// adds them: acos reads the sqrt table and atan2 the reciprocal one, so naming
+// either names that table too and hands it the width it is configured at.
+constexpr Func with_dependencies(Func funcs) noexcept
+{
+    if(has(funcs, Func::acos))  {funcs |= Func::sqrt;}
+    if(has(funcs, Func::atan2)) {funcs |= Func::reciprocal;}
+    return funcs;
+}
+
 std::vector<std::string> to_names(Func funcs)
 {
     std::vector<std::string> names;
@@ -40,6 +50,19 @@ std::vector<std::string> to_names(Func funcs)
             "rial: MathSim: at least one function must be selected");
     }
     return names;
+}
+
+// The width each of those tables is read at (MathSim's `addrWs`), in the same
+// order; a function the configuration gives no width of its own is read at
+// `MathFuncConfig::addrW`.
+std::vector<jint> to_addr_widths(const MathFuncConfig& config, Func funcs)
+{
+    std::vector<jint> widths;
+    for(const auto& fn : func_names)
+    {
+        if(has(funcs, fn.first)) {widths.push_back(config.addrW_of(fn.first));}
+    }
+    return widths;
 }
 
 Func to_funcs(const std::vector<std::string>& names)
@@ -67,7 +90,8 @@ const char* name_of(Func f) noexcept
 } // namespace
 
 // The Scala counterpart is `class rial.math.MathSim`, whose constructor takes
-// the floating point spec, the table parameters and the function names (see
+// the floating point spec, the table parameters (the address width of each
+// table among them) and the function names (see
 // src/main/scala/math/MathSim.scala). One Impl == one Scala-side instance,
 // holding the generated tables.
 struct MathSim::Impl
@@ -78,30 +102,37 @@ struct MathSim::Impl
         const auto& jvm = detail::JVMManager::get_instance();
         JNIEnv* env = jvm.env();
 
-        const jobjectArray names = jvm.new_string_array(to_names(config.funcs));
-
-        std::vector<jvalue> argv(10);
-        argv.at(0).i = spec.exW;
-        argv.at(1).i = spec.exBias;
-        argv.at(2).i = spec.manW;
-        argv.at(3).i = config.nOrder;
-        argv.at(4).i = config.addrW;
-        argv.at(5).i = config.inBitW;
-        argv.at(6).i = config.outBitW;
-        argv.at(7).l = names;
-        argv.at(8).d = config.smgSigmaA;
-        argv.at(9).d = config.smgSigmaB;
+        const Func funcs = with_dependencies(config.funcs);
+        const jobjectArray names = jvm.new_string_array(to_names(funcs));
+        jintArray addrWs = nullptr;
 
         try
         {
+            addrWs = jvm.new_int_array(to_addr_widths(config, funcs));
+
+            std::vector<jvalue> argv(11);
+            argv.at(0).i  = spec.exW;
+            argv.at(1).i  = spec.exBias;
+            argv.at(2).i  = spec.manW;
+            argv.at(3).i  = config.nOrder;
+            argv.at(4).i  = config.addrW;
+            argv.at(5).l  = addrWs;
+            argv.at(6).i  = config.inBitW;
+            argv.at(7).i  = config.outBitW;
+            argv.at(8).l  = names;
+            argv.at(9).d  = config.smgSigmaA;
+            argv.at(10).d = config.smgSigmaB;
+
             this->obj_ = jvm.create_object("rial/math/MathSim",
-                    "(IIIIIII[Ljava/lang/String;DD)V", argv);
+                    "(IIIII[III[Ljava/lang/String;DD)V", argv);
         }
         catch(...)
         {
+            if(addrWs != nullptr) {env->DeleteLocalRef(addrWs);}
             env->DeleteLocalRef(names);
             throw;
         }
+        env->DeleteLocalRef(addrWs);
         env->DeleteLocalRef(names);
 
         this->sqrt_       = jvm.method_of(this->obj_, "sqrt",       "(F)F");

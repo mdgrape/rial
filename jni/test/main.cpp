@@ -140,9 +140,10 @@ int main()
     }
 
     // How often each configuration's sqrt disagrees with the `standard` one.
-    // Not every function set changes the widths -- `simple` already contains
-    // reciprocal, whose table dominates the merge in FP32, so it matches
-    // `standard` exactly; sqrt on its own does not.
+    // Not every function set changes the widths -- the FP32 presets read the
+    // sqrt table at a width of its own, and `sqrt` and `simple` agree with
+    // `standard` on every input; `all`, whose polynomial output is wider,
+    // does not.
     {
         constexpr std::size_t n = 20000;
         const auto count = [&](const rial::MathSim& sim)

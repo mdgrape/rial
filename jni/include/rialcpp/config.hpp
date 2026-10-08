@@ -1,8 +1,10 @@
 #ifndef RIALCPP_CONFIG_HPP
 #define RIALCPP_CONFIG_HPP
 
+#include <array>
 #include <limits>
 
+#include <cstddef>
 #include <cstdint>
 
 namespace rial
@@ -70,6 +72,10 @@ enum class Func : std::uint32_t
     all      = standard | sigmoid | softplus | scale_mixture_gaussian,
 };
 
+// The number of functions `Func` names, i.e. the most per-function table
+// address widths a configuration can carry.
+inline constexpr std::size_t func_count = 12;
+
 constexpr Func operator|(Func lhs, Func rhs) noexcept
 {
     return static_cast<Func>(static_cast<std::uint32_t>(lhs) |
@@ -92,6 +98,37 @@ constexpr bool has(Func set, Func f) noexcept
 }
 
 // -----------------------------------------------------------------------------
+// The width of the address of one function's table.  Mirrors an entry of
+// `rial.math.PerFuncAddrWidth`.
+//
+// A function that reads the table of another one (`cos` reads the table of
+// `sin`) is read at that table's width, so the two entries have to agree.
+
+struct FuncAddrWidth
+{
+    Func func;  // the function whose table is read at this width
+    int  addrW; // the width of its address, in bits
+};
+
+// The per-function widths of the FP32 presets below: each table is read at the
+// narrowest address that keeps its maximum error -- sqrt 5 bits, 1/x and acos
+// 7, the other standard functions 6 -- and every table left out at
+// `MathFuncConfig::addrW`, 8 bits.  Mirrors `MathFuncConfig.standardFP32`.
+//
+// The narrowest of them decides the shared `inBitW`: a position that reaches
+// the end of the fraction of every table is `manW` less that width.
+
+constexpr std::array<FuncAddrWidth, func_count> fp32_addr_widths() noexcept
+{
+    return {{
+        {Func::sqrt,       5}, {Func::invsqrt, 6}, {Func::reciprocal, 7},
+        {Func::sin,        6}, {Func::cos,     6}, {Func::acos,       7},
+        {Func::atan2,      6}, {Func::exp,     6}, {Func::log,        6},
+    }};
+}
+inline constexpr int fp32_min_addrW = 5;
+
+// -----------------------------------------------------------------------------
 // Table / polynomial configuration of the approximated math functions.  Mirrors
 // `rial.math.MathFuncConfig`, so a MathSim built from the same numbers as a
 // hardware `MathFunctions` module reproduces its results bit-exactly.
@@ -104,17 +141,35 @@ struct MathFuncConfig
     int  inBitW;  // width of the in-interval polynomial input
     int  outBitW; // width of the polynomial output ((1 << outBitW) means 1.0)
 
+    // The tables that are read at a width of their own; every other one is
+    // read at `addrW`.  At most one entry per function, in any order; an entry
+    // of `Func::none` is a hole and is skipped.
+    std::array<FuncAddrWidth, func_count> addrWs = {};
+
     // (sigmaA, sigmaB) for Func::scale_mixture_gaussian; NaN takes the Scala
     // side's default, `MathFuncConfig.defaultSMGSigma` == (exp(-1), exp(-6)).
     double smgSigmaA = std::numeric_limits<double>::quiet_NaN();
     double smgSigmaB = std::numeric_limits<double>::quiet_NaN();
 
-    // The parameters of `MathFuncConfig.standardFP32`: (nOrder, addrW,
-    // extraBits) = (2, 8, 3).
+    // The width of the address of the table `f` reads.
+    constexpr int addrW_of(Func f) const noexcept
+    {
+        for(const auto& w : this->addrWs)
+        {
+            if(w.func == Func::none) {continue;} // a hole
+            if(w.func == f) {return w.addrW;}
+        }
+        return this->addrW;
+    }
+
+    // The parameters of `MathFuncConfig.standardFP32`: a 2nd order polynomial
+    // with 3 bits of output below the mantissa, over the tables of
+    // `fp32_addr_widths`.
     static constexpr MathFuncConfig fp32(Func funcs = Func::standard) noexcept
     {
         return MathFuncConfig{funcs, 2, 8,
-            RealSpec::float32().manW - 8, RealSpec::float32().manW + 3};
+            RealSpec::float32().manW - fp32_min_addrW,
+            RealSpec::float32().manW + 3, fp32_addr_widths()};
     }
     // The parameters of `MathFuncConfig.standardBF16`: a plain lookup table
     // (nOrder = 0) addressed by the whole mantissa.
@@ -131,7 +186,8 @@ struct MathFuncConfig
     static constexpr MathFuncConfig fp32_all() noexcept
     {
         return MathFuncConfig{Func::all, 2, 8,
-            RealSpec::float32().manW - 8, RealSpec::float32().manW + 8};
+            RealSpec::float32().manW - fp32_min_addrW,
+            RealSpec::float32().manW + 8, fp32_addr_widths()};
     }
     static constexpr MathFuncConfig bf16_all() noexcept
     {

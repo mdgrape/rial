@@ -73,6 +73,9 @@ class JVMManager
     /** Builds a java String[]; the returned local reference is the caller's. */
     jobjectArray new_string_array(const std::vector<std::string>& strs) const;
 
+    /** Builds a java int[]; the returned local reference is the caller's. */
+    jintArray new_int_array(const std::vector<jint>& values) const;
+
     /** Copies a java String[] out; `arr` stays the caller's. */
     std::vector<std::string> to_string_vector(jobjectArray arr) const;
 

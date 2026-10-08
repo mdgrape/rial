@@ -32,11 +32,19 @@ std::cout << fp32.sqrt(2.0f) << " " << bf16.sqrt(2.0f) << std::endl;
 ```
 
 `rial::RealSpec` (`exW`, `exBias`, `manW`) mirrors `rial.arith.RealSpec`, and
-`rial::MathFuncConfig` (`funcs`, `nOrder`, `addrW`, `inBitW`, `outBitW`, plus
-the ScaleMixtureGaussian sigmas) mirrors `rial.math.MathFuncConfig`, so a
-`MathSim` built from the same numbers as a hardware `MathFunctions` module
-reproduces its results bit-exactly. Presets: `RealSpec::float32() / float16() /
-bfloat16()`, `MathFuncConfig::fp32() / bf16() / fp32_all() / bf16_all()`.
+`rial::MathFuncConfig` (`funcs`, `nOrder`, `addrW`, `inBitW`, `outBitW`, the
+per-function `addrWs`, plus the ScaleMixtureGaussian sigmas) mirrors
+`rial.math.MathFuncConfig`, so a `MathSim` built from the same numbers as a
+hardware `MathFunctions` module reproduces its results bit-exactly. Presets:
+`RealSpec::float32() / float16() / bfloat16()`, `MathFuncConfig::fp32() /
+bf16() / fp32_all() / bf16_all()`.
+
+`addrWs` gives the tables that are read at an address of their own -- the FP32
+presets read sqrt at 5 bits, 1/x and acos at 7 and the other standard
+functions at 6, the narrowest address each keeps its maximum error at -- and
+every table it leaves out is read at `addrW`. `addrW_of(Func)` reports the width of
+one table. A function that reads the table of another one (`cos` reads the one
+of `sin`) is read at that table's width, so the two entries have to agree.
 
 `rial::MathSim` provides:
 
@@ -60,15 +68,16 @@ or the presets `Func::simple / standard / all`, mirroring the ones in the
 `MathFuncConfig` companion object). It is not just an access-control switch:
 the tables of the supported functions share one merged set of coefficient and
 intermediate bit widths, the same way the hardware shares one polynomial
-evaluator, so **a narrower function set can change the results**. In FP32, sqrt
-from a sqrt-only instance disagrees with the `standard` one on about 0.5% of
-inputs, by a ULP. (Not every subset changes something: `Func::simple` already
-contains reciprocal, whose table dominates the merge in FP32, so its sqrt is
-identical to `standard`'s.)
+evaluator, so **a narrower function set can change the results**. Not every
+subset does: with the per-function `addrWs` of the FP32 presets, sqrt comes out
+identical under `Func::sqrt`, `Func::simple` and `Func::standard`, while
+`fp32_all`, whose polynomial output is wider, disagrees with `fp32()` on about
+4% of inputs, by a ULP.
 
 Functions pull in what they need -- `Func::acos` also gives you `sqrt`, since
 its first phase reuses the sqrt table, and `Func::atan2` gives you
-`reciprocal` -- exactly as in the hardware. `config().funcs` reports the
+`reciprocal` -- exactly as in the hardware, and a table brought in that way is
+read at the width the configuration gives it. `config().funcs` reports the
 effective set after those additions, and `supports(Func)` queries it. Calling a
 function outside the set throws `std::runtime_error`.
 

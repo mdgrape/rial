@@ -11,9 +11,10 @@
 // MathFuncConfig. The tables are generated once here and reused by every call,
 // and several instances with different configurations can coexist.
 //
-// The constructor takes only types plain JNI can build (ints, doubles and a
-// String[]), so the C++ side can instantiate it with `NewObject` without having
-// to construct scala objects such as RealSpec / FuncKind / MathFuncConfig.
+// The constructor takes only types plain JNI can build (ints, doubles, an
+// int[] and a String[]), so the C++ side can instantiate it with `NewObject`
+// without having to construct scala objects such as RealSpec / FuncKind /
+// MathFuncConfig.
 //
 package rial.math
 
@@ -29,7 +30,13 @@ import spire.math.SafeLong
  *  @param exBias    exponent bias of the floating point format.
  *  @param manW      mantissa width of the floating point format.
  *  @param nOrder    order of the approximating polynomial.
- *  @param addrW     width of the table address (== log2 of the interval count).
+ *  @param addrW     width of the table address (== log2 of the interval
+ *                   count) of every table `addrWs` leaves out.
+ *  @param addrWs    width of the table address of each function of
+ *                   `funcNames`, in that order; empty reads every table at
+ *                   `addrW`.  A name that reads the table of another function
+ *                   (`cos` reads the one of `sin`) carries that table's width,
+ *                   so the two have to agree.
  *  @param inBitW    width of the in-interval polynomial input.
  *  @param outBitW   width of the polynomial output ((1 << outBitW) means 1.0).
  *  @param funcNames the functions to support, named as in [[MathSim.funcNames]].
@@ -47,6 +54,7 @@ class MathSim(
   val manW:      Int,
   val nOrder:    Int,
   val addrW:     Int,
+  val addrWs:    Array[Int],
   val inBitW:    Int,
   val outBitW:   Int,
   val funcNames: Array[String],
@@ -57,8 +65,30 @@ class MathSim(
 
   val spec = new RealSpec(exW, exBias, manW)
 
-  private val funcs = FuncKind.normalize(
-    MathSim.decodeFuncNames(funcNames.toIndexedSeq))
+  private val kinds = MathSim.decodeFuncNames(funcNames.toIndexedSeq)
+
+  private val funcs = FuncKind.normalize(kinds)
+
+  /** The width each table is read at: the one `addrWs` gives for the function
+   *  that owns it, and `addrW` for a table no name covers. */
+  private val tableAddrW: TableAddrWidth = if (addrWs.isEmpty) {
+    UniformAddrWidth(addrW)
+  } else {
+    require(addrWs.length == funcNames.length,
+      s"MathSim: ${addrWs.length} table address widths for " +
+      s"${funcNames.length} functions")
+
+    val byOwner = kinds.zip(addrWs.toIndexedSeq).groupBy {
+      case (fn, _) => TableAddrWidth.owner(fn)
+    }
+    byOwner.foreach { case (own, ws) =>
+      val given = ws.map { case (fn, w) => s"${FuncKind.getString(fn)} -> $w" }
+      require(ws.map(_._2).distinct.length == 1,
+        s"MathSim: ${given.mkString(", ")} read the table of " +
+        s"${FuncKind.getString(own)}, so they need one width")
+    }
+    PerFuncAddrWidth(addrW, byOwner.map { case (own, ws) => own -> ws.head._2 })
+  }
 
   /** The underlying config; the same one a [[rial.math.MathFunctions]] module
    *  would be built from. */
@@ -66,7 +96,7 @@ class MathSim(
     funcs   = funcs,
     spec    = spec,
     nOrder  = nOrder,
-    addrW   = addrW,
+    addrW   = tableAddrW,
     inBitW  = inBitW,
     outBitW = outBitW,
     scaleMixtureGaussianSigma = if (funcs.contains(ScaleMixtureGaussian)) {
@@ -240,17 +270,35 @@ object MathSim {
     }
   }
 
-  /** The parameters of [[MathFuncConfig.standardFP32]]. */
-  def standardFP32: MathSim = new MathSim(
-    exW       = RealSpec.Float32Spec.exW,
-    exBias    = RealSpec.Float32Spec.exBias,
-    manW      = RealSpec.Float32Spec.manW,
-    nOrder    = 2,
-    addrW     = 8,
-    inBitW    = RealSpec.Float32Spec.manW - 8,
-    outBitW   = RealSpec.Float32Spec.manW + 3,
-    funcNames = MathFuncConfig.standard.flatMap(kindNames.get).distinct.toArray,
-    smgSigmaA = Double.NaN,
-    smgSigmaB = Double.NaN,
-  )
+  /** The configuration of [[MathFuncConfig.standardFP32]]: a second order
+   *  polynomial over the [[MathFuncConfig.standard]] function set, each table
+   *  read at the narrowest address that keeps its maximum error -- sqrt 5
+   *  bits, 1/x and acos 7, the rest 6. */
+  def standardFP32: MathSim = { of(MathFuncConfig.standardFP32) }
+
+  /** The parameters of `cfg`, as [[MathSim]] takes them. */
+  private def of(cfg: MathFuncConfig): MathSim = {
+    val names = cfg.funcs.flatMap(kindNames.get).distinct.toArray
+    new MathSim(
+      exW       = cfg.spec.exW,
+      exBias    = cfg.spec.exBias,
+      manW      = cfg.spec.manW,
+      nOrder    = cfg.nOrder,
+      addrW     = defaultAddrW(cfg.addrW),
+      addrWs    = names.map(n => cfg.addrW.of(funcNames(n))),
+      inBitW    = cfg.inBitW,
+      outBitW   = cfg.outBitW,
+      funcNames = names,
+      smgSigmaA = cfg.scaleMixtureGaussianSigma.map(_._1).getOrElse(Double.NaN),
+      smgSigmaB = cfg.scaleMixtureGaussianSigma.map(_._2).getOrElse(Double.NaN),
+    )
+  }
+
+  /** The width of a table address the per-function widths leave out. */
+  private def defaultAddrW(addrW: TableAddrWidth): Int = {
+    addrW match {
+      case UniformAddrWidth(w)    => w
+      case PerFuncAddrWidth(w, _) => w
+    }
+  }
 }

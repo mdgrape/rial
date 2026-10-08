@@ -329,6 +329,22 @@ jobjectArray JVMManager::new_string_array(const std::vector<std::string>& strs) 
     return arr;
 }
 
+jintArray JVMManager::new_int_array(const std::vector<jint>& values) const
+{
+    using namespace std::literals::string_literals;
+
+    const jintArray arr =
+        this->env_->NewIntArray(static_cast<jsize>(values.size()));
+    if(arr == nullptr)
+    {
+        this->check_exception("new_int_array");
+        throw std::runtime_error("rial: NewIntArray failed"s);
+    }
+    this->env_->SetIntArrayRegion(arr, 0, static_cast<jsize>(values.size()),
+            values.data());
+    return arr;
+}
+
 std::vector<std::string> JVMManager::to_string_vector(jobjectArray arr) const
 {
     std::vector<std::string> strs;
