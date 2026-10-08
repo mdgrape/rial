@@ -34,7 +34,9 @@ class MathSimTest extends AnyFunSpec {
   describe("MathSim: a table address width per function") {
 
     it("reads every table at addrW when no width is given") {
-      val sim = new MathSim(8, 0x7F, 23, 2, 8, Array.empty[Int], 18, 26,
+      // the position is as wide as a flat address of 8 bits leaves, so that
+      // the table reaches every position of it
+      val sim = new MathSim(8, 0x7F, 23, 2, 8, Array.empty[Int], 15, 26,
         Array("sqrt", "reciprocal"), Double.NaN, Double.NaN)
       assert(sim.config.bitWOf(Sqrt).addrW == 8)
       assert(sim.config.bitWOf(Reciprocal).addrW == 8)
