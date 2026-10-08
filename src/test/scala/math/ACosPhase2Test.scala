@@ -146,6 +146,60 @@ class ACosPhase2Test extends AnyFunSpec
     "Test special values",  generateSpecialValues(_, _), refFP32)
 
   // --------------------------------------------------------------------------
+  // Directed: x < 0 around the z at which pi - z is exactly 2.0.  That is
+  // where the module switches between its two normalizations of pi - z, a
+  // boundary the random cases above need luck to land on.  Such x sit next to
+  // -cos(2) ~ -0.41615; the scan below finds them with the model and the test
+  // walks a few hundred inputs on either side.
+
+  private def piMinusZAtTwo(spec: RealSpec, cfg: MathFuncConfig, margin: Int) = {
+    val ref = fullRef(cfg)
+    val two = new RealGeneric(spec, 2.0).value.toBigInt
+    val of  = (b: Int) => RealGeneric.fromFloat(spec, java.lang.Float.intBitsToFloat(b))
+    // for a negative float a larger bit pattern is a smaller number
+    val from = java.lang.Float.floatToIntBits(-0.4153f)
+    val to   = java.lang.Float.floatToIntBits(-0.4170f)
+    val hit  = (from to to).filter(b => ref(of(b))._2.value.toBigInt == two)
+    assert(hit.nonEmpty, "no x in [-0.4170, -0.4153] with pi - acos(|x|) == 2.0")
+    (hit, ((hit.min - margin) to (hit.max + margin)).map(of))
+  }
+
+  it(f"acosPhase2(x) pipereg ${noPipeStage.getString} spec ${RealSpec.Float32Spec.toStringShort} " +
+     f"Test pi - z at 2.0 with ${fp32Config.getString}") {
+    val spec  = RealSpec.Float32Spec
+    val total = noPipeStage.resolve(MathFunctions.stagePoints(fp32Config)).total
+    val (hit, xs) = piMinusZAtTwo(spec, fp32Config, 256)
+    info(f"pi - acos(|x|) == 2.0 for ${hit.length}%d x in " +
+         f"[${java.lang.Float.intBitsToFloat(hit.max)}%.9f, " +
+         f"${java.lang.Float.intBitsToFloat(hit.min)}%.9f]; ${xs.length}%d inputs tested")
+
+    simulate(new MathFunctions(fp32Config, noPipeStage)) { c =>
+      val q = new Queue[(BigInt, BigInt)]
+      for (i <- 1 to xs.length + total) {
+        val x        = xs(min(i, xs.length) - 1)
+        val (p1, p2) = refFP32(x)
+        q += ((p1.value.toBigInt, p2.value.toBigInt))
+
+        c.io.in.valid.poke(true.B)
+        c.io.in.bits.sel.poke(fp32Config.signal(ACosPhase2))
+        c.io.in.bits.x.poke(p1.value.toBigInt.U(spec.W.W))
+
+        val zi = c.io.out.bits.z.peek().litValue.toBigInt
+        if (i > total) {
+          assert(c.io.out.valid.peek().litToBoolean,
+            f"io.out.valid is not set at cycle $i%d (latency $total%d)")
+          val (xid, z0d) = q.dequeue()
+          assert(zi == z0d,
+            f"x = ${xs(i - total - 1).toFloat}%.9f, phase1 in = 0x${xid.toLong}%08x: " +
+            f"test(ex ${slice(spec.manW, spec.exW, zi)}, man 0x${(zi & maskSL(spec.manW)).toLong}%06x) != " +
+            f"ref(ex ${slice(spec.manW, spec.exW, z0d)}, man 0x${(z0d & maskSL(spec.manW)).toLong}%06x)")
+        }
+        c.clock.step(1)
+      }
+    }
+  }
+
+  // --------------------------------------------------------------------------
   // BFloat16
 
   val bf16Config = MathFuncConfig.standardBF16
