@@ -71,8 +71,10 @@ test-table-config:
   stage: test
   script:
     - sbt -J-Xmx4G "testOnly rial.tests.PolynomialEvalTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.PolynomialGeneratorTest"
     - sbt -J-Xmx4G "testOnly rial.tests.RomLayoutTest"
     - sbt -J-Xmx4G "testOnly rial.tests.TableAddrWidthTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.MathSimTest"
     - sbt -J-Xmx4G "testOnly rial.tests.ScaledArgumentErrorTest"
     - sbt -J-Xmx4G "testOnly rial.tests.FuncDumpTest"
 
