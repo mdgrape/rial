@@ -170,7 +170,14 @@ class FloatToFixedGeneric(
   // one adder for the rounding increment and the two's complement:
   // sgn=0 gives w + inc, sgn=1 gives ~w + (1 - inc) == -(w + inc) mod 2^W
   val zTmpWindow = zTmpShiftedAlign(zSpec.W, 1)
-  val z = (zTmpWindow ^ Fill(zSpec.W, xsgnAlign)) + (xsgnAlign ^ zTmpInc.asUInt)
+  val zSum = (zTmpWindow ^ Fill(zSpec.W, xsgnAlign)) +& (xsgnAlign ^ zTmpInc.asUInt)
+  val z    = zSum(zSpec.W-1, 0)
+  // a positive value that rounds up past the largest representable one
+  val zRoundOver = xsgnAlign === 0.U && (if(zSpec.signed) {
+    z(zSpec.W-1).asBool
+  } else {
+    zSum(zSpec.W).asBool
+  })
 
   // -----------------------------------------------------------------------
   // special cases; this path runs in parallel with the alignment shift and
@@ -187,10 +194,16 @@ class FloatToFixedGeneric(
     0.U(zSpec.W.W)
   }
 
-  val zExMaxBiased = if(yintW.isEmpty) {
-    (xSpec.exBias + zSpec.intW - 1).U
+  // the sign bit takes one bit of intW
+  val zSgnW = if(zSpec.signed) {
+    1
   } else {
-    (xSpec.exBias + zSpec.W - 1).U - yUnpack.get // intW = totalW - fracW
+    0
+  }
+  val zExMaxBiased = if(yintW.isEmpty) {
+    (xSpec.exBias + zSpec.intW - 1 - zSgnW).U
+  } else {
+    (xSpec.exBias + zSpec.W - 1 - zSgnW).U - yUnpack.get // intW = totalW - fracW
   }
   val zExMinBiased = if(yUnpack.isEmpty) {
     val zExMin = -(zSpec.fracW + 1)
@@ -212,19 +225,21 @@ class FloatToFixedGeneric(
   //--------------------------- stage "round" ----------------------------
   private val cutRound = new SharedPipe("round", cutAlign.valid, stages.at("round"))
 
-  val zRound         = cutRound(z)
-  val xnanRound      = cutRound(xnanAlign)
-  val isZPosInfRound = cutRound(isZPosInfAlign)
-  val isZNegInfRound = cutRound(isZNegInfAlign)
-  val isZZeroRound   = cutRound(isZZeroAlign)
+  val zRound          = cutRound(z)
+  val zRoundOverRound = cutRound(zRoundOver)
+  val xnanRound       = cutRound(xnanAlign)
+  val isZPosInfRound  = cutRound(isZPosInfAlign)
+  val isZNegInfRound  = cutRound(isZNegInfAlign)
+  val isZZeroRound    = cutRound(isZZeroAlign)
 
   //----------------------------------------------------------------------
   // S4 : Final (special case muxes)
   val z0 = MuxCase(zRound, Seq(
-    xnanRound      -> zPosInf,
-    isZPosInfRound -> zPosInf,
-    isZNegInfRound -> zNegInf,
-    isZZeroRound   -> 0.U(zSpec.W.W)
+    xnanRound       -> zPosInf,
+    isZPosInfRound  -> zPosInf,
+    isZNegInfRound  -> zNegInf,
+    isZZeroRound    -> 0.U(zSpec.W.W),
+    zRoundOverRound -> zPosInf
     ))
 
   //---------------------------- stage "out" -----------------------------
