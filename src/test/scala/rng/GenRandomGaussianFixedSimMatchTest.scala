@@ -60,12 +60,12 @@ class GenRandomGaussianFixedSimMatchTest extends AnyFunSpec with ChiselSim with 
   }
 
   def matchTest(rndW: Int, zSpec: FixedSpec, stage: PipelineStageConfig,
-    polyMulImpl: MulImpl): Unit = {
+    polyMulImpl: MulImpl, nOrder: Int = 3, splitW: Int = 3): Unit = {
 
-    it(f"Q${zSpec.intW}.${zSpec.fracW} rndW=$rndW stage=(${stage.getString}) " +
-       f"poly=$polyMulImpl matches the model") {
+    it(f"Q${zSpec.intW}.${zSpec.fracW} rndW=$rndW order=$nOrder splitW=$splitW " +
+       f"stage=(${stage.getString}) poly=$polyMulImpl matches the model") {
       val ws = words(rndW, zSpec)
-      simulate(new GenRandomGaussianFixed(rndW, zSpec, stage = stage,
+      simulate(new GenRandomGaussianFixed(rndW, zSpec, nOrder, stage, splitW,
           polyMulImpl = polyMulImpl)) { c =>
         val lat = c.getStage
 
@@ -92,7 +92,7 @@ class GenRandomGaussianFixedSimMatchTest extends AnyFunSpec with ChiselSim with 
             val w   = ws(k - lat)
             assert(c.io.z.valid.peek().litValue == 1)
             val hw  = c.io.z.bits.peek().litValue
-            val sim = GenRandomGaussianFixedSim.genGaussian(w, rndW, zSpec)
+            val sim = GenRandomGaussianFixedSim.genGaussian(w, rndW, zSpec, nOrder, splitW)
             if (hw != sim && fails.length < 20) {
               fails += f"rnd=0x$w%x hw=0x$hw%x sim=0x$sim%x"
             }
@@ -110,4 +110,10 @@ class GenRandomGaussianFixedSimMatchTest extends AnyFunSpec with ChiselSim with 
   matchTest(32, FixedSpec(16, 13), PipelineStageConfig.specify(
     "in" -> 1, "decode" -> 1, "table" -> 1, "poly.prod1" -> 1, "poly.step2" -> 1,
     "poly.out" -> 1, "round" -> 1, "out" -> 2), MulImpl.plain)
+  // a second order polynomial
+  matchTest(64, FixedSpec(16, 12), PipelineStageConfig.default(3), MulImpl.plain,
+    nOrder = 2)
+  // a cubic coefficient of one bit
+  matchTest(64, FixedSpec(16, 12), PipelineStageConfig.none, MulImpl.plain,
+    splitW = 4)
 }
