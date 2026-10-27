@@ -153,6 +153,8 @@ private[rial] class ProbitFixedTable(
  *   stage = PipelineStageConfig.specify("table" -> 1, "poly.prod2" -> 1, "out" -> 1))
  * // combinational
  * new GenRandomGaussianFixed(32, FixedSpec(16, 13), stage = PipelineStageConfig.none)
+ * // a 16-bit format is well served by a second order polynomial
+ * new GenRandomGaussianFixed(64, FixedSpec(16, 12), nOrder = 2, stage = 3)
  * }}}
  *
  * @param rndW        input random number bit width.
