@@ -5,7 +5,7 @@ import org.scalatest.funspec.AnyFunSpec
 import rial.arith.RealSpec
 import rial.math.MathFuncConfig
 import rial.rng.GenRandomGaussianSim
-import rial.table.{FuncTable, PolynomialGenerator}
+import rial.table.{FindMinMax, FuncTable, PolynomialGenerator}
 
 /** Tests of the range check of the table generator.
  *
@@ -67,6 +67,59 @@ class PolynomialGeneratorTest extends AnyFunSpec {
     it("is accepted where the evaluator clamps a negative result to zero") {
       val gen = generator(true)
       gen.generateTable(gen.getBitWidth())
+    }
+  }
+
+  describe("a polynomial with two turning points inside its interval") {
+
+    // 0.5 + 0.3 (t^3 - t) + 0.05 t^2 with t = 2x - 1 in [-1, 1], which stays
+    // inside [0.35, 0.65] and turns at t = -0.64 and t = 0.52; every
+    // coefficient is nonzero, so each has a width
+    lazy val gen = {
+      val ft = new FuncTable(3)
+      ft.addInterval((x: Double) => {
+        val t = 2.0 * x - 1.0
+        0.5 + 0.3 * (t * t * t - t) + 0.05 * t * t
+      }, 0.0, 1.0)
+      new PolynomialGenerator(ft, 18, 20)
+    }
+    lazy val bitW  = gen.getBitWidth()
+    lazy val table = gen.generateTable(bitW)
+
+    def fits(v: BigInt, w: Int): Boolean = {
+      -(BigInt(1) << (w - 1)) <= v && v < (BigInt(1) << (w - 1))
+    }
+
+    it("keeps every Horner intermediate inside calcBits at every position") {
+      val cs = table.coeffs(0)
+      assert(fits(BigInt(cs(bitW.nOrder)), bitW.calcBits(bitW.nOrder)))
+
+      for (xu <- 0 until (1 << bitW.inBitW)) {
+        // the steps of PolynomialEval.eval
+        val x   = BigInt(xu) - (BigInt(1) << bitW.inPrec)
+        var sum = BigInt(cs(bitW.nOrder))
+        for (k <- (bitW.nOrder - 1) to 0 by -1) {
+          val xminW = math.min(bitW.calcBits(k + 1), bitW.inPrec)
+          sum = (((x >> (bitW.inPrec - xminW)) * sum) >> xminW) + cs(k)
+          assert(fits(sum, bitW.calcBits(k)),
+            f"x=${xu}, step ${k}: ${sum} does not fit ${bitW.calcBits(k)} bits")
+        }
+        assert(0 <= sum && sum < (BigInt(1) << bitW.outBitW),
+          f"x=${xu}: ${sum} is out of [0, 2^${bitW.outBitW})")
+      }
+    }
+
+    it("has its extrema at the turning points") {
+      val ext = 2.0 / (3.0 * math.sqrt(3.0))
+      val (lo, hi) = FindMinMax.polynomial(Seq(0.0, -1.0, 0.0, 1.0), -1.0, 1.0)
+      assert(math.abs(lo + ext) < 1e-12)
+      assert(math.abs(hi - ext) < 1e-12)
+
+      // (t^2 - 1/4)^2 = t^4 - t^2/2 + 1/16, with a zero leading coefficient
+      val (lo4, hi4) = FindMinMax.polynomial(
+        Seq(1.0 / 16, 0.0, -0.5, 0.0, 1.0, 0.0), -1.0, 1.0)
+      assert(math.abs(lo4) < 1e-12)
+      assert(math.abs(hi4 - 9.0 / 16) < 1e-12)
     }
   }
 }
