@@ -54,9 +54,11 @@ class MultiplyAddTest extends AnyFunSpec with ChiselSim with EmitVcd {
   }
 
   def mulAddTest(xW: Int, yW: Int, cW: Int, shift: Int, sliceW: Int,
-    stage: PipelineStageConfig, signed: Boolean, n: Int) = {
+    stage: PipelineStageConfig, signed: Boolean, n: Int,
+    small: Boolean = false) = {
 
-    simulate(new MultiplyAdd(xW, yW, cW, shift, sliceW, stage, signed)) { dut =>
+    simulate(new MultiplyAdd(xW, yW, cW, shift, sliceW, stage, signed,
+      small)) { dut =>
 
       dut.io.in.valid.poke(true.B)
       val nstage = dut.getStage
@@ -78,7 +80,8 @@ class MultiplyAddTest extends AnyFunSpec with ChiselSim with EmitVcd {
           dut.io.out.valid.expect(true.B)
           assert(dut.io.out.bits.peek().litValue == ze,
             f"MultiplyAdd(${xW}, ${yW}, ${cW}, ${shift}, ${sliceW}, " +
-            f"signed=${signed}): x=${xe}%x y=${ye}%x c=${ce}%x -> " +
+            f"signed=${signed}, small=${small}): " +
+            f"x=${xe}%x y=${ye}%x c=${ce}%x -> " +
             f"${dut.io.out.bits.peek().litValue}%x, expected ${ze}%x")
         }
         dut.clock.step(1)
@@ -86,68 +89,86 @@ class MultiplyAddTest extends AnyFunSpec with ChiselSim with EmitVcd {
     }
   }
 
-  describe("Test a multiply-add") {
-    it("one multiplication and unsigned, with a shift") {
+  describe("Test an unsigned multiply-add") {
+    it("one multiplication, with a shift") {
       mulAddTest(12, 12, 20, 7, 17,
         PipelineStageConfig.specify("out" -> 1), false, 3)
     }
-    it("one multiplication and signed, with a shift") {
-      mulAddTest(12, 12, 20, 7, 17,
-        PipelineStageConfig.specify("in" -> 1, "out" -> 1), true, 3)
-    }
-    it("one multiplication and signed, with no shift at all") {
-      mulAddTest(12, 12, 26, 0, 17, PipelineStageConfig.none, true, 3)
-    }
-    it("one multiplication and signed, the addend below the product") {
-      mulAddTest(12, 12, 8, 5, 17,
-        PipelineStageConfig.specify("pp" -> 1), true, 3)
-    }
-    it("signed, an operand one bit wider than a slice") {
-      // the widths of a step of a fixed point function of the math library,
-      // whose addend is wider than the shifted product
-      mulAddTest(18, 22, 27, 17, 17,
-        PipelineStageConfig.specify("pp" -> 1), true, 2)
-    }
-    it("unsigned, the addend on the sum") {
+    it("the addend on the sum") {
       mulAddTest(24, 24, 40, 9, 17,
         PipelineStageConfig.specify("pp" -> 1, "out" -> 1), false, 3)
     }
-    it("unsigned over three slices") {
+    it("over three slices") {
       mulAddTest(39, 24, 50, 11, 17,
         PipelineStageConfig.specify("in" -> 1, "pp" -> 1), false, 2)
     }
-    it("unsigned, the addend below the product") {
+    it("the addend below the product") {
       mulAddTest(24, 24, 12, 9, 17,
         PipelineStageConfig.specify("pp" -> 1), false, 3)
     }
-    it("signed, the addend on the sum") {
-      mulAddTest(21, 20, 43, 20, 17,
-        PipelineStageConfig.specify("pp" -> 1, "out" -> 1), true, 3)
+    it("the small form is the same multiply-add") {
+      mulAddTest(39, 24, 50, 11, 17,
+        PipelineStageConfig.specify("pp" -> 1), false, 2, true)
     }
-    it("signed, the shift below the slice the operand is cut at") {
-      mulAddTest(21, 20, 43, 5, 17,
-        PipelineStageConfig.specify("pp" -> 1), true, 3)
+  }
+
+  for (small <- Seq(false, true)) {
+    describe(s"Test a signed multiply-add, small = $small") {
+      it("one multiplication, with a shift") {
+        mulAddTest(12, 12, 20, 7, 17,
+          PipelineStageConfig.specify("in" -> 1, "out" -> 1), true, 3, small)
+      }
+      it("one multiplication, with no shift at all") {
+        mulAddTest(12, 12, 26, 0, 17, PipelineStageConfig.none, true, 3, small)
+      }
+      it("one multiplication, the addend below the product") {
+        mulAddTest(12, 12, 8, 5, 17,
+          PipelineStageConfig.specify("pp" -> 1), true, 3, small)
+      }
+      it("an operand one bit wider than a slice") {
+        // the widths of a step of a fixed point function of the math library,
+        // whose addend is wider than the shifted product
+        mulAddTest(18, 22, 27, 17, 17,
+          PipelineStageConfig.specify("pp" -> 1), true, 2, small)
+      }
+      it("the addend on the sum") {
+        mulAddTest(21, 20, 43, 20, 17,
+          PipelineStageConfig.specify("pp" -> 1, "out" -> 1), true, 3, small)
+      }
+      it("the shift below the slice the operand is cut at") {
+        mulAddTest(21, 20, 43, 5, 17,
+          PipelineStageConfig.specify("pp" -> 1), true, 3, small)
+      }
+      it("no shift, so the sum is the result") {
+        mulAddTest(21, 20, 43, 0, 17,
+          PipelineStageConfig.specify("pp" -> 1, "out" -> 1), true, 3, small)
+      }
+      it("both operands wider than a slice") {
+        // the widths of the last step of the gaussian table
+        mulAddTest(23, 23, 23, 22, 17,
+          PipelineStageConfig.specify("pp" -> 1, "out" -> 1), true, 2, small)
+      }
+      it("both operands wider than a slice, a register at every point") {
+        mulAddTest(23, 23, 23, 22, 17,
+          PipelineStageConfig.specify("in" -> 1, "pp" -> 1, "out" -> 1),
+          true, 2, small)
+      }
+      it("an operand of two full slices") {
+        mulAddTest(19, 33, 52, 18, 17,
+          PipelineStageConfig.specify("pp" -> 1), true, 2, small)
+      }
+      it("an operand that fits one slice") {
+        mulAddTest(19, 12, 30, 18, 17,
+          PipelineStageConfig.specify("pp" -> 1, "out" -> 1), true, 3, small)
+      }
+      it("a slice width of 9, an odd cut") {
+        mulAddTest(14, 13, 26, 13, 9, PipelineStageConfig.default(2), true, 3,
+          small)
+      }
     }
-    it("signed, no shift, so the sum is the result") {
-      mulAddTest(21, 20, 43, 0, 17,
-        PipelineStageConfig.specify("pp" -> 1, "out" -> 1), true, 3)
-    }
-    it("signed, both operands wider than a slice") {
-      // the widths of the last step of the gaussian table
-      mulAddTest(23, 23, 23, 22, 17,
-        PipelineStageConfig.specify("pp" -> 1, "out" -> 1), true, 2)
-    }
-    it("signed, an operand of two full slices") {
-      mulAddTest(19, 33, 52, 18, 17,
-        PipelineStageConfig.specify("pp" -> 1), true, 2)
-    }
-    it("signed, an operand that fits one slice") {
-      mulAddTest(19, 12, 30, 18, 17,
-        PipelineStageConfig.specify("pp" -> 1, "out" -> 1), true, 3)
-    }
-    it("a slice width of 9 and signed, an odd cut") {
-      mulAddTest(14, 13, 26, 13, 9, PipelineStageConfig.default(2), true, 3)
-    }
+  }
+
+  describe("Test the width and the names of a multiply-add") {
     it("is one bit above both the shifted product and the addend") {
       assert(MultiplyAdd.outWidth(24, 24, 12, 9) == 24 + 24 - 9 + 1)
       assert(MultiplyAdd.outWidth(24, 24, 40, 9) == 40 + 1)
@@ -158,6 +179,18 @@ class MultiplyAddTest extends AnyFunSpec with ChiselSim with EmitVcd {
       assert(MulImpl.macc(17).isMacc && MulImpl.macc(17).isSliced)
       assertThrows[IllegalArgumentException] {
         MulImpl.parse("macc")
+      }
+    }
+    it("reads the names of the small forms") {
+      assert(MulImpl.parse("splitSmall:17") == MulImpl.splitSmall(17))
+      assert(MulImpl.parse("maccSmall:17") == MulImpl.maccSmall(17))
+      assert(MulImpl.splitSmall(17).tag == "splitSmall17")
+      assert(MulImpl.splitSmall(17).isSplit && MulImpl.splitSmall(17).isSmall)
+      assert(MulImpl.maccSmall(17).isMacc && MulImpl.maccSmall(17).isSliced)
+      assert(MulImpl.maccSmall(17).isSmall && !MulImpl.macc(17).isSmall)
+      assert(!MulImpl.split(17).isSmall)
+      assertThrows[IllegalArgumentException] {
+        MulImpl.parse("splitSmall")
       }
     }
   }

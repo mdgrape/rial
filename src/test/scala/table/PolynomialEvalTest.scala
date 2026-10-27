@@ -175,7 +175,9 @@ class PolynomialEvalTest extends AnyFunSpec with ChiselSim {
 
     for ((nm, bw, cl) <- Seq(("order2", bitW2, false), ("order3", bitW3, true));
          (mn, mi) <- Seq(("", MulImpl.plain), (", split at 17", MulImpl.split(17)),
-           (", a multiply-add at 17", MulImpl.macc(17)))) {
+           (", a multiply-add at 17", MulImpl.macc(17)),
+           (", split small at 17", MulImpl.splitSmall(17)),
+           (", a small multiply-add at 17", MulImpl.maccSmall(17)))) {
       it(f"$nm reproduces PolynomialEval.eval bit for bit$mn") {
         val r = new Random(19660809)
         val vectors = randVectors(bw, nVec, r)

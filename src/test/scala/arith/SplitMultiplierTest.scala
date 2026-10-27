@@ -37,9 +37,9 @@ class SplitMultiplierTest extends AnyFunSpec with ChiselSim with EmitVcd {
   }
 
   def mulTest(xW: Int, yW: Int, sliceW: Int, stage: PipelineStageConfig,
-    signed: Boolean, n: Int) = {
+    signed: Boolean, n: Int, small: Boolean = false) = {
 
-    simulate(new SplitMultiplier(xW, yW, sliceW, stage, signed)) { c =>
+    simulate(new SplitMultiplier(xW, yW, sliceW, stage, signed, small)) { c =>
       c.io.in.valid.poke(true.B)
       val nstage = c.getStage
       val outW   = xW + yW
@@ -61,7 +61,8 @@ class SplitMultiplierTest extends AnyFunSpec with ChiselSim with EmitVcd {
           val (xe, ye, ze) = q.dequeue()
           c.io.out.valid.expect(true.B)
           assert(c.io.out.bits.peek().litValue == ze,
-            f"SplitMultiplier(${xW}, ${yW}, ${sliceW}, signed=${signed}): " +
+            f"SplitMultiplier(${xW}, ${yW}, ${sliceW}, signed=${signed}, " +
+            f"small=${small}): " +
             f"x=${xe}%x y=${ye}%x -> ${c.io.out.bits.peek().litValue}%x, " +
             f"expected ${ze}%x")
         }
@@ -96,16 +97,45 @@ class SplitMultiplierTest extends AnyFunSpec with ChiselSim with EmitVcd {
     }
   }
 
-  describe("Test a signed product") {
-    it("split at 17, a register at every point") {
-      mulTest(18, 34, 17,
-        PipelineStageConfig.specify("in" -> 1, "pp" -> 1, "out" -> 1), true, 12)
+  for (small <- Seq(false, true)) {
+    describe(s"Test a signed product, small = $small") {
+      it("split at 17, a register at every point") {
+        mulTest(18, 34, 17,
+          PipelineStageConfig.specify("in" -> 1, "pp" -> 1, "out" -> 1),
+          true, 12, small)
+      }
+      it("split at 17 of an operand that needs three slices") {
+        mulTest(40, 18, 17, PipelineStageConfig.specify("pp" -> 1), true, 10,
+          small)
+      }
+      it("split at 9, an odd slicing of both signs") {
+        mulTest(20, 13, 9, PipelineStageConfig.default(2), true, 12, small)
+      }
+      it("27 by 32 at 17, a register at every point") {
+        mulTest(27, 32, 17,
+          PipelineStageConfig.specify("in" -> 1, "pp" -> 1, "out" -> 1),
+          true, 10, small)
+      }
+      it("27 by 32 at 17, a register at the partial products only") {
+        mulTest(27, 32, 17, PipelineStageConfig.specify("pp" -> 1), true, 10,
+          small)
+      }
+      it("40 by 18 at 17, a register at every point") {
+        mulTest(40, 18, 17,
+          PipelineStageConfig.specify("in" -> 1, "pp" -> 1, "out" -> 1),
+          true, 10, small)
+      }
+      it("40 by 18 at 17, a register at the partial products only") {
+        mulTest(40, 18, 17, PipelineStageConfig.specify("pp" -> 1), true, 10,
+          small)
+      }
     }
-    it("split at 17 of an operand that needs three slices") {
-      mulTest(40, 18, 17, PipelineStageConfig.specify("pp" -> 1), true, 10)
-    }
-    it("split at 9, an odd slicing of both signs") {
-      mulTest(20, 13, 9, PipelineStageConfig.default(2), true, 12)
+  }
+
+  describe("Test the small form of an unsigned product") {
+    it("is the unsigned product") {
+      mulTest(39, 24, 17, PipelineStageConfig.specify("pp" -> 1), false, 8,
+        true)
     }
   }
 
