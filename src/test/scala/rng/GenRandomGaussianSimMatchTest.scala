@@ -110,6 +110,10 @@ class GenRandomGaussianSimMatchTest extends AnyFunSpec with ChiselSim with EmitV
     matchTest(MulImpl.macc(17), MulImpl.split(17))
   }
 
+  it("... and with the small forms of both") {
+    matchTest(MulImpl.maccSmall(17), MulImpl.splitSmall(17))
+  }
+
   it("... and with one polynomial per interval and no guard bits") {
     matchTest(MulImpl.plain, MulImpl.plain, splitW = 0, guardBits = 0)
   }

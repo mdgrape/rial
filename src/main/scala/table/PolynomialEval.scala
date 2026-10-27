@@ -159,7 +159,8 @@ class PolynomialEval(
 
         val mult = Module(new MultiplyAdd(xminW + 1, accCur.getWidth,
           coefCur(k).getWidth, xminW, mulImpl.sliceW.get,
-          stages.sub(s"prod${idx}"), signed = true))
+          stages.sub(s"prod${idx}"), signed = true,
+          small = mulImpl.isSmall))
 
         mult.io.in.valid  := validCur
         mult.io.in.bits.x := xStep
@@ -170,7 +171,8 @@ class PolynomialEval(
       } else if (mulImpl.isSplit) {
 
         val mult = Module(new SplitMultiplier(xminW + 1, accCur.getWidth,
-          mulImpl.sliceW.get, stages.sub(s"prod${idx}"), signed = true))
+          mulImpl.sliceW.get, stages.sub(s"prod${idx}"), signed = true,
+          small = mulImpl.isSmall))
 
         mult.io.in.valid  := validCur
         mult.io.in.bits.x := xStep
