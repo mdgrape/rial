@@ -211,7 +211,7 @@ class GenRandomGaussianFixed(
   val coeffs = table.coeffs
 
   /** The largest |z| the module produces; see the class doc. */
-  val zReach = GenRandomGaussianFixed.reach(rndW, zSpec, nOrder, splitW,
+  lazy val zReach = GenRandomGaussianFixed.reach(rndW, zSpec, nOrder, splitW,
     guardBits, posW)
 
   val io = IO(new Bundle {
