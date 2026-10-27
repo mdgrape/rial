@@ -66,6 +66,9 @@ test-rng:
     - sbt -J-Xmx4G "testOnly rial.tests.GenGaussianTailTest"
     - sbt -J-Xmx4G "testOnly rial.tests.GenRandomGaussianSimMatchTest"
     - sbt -J-Xmx4G "testOnly rial.tests.GenGaussianPrecisionTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.GenRandomGaussianFixedSimMatchTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.GenRandomGaussianFixedPrecisionTest"
+    - sbt -J-Xmx4G "testOnly rial.tests.GenRandomGaussianFixedTest"
 
 test-table-config:
   stage: test
