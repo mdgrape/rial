@@ -57,16 +57,7 @@ private[rial] class ProbitTable(
   // lumped deep tail
   val nOctaves = nIntervals - 2
 
-  // erfcInv(x) is calculated as erfInv(1-x), and it becomes Inf if x is small
-  // enough. instead, we will explicitly solve erfc - x.
-  // since erfc(x) -> 0 if x -> 0, solver mistakenly judges its already solved
-  // when x -> 0. we avoid this misjudge by applying log to both side.
-  private val erfcSolver = new BrentSolver(1e-14, 1e-13)
-  val probitHalf = (x: Double) => {
-    val logx = log(x)
-    val f: UnivariateFunction = (t: Double) => log(Erf.erfc(t)) - logx
-    sqrt2 * erfcSolver.solve(200, f, 0.0, 25.0)
-  }
+  val probitHalf = (x: Double) => { ProbitTable.probitHalf(x) }
   for(i <- 1 to nOctaves) {
     val xMin  = pow(2.0, -i)
     val xMax  = pow(2.0, -(i+1))
@@ -109,6 +100,25 @@ private[rial] class ProbitTable(
   }
   def generateTable(bitW: PolynomialBitWidth): PolynomialCoefficients = {
     gen.generateTable(bitW)
+  }
+}
+
+private[rial] object ProbitTable {
+
+  private val sqrt2 = scala.math.sqrt(2)
+
+  /** |z| = sqrt(2) * erfcInv(x), the gaussian |z| exceeded with probability x.
+   *
+   * erfcInv(x) is calculated as erfInv(1-x), and it becomes Inf if x is small
+   * enough. instead, we will explicitly solve erfc - x.
+   * since erfc(x) -> 0 if x -> 0, solver mistakenly judges its already solved
+   * when x -> 0. we avoid this misjudge by applying log to both side.
+   */
+  def probitHalf(x: Double): Double = {
+    val erfcSolver = new BrentSolver(1e-14, 1e-13)
+    val logx = log(x)
+    val f: UnivariateFunction = (t: Double) => log(Erf.erfc(t)) - logx
+    sqrt2 * erfcSolver.solve(200, f, 0.0, 25.0)
   }
 }
 
