@@ -90,7 +90,7 @@ class PolynomialGenerator(
   private val minimumRequiredCoeffBits = maxCoeffMagnitude.map(x => {
     val coeffInt  = round(scalb(x, outBitW))
     // println(f"maxCoeffMag = ${x}%10.6f, log2(coeffInt)=${log2Ceil(coeffInt).toInt}")
-    log2Ceil(coeffInt).toInt + 1 // +1 for SInt
+    log2Ceil(max(coeffInt, 1L)).toInt + 1 // +1 for SInt; a zero takes one bit
   })
 
   // ----------------------------------------------------------------------
@@ -118,7 +118,7 @@ class PolynomialGenerator(
 
   private val minimumRequiredCalcBits = maxCalcMagnitude.map(x => {
     val coeffInt = round(scalb(x, outBitW))
-    log2Ceil(coeffInt).toInt + 1 // +1 for SInt
+    log2Ceil(max(coeffInt, 1L)).toInt + 1 // +1 for SInt; a zero takes one bit
   })
 
   println(f"outBitW=${outBitW}, " +
