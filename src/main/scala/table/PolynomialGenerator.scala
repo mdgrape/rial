@@ -96,23 +96,21 @@ class PolynomialGenerator(
   // ----------------------------------------------------------------------
   // minimum required (possible max) width of the horner accum at each stage
   //
-  // iv.eval takes horner step as the second argument.
+  // the accumulator of an order is the polynomial of the coefficients from
+  // that order up.
   //
   //          ((c2) * x + c1) * x + c0
-  // order 0: ^^^^^^^^^^^^^^^^^^^^^^^^ requires 2 steps
-  // order 1:  ^^^^^^^^^^^^^                    1
-  // order 2:   ^^                              0
-  private val minCalcOf = (0 to nOrder).map(order => {
+  // order 0: ^^^^^^^^^^^^^^^^^^^^^^^^ c0 + c1 x + c2 x^2
+  // order 1:  ^^^^^^^^^^^^^           c1 + c2 x
+  // order 2:   ^^                     c2
+  private val calcRangeOf = (0 to nOrder).map(order => {
     funcTable.intervals.map(iv => {
-      FindMinMax.findMin( (x: Double) => iv.eval(x, nOrder-order), -1.0, 1.0 )._2
+      FindMinMax.polynomial(iv.coeffs.drop(order), -1.0, 1.0)
     }).toSeq
   })
+  private val minCalcOf = calcRangeOf.map(_.map(_._1))
   private val minCalc = minCalcOf.map(_.min)
-  private val maxCalc = (0 to nOrder).map(order => {
-    funcTable.intervals.map(iv => {
-      FindMinMax.findMax( (x: Double) => iv.eval(x, nOrder-order), -1.0, 1.0 )._2
-    }).max
-  })
+  private val maxCalc = calcRangeOf.map(_.map(_._2).max)
 
   private val maxCalcMagnitude = (0 to nOrder).map(i => {
     scala.math.max( abs(minCalc(i)), abs(maxCalc(i)) )
@@ -148,7 +146,7 @@ class PolynomialGenerator(
   // rounding, or a whole one where a coefficient that does not fit is clamped),
   // and 2 per step, which truncates both the product and the position it
   // multiplies. Errors of a step are multiplied by |x| <= 1 afterwards, so they
-  // add up. One LSB on top covers the tolerance of the minimum search.
+  // add up. One LSB on top is a margin for the rounding of the minimum.
   private val quantError = 1.5 * (nOrder + 1) + 2.0 * nOrder + 1.0
 
   /** Fails unless every row of `table` stays at or above zero. Rows whose

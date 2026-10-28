@@ -24,7 +24,6 @@ lazy val rial = (project in file("."))
 
       "org.apache.commons" % "commons-math3" % "3.2",
       "org.typelevel" %% "spire" % "0.17.0",
-      "org.hipparchus" % "hipparchus-optim" % "4.0.3",
       "org.hipparchus" % "hipparchus-core"  % "4.0.3"
       ),
 
